@@ -86,7 +86,6 @@ const Header: React.FC = () => {
             <Shield className="h-8 w-8 text-primary" />
             <div className="hidden sm:block">
               <h1 className="text-xl font-bold">Gladiator League</h1>
-              <p className="text-xs text-muted-foreground">Fantasy Football Championship</p>
             </div>
           </Link>
         </div>
