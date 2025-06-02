@@ -86,7 +86,7 @@ const ConferencesPage: React.FC = () => {
   }, []);
 
   const getSeasonName = (seasonId: number): string => {
-    const season = seasons.find(s => s.id === seasonId);
+    const season = seasons.find((s) => s.id === seasonId);
     return season ? season.season_name : `Season ${seasonId}`;
   };
 
@@ -106,7 +106,7 @@ const ConferencesPage: React.FC = () => {
   };
 
   const formatStatus = (status: string): string => {
-    return status.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+    return status.replace(/_/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase());
   };
 
   if (isLoading) {
@@ -115,8 +115,8 @@ const ConferencesPage: React.FC = () => {
         <div className="flex items-center justify-center h-64">
           <div className="text-lg">Loading conferences...</div>
         </div>
-      </div>
-    );
+      </div>);
+
   }
 
   return (
@@ -136,8 +136,8 @@ const ConferencesPage: React.FC = () => {
         <div className="flex gap-2">
           <Button
             variant="outline"
-            onClick={() => setShowDataLoader(!showDataLoader)}
-          >
+            onClick={() => setShowDataLoader(!showDataLoader)}>
+
             {showDataLoader ? 'Hide' : 'Show'} Data Loader
           </Button>
           
@@ -148,21 +148,21 @@ const ConferencesPage: React.FC = () => {
                 title: "Refreshed",
                 description: "Conferences data has been refreshed"
               });
-            }}
-          >
+            }}>
+
             Refresh Data
           </Button>
         </div>
       </div>
 
       {/* Data Loader Component */}
-      {showDataLoader && (
-        <Card>
+      {showDataLoader &&
+      <Card>
           <CardContent className="p-0">
             <ConferencesDataLoader />
           </CardContent>
         </Card>
-      )}
+      }
 
       {/* Statistics Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -184,7 +184,7 @@ const ConferencesPage: React.FC = () => {
               <Calendar className="h-8 w-8 text-green-600" />
               <div>
                 <div className="text-2xl font-bold">
-                  {conferences.filter(c => c.status === 'in_season').length}
+                  {conferences.filter((c) => c.status === 'in_season').length}
                 </div>
                 <div className="text-sm text-gray-600">Active Seasons</div>
               </div>
@@ -213,18 +213,18 @@ const ConferencesPage: React.FC = () => {
           <CardTitle>Conference Details</CardTitle>
         </CardHeader>
         <CardContent>
-          {conferences.length === 0 ? (
-            <div className="text-center py-8">
+          {conferences.length === 0 ?
+          <div className="text-center py-8">
               <p className="text-gray-500 mb-4">No conferences found.</p>
-              <Button 
-                onClick={() => setShowDataLoader(true)}
-                variant="outline"
-              >
+              <Button
+              onClick={() => setShowDataLoader(true)}
+              variant="outline">
+
                 Load Conferences Data
               </Button>
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
+            </div> :
+
+          <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -238,23 +238,23 @@ const ConferencesPage: React.FC = () => {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {conferences.map((conference) => (
-                    <TableRow key={conference.id}>
+                  {conferences.map((conference) =>
+                <TableRow key={conference.id}>
                       <TableCell>
-                        {conference.league_logo_url ? (
-                          <img
-                            src={conference.league_logo_url}
-                            alt={`${conference.conference_name} logo`}
-                            className="w-10 h-10 rounded-full object-cover"
-                            onError={(e) => {
-                              (e.target as HTMLImageElement).src = '/placeholder.svg';
-                            }}
-                          />
-                        ) : (
-                          <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center">
+                        {conference.league_logo_url ?
+                    <img
+                      src={conference.league_logo_url}
+                      alt={`${conference.conference_name} logo`}
+                      className="w-10 h-10 rounded-full object-cover"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).src = '/placeholder.svg';
+                      }} /> :
+
+
+                    <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center">
                             <Trophy className="h-5 w-5 text-gray-400" />
                           </div>
-                        )}
+                    }
                       </TableCell>
                       <TableCell className="font-medium">
                         {conference.conference_name}
@@ -265,9 +265,9 @@ const ConferencesPage: React.FC = () => {
                         </Badge>
                       </TableCell>
                       <TableCell>
-                        <Badge 
-                          className={`text-white ${getStatusBadgeColor(conference.status)}`}
-                        >
+                        <Badge
+                      className={`text-white ${getStatusBadgeColor(conference.status)}`}>
+
                           {formatStatus(conference.status)}
                         </Badge>
                       </TableCell>
@@ -279,28 +279,28 @@ const ConferencesPage: React.FC = () => {
                       </TableCell>
                       <TableCell>
                         <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => {
-                            window.open(
-                              `https://sleeper.app/leagues/${conference.league_id}`,
-                              '_blank'
-                            );
-                          }}
-                        >
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        window.open(
+                          `https://sleeper.app/leagues/${conference.league_id}`,
+                          '_blank'
+                        );
+                      }}>
+
                           <ExternalLink className="h-4 w-4" />
                         </Button>
                       </TableCell>
                     </TableRow>
-                  ))}
+                )}
                 </TableBody>
               </Table>
             </div>
-          )}
+          }
         </CardContent>
       </Card>
-    </div>
-  );
+    </div>);
+
 };
 
 export default ConferencesPage;

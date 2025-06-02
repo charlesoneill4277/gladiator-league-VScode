@@ -41,7 +41,6 @@ const Header: React.FC = () => {
   { path: '/teams', label: 'Teams', icon: Users },
   { path: '/players', label: 'Players', icon: UserCheck },
   { path: '/draft', label: 'Draft Results', icon: Shield },
-  { path: '/conferences', label: 'Conferences', icon: Settings },
   { path: '/rules', label: 'League Rules', icon: FileText },
   { path: '/admin', label: 'Admin', icon: Cog }];
 

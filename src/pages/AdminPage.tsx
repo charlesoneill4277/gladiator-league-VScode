@@ -25,12 +25,12 @@ const AdminPage: React.FC = () => {
     // Check if admin is already authenticated
     const adminAuth = sessionStorage.getItem('admin_authenticated');
     const adminLoginTime = sessionStorage.getItem('admin_login_time');
-    
+
     if (adminAuth === 'true' && adminLoginTime) {
       const loginTime = new Date(adminLoginTime);
       const now = new Date();
       const hoursDiff = (now.getTime() - loginTime.getTime()) / (1000 * 60 * 60);
-      
+
       // Session expires after 8 hours
       if (hoursDiff < 8) {
         setIsAuthenticated(true);
@@ -45,7 +45,7 @@ const AdminPage: React.FC = () => {
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (password === ADMIN_PASSWORD) {
       const now = new Date();
       setIsAuthenticated(true);
@@ -54,17 +54,17 @@ const AdminPage: React.FC = () => {
       sessionStorage.setItem('admin_login_time', now.toISOString());
       localStorage.setItem('admin_last_login', now.toLocaleString());
       setLastLogin(now.toLocaleString());
-      
+
       toast({
         title: "Admin Access Granted",
-        description: "Welcome to the admin panel",
+        description: "Welcome to the admin panel"
       });
     } else {
       setLoginError('Invalid password');
       toast({
         title: "Access Denied",
         description: "Invalid admin password",
-        variant: "destructive",
+        variant: "destructive"
       });
     }
   };
@@ -74,10 +74,10 @@ const AdminPage: React.FC = () => {
     setPassword('');
     sessionStorage.removeItem('admin_authenticated');
     sessionStorage.removeItem('admin_login_time');
-    
+
     toast({
       title: "Logged Out",
-      description: "Admin session ended",
+      description: "Admin session ended"
     });
   };
 
@@ -87,8 +87,8 @@ const AdminPage: React.FC = () => {
         <div className="flex items-center justify-center min-h-[400px]">
           <div className="animate-spin h-8 w-8 border-b-2 border-blue-600 rounded-full"></div>
         </div>
-      </div>
-    );
+      </div>);
+
   }
 
   if (!isAuthenticated) {
@@ -118,15 +118,15 @@ const AdminPage: React.FC = () => {
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="Enter admin password"
-                    className="w-full"
-                  />
+                    className="w-full" />
+
                 </div>
                 
-                {loginError && (
-                  <Alert variant="destructive">
+                {loginError &&
+                <Alert variant="destructive">
                     <AlertDescription>{loginError}</AlertDescription>
                   </Alert>
-                )}
+                }
                 
                 <Button type="submit" className="w-full">
                   Access Admin Panel
@@ -135,8 +135,8 @@ const AdminPage: React.FC = () => {
             </CardContent>
           </Card>
         </div>
-      </div>
-    );
+      </div>);
+
   }
 
   return (
@@ -153,12 +153,12 @@ const AdminPage: React.FC = () => {
         </div>
         
         <div className="flex items-center gap-4">
-          {lastLogin && (
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          {lastLogin &&
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <Clock className="h-4 w-4" />
               Last login: {lastLogin}
             </div>
-          )}
+          }
           <Badge variant="secondary" className="flex items-center gap-1">
             <Activity className="h-3 w-3" />
             Admin Active
@@ -189,8 +189,8 @@ const AdminPage: React.FC = () => {
           <DataSync />
         </TabsContent>
       </Tabs>
-    </div>
-  );
+    </div>);
+
 };
 
 export default AdminPage;

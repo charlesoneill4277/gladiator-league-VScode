@@ -68,10 +68,10 @@ const LeagueManager: React.FC = () => {
       });
 
       if (error) throw error;
-      
+
       const seasonsList = data?.List || [];
       setSeasons(seasonsList);
-      
+
       // Auto-select current season or most recent
       const currentSeason = seasonsList.find((s: Season) => s.is_current_season);
       if (currentSeason) {
@@ -84,7 +84,7 @@ const LeagueManager: React.FC = () => {
       toast({
         title: "Error",
         description: `Failed to load seasons: ${error}`,
-        variant: "destructive",
+        variant: "destructive"
       });
     } finally {
       setLoading(false);
@@ -101,12 +101,12 @@ const LeagueManager: React.FC = () => {
         OrderByField: 'conference_name',
         IsAsc: true,
         Filters: [
-          {
-            name: 'season_id',
-            op: 'Equal',
-            value: selectedSeasonId
-          }
-        ]
+        {
+          name: 'season_id',
+          op: 'Equal',
+          value: selectedSeasonId
+        }]
+
       });
 
       if (error) throw error;
@@ -116,7 +116,7 @@ const LeagueManager: React.FC = () => {
       toast({
         title: "Error",
         description: `Failed to load conferences: ${error}`,
-        variant: "destructive",
+        variant: "destructive"
       });
     }
   };
@@ -138,7 +138,7 @@ const LeagueManager: React.FC = () => {
 
       toast({
         title: "Season Added",
-        description: `${newSeasonName} has been created successfully`,
+        description: `${newSeasonName} has been created successfully`
       });
 
       setNewSeasonYear('');
@@ -150,7 +150,7 @@ const LeagueManager: React.FC = () => {
       toast({
         title: "Error",
         description: `Failed to add season: ${error}`,
-        variant: "destructive",
+        variant: "destructive"
       });
     } finally {
       setSaving(false);
@@ -177,7 +177,7 @@ const LeagueManager: React.FC = () => {
 
       toast({
         title: "League Added",
-        description: `${newLeagueName} has been created successfully`,
+        description: `${newLeagueName} has been created successfully`
       });
 
       setNewLeagueName('');
@@ -189,7 +189,7 @@ const LeagueManager: React.FC = () => {
       toast({
         title: "Error",
         description: `Failed to add league: ${error}`,
-        variant: "destructive",
+        variant: "destructive"
       });
     } finally {
       setSaving(false);
@@ -214,7 +214,7 @@ const LeagueManager: React.FC = () => {
 
       toast({
         title: "Conference Updated",
-        description: "Conference details have been saved successfully",
+        description: "Conference details have been saved successfully"
       });
 
       setEditingConference(null);
@@ -224,7 +224,7 @@ const LeagueManager: React.FC = () => {
       toast({
         title: "Error",
         description: `Failed to save conference: ${error}`,
-        variant: "destructive",
+        variant: "destructive"
       });
     } finally {
       setSaving(false);
@@ -236,14 +236,14 @@ const LeagueManager: React.FC = () => {
 
     try {
       setTesting(leagueId);
-      
+
       const response = await fetch(`https://api.sleeper.app/v1/league/${leagueId}`);
-      
+
       if (response.ok) {
         const data = await response.json();
         toast({
           title: "Connection Successful",
-          description: `League "${data.name}" found on Sleeper API`,
+          description: `League "${data.name}" found on Sleeper API`
         });
       } else {
         throw new Error(`API returned ${response.status}`);
@@ -253,21 +253,21 @@ const LeagueManager: React.FC = () => {
       toast({
         title: "Connection Failed",
         description: `Unable to connect to Sleeper API for league ID: ${leagueId}`,
-        variant: "destructive",
+        variant: "destructive"
       });
     } finally {
       setTesting(null);
     }
   };
 
-  const selectedSeason = seasons.find(s => s.id === selectedSeasonId);
+  const selectedSeason = seasons.find((s) => s.id === selectedSeasonId);
 
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
         <div className="animate-spin h-8 w-8 border-b-2 border-blue-600 rounded-full"></div>
-      </div>
-    );
+      </div>);
+
   }
 
   return (
@@ -285,22 +285,22 @@ const LeagueManager: React.FC = () => {
               <Label htmlFor="season-select">Select Season</Label>
               <Select
                 value={selectedSeasonId?.toString() || ''}
-                onValueChange={(value) => setSelectedSeasonId(parseInt(value))}
-              >
+                onValueChange={(value) => setSelectedSeasonId(parseInt(value))}>
+
                 <SelectTrigger>
                   <SelectValue placeholder="Select a season" />
                 </SelectTrigger>
                 <SelectContent>
-                  {seasons.map((season) => (
-                    <SelectItem key={season.id} value={season.id.toString()}>
+                  {seasons.map((season) =>
+                  <SelectItem key={season.id} value={season.id.toString()}>
                       <div className="flex items-center gap-2">
                         {season.season_name}
-                        {season.is_current_season && (
-                          <Badge variant="secondary" className="text-xs">Current</Badge>
-                        )}
+                        {season.is_current_season &&
+                      <Badge variant="secondary" className="text-xs">Current</Badge>
+                      }
                       </div>
                     </SelectItem>
-                  ))}
+                  )}
                 </SelectContent>
               </Select>
             </div>
@@ -328,8 +328,8 @@ const LeagueManager: React.FC = () => {
                       onChange={(e) => setNewSeasonYear(e.target.value)}
                       placeholder="2025"
                       min="2020"
-                      max="2030"
-                    />
+                      max="2030" />
+
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="season-name">Season Name</Label>
@@ -337,8 +337,8 @@ const LeagueManager: React.FC = () => {
                       id="season-name"
                       value={newSeasonName}
                       onChange={(e) => setNewSeasonName(e.target.value)}
-                      placeholder="2025 Season"
-                    />
+                      placeholder="2025 Season" />
+
                   </div>
                   <div className="flex justify-end gap-2">
                     <Button type="button" variant="outline" onClick={() => setShowAddSeason(false)}>
@@ -355,8 +355,8 @@ const LeagueManager: React.FC = () => {
         </CardContent>
       </Card>
 
-      {selectedSeason && (
-        <Card>
+      {selectedSeason &&
+      <Card>
           <CardHeader>
             <div className="flex items-center justify-between">
               <div>
@@ -384,20 +384,20 @@ const LeagueManager: React.FC = () => {
                     <div className="space-y-2">
                       <Label htmlFor="league-name">League Name</Label>
                       <Input
-                        id="league-name"
-                        value={newLeagueName}
-                        onChange={(e) => setNewLeagueName(e.target.value)}
-                        placeholder="Conference Name"
-                      />
+                      id="league-name"
+                      value={newLeagueName}
+                      onChange={(e) => setNewLeagueName(e.target.value)}
+                      placeholder="Conference Name" />
+
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="league-id">Sleeper League ID</Label>
                       <Input
-                        id="league-id"
-                        value={newLeagueId}
-                        onChange={(e) => setNewLeagueId(e.target.value)}
-                        placeholder="123456789012345678"
-                      />
+                      id="league-id"
+                      value={newLeagueId}
+                      onChange={(e) => setNewLeagueId(e.target.value)}
+                      placeholder="123456789012345678" />
+
                     </div>
                     <div className="flex justify-end gap-2">
                       <Button type="button" variant="outline" onClick={() => setShowAddLeague(false)}>
@@ -413,14 +413,14 @@ const LeagueManager: React.FC = () => {
             </div>
           </CardHeader>
           <CardContent>
-            {conferences.length === 0 ? (
-              <Alert>
+            {conferences.length === 0 ?
+          <Alert>
                 <AlertDescription>
                   No conferences found for {selectedSeason.season_name}. Add a new league to get started.
                 </AlertDescription>
-              </Alert>
-            ) : (
-              <Table>
+              </Alert> :
+
+          <Table>
                 <TableHeader>
                   <TableRow>
                     <TableHead>Conference Name</TableHead>
@@ -431,114 +431,114 @@ const LeagueManager: React.FC = () => {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {conferences.map((conference) => (
-                    <TableRow key={conference.id}>
+                  {conferences.map((conference) =>
+              <TableRow key={conference.id}>
                       <TableCell>
-                        {editingConference?.id === conference.id ? (
-                          <Input
-                            value={editingConference.conference_name}
-                            onChange={(e) => setEditingConference({
-                              ...editingConference,
-                              conference_name: e.target.value
-                            })}
-                          />
-                        ) : (
-                          <span className="font-medium">{conference.conference_name}</span>
-                        )}
+                        {editingConference?.id === conference.id ?
+                  <Input
+                    value={editingConference.conference_name}
+                    onChange={(e) => setEditingConference({
+                      ...editingConference,
+                      conference_name: e.target.value
+                    })} /> :
+
+
+                  <span className="font-medium">{conference.conference_name}</span>
+                  }
                       </TableCell>
                       <TableCell>
-                        {editingConference?.id === conference.id ? (
-                          <Input
-                            value={editingConference.league_id}
-                            onChange={(e) => setEditingConference({
-                              ...editingConference,
-                              league_id: e.target.value
-                            })}
-                          />
-                        ) : (
-                          <code className="text-sm bg-muted px-2 py-1 rounded">
+                        {editingConference?.id === conference.id ?
+                  <Input
+                    value={editingConference.league_id}
+                    onChange={(e) => setEditingConference({
+                      ...editingConference,
+                      league_id: e.target.value
+                    })} /> :
+
+
+                  <code className="text-sm bg-muted px-2 py-1 rounded">
                             {conference.league_id}
                           </code>
-                        )}
+                  }
                       </TableCell>
                       <TableCell>
-                        {editingConference?.id === conference.id ? (
-                          <Input
-                            value={editingConference.draft_id}
-                            onChange={(e) => setEditingConference({
-                              ...editingConference,
-                              draft_id: e.target.value
-                            })}
-                          />
-                        ) : (
-                          <code className="text-sm bg-muted px-2 py-1 rounded">
+                        {editingConference?.id === conference.id ?
+                  <Input
+                    value={editingConference.draft_id}
+                    onChange={(e) => setEditingConference({
+                      ...editingConference,
+                      draft_id: e.target.value
+                    })} /> :
+
+
+                  <code className="text-sm bg-muted px-2 py-1 rounded">
                             {conference.draft_id || 'Not set'}
                           </code>
-                        )}
+                  }
                       </TableCell>
                       <TableCell>
                         <Badge variant={
-                          conference.status === 'in_season' ? 'default' :
-                          conference.status === 'complete' ? 'secondary' :
-                          'outline'
-                        }>
+                  conference.status === 'in_season' ? 'default' :
+                  conference.status === 'complete' ? 'secondary' :
+                  'outline'
+                  }>
                           {conference.status}
                         </Badge>
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center gap-2">
-                          {editingConference?.id === conference.id ? (
-                            <>
+                          {editingConference?.id === conference.id ?
+                    <>
                               <Button
-                                size="sm"
-                                onClick={() => handleSaveConference(editingConference)}
-                                disabled={saving}
-                              >
+                        size="sm"
+                        onClick={() => handleSaveConference(editingConference)}
+                        disabled={saving}>
+
                                 <Save className="h-4 w-4" />
                               </Button>
                               <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => setEditingConference(null)}
-                              >
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setEditingConference(null)}>
+
                                 Cancel
                               </Button>
-                            </>
-                          ) : (
-                            <>
+                            </> :
+
+                    <>
                               <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => setEditingConference(conference)}
-                              >
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setEditingConference(conference)}>
+
                                 <Edit className="h-4 w-4" />
                               </Button>
                               <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => testSleeperConnection(conference.league_id)}
-                                disabled={testing === conference.league_id}
-                              >
-                                {testing === conference.league_id ? (
-                                  <div className="animate-spin h-4 w-4 border-b-2 border-blue-600 rounded-full" />
-                                ) : (
-                                  <TestTube className="h-4 w-4" />
-                                )}
+                        size="sm"
+                        variant="outline"
+                        onClick={() => testSleeperConnection(conference.league_id)}
+                        disabled={testing === conference.league_id}>
+
+                                {testing === conference.league_id ?
+                        <div className="animate-spin h-4 w-4 border-b-2 border-blue-600 rounded-full" /> :
+
+                        <TestTube className="h-4 w-4" />
+                        }
                               </Button>
                             </>
-                          )}
+                    }
                         </div>
                       </TableCell>
                     </TableRow>
-                  ))}
+              )}
                 </TableBody>
               </Table>
-            )}
+          }
           </CardContent>
         </Card>
-      )}
-    </div>
-  );
+      }
+    </div>);
+
 };
 
 export default LeagueManager;
