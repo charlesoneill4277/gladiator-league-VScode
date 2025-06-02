@@ -31,14 +31,14 @@ const ConferencesDataLoader: React.FC = () => {
     try {
       console.log(`Fetching data for league ID: ${leagueId}`);
       const response = await fetch(`https://api.sleeper.app/v1/league/${leagueId}`);
-      
+
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
-      
+
       const data = await response.json();
       console.log(`Data received for league ${leagueId}:`, data);
-      
+
       return {
         name: data.name || '',
         league_id: data.league_id || leagueId,
@@ -60,7 +60,7 @@ const ConferencesDataLoader: React.FC = () => {
     try {
       // Fetch data for all league IDs
       const allLeagueIds = [...leagueIds[2024], ...leagueIds[2025]];
-      
+
       for (const leagueId of allLeagueIds) {
         const data = await fetchSleeperData(leagueId);
         if (data) {
@@ -72,10 +72,10 @@ const ConferencesDataLoader: React.FC = () => {
       setLoadedData(allData);
 
       // Now insert data into the conferences table
-      const conferenceRecords = allData.map(data => {
+      const conferenceRecords = allData.map((data) => {
         const seasonId = seasonIdMap[data.season as '2024' | '2025'] || 0;
         const logoUrl = data.avatar ? `https://sleepercdn.com/avatars/thumbs/${data.avatar}` : '';
-        
+
         return {
           conference_name: data.name,
           league_id: data.league_id,
@@ -108,7 +108,7 @@ const ConferencesDataLoader: React.FC = () => {
 
       toast({
         title: "Success",
-        description: `Successfully loaded ${conferenceRecords.length} conferences from Sleeper API`,
+        description: `Successfully loaded ${conferenceRecords.length} conferences from Sleeper API`
       });
 
     } catch (error) {
@@ -130,8 +130,8 @@ const ConferencesDataLoader: React.FC = () => {
         <button
           onClick={loadConferencesData}
           disabled={isLoading}
-          className="px-4 py-2 bg-blue-600 text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-blue-700 transition-colors"
-        >
+          className="px-4 py-2 bg-blue-600 text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-blue-700 transition-colors">
+
           {isLoading ? 'Loading...' : 'Load Conferences Data'}
         </button>
       </div>
@@ -144,23 +144,23 @@ const ConferencesDataLoader: React.FC = () => {
         </div>
       </div>
 
-      {loadedData.length > 0 && (
-        <div className="mt-6">
+      {loadedData.length > 0 &&
+      <div className="mt-6">
           <h3 className="text-lg font-semibold mb-3">Loaded Data Preview:</h3>
           <div className="space-y-2">
-            {loadedData.map((item, index) => (
-              <div key={index} className="p-3 border rounded-lg bg-gray-50">
+            {loadedData.map((item, index) =>
+          <div key={index} className="p-3 border rounded-lg bg-gray-50">
                 <div className="font-medium">{item.name}</div>
                 <div className="text-sm text-gray-600">
                   League ID: {item.league_id} | Season: {item.season} | Status: {item.status}
                 </div>
               </div>
-            ))}
+          )}
           </div>
         </div>
-      )}
-    </div>
-  );
+      }
+    </div>);
+
 };
 
 export default ConferencesDataLoader;
