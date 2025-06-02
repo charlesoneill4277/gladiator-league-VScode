@@ -288,8 +288,17 @@ const DataSync: React.FC = () => {
         let junctionRecordsCreated = 0;
 
         // Process each roster to create junction records
+        console.log(`Processing ${rostersData.length} rosters for league ${conference.league_id}`);
+        
         for (const roster of rostersData) {
           const ownerId = roster.owner_id;
+          
+          // Validate roster_id before processing
+          if (!roster.roster_id) {
+            console.warn(`Roster has no roster_id, skipping:`, roster);
+            continue;
+          }
+          
           if (!ownerId) {
             console.warn(`Roster ${roster.roster_id} has no owner_id, skipping`);
             continue;
@@ -306,7 +315,10 @@ const DataSync: React.FC = () => {
             }]
           });
 
-          if (searchError) throw searchError;
+          if (searchError) {
+            console.error(`Error searching for team with owner_id ${ownerId}:`, searchError);
+            throw searchError;
+          }
 
           if (existingTeams?.List?.length > 0) {
             const team = existingTeams.List[0];
@@ -323,34 +335,44 @@ const DataSync: React.FC = () => {
 
             console.log(`Processing junction for team_id: ${teamId}, conference_id: ${conference.id}, roster_id: ${roster.roster_id}`);
 
-            // Check if junction record already exists
+            // Check if junction record already exists (including roster_id in the unique constraint)
             const { data: existingJunction, error: junctionSearchError } = await window.ezsite.apis.tablePage(12853, {
               PageNo: 1,
               PageSize: 1,
               Filters: [
                 { name: 'team_id', op: 'Equal', value: teamId },
-                { name: 'conference_id', op: 'Equal', value: conference.id }
+                { name: 'conference_id', op: 'Equal', value: conference.id },
+                { name: 'roster_id', op: 'Equal', value: roster.roster_id.toString() }
               ]
             });
 
-            if (junctionSearchError) throw junctionSearchError;
+            if (junctionSearchError) {
+              console.error(`Error searching for junction record:`, junctionSearchError);
+              throw junctionSearchError;
+            }
 
             if (existingJunction?.List?.length > 0) {
               // Update existing junction record
               const existingRecord = existingJunction.List[0];
               const updateJunctionData = { ...junctionData, ID: existingRecord.ID };
               const { error: updateJunctionError } = await window.ezsite.apis.tableUpdate(12853, updateJunctionData);
-              if (updateJunctionError) throw updateJunctionError;
+              if (updateJunctionError) {
+                console.error(`Error updating junction record ID ${existingRecord.ID}:`, updateJunctionError);
+                throw updateJunctionError;
+              }
               console.log(`Updated junction record ID ${existingRecord.ID} for team ${teamId} with roster_id ${roster.roster_id}`);
             } else {
               // Create new junction record
               const { error: createJunctionError } = await window.ezsite.apis.tableCreate(12853, junctionData);
-              if (createJunctionError) throw createJunctionError;
+              if (createJunctionError) {
+                console.error(`Error creating junction record:`, createJunctionError);
+                throw createJunctionError;
+              }
               junctionRecordsCreated++;
-              console.log(`Created new junction record for team ${teamId} with roster_id ${roster.roster_id}`);
+              console.log(`✓ Created new junction record for team ${teamId} with roster_id ${roster.roster_id}`);
             }
           } else {
-            console.warn(`No team found for owner_id ${ownerId}, skipping roster ${roster.roster_id}`);
+            console.warn(`⚠️ No team found for owner_id ${ownerId}, skipping roster ${roster.roster_id}`);
           }
         }
 
@@ -361,10 +383,10 @@ const DataSync: React.FC = () => {
           junction_records_created: junctionRecordsCreated
         });
 
-        console.log(`Successfully synced junction data for league ${conference.league_id}`);
+        console.log(`✓ Successfully synced junction data for league ${conference.league_id}: ${junctionRecordsCreated} records created/updated from ${rostersData.length} rosters`);
 
       } catch (error) {
-        console.error(`Error syncing junction data for league ${conference.league_id}:`, error);
+        console.error(`❌ Error syncing junction data for league ${conference.league_id}:`, error);
         results.push({
           league_id: conference.league_id,
           success: false,
@@ -456,6 +478,13 @@ const DataSync: React.FC = () => {
         // Process each roster to ensure proper mapping
         for (const roster of rostersData) {
           const ownerId = roster.owner_id;
+          
+          // Validate roster_id before processing
+          if (!roster.roster_id) {
+            console.warn(`Roster has no roster_id, skipping:`, roster);
+            continue;
+          }
+          
           if (!ownerId) {
             console.warn(`Roster ${roster.roster_id} has no owner_id, skipping`);
             continue;
@@ -463,7 +492,7 @@ const DataSync: React.FC = () => {
 
           // Find the corresponding user data
           const user = usersData.find((u: any) => u.user_id === ownerId);
-          
+
           // Create or update team record
           const teamData = {
             team_name: user?.metadata?.team_name || user?.display_name || user?.username || `Team ${roster.roster_id}`,
@@ -487,7 +516,10 @@ const DataSync: React.FC = () => {
             }]
           });
 
-          if (searchError) throw searchError;
+          if (searchError) {
+            console.error(`Error searching for team with owner_id ${ownerId}:`, searchError);
+            throw searchError;
+          }
 
           let teamId;
           if (existingTeams?.List?.length > 0) {
@@ -495,16 +527,22 @@ const DataSync: React.FC = () => {
             const existingTeam = existingTeams.List[0];
             const updateData = { ...teamData, ID: existingTeam.ID };
             const { error: updateError } = await window.ezsite.apis.tableUpdate(12852, updateData);
-            if (updateError) throw updateError;
+            if (updateError) {
+              console.error(`Error updating team ID ${existingTeam.ID}:`, updateError);
+              throw updateError;
+            }
             teamId = existingTeam.ID;
             console.log(`Updated team ${teamId} for owner ${ownerId}`);
           } else {
             // Create new team
             const { data: newTeam, error: createError } = await window.ezsite.apis.tableCreate(12852, teamData);
-            if (createError) throw createError;
+            if (createError) {
+              console.error(`Error creating team for owner ${ownerId}:`, createError);
+              throw createError;
+            }
             teamId = newTeam.ID;
             teamsCreated++;
-            console.log(`Created team ${teamId} for owner ${ownerId}`);
+            console.log(`✓ Created team ${teamId} for owner ${ownerId}`);
           }
 
           // Create or update team-conference junction record with roster_id
@@ -516,33 +554,43 @@ const DataSync: React.FC = () => {
             joined_date: new Date().toISOString()
           };
 
-          console.log(`Creating/updating junction record:`, junctionData);
+          console.log(`Creating/updating junction record for team_id: ${teamId}, conference_id: ${conference.id}, roster_id: ${roster.roster_id}`);
 
-          // Check if junction record already exists
+          // Check if junction record already exists (including roster_id in the unique constraint)
           const { data: existingJunction, error: junctionSearchError } = await window.ezsite.apis.tablePage(12853, {
             PageNo: 1,
             PageSize: 1,
             Filters: [
               { name: 'team_id', op: 'Equal', value: teamId },
-              { name: 'conference_id', op: 'Equal', value: conference.id }
+              { name: 'conference_id', op: 'Equal', value: conference.id },
+              { name: 'roster_id', op: 'Equal', value: roster.roster_id.toString() }
             ]
           });
 
-          if (junctionSearchError) throw junctionSearchError;
+          if (junctionSearchError) {
+            console.error(`Error searching for junction record:`, junctionSearchError);
+            throw junctionSearchError;
+          }
 
           if (existingJunction?.List?.length > 0) {
             // Update existing junction record
             const existingRecord = existingJunction.List[0];
             const updateJunctionData = { ...junctionData, ID: existingRecord.ID };
             const { error: updateJunctionError } = await window.ezsite.apis.tableUpdate(12853, updateJunctionData);
-            if (updateJunctionError) throw updateJunctionError;
-            console.log(`Updated junction record for team ${teamId} in conference ${conference.id} with roster_id ${roster.roster_id}`);
+            if (updateJunctionError) {
+              console.error(`Error updating junction record ID ${existingRecord.ID}:`, updateJunctionError);
+              throw updateJunctionError;
+            }
+            console.log(`Updated junction record ID ${existingRecord.ID} for team ${teamId} with roster_id ${roster.roster_id}`);
           } else {
             // Create new junction record
             const { error: createJunctionError } = await window.ezsite.apis.tableCreate(12853, junctionData);
-            if (createJunctionError) throw createJunctionError;
+            if (createJunctionError) {
+              console.error(`Error creating junction record:`, createJunctionError);
+              throw createJunctionError;
+            }
             junctionRecordsCreated++;
-            console.log(`Created junction record for team ${teamId} in conference ${conference.id} with roster_id ${roster.roster_id}`);
+            console.log(`✓ Created junction record for team ${teamId} with roster_id ${roster.roster_id}`);
           }
         }
 
@@ -553,10 +601,10 @@ const DataSync: React.FC = () => {
           junction_records_created: junctionRecordsCreated
         });
 
-        console.log(`Successfully synced teams for league ${conference.league_id}`);
+        console.log(`✓ Successfully synced teams for league ${conference.league_id}: ${teamsCreated} teams created, ${junctionRecordsCreated} junction records created from ${rostersData.length} rosters`);
 
       } catch (error) {
-        console.error(`Error syncing teams for league ${conference.league_id}:`, error);
+        console.error(`❌ Error syncing teams for league ${conference.league_id}:`, error);
         results.push({
           league_id: conference.league_id,
           success: false,
@@ -817,33 +865,33 @@ const DataSync: React.FC = () => {
                     </div>
                     <div className="flex gap-2">
                       <Button
-                        onClick={syncTeamsData}
-                        disabled={syncingTeams || !selectedSeasonId || conferences.length === 0}>
+                      onClick={syncTeamsData}
+                      disabled={syncingTeams || !selectedSeasonId || conferences.length === 0}>
                         {syncingTeams ?
-                          <>
+                      <>
                             <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
                             Syncing...
                           </> :
-                          <>
+                      <>
                             <Users className="h-4 w-4 mr-2" />
                             Sync Teams Data
                           </>
-                        }
+                      }
                       </Button>
                       <Button
-                        variant="outline"
-                        onClick={syncJunctionData}
-                        disabled={syncingTeams || !selectedSeasonId || conferences.length === 0}>
+                      variant="outline"
+                      onClick={syncJunctionData}
+                      disabled={syncingTeams || !selectedSeasonId || conferences.length === 0}>
                         {syncingTeams ?
-                          <>
+                      <>
                             <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
                             Syncing...
                           </> :
-                          <>
+                      <>
                             <Trophy className="h-4 w-4 mr-2" />
                             Fix Junction Data
                           </>
-                        }
+                      }
                       </Button>
                     </div>
                   </div>
