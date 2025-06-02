@@ -14,6 +14,7 @@ import PlayersPage from './pages/PlayersPage';
 import PlayerDetailPage from './pages/PlayerDetailPage';
 import DraftResultsPage from './pages/DraftResultsPage';
 import LeagueRulesPage from './pages/LeagueRulesPage';
+import ConferencesPage from './pages/ConferencesPage';
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -36,6 +37,7 @@ const App = () =>
                 <Route path="/players/:playerId" element={<PlayerDetailPage />} />
                 <Route path="/draft" element={<DraftResultsPage />} />
                 <Route path="/rules" element={<LeagueRulesPage />} />
+                <Route path="/conferences" element={<ConferencesPage />} />
                 <Route path="*" element={<NotFound />} />
               </Routes>
             </main>

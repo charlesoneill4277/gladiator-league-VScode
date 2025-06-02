@@ -15,7 +15,8 @@ import {
   FileText,
   Moon,
   Sun,
-  Shield } from
+  Shield,
+  Settings } from
 'lucide-react';
 
 const Header: React.FC = () => {
@@ -39,6 +40,7 @@ const Header: React.FC = () => {
   { path: '/teams', label: 'Teams', icon: Users },
   { path: '/players', label: 'Players', icon: UserCheck },
   { path: '/draft', label: 'Draft Results', icon: Shield },
+  { path: '/conferences', label: 'Conferences', icon: Settings },
   { path: '/rules', label: 'League Rules', icon: FileText }];
 
 
