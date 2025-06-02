@@ -5,58 +5,58 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useApp } from '@/contexts/AppContext';
-import { 
-  Shield, 
-  Trophy, 
-  Swords, 
-  Users, 
-  TrendingUp, 
-  Calendar, 
+import {
+  Shield,
+  Trophy,
+  Swords,
+  Users,
+  TrendingUp,
+  Calendar,
   ArrowRight,
   Activity,
-  Star
-} from 'lucide-react';
+  Star } from
+'lucide-react';
 
 // Mock data for homepage - this will be replaced with real Sleeper API data
 const mockDashboardData = {
   currentWeek: 14,
   standings: [
-    { rank: 1, team: 'Galactic Gladiators', owner: 'John Doe', record: '11-2', points: 1485.2, conference: 'Legions of Mars' },
-    { rank: 2, team: 'Space Vikings', owner: 'Jane Smith', record: '10-3', points: 1442.8, conference: 'Guardians of Jupiter' },
-    { rank: 3, team: 'Meteor Crushers', owner: 'Bob Johnson', record: '9-4', points: 1398.6, conference: "Vulcan's Oathsworn" },
-    { rank: 4, team: 'Asteroid Miners', owner: 'Alice Brown', record: '8-5', points: 1376.4, conference: 'Guardians of Jupiter' },
-    { rank: 5, team: 'Solar Flares', owner: 'Charlie Wilson', record: '7-6', points: 1298.8, conference: "Vulcan's Oathsworn" }
-  ],
+  { rank: 1, team: 'Galactic Gladiators', owner: 'John Doe', record: '11-2', points: 1485.2, conference: 'Legions of Mars' },
+  { rank: 2, team: 'Space Vikings', owner: 'Jane Smith', record: '10-3', points: 1442.8, conference: 'Guardians of Jupiter' },
+  { rank: 3, team: 'Meteor Crushers', owner: 'Bob Johnson', record: '9-4', points: 1398.6, conference: "Vulcan's Oathsworn" },
+  { rank: 4, team: 'Asteroid Miners', owner: 'Alice Brown', record: '8-5', points: 1376.4, conference: 'Guardians of Jupiter' },
+  { rank: 5, team: 'Solar Flares', owner: 'Charlie Wilson', record: '7-6', points: 1298.8, conference: "Vulcan's Oathsworn" }],
+
   currentMatchups: [
-    {
-      id: '1',
-      conference: 'Legions of Mars',
-      homeTeam: { name: 'Galactic Gladiators', score: 127.5 },
-      awayTeam: { name: 'Mars Rovers', score: 98.2 },
-      status: 'live'
-    },
-    {
-      id: '2', 
-      conference: 'Guardians of Jupiter',
-      homeTeam: { name: 'Space Vikings', score: 112.8 },
-      awayTeam: { name: 'Storm Chasers', score: 134.2 },
-      status: 'live'
-    },
-    {
-      id: '3',
-      conference: "Vulcan's Oathsworn",
-      homeTeam: { name: 'Meteor Crushers', score: 0 },
-      awayTeam: { name: 'Forge Masters', score: 0 },
-      status: 'upcoming'
-    }
-  ],
+  {
+    id: '1',
+    conference: 'Legions of Mars',
+    homeTeam: { name: 'Galactic Gladiators', score: 127.5 },
+    awayTeam: { name: 'Mars Rovers', score: 98.2 },
+    status: 'live'
+  },
+  {
+    id: '2',
+    conference: 'Guardians of Jupiter',
+    homeTeam: { name: 'Space Vikings', score: 112.8 },
+    awayTeam: { name: 'Storm Chasers', score: 134.2 },
+    status: 'live'
+  },
+  {
+    id: '3',
+    conference: "Vulcan's Oathsworn",
+    homeTeam: { name: 'Meteor Crushers', score: 0 },
+    awayTeam: { name: 'Forge Masters', score: 0 },
+    status: 'upcoming'
+  }],
+
   recentTransactions: [
-    { id: '1', team: 'Space Vikings', action: 'Added Jerome Ford', type: 'waiver', date: '2024-12-15' },
-    { id: '2', team: 'Galactic Gladiators', action: 'Traded Saquon Barkley for Stefon Diggs', type: 'trade', date: '2024-12-14' },
-    { id: '3', team: 'Meteor Crushers', action: 'Added Tank Dell', type: 'waiver', date: '2024-12-13' },
-    { id: '4', team: 'Solar Flares', action: 'Dropped Antonio Gibson', type: 'drop', date: '2024-12-12' },
-    { id: '5', team: 'Asteroid Miners', action: 'Added Romeo Doubs', type: 'waiver', date: '2024-12-11' }
-  ],
+  { id: '1', team: 'Space Vikings', action: 'Added Jerome Ford', type: 'waiver', date: '2024-12-15' },
+  { id: '2', team: 'Galactic Gladiators', action: 'Traded Saquon Barkley for Stefon Diggs', type: 'trade', date: '2024-12-14' },
+  { id: '3', team: 'Meteor Crushers', action: 'Added Tank Dell', type: 'waiver', date: '2024-12-13' },
+  { id: '4', team: 'Solar Flares', action: 'Dropped Antonio Gibson', type: 'drop', date: '2024-12-12' },
+  { id: '5', team: 'Asteroid Miners', action: 'Added Romeo Doubs', type: 'waiver', date: '2024-12-11' }],
+
   keyMetrics: {
     totalTeams: 36,
     totalGames: 468,
@@ -84,10 +84,10 @@ const HomePage: React.FC = () => {
 
   const getTransactionIcon = (type: string) => {
     switch (type) {
-      case 'trade': return '🔄';
-      case 'waiver': return '📈';
-      case 'drop': return '📉';
-      default: return '📝';
+      case 'trade':return '🔄';
+      case 'waiver':return '📈';
+      case 'drop':return '📉';
+      default:return '📝';
     }
   };
 
@@ -112,11 +112,11 @@ const HomePage: React.FC = () => {
             <div className="flex items-center space-x-2 mt-4">
               <Badge variant="outline">{selectedSeason} Season</Badge>
               <Badge variant="outline">Week {mockDashboardData.currentWeek}</Badge>
-              {selectedConference && (
-                <Badge variant="secondary">
-                  {currentSeasonConfig.conferences.find(c => c.id === selectedConference)?.name}
+              {selectedConference &&
+              <Badge variant="secondary">
+                  {currentSeasonConfig.conferences.find((c) => c.id === selectedConference)?.name}
                 </Badge>
-              )}
+              }
             </div>
           </div>
         </div>
@@ -182,8 +182,8 @@ const HomePage: React.FC = () => {
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
-              {mockDashboardData.standings.map((team) => (
-                <div key={team.rank} className="flex items-center justify-between p-3 rounded-lg bg-accent/50">
+              {mockDashboardData.standings.map((team) =>
+              <div key={team.rank} className="flex items-center justify-between p-3 rounded-lg bg-accent/50">
                   <div className="flex items-center space-x-3">
                     <div className="flex items-center space-x-1">
                       {team.rank === 1 && <Star className="h-4 w-4 text-yellow-500" />}
@@ -199,7 +199,7 @@ const HomePage: React.FC = () => {
                     <p className="text-xs text-muted-foreground">{team.points.toFixed(0)} pts</p>
                   </div>
                 </div>
-              ))}
+              )}
             </div>
           </CardContent>
         </Card>
@@ -222,8 +222,8 @@ const HomePage: React.FC = () => {
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {mockDashboardData.currentMatchups.map((matchup) => (
-                <div key={matchup.id} className="space-y-2">
+              {mockDashboardData.currentMatchups.map((matchup) =>
+              <div key={matchup.id} className="space-y-2">
                   <div className="flex items-center justify-between">
                     <Badge variant="outline" className="text-xs">
                       {matchup.conference.split(' ')[0]}
@@ -248,7 +248,7 @@ const HomePage: React.FC = () => {
                     </div>
                   </div>
                 </div>
-              ))}
+              )}
             </div>
           </CardContent>
         </Card>
@@ -276,8 +276,8 @@ const HomePage: React.FC = () => {
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
-              {mockDashboardData.recentTransactions.map((transaction) => (
-                <div key={transaction.id} className="flex items-start space-x-3 p-2 rounded-lg hover:bg-accent/50">
+              {mockDashboardData.recentTransactions.map((transaction) =>
+              <div key={transaction.id} className="flex items-start space-x-3 p-2 rounded-lg hover:bg-accent/50">
                   <div className="text-lg">{getTransactionIcon(transaction.type)}</div>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium">{transaction.team}</p>
@@ -287,7 +287,7 @@ const HomePage: React.FC = () => {
                     </p>
                   </div>
                 </div>
-              ))}
+              )}
             </div>
           </CardContent>
         </Card>
@@ -361,8 +361,8 @@ const HomePage: React.FC = () => {
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {currentSeasonConfig.conferences.map((conference) => (
-              <div key={conference.id} className="text-center p-4 border rounded-lg">
+            {currentSeasonConfig.conferences.map((conference) =>
+            <div key={conference.id} className="text-center p-4 border rounded-lg">
                 <h4 className="font-semibold mb-2">{conference.name}</h4>
                 <p className="text-sm text-muted-foreground mb-2">
                   4 teams • 14-week season
@@ -371,12 +371,12 @@ const HomePage: React.FC = () => {
                   Conference ID: {conference.id}
                 </Badge>
               </div>
-            ))}
+            )}
           </div>
         </CardContent>
       </Card>
-    </div>
-  );
+    </div>);
+
 };
 
 export default HomePage;

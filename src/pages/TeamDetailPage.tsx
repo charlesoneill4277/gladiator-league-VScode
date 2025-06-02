@@ -22,88 +22,88 @@ const mockTeamDetail = {
   streak: 'W5',
   avgPointsFor: 114.2,
   roster: [
-    {
-      id: 'player1',
-      name: 'Josh Allen',
-      position: 'QB',
-      team: 'BUF',
-      points: 287.5,
-      starter: true,
-      injury_status: null
-    },
-    {
-      id: 'player2',
-      name: 'Christian McCaffrey',
-      position: 'RB',
-      team: 'SF',
-      points: 245.8,
-      starter: true,
-      injury_status: 'IR'
-    },
-    {
-      id: 'player3',
-      name: 'Tyreek Hill',
-      position: 'WR',
-      team: 'MIA',
-      points: 198.2,
-      starter: true,
-      injury_status: null
-    },
-    {
-      id: 'player4',
-      name: 'Travis Kelce',
-      position: 'TE',
-      team: 'KC',
-      points: 156.7,
-      starter: true,
-      injury_status: 'Q'
-    },
-    {
-      id: 'player5',
-      name: 'Justin Tucker',
-      position: 'K',
-      team: 'BAL',
-      points: 112.3,
-      starter: true,
-      injury_status: null
-    }
-  ],
+  {
+    id: 'player1',
+    name: 'Josh Allen',
+    position: 'QB',
+    team: 'BUF',
+    points: 287.5,
+    starter: true,
+    injury_status: null
+  },
+  {
+    id: 'player2',
+    name: 'Christian McCaffrey',
+    position: 'RB',
+    team: 'SF',
+    points: 245.8,
+    starter: true,
+    injury_status: 'IR'
+  },
+  {
+    id: 'player3',
+    name: 'Tyreek Hill',
+    position: 'WR',
+    team: 'MIA',
+    points: 198.2,
+    starter: true,
+    injury_status: null
+  },
+  {
+    id: 'player4',
+    name: 'Travis Kelce',
+    position: 'TE',
+    team: 'KC',
+    points: 156.7,
+    starter: true,
+    injury_status: 'Q'
+  },
+  {
+    id: 'player5',
+    name: 'Justin Tucker',
+    position: 'K',
+    team: 'BAL',
+    points: 112.3,
+    starter: true,
+    injury_status: null
+  }],
+
   transactions: [
-    {
-      id: 'trans1',
-      type: 'waiver',
-      date: '2024-12-10',
-      description: 'Added Jerome Ford, Dropped Antonio Gibson',
-      week: 14
-    },
-    {
-      id: 'trans2',
-      type: 'trade',
-      date: '2024-11-28',
-      description: 'Traded Saquon Barkley for Stefon Diggs + 2025 2nd Round Pick',
-      week: 12,
-      tradePartner: 'Space Vikings'
-    },
-    {
-      id: 'trans3',
-      type: 'waiver',
-      date: '2024-11-20',
-      description: 'Added Tank Dell, Dropped Marquise Goodwin',
-      week: 11
-    }
-  ],
+  {
+    id: 'trans1',
+    type: 'waiver',
+    date: '2024-12-10',
+    description: 'Added Jerome Ford, Dropped Antonio Gibson',
+    week: 14
+  },
+  {
+    id: 'trans2',
+    type: 'trade',
+    date: '2024-11-28',
+    description: 'Traded Saquon Barkley for Stefon Diggs + 2025 2nd Round Pick',
+    week: 12,
+    tradePartner: 'Space Vikings'
+  },
+  {
+    id: 'trans3',
+    type: 'waiver',
+    date: '2024-11-20',
+    description: 'Added Tank Dell, Dropped Marquise Goodwin',
+    week: 11
+  }],
+
   weeklyScores: [
-    { week: 1, score: 128.5, opponent: 'Space Vikings', result: 'W' },
-    { week: 2, score: 105.2, opponent: 'Meteor Crushers', result: 'L' },
-    { week: 3, score: 142.8, opponent: 'Asteroid Miners', result: 'W' },
-    { week: 4, score: 118.6, opponent: 'Solar Flares', result: 'W' },
-    { week: 5, score: 95.4, opponent: 'Nebula Nomads', result: 'L' },
-    { week: 6, score: 134.2, opponent: 'Cosmic Crusaders', result: 'W' }
-  ]
+  { week: 1, score: 128.5, opponent: 'Space Vikings', result: 'W' },
+  { week: 2, score: 105.2, opponent: 'Meteor Crushers', result: 'L' },
+  { week: 3, score: 142.8, opponent: 'Asteroid Miners', result: 'W' },
+  { week: 4, score: 118.6, opponent: 'Solar Flares', result: 'W' },
+  { week: 5, score: 95.4, opponent: 'Nebula Nomads', result: 'L' },
+  { week: 6, score: 134.2, opponent: 'Cosmic Crusaders', result: 'W' }]
+
 };
 
 const TeamDetailPage: React.FC = () => {
-  const { teamId } = useParams<{ teamId: string }>();
+  const { teamId } = useParams<{teamId: string;}>();
   const [activeTab, setActiveTab] = useState('roster');
 
   // In a real app, you would fetch team data based on teamId
@@ -111,36 +111,36 @@ const TeamDetailPage: React.FC = () => {
 
   const getPositionColor = (position: string) => {
     switch (position) {
-      case 'QB': return 'bg-red-100 text-red-800';
-      case 'RB': return 'bg-green-100 text-green-800';
-      case 'WR': return 'bg-blue-100 text-blue-800';
-      case 'TE': return 'bg-yellow-100 text-yellow-800';
-      case 'K': return 'bg-purple-100 text-purple-800';
-      case 'DEF': return 'bg-gray-100 text-gray-800';
-      default: return 'bg-gray-100 text-gray-800';
+      case 'QB':return 'bg-red-100 text-red-800';
+      case 'RB':return 'bg-green-100 text-green-800';
+      case 'WR':return 'bg-blue-100 text-blue-800';
+      case 'TE':return 'bg-yellow-100 text-yellow-800';
+      case 'K':return 'bg-purple-100 text-purple-800';
+      case 'DEF':return 'bg-gray-100 text-gray-800';
+      default:return 'bg-gray-100 text-gray-800';
     }
   };
 
   const getInjuryBadge = (status: string | null) => {
     if (!status) return null;
-    
-    const variants: { [key: string]: string } = {
+
+    const variants: {[key: string]: string;} = {
       'IR': 'destructive',
       'O': 'destructive',
       'D': 'destructive',
       'Q': 'secondary',
       'P': 'outline'
     };
-    
+
     return <Badge variant={variants[status] || 'outline'} className="text-xs">{status}</Badge>;
   };
 
   const getTransactionIcon = (type: string) => {
     switch (type) {
-      case 'trade': return '🔄';
-      case 'waiver': return '📈';
-      case 'draft': return '🎯';
-      default: return '📝';
+      case 'trade':return '🔄';
+      case 'waiver':return '📈';
+      case 'draft':return '🎯';
+      default:return '📝';
     }
   };
 
@@ -160,7 +160,7 @@ const TeamDetailPage: React.FC = () => {
           <Avatar className="h-16 w-16">
             <AvatarImage src={team.ownerAvatar || undefined} />
             <AvatarFallback className="bg-primary/10 text-lg">
-              {team.ownerName.split(' ').map(n => n[0]).join('').toUpperCase()}
+              {team.ownerName.split(' ').map((n) => n[0]).join('').toUpperCase()}
             </AvatarFallback>
           </Avatar>
           <div>
@@ -228,8 +228,8 @@ const TeamDetailPage: React.FC = () => {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {team.roster.map((player) => (
-                      <TableRow key={player.id}>
+                    {team.roster.map((player) =>
+                    <TableRow key={player.id}>
                         <TableCell>
                           <Link to={`/players/${player.id}`} className="font-medium hover:underline">
                             {player.name}
@@ -248,15 +248,15 @@ const TeamDetailPage: React.FC = () => {
                           {getInjuryBadge(player.injury_status)}
                         </TableCell>
                         <TableCell>
-                          {player.starter && (
-                            <Badge variant="outline" className="text-xs">
+                          {player.starter &&
+                        <Badge variant="outline" className="text-xs">
                               <Star className="mr-1 h-3 w-3" />
                               Starter
                             </Badge>
-                          )}
+                        }
                         </TableCell>
                       </TableRow>
-                    ))}
+                    )}
                   </TableBody>
                 </Table>
               </div>
@@ -293,7 +293,7 @@ const TeamDetailPage: React.FC = () => {
                   <div>
                     <p className="text-sm text-muted-foreground">Win Percentage</p>
                     <p className="text-2xl font-bold">
-                      {((team.record.wins / (team.record.wins + team.record.losses)) * 100).toFixed(1)}%
+                      {(team.record.wins / (team.record.wins + team.record.losses) * 100).toFixed(1)}%
                     </p>
                   </div>
                 </div>
@@ -309,8 +309,8 @@ const TeamDetailPage: React.FC = () => {
               </CardHeader>
               <CardContent>
                 <div className="space-y-2">
-                  {team.weeklyScores.slice(-6).map((week) => (
-                    <div key={week.week} className="flex items-center justify-between p-2 rounded-md bg-accent/50">
+                  {team.weeklyScores.slice(-6).map((week) =>
+                  <div key={week.week} className="flex items-center justify-between p-2 rounded-md bg-accent/50">
                       <div className="flex items-center space-x-2">
                         <Badge variant="outline">Week {week.week}</Badge>
                         <span className="text-sm text-muted-foreground">vs {week.opponent}</span>
@@ -322,7 +322,7 @@ const TeamDetailPage: React.FC = () => {
                         </Badge>
                       </div>
                     </div>
-                  ))}
+                  )}
                 </div>
               </CardContent>
             </Card>
@@ -343,8 +343,8 @@ const TeamDetailPage: React.FC = () => {
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                {team.transactions.map((transaction) => (
-                  <div key={transaction.id} className="flex items-start space-x-3 p-3 rounded-md border">
+                {team.transactions.map((transaction) =>
+                <div key={transaction.id} className="flex items-start space-x-3 p-3 rounded-md border">
                     <div className="text-2xl">{getTransactionIcon(transaction.type)}</div>
                     <div className="flex-1">
                       <div className="flex items-center space-x-2 mb-1">
@@ -359,14 +359,14 @@ const TeamDetailPage: React.FC = () => {
                         </span>
                       </div>
                       <p className="text-sm">{transaction.description}</p>
-                      {transaction.tradePartner && (
-                        <p className="text-xs text-muted-foreground mt-1">
+                      {transaction.tradePartner &&
+                    <p className="text-xs text-muted-foreground mt-1">
                           Trade partner: {transaction.tradePartner}
                         </p>
-                      )}
+                    }
                     </div>
                   </div>
-                ))}
+                )}
               </div>
             </CardContent>
           </Card>
@@ -390,8 +390,8 @@ const TeamDetailPage: React.FC = () => {
           </Card>
         </TabsContent>
       </Tabs>
-    </div>
-  );
+    </div>);
+
 };
 
 export default TeamDetailPage;

@@ -15,70 +15,70 @@ const mockMatchupsData = {
     status: i < 13 ? 'completed' : i === 13 ? 'current' : 'upcoming'
   })),
   matchups: [
-    {
+  {
+    id: '1',
+    week: 14,
+    conference: 'Legions of Mars',
+    homeTeam: {
       id: '1',
-      week: 14,
-      conference: 'Legions of Mars',
-      homeTeam: {
-        id: '1',
-        name: 'Galactic Gladiators',
-        owner: 'John Doe',
-        score: 127.5,
-        projected: 118.2
-      },
-      awayTeam: {
-        id: '2',
-        name: 'Space Vikings',
-        owner: 'Jane Smith',
-        score: 112.8,
-        projected: 125.4
-      },
-      status: 'live', // live, completed, upcoming
-      lastUpdate: '2024-12-15T20:30:00Z'
+      name: 'Galactic Gladiators',
+      owner: 'John Doe',
+      score: 127.5,
+      projected: 118.2
     },
-    {
+    awayTeam: {
       id: '2',
-      week: 14,
-      conference: 'Guardians of Jupiter',
-      homeTeam: {
-        id: '3',
-        name: 'Meteor Crushers',
-        owner: 'Bob Johnson',
-        score: 98.3,
-        projected: 110.8
-      },
-      awayTeam: {
-        id: '4',
-        name: 'Asteroid Miners',
-        owner: 'Alice Brown',
-        score: 134.2,
-        projected: 115.6
-      },
-      status: 'live',
-      lastUpdate: '2024-12-15T20:30:00Z'
+      name: 'Space Vikings',
+      owner: 'Jane Smith',
+      score: 112.8,
+      projected: 125.4
     },
-    {
+    status: 'live', // live, completed, upcoming
+    lastUpdate: '2024-12-15T20:30:00Z'
+  },
+  {
+    id: '2',
+    week: 14,
+    conference: 'Guardians of Jupiter',
+    homeTeam: {
       id: '3',
-      week: 14,
-      conference: "Vulcan's Oathsworn",
-      homeTeam: {
-        id: '5',
-        name: 'Solar Flares',
-        owner: 'Charlie Wilson',
-        score: 0,
-        projected: 108.4
-      },
-      awayTeam: {
-        id: '6',
-        name: 'Nebula Nomads',
-        owner: 'Diana Prince',
-        score: 0,
-        projected: 112.7
-      },
-      status: 'upcoming',
-      lastUpdate: null
-    }
-  ]
+      name: 'Meteor Crushers',
+      owner: 'Bob Johnson',
+      score: 98.3,
+      projected: 110.8
+    },
+    awayTeam: {
+      id: '4',
+      name: 'Asteroid Miners',
+      owner: 'Alice Brown',
+      score: 134.2,
+      projected: 115.6
+    },
+    status: 'live',
+    lastUpdate: '2024-12-15T20:30:00Z'
+  },
+  {
+    id: '3',
+    week: 14,
+    conference: "Vulcan's Oathsworn",
+    homeTeam: {
+      id: '5',
+      name: 'Solar Flares',
+      owner: 'Charlie Wilson',
+      score: 0,
+      projected: 108.4
+    },
+    awayTeam: {
+      id: '6',
+      name: 'Nebula Nomads',
+      owner: 'Diana Prince',
+      score: 0,
+      projected: 112.7
+    },
+    status: 'upcoming',
+    lastUpdate: null
+  }]
+
 };
 
 const MatchupsPage: React.FC = () => {
@@ -87,11 +87,11 @@ const MatchupsPage: React.FC = () => {
   const [expandedMatchups, setExpandedMatchups] = useState<Set<string>>(new Set());
 
   // Filter matchups based on selected conference and week
-  const filteredMatchups = mockMatchupsData.matchups.filter(matchup => {
+  const filteredMatchups = mockMatchupsData.matchups.filter((matchup) => {
     const weekMatch = matchup.week === selectedWeek;
     if (!selectedConference) return weekMatch;
-    
-    const conference = currentSeasonConfig.conferences.find(c => c.id === selectedConference);
+
+    const conference = currentSeasonConfig.conferences.find((c) => c.id === selectedConference);
     return weekMatch && matchup.conference === conference?.name;
   });
 
@@ -119,7 +119,7 @@ const MatchupsPage: React.FC = () => {
   };
 
   const getWeekStatus = (weekNum: number) => {
-    const weekData = mockMatchupsData.weeks.find(w => w.week === weekNum);
+    const weekData = mockMatchupsData.weeks.find((w) => w.week === weekNum);
     return weekData?.status || 'upcoming';
   };
 
@@ -132,9 +132,9 @@ const MatchupsPage: React.FC = () => {
           <h1 className="text-3xl font-bold">Matchups</h1>
         </div>
         <p className="text-muted-foreground">
-          {selectedSeason} Season • Week {selectedWeek} • {selectedConference 
-            ? currentSeasonConfig.conferences.find(c => c.id === selectedConference)?.name 
-            : 'All Conferences'
+          {selectedSeason} Season • Week {selectedWeek} • {selectedConference ?
+          currentSeasonConfig.conferences.find((c) => c.id === selectedConference)?.name :
+          'All Conferences'
           }
         </p>
       </div>
@@ -147,23 +147,23 @@ const MatchupsPage: React.FC = () => {
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              {mockMatchupsData.weeks.map((week) => (
-                <SelectItem key={week.week} value={week.week.toString()}>
+              {mockMatchupsData.weeks.map((week) =>
+              <SelectItem key={week.week} value={week.week.toString()}>
                   <div className="flex items-center space-x-2">
                     <span>Week {week.week}</span>
                     {week.status === 'current' && <Badge variant="outline" className="text-xs">Current</Badge>}
                   </div>
                 </SelectItem>
-              ))}
+              )}
             </SelectContent>
           </Select>
 
-          {getWeekStatus(selectedWeek) === 'current' && (
-            <div className="flex items-center space-x-2 text-sm text-muted-foreground">
+          {getWeekStatus(selectedWeek) === 'current' &&
+          <div className="flex items-center space-x-2 text-sm text-muted-foreground">
               <Clock className="h-4 w-4" />
               <span>Games in progress</span>
             </div>
-          )}
+          }
         </div>
 
         <div className="flex items-center space-x-4 text-sm text-muted-foreground">
@@ -176,13 +176,13 @@ const MatchupsPage: React.FC = () => {
 
       {/* Matchups Grid */}
       <div className="grid gap-4">
-        {filteredMatchups.map((matchup) => (
-          <Card key={matchup.id} className="hover:shadow-md transition-shadow">
+        {filteredMatchups.map((matchup) =>
+        <Card key={matchup.id} className="hover:shadow-md transition-shadow">
             <Collapsible>
-              <CollapsibleTrigger 
-                className="w-full"
-                onClick={() => toggleMatchupExpansion(matchup.id)}
-              >
+              <CollapsibleTrigger
+              className="w-full"
+              onClick={() => toggleMatchupExpansion(matchup.id)}>
+
                 <CardHeader className="pb-4">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-2">
@@ -192,8 +192,8 @@ const MatchupsPage: React.FC = () => {
                       {getStatusBadge(matchup.status)}
                     </div>
                     <ChevronDown className={`h-4 w-4 transition-transform ${
-                      expandedMatchups.has(matchup.id) ? 'rotate-180' : ''
-                    }`} />
+                  expandedMatchups.has(matchup.id) ? 'rotate-180' : ''}`
+                  } />
                   </div>
                 </CardHeader>
               </CollapsibleTrigger>
@@ -208,19 +208,19 @@ const MatchupsPage: React.FC = () => {
                     <div className="text-2xl font-bold">
                       {matchup.status === 'upcoming' ? '--' : matchup.homeTeam.score.toFixed(1)}
                     </div>
-                    {matchup.status !== 'upcoming' && (
-                      <div className="text-xs text-muted-foreground">
+                    {matchup.status !== 'upcoming' &&
+                  <div className="text-xs text-muted-foreground">
                         Proj: {matchup.homeTeam.projected.toFixed(1)}
                       </div>
-                    )}
+                  }
                   </div>
 
                   {/* VS Divider */}
                   <div className="text-center">
                     <div className="text-lg font-semibold text-muted-foreground">VS</div>
-                    {matchup.status === 'completed' && (
-                      <Trophy className="h-6 w-6 mx-auto mt-2 text-yellow-500" />
-                    )}
+                    {matchup.status === 'completed' &&
+                  <Trophy className="h-6 w-6 mx-auto mt-2 text-yellow-500" />
+                  }
                   </div>
 
                   {/* Away Team */}
@@ -230,11 +230,11 @@ const MatchupsPage: React.FC = () => {
                     <div className="text-2xl font-bold">
                       {matchup.status === 'upcoming' ? '--' : matchup.awayTeam.score.toFixed(1)}
                     </div>
-                    {matchup.status !== 'upcoming' && (
-                      <div className="text-xs text-muted-foreground">
+                    {matchup.status !== 'upcoming' &&
+                  <div className="text-xs text-muted-foreground">
                         Proj: {matchup.awayTeam.projected.toFixed(1)}
                       </div>
-                    )}
+                  }
                   </div>
                 </div>
 
@@ -268,8 +268,8 @@ const MatchupsPage: React.FC = () => {
                     </div>
 
                     {/* Matchup Stats */}
-                    {matchup.status !== 'upcoming' && (
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
+                    {matchup.status !== 'upcoming' &&
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
                         <div>
                           <div className="text-sm text-muted-foreground">Total Points</div>
                           <div className="font-semibold">
@@ -293,24 +293,24 @@ const MatchupsPage: React.FC = () => {
                           <div className="text-xs">{matchup.status}</div>
                         </div>
                       </div>
-                    )}
+                  }
                   </div>
                 </CollapsibleContent>
               </CardContent>
             </Collapsible>
           </Card>
-        ))}
+        )}
 
-        {filteredMatchups.length === 0 && (
-          <Card>
+        {filteredMatchups.length === 0 &&
+        <Card>
             <CardContent className="py-8 text-center">
               <p className="text-muted-foreground">No matchups found for the selected filters.</p>
             </CardContent>
           </Card>
-        )}
+        }
       </div>
-    </div>
-  );
+    </div>);
+
 };
 
 export default MatchupsPage;

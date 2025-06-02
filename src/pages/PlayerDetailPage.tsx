@@ -29,20 +29,20 @@ const mockPlayerDetail = {
   rosteredByOwner: 'John Doe',
   ownershipPercentage: 98.2,
   weeklyStats: [
-    { week: 1, points: 28.5, opponent: 'vs ARI', result: 'W', projection: 24.2 },
-    { week: 2, points: 18.3, opponent: '@ MIA', result: 'L', projection: 22.8 },
-    { week: 3, points: 31.2, opponent: 'vs JAX', result: 'W', projection: 25.1 },
-    { week: 4, points: 15.7, opponent: '@ BAL', result: 'L', projection: 21.6 },
-    { week: 5, points: 26.8, opponent: 'vs HOU', result: 'W', projection: 23.9 },
-    { week: 6, points: 24.1, opponent: '@ NYJ', result: 'W', projection: 22.4 },
-    { week: 7, points: 19.6, opponent: 'vs TEN', result: 'W', projection: 24.7 },
-    { week: 8, points: 22.9, opponent: '@ SEA', result: 'W', projection: 23.3 },
-    { week: 9, points: 28.7, opponent: 'vs MIA', result: 'W', projection: 25.8 },
-    { week: 10, points: 16.4, opponent: '@ IND', result: 'L', projection: 21.9 },
-    { week: 11, points: 33.1, opponent: 'vs KC', result: 'W', projection: 26.2 },
-    { week: 12, points: 25.4, opponent: '@ PHI', result: 'W', projection: 24.5 },
-    { week: 13, points: 21.8, opponent: 'vs SF', result: 'W', projection: 23.7 }
-  ],
+  { week: 1, points: 28.5, opponent: 'vs ARI', result: 'W', projection: 24.2 },
+  { week: 2, points: 18.3, opponent: '@ MIA', result: 'L', projection: 22.8 },
+  { week: 3, points: 31.2, opponent: 'vs JAX', result: 'W', projection: 25.1 },
+  { week: 4, points: 15.7, opponent: '@ BAL', result: 'L', projection: 21.6 },
+  { week: 5, points: 26.8, opponent: 'vs HOU', result: 'W', projection: 23.9 },
+  { week: 6, points: 24.1, opponent: '@ NYJ', result: 'W', projection: 22.4 },
+  { week: 7, points: 19.6, opponent: 'vs TEN', result: 'W', projection: 24.7 },
+  { week: 8, points: 22.9, opponent: '@ SEA', result: 'W', projection: 23.3 },
+  { week: 9, points: 28.7, opponent: 'vs MIA', result: 'W', projection: 25.8 },
+  { week: 10, points: 16.4, opponent: '@ IND', result: 'L', projection: 21.9 },
+  { week: 11, points: 33.1, opponent: 'vs KC', result: 'W', projection: 26.2 },
+  { week: 12, points: 25.4, opponent: '@ PHI', result: 'W', projection: 24.5 },
+  { week: 13, points: 21.8, opponent: 'vs SF', result: 'W', projection: 23.7 }],
+
   seasonStats: {
     passingYards: 3731,
     passingTDs: 28,
@@ -53,25 +53,25 @@ const mockPlayerDetail = {
     qbRating: 89.4
   },
   news: [
-    {
-      id: 'news1',
-      date: '2024-12-15',
-      headline: 'Josh Allen leads Bills to division clinching victory',
-      summary: 'Allen threw for 3 TDs and rushed for another in the 35-21 win over the Lions.',
-      source: 'ESPN'
-    },
-    {
-      id: 'news2',
-      date: '2024-12-12',
-      headline: 'Allen named AFC Offensive Player of the Week',
-      summary: 'Fourth time this season Allen has received the honor after dominant performance.',
-      source: 'NFL.com'
-    }
-  ]
+  {
+    id: 'news1',
+    date: '2024-12-15',
+    headline: 'Josh Allen leads Bills to division clinching victory',
+    summary: 'Allen threw for 3 TDs and rushed for another in the 35-21 win over the Lions.',
+    source: 'ESPN'
+  },
+  {
+    id: 'news2',
+    date: '2024-12-12',
+    headline: 'Allen named AFC Offensive Player of the Week',
+    summary: 'Fourth time this season Allen has received the honor after dominant performance.',
+    source: 'NFL.com'
+  }]
+
 };
 
 const PlayerDetailPage: React.FC = () => {
-  const { playerId } = useParams<{ playerId: string }>();
+  const { playerId } = useParams<{playerId: string;}>();
   const [activeTab, setActiveTab] = useState('overview');
 
   // In a real app, you would fetch player data based on playerId
@@ -79,37 +79,37 @@ const PlayerDetailPage: React.FC = () => {
 
   const getPositionColor = (position: string) => {
     switch (position) {
-      case 'QB': return 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200';
-      case 'RB': return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200';
-      case 'WR': return 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200';
-      case 'TE': return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200';
-      case 'K': return 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200';
-      case 'DEF': return 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200';
-      default: return 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200';
+      case 'QB':return 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200';
+      case 'RB':return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200';
+      case 'WR':return 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200';
+      case 'TE':return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200';
+      case 'K':return 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200';
+      case 'DEF':return 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200';
+      default:return 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200';
     }
   };
 
   const getInjuryBadge = (status: string | null) => {
     if (!status) return null;
-    
-    const variants: { [key: string]: string } = {
+
+    const variants: {[key: string]: string;} = {
       'IR': 'destructive',
       'O': 'destructive',
       'D': 'destructive',
       'Q': 'secondary',
       'P': 'outline'
     };
-    
+
     return <Badge variant={variants[status] || 'outline'}>{status}</Badge>;
   };
 
   const calculateConsistency = () => {
-    const scores = player.weeklyStats.map(w => w.points);
+    const scores = player.weeklyStats.map((w) => w.points);
     const mean = scores.reduce((a, b) => a + b, 0) / scores.length;
     const variance = scores.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / scores.length;
     const stdDev = Math.sqrt(variance);
     const coefficient = stdDev / mean;
-    return Math.max(0, 100 - (coefficient * 100));
+    return Math.max(0, 100 - coefficient * 100);
   };
 
   return (
@@ -164,8 +164,8 @@ const PlayerDetailPage: React.FC = () => {
       </div>
 
       {/* Current Team Info */}
-      {player.rosteredBy && (
-        <Card>
+      {player.rosteredBy &&
+      <Card>
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
@@ -184,7 +184,7 @@ const PlayerDetailPage: React.FC = () => {
             </div>
           </CardContent>
         </Card>
-      )}
+      }
 
       {/* Player Details Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
@@ -218,7 +218,7 @@ const PlayerDetailPage: React.FC = () => {
                   <div>
                     <p className="text-sm text-muted-foreground">Best Game</p>
                     <p className="text-2xl font-bold">
-                      {Math.max(...player.weeklyStats.map(w => w.points)).toFixed(1)}
+                      {Math.max(...player.weeklyStats.map((w) => w.points)).toFixed(1)}
                     </p>
                   </div>
                   <div>
@@ -230,9 +230,9 @@ const PlayerDetailPage: React.FC = () => {
                 <div className="space-y-2">
                   <div className="flex justify-between text-sm">
                     <span>Performance vs Projection</span>
-                    <span>{((player.avgPoints / player.projectedPoints) * 100).toFixed(0)}%</span>
+                    <span>{(player.avgPoints / player.projectedPoints * 100).toFixed(0)}%</span>
                   </div>
-                  <Progress value={(player.avgPoints / player.projectedPoints) * 100} className="h-2" />
+                  <Progress value={player.avgPoints / player.projectedPoints * 100} className="h-2" />
                 </div>
               </CardContent>
             </Card>
@@ -351,8 +351,8 @@ const PlayerDetailPage: React.FC = () => {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {player.weeklyStats.slice(-10).map((week) => (
-                      <TableRow key={week.week}>
+                    {player.weeklyStats.slice(-10).map((week) =>
+                    <TableRow key={week.week}>
                         <TableCell className="font-medium">Week {week.week}</TableCell>
                         <TableCell>{week.opponent}</TableCell>
                         <TableCell className="text-right font-mono">
@@ -372,7 +372,7 @@ const PlayerDetailPage: React.FC = () => {
                           </Badge>
                         </TableCell>
                       </TableRow>
-                    ))}
+                    )}
                   </TableBody>
                 </Table>
               </div>
@@ -394,8 +394,8 @@ const PlayerDetailPage: React.FC = () => {
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                {player.news.map((article) => (
-                  <div key={article.id} className="border-l-4 border-primary pl-4 py-2">
+                {player.news.map((article) =>
+                <div key={article.id} className="border-l-4 border-primary pl-4 py-2">
                     <div className="flex items-center justify-between mb-2">
                       <h4 className="font-semibold">{article.headline}</h4>
                       <Badge variant="outline" className="text-xs">
@@ -409,10 +409,10 @@ const PlayerDetailPage: React.FC = () => {
                       {new Date(article.date).toLocaleDateString()}
                     </p>
                   </div>
-                ))}
+                )}
                 
-                {player.injuryStatus && (
-                  <div className="flex items-start space-x-3 p-4 border rounded-lg bg-yellow-50 dark:bg-yellow-900/20">
+                {player.injuryStatus &&
+                <div className="flex items-start space-x-3 p-4 border rounded-lg bg-yellow-50 dark:bg-yellow-900/20">
                     <AlertCircle className="h-5 w-5 text-yellow-600 mt-0.5" />
                     <div>
                       <h4 className="font-semibold text-yellow-800 dark:text-yellow-200">
@@ -423,14 +423,14 @@ const PlayerDetailPage: React.FC = () => {
                       </p>
                     </div>
                   </div>
-                )}
+                }
               </div>
             </CardContent>
           </Card>
         </TabsContent>
       </Tabs>
-    </div>
-  );
+    </div>);
+
 };
 
 export default PlayerDetailPage;

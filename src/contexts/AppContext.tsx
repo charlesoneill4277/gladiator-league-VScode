@@ -26,23 +26,23 @@ interface AppContextType {
 
 // League configurations
 const SEASON_CONFIGS: SeasonConfig[] = [
-  {
-    year: 2024,
-    conferences: [
-      { id: 'mars', name: 'Legions of Mars', leagueId: '1072580179844857856' },
-      { id: 'jupiter', name: 'Guardians of Jupiter', leagueId: '1072593839715667968' },
-      { id: 'vulcan', name: "Vulcan's Oathsworn", leagueId: '1072593416955015168' }
-    ]
-  },
-  {
-    year: 2025,
-    conferences: [
-      { id: 'mars', name: 'Legions of Mars', leagueId: '1204854057169072128' },
-      { id: 'jupiter', name: 'Guardians of Jupiter', leagueId: '1204857692007440384' },
-      { id: 'vulcan', name: "Vulcan's Oathsworn", leagueId: '1204857608989577216' }
-    ]
-  }
-];
+{
+  year: 2024,
+  conferences: [
+  { id: 'mars', name: 'Legions of Mars', leagueId: '1072580179844857856' },
+  { id: 'jupiter', name: 'Guardians of Jupiter', leagueId: '1072593839715667968' },
+  { id: 'vulcan', name: "Vulcan's Oathsworn", leagueId: '1072593416955015168' }]
+
+},
+{
+  year: 2025,
+  conferences: [
+  { id: 'mars', name: 'Legions of Mars', leagueId: '1204854057169072128' },
+  { id: 'jupiter', name: 'Guardians of Jupiter', leagueId: '1204857692007440384' },
+  { id: 'vulcan', name: "Vulcan's Oathsworn", leagueId: '1204857608989577216' }]
+
+}];
+
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
@@ -56,10 +56,10 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
   const [theme, setTheme] = useState<'light' | 'dark'>('dark'); // Default to dark theme
 
   const toggleTheme = () => {
-    setTheme(prev => prev === 'light' ? 'dark' : 'light');
+    setTheme((prev) => prev === 'light' ? 'dark' : 'light');
   };
 
-  const currentSeasonConfig = SEASON_CONFIGS.find(config => config.year === selectedSeason) || SEASON_CONFIGS[1];
+  const currentSeasonConfig = SEASON_CONFIGS.find((config) => config.year === selectedSeason) || SEASON_CONFIGS[1];
 
   const value: AppContextType = {
     selectedSeason,
@@ -77,8 +77,8 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
       <div className={theme}>
         {children}
       </div>
-    </AppContext.Provider>
-  );
+    </AppContext.Provider>);
+
 };
 
 export const useApp = (): AppContextType => {

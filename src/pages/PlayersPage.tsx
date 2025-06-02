@@ -11,77 +11,77 @@ import { UserCheck, Search, ArrowUpDown, ExternalLink, Filter } from 'lucide-rea
 
 // Mock data for players - this will be replaced with real Sleeper API data
 const mockPlayersData = [
-  {
-    id: 'player1',
-    name: 'Josh Allen',
-    position: 'QB',
-    nflTeam: 'BUF',
-    points: 287.5,
-    avgPoints: 22.1,
-    status: 'rostered',
-    rosteredBy: 'Galactic Gladiators',
-    rosteredByOwner: 'John Doe',
-    injuryStatus: null,
-    gamesPlayed: 13,
-    projectedPoints: 24.8
-  },
-  {
-    id: 'player2',
-    name: 'Christian McCaffrey',
-    position: 'RB',
-    nflTeam: 'SF',
-    points: 245.8,
-    avgPoints: 18.9,
-    status: 'rostered',
-    rosteredBy: 'Galactic Gladiators',
-    rosteredByOwner: 'John Doe',
-    injuryStatus: 'IR',
-    gamesPlayed: 13,
-    projectedPoints: 0
-  },
-  {
-    id: 'player3',
-    name: 'Tyreek Hill',
-    position: 'WR',
-    nflTeam: 'MIA',
-    points: 198.2,
-    avgPoints: 15.2,
-    status: 'rostered',
-    rosteredBy: 'Space Vikings',
-    rosteredByOwner: 'Jane Smith',
-    injuryStatus: null,
-    gamesPlayed: 13,
-    projectedPoints: 16.4
-  },
-  {
-    id: 'player4',
-    name: 'Saquon Barkley',
-    position: 'RB',
-    nflTeam: 'PHI',
-    points: 234.6,
-    avgPoints: 18.0,
-    status: 'free_agent',
-    rosteredBy: null,
-    rosteredByOwner: null,
-    injuryStatus: null,
-    gamesPlayed: 13,
-    projectedPoints: 18.5
-  },
-  {
-    id: 'player5',
-    name: 'Cooper Kupp',
-    position: 'WR',
-    nflTeam: 'LAR',
-    points: 156.8,
-    avgPoints: 14.2,
-    status: 'rostered',
-    rosteredBy: 'Meteor Crushers',
-    rosteredByOwner: 'Bob Johnson',
-    injuryStatus: 'Q',
-    gamesPlayed: 11,
-    projectedPoints: 15.8
-  },
-  // Add more mock players...
+{
+  id: 'player1',
+  name: 'Josh Allen',
+  position: 'QB',
+  nflTeam: 'BUF',
+  points: 287.5,
+  avgPoints: 22.1,
+  status: 'rostered',
+  rosteredBy: 'Galactic Gladiators',
+  rosteredByOwner: 'John Doe',
+  injuryStatus: null,
+  gamesPlayed: 13,
+  projectedPoints: 24.8
+},
+{
+  id: 'player2',
+  name: 'Christian McCaffrey',
+  position: 'RB',
+  nflTeam: 'SF',
+  points: 245.8,
+  avgPoints: 18.9,
+  status: 'rostered',
+  rosteredBy: 'Galactic Gladiators',
+  rosteredByOwner: 'John Doe',
+  injuryStatus: 'IR',
+  gamesPlayed: 13,
+  projectedPoints: 0
+},
+{
+  id: 'player3',
+  name: 'Tyreek Hill',
+  position: 'WR',
+  nflTeam: 'MIA',
+  points: 198.2,
+  avgPoints: 15.2,
+  status: 'rostered',
+  rosteredBy: 'Space Vikings',
+  rosteredByOwner: 'Jane Smith',
+  injuryStatus: null,
+  gamesPlayed: 13,
+  projectedPoints: 16.4
+},
+{
+  id: 'player4',
+  name: 'Saquon Barkley',
+  position: 'RB',
+  nflTeam: 'PHI',
+  points: 234.6,
+  avgPoints: 18.0,
+  status: 'free_agent',
+  rosteredBy: null,
+  rosteredByOwner: null,
+  injuryStatus: null,
+  gamesPlayed: 13,
+  projectedPoints: 18.5
+},
+{
+  id: 'player5',
+  name: 'Cooper Kupp',
+  position: 'WR',
+  nflTeam: 'LAR',
+  points: 156.8,
+  avgPoints: 14.2,
+  status: 'rostered',
+  rosteredBy: 'Meteor Crushers',
+  rosteredByOwner: 'Bob Johnson',
+  injuryStatus: 'Q',
+  gamesPlayed: 11,
+  projectedPoints: 15.8
+}
+// Add more mock players...
 ];
 
 const PlayersPage: React.FC = () => {
@@ -89,20 +89,20 @@ const PlayersPage: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [positionFilter, setPositionFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
-  const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' } | null>(null);
+  const [sortConfig, setSortConfig] = useState<{key: string;direction: 'asc' | 'desc';} | null>(null);
 
   const positions = ['QB', 'RB', 'WR', 'TE', 'K', 'DEF'];
 
   // Filter players based on search term and filters
-  const filteredPlayers = mockPlayersData.filter(player => {
-    const searchMatch = searchTerm === '' || 
-      player.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      player.nflTeam.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (player.rosteredBy && player.rosteredBy.toLowerCase().includes(searchTerm.toLowerCase()));
-    
+  const filteredPlayers = mockPlayersData.filter((player) => {
+    const searchMatch = searchTerm === '' ||
+    player.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    player.nflTeam.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    player.rosteredBy && player.rosteredBy.toLowerCase().includes(searchTerm.toLowerCase());
+
     const positionMatch = positionFilter === 'all' || player.position === positionFilter;
     const statusMatch = statusFilter === 'all' || player.status === statusFilter;
-    
+
     return searchMatch && positionMatch && statusMatch;
   });
 
@@ -120,7 +120,7 @@ const PlayersPage: React.FC = () => {
       sortablePlayers.sort((a, b) => {
         const aValue = (a as any)[sortConfig.key];
         const bValue = (b as any)[sortConfig.key];
-        
+
         if (aValue < bValue) {
           return sortConfig.direction === 'asc' ? -1 : 1;
         }
@@ -135,19 +135,19 @@ const PlayersPage: React.FC = () => {
 
   const getPositionColor = (position: string) => {
     switch (position) {
-      case 'QB': return 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200';
-      case 'RB': return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200';
-      case 'WR': return 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200';
-      case 'TE': return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200';
-      case 'K': return 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200';
-      case 'DEF': return 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200';
-      default: return 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200';
+      case 'QB':return 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200';
+      case 'RB':return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200';
+      case 'WR':return 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200';
+      case 'TE':return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200';
+      case 'K':return 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200';
+      case 'DEF':return 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200';
+      default:return 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200';
     }
   };
 
   const getStatusBadge = (status: string, injuryStatus: string | null) => {
     if (injuryStatus) {
-      const variants: { [key: string]: string } = {
+      const variants: {[key: string]: string;} = {
         'IR': 'destructive',
         'O': 'destructive',
         'D': 'destructive',
@@ -156,10 +156,10 @@ const PlayersPage: React.FC = () => {
       };
       return <Badge variant={variants[injuryStatus] || 'outline'} className="text-xs">{injuryStatus}</Badge>;
     }
-    
-    return status === 'free_agent' 
-      ? <Badge variant="outline" className="text-xs">FA</Badge>
-      : <Badge variant="secondary" className="text-xs">Rostered</Badge>;
+
+    return status === 'free_agent' ?
+    <Badge variant="outline" className="text-xs">FA</Badge> :
+    <Badge variant="secondary" className="text-xs">Rostered</Badge>;
   };
 
   return (
@@ -184,8 +184,8 @@ const PlayersPage: React.FC = () => {
             placeholder="Search players, teams..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-10"
-          />
+            className="pl-10" />
+
         </div>
 
         {/* Position Filter */}
@@ -195,9 +195,9 @@ const PlayersPage: React.FC = () => {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Positions</SelectItem>
-            {positions.map((pos) => (
-              <SelectItem key={pos} value={pos}>{pos}</SelectItem>
-            ))}
+            {positions.map((pos) =>
+            <SelectItem key={pos} value={pos}>{pos}</SelectItem>
+            )}
           </SelectContent>
         </Select>
 
@@ -214,15 +214,15 @@ const PlayersPage: React.FC = () => {
         </Select>
 
         {/* Clear Filters */}
-        <Button 
-          variant="outline" 
+        <Button
+          variant="outline"
           onClick={() => {
             setSearchTerm('');
             setPositionFilter('all');
             setStatusFilter('all');
           }}
-          className="flex items-center space-x-2"
-        >
+          className="flex items-center space-x-2">
+
           <Filter className="h-4 w-4" />
           <span>Clear Filters</span>
         </Button>
@@ -241,7 +241,7 @@ const PlayersPage: React.FC = () => {
           <CardHeader className="pb-2">
             <CardDescription>Free Agents</CardDescription>
             <CardTitle className="text-2xl">
-              {sortedPlayers.filter(p => p.status === 'free_agent').length}
+              {sortedPlayers.filter((p) => p.status === 'free_agent').length}
             </CardTitle>
           </CardHeader>
         </Card>
@@ -250,7 +250,7 @@ const PlayersPage: React.FC = () => {
           <CardHeader className="pb-2">
             <CardDescription>Injured Players</CardDescription>
             <CardTitle className="text-2xl">
-              {sortedPlayers.filter(p => p.injuryStatus).length}
+              {sortedPlayers.filter((p) => p.injuryStatus).length}
             </CardTitle>
           </CardHeader>
         </Card>
@@ -259,9 +259,9 @@ const PlayersPage: React.FC = () => {
           <CardHeader className="pb-2">
             <CardDescription>Avg Points/Game</CardDescription>
             <CardTitle className="text-2xl">
-              {sortedPlayers.length > 0 ? 
-                (sortedPlayers.reduce((sum, p) => sum + p.avgPoints, 0) / sortedPlayers.length).toFixed(1) 
-                : '0.0'
+              {sortedPlayers.length > 0 ?
+              (sortedPlayers.reduce((sum, p) => sum + p.avgPoints, 0) / sortedPlayers.length).toFixed(1) :
+              '0.0'
               }
             </CardTitle>
           </CardHeader>
@@ -308,8 +308,8 @@ const PlayersPage: React.FC = () => {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {sortedPlayers.map((player) => (
-                  <TableRow key={player.id} className="hover:bg-muted/50">
+                {sortedPlayers.map((player) =>
+                <TableRow key={player.id} className="hover:bg-muted/50">
                     <TableCell>
                       <div className="font-medium">{player.name}</div>
                       <div className="text-sm text-muted-foreground sm:hidden">
@@ -332,14 +332,14 @@ const PlayersPage: React.FC = () => {
                       {getStatusBadge(player.status, player.injuryStatus)}
                     </TableCell>
                     <TableCell className="hidden lg:table-cell">
-                      {player.rosteredBy ? (
-                        <div>
+                      {player.rosteredBy ?
+                    <div>
                           <div className="text-sm font-medium">{player.rosteredBy}</div>
                           <div className="text-xs text-muted-foreground">{player.rosteredByOwner}</div>
-                        </div>
-                      ) : (
-                        <span className="text-muted-foreground text-sm">Free Agent</span>
-                      )}
+                        </div> :
+
+                    <span className="text-muted-foreground text-sm">Free Agent</span>
+                    }
                     </TableCell>
                     <TableCell>
                       <Link to={`/players/${player.id}`}>
@@ -349,24 +349,24 @@ const PlayersPage: React.FC = () => {
                       </Link>
                     </TableCell>
                   </TableRow>
-                ))}
+                )}
               </TableBody>
             </Table>
           </div>
 
-          {sortedPlayers.length === 0 && (
-            <div className="text-center py-8">
+          {sortedPlayers.length === 0 &&
+          <div className="text-center py-8">
               <UserCheck className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
               <h3 className="text-lg font-semibold mb-2">No players found</h3>
               <p className="text-muted-foreground">
                 No players match your current search criteria.
               </p>
             </div>
-          )}
+          }
         </CardContent>
       </Card>
-    </div>
-  );
+    </div>);
+
 };
 
 export default PlayersPage;

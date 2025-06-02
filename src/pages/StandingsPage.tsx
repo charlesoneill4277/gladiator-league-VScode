@@ -8,65 +8,65 @@ import { ArrowUpDown, Trophy, TrendingUp, TrendingDown } from 'lucide-react';
 
 // Mock data for standings - this will be replaced with real Sleeper API data
 const mockStandingsData = [
-  {
-    id: '1',
-    teamName: 'Galactic Gladiators',
-    ownerName: 'John Doe',
-    conference: 'Legions of Mars',
-    rank: 1,
-    wins: 11,
-    losses: 2,
-    ties: 0,
-    pointsFor: 1485.2,
-    pointsAgainst: 1289.5,
-    pointsDiff: 195.7,
-    streak: 'W5',
-    avgPointsFor: 114.2
-  },
-  {
-    id: '2',
-    teamName: 'Space Vikings',
-    ownerName: 'Jane Smith',
-    conference: 'Guardians of Jupiter',
-    rank: 2,
-    wins: 10,
-    losses: 3,
-    ties: 0,
-    pointsFor: 1442.8,
-    pointsAgainst: 1321.4,
-    pointsDiff: 121.4,
-    streak: 'W3',
-    avgPointsFor: 111.0
-  },
-  {
-    id: '3',
-    teamName: 'Meteor Crushers',
-    ownerName: 'Bob Johnson',
-    conference: "Vulcan's Oathsworn",
-    rank: 3,
-    wins: 9,
-    losses: 4,
-    ties: 0,
-    pointsFor: 1398.6,
-    pointsAgainst: 1356.2,
-    pointsDiff: 42.4,
-    streak: 'L1',
-    avgPointsFor: 107.6
-  },
-  // Add more mock data...
+{
+  id: '1',
+  teamName: 'Galactic Gladiators',
+  ownerName: 'John Doe',
+  conference: 'Legions of Mars',
+  rank: 1,
+  wins: 11,
+  losses: 2,
+  ties: 0,
+  pointsFor: 1485.2,
+  pointsAgainst: 1289.5,
+  pointsDiff: 195.7,
+  streak: 'W5',
+  avgPointsFor: 114.2
+},
+{
+  id: '2',
+  teamName: 'Space Vikings',
+  ownerName: 'Jane Smith',
+  conference: 'Guardians of Jupiter',
+  rank: 2,
+  wins: 10,
+  losses: 3,
+  ties: 0,
+  pointsFor: 1442.8,
+  pointsAgainst: 1321.4,
+  pointsDiff: 121.4,
+  streak: 'W3',
+  avgPointsFor: 111.0
+},
+{
+  id: '3',
+  teamName: 'Meteor Crushers',
+  ownerName: 'Bob Johnson',
+  conference: "Vulcan's Oathsworn",
+  rank: 3,
+  wins: 9,
+  losses: 4,
+  ties: 0,
+  pointsFor: 1398.6,
+  pointsAgainst: 1356.2,
+  pointsDiff: 42.4,
+  streak: 'L1',
+  avgPointsFor: 107.6
+}
+// Add more mock data...
 ];
 
 const StandingsPage: React.FC = () => {
   const { selectedSeason, selectedConference, currentSeasonConfig } = useApp();
-  const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' } | null>(null);
+  const [sortConfig, setSortConfig] = useState<{key: string;direction: 'asc' | 'desc';} | null>(null);
 
   // Filter standings based on selected conference
-  const filteredStandings = selectedConference 
-    ? mockStandingsData.filter(team => {
-        const conference = currentSeasonConfig.conferences.find(c => c.id === selectedConference);
-        return team.conference === conference?.name;
-      })
-    : mockStandingsData;
+  const filteredStandings = selectedConference ?
+  mockStandingsData.filter((team) => {
+    const conference = currentSeasonConfig.conferences.find((c) => c.id === selectedConference);
+    return team.conference === conference?.name;
+  }) :
+  mockStandingsData;
 
   const handleSort = (key: string) => {
     let direction: 'asc' | 'desc' = 'desc';
@@ -82,7 +82,7 @@ const StandingsPage: React.FC = () => {
       sortableStandings.sort((a, b) => {
         const aValue = (a as any)[sortConfig.key];
         const bValue = (b as any)[sortConfig.key];
-        
+
         if (aValue < bValue) {
           return sortConfig.direction === 'asc' ? -1 : 1;
         }
@@ -120,9 +120,9 @@ const StandingsPage: React.FC = () => {
           <h1 className="text-3xl font-bold">League Standings</h1>
         </div>
         <p className="text-muted-foreground">
-          {selectedSeason} Season • {selectedConference 
-            ? currentSeasonConfig.conferences.find(c => c.id === selectedConference)?.name 
-            : 'All Conferences'
+          {selectedSeason} Season • {selectedConference ?
+          currentSeasonConfig.conferences.find((c) => c.id === selectedConference)?.name :
+          'All Conferences'
           }
         </p>
       </div>
@@ -140,10 +140,10 @@ const StandingsPage: React.FC = () => {
           <CardHeader className="pb-2">
             <CardDescription>Highest Scoring Team</CardDescription>
             <CardTitle className="text-xl">
-              {filteredStandings.length > 0 && 
-                filteredStandings.reduce((prev, current) => 
-                  prev.pointsFor > current.pointsFor ? prev : current
-                ).teamName
+              {filteredStandings.length > 0 &&
+              filteredStandings.reduce((prev, current) =>
+              prev.pointsFor > current.pointsFor ? prev : current
+              ).teamName
               }
             </CardTitle>
           </CardHeader>
@@ -154,7 +154,7 @@ const StandingsPage: React.FC = () => {
             <CardDescription>League Average PPG</CardDescription>
             <CardTitle className="text-2xl">
               {filteredStandings.length > 0 &&
-                (filteredStandings.reduce((sum, team) => sum + team.avgPointsFor, 0) / filteredStandings.length).toFixed(1)
+              (filteredStandings.reduce((sum, team) => sum + team.avgPointsFor, 0) / filteredStandings.length).toFixed(1)
               }
             </CardTitle>
           </CardHeader>
@@ -210,8 +210,8 @@ const StandingsPage: React.FC = () => {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {sortedStandings.map((team, index) => (
-                  <TableRow key={team.id} className="hover:bg-muted/50">
+                {sortedStandings.map((team, index) =>
+                <TableRow key={team.id} className="hover:bg-muted/50">
                     <TableCell className="font-medium">
                       <div className="flex items-center space-x-1">
                         {team.rank === 1 && <Trophy className="h-4 w-4 text-yellow-500" />}
@@ -252,14 +252,14 @@ const StandingsPage: React.FC = () => {
                       </div>
                     </TableCell>
                   </TableRow>
-                ))}
+                )}
               </TableBody>
             </Table>
           </div>
         </CardContent>
       </Card>
-    </div>
-  );
+    </div>);
+
 };
 
 export default StandingsPage;

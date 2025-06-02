@@ -15,55 +15,55 @@ const mockDraftData = {
       draftType: 'snake',
       rounds: 16,
       teams: [
-        { id: 'team1', name: 'Galactic Gladiators', owner: 'John Doe', draftPosition: 1 },
-        { id: 'team2', name: 'Mars Rovers', owner: 'Jane Smith', draftPosition: 2 },
-        { id: 'team3', name: 'Red Planet Raiders', owner: 'Bob Johnson', draftPosition: 3 },
-        { id: 'team4', name: 'Martian Miners', owner: 'Alice Brown', draftPosition: 4 }
-      ],
+      { id: 'team1', name: 'Galactic Gladiators', owner: 'John Doe', draftPosition: 1 },
+      { id: 'team2', name: 'Mars Rovers', owner: 'Jane Smith', draftPosition: 2 },
+      { id: 'team3', name: 'Red Planet Raiders', owner: 'Bob Johnson', draftPosition: 3 },
+      { id: 'team4', name: 'Martian Miners', owner: 'Alice Brown', draftPosition: 4 }],
+
       picks: [
-        { round: 1, pick: 1, overall: 1, team: 'Galactic Gladiators', player: 'Christian McCaffrey', position: 'RB', nflTeam: 'SF' },
-        { round: 1, pick: 2, overall: 2, team: 'Mars Rovers', player: 'Austin Ekeler', position: 'RB', nflTeam: 'LAC' },
-        { round: 1, pick: 3, overall: 3, team: 'Red Planet Raiders', player: 'Cooper Kupp', position: 'WR', nflTeam: 'LAR' },
-        { round: 1, pick: 4, overall: 4, team: 'Martian Miners', player: 'Stefon Diggs', position: 'WR', nflTeam: 'BUF' },
-        { round: 2, pick: 1, overall: 5, team: 'Martian Miners', player: 'Josh Allen', position: 'QB', nflTeam: 'BUF' },
-        { round: 2, pick: 2, overall: 6, team: 'Red Planet Raiders', player: 'Saquon Barkley', position: 'RB', nflTeam: 'NYG' },
-        { round: 2, pick: 3, overall: 7, team: 'Mars Rovers', player: 'Tyreek Hill', position: 'WR', nflTeam: 'MIA' },
-        { round: 2, pick: 4, overall: 8, team: 'Galactic Gladiators', player: 'Davante Adams', position: 'WR', nflTeam: 'LV' }
-      ]
+      { round: 1, pick: 1, overall: 1, team: 'Galactic Gladiators', player: 'Christian McCaffrey', position: 'RB', nflTeam: 'SF' },
+      { round: 1, pick: 2, overall: 2, team: 'Mars Rovers', player: 'Austin Ekeler', position: 'RB', nflTeam: 'LAC' },
+      { round: 1, pick: 3, overall: 3, team: 'Red Planet Raiders', player: 'Cooper Kupp', position: 'WR', nflTeam: 'LAR' },
+      { round: 1, pick: 4, overall: 4, team: 'Martian Miners', player: 'Stefon Diggs', position: 'WR', nflTeam: 'BUF' },
+      { round: 2, pick: 1, overall: 5, team: 'Martian Miners', player: 'Josh Allen', position: 'QB', nflTeam: 'BUF' },
+      { round: 2, pick: 2, overall: 6, team: 'Red Planet Raiders', player: 'Saquon Barkley', position: 'RB', nflTeam: 'NYG' },
+      { round: 2, pick: 3, overall: 7, team: 'Mars Rovers', player: 'Tyreek Hill', position: 'WR', nflTeam: 'MIA' },
+      { round: 2, pick: 4, overall: 8, team: 'Galactic Gladiators', player: 'Davante Adams', position: 'WR', nflTeam: 'LV' }]
+
     },
     'jupiter': {
       name: 'Guardians of Jupiter',
       draftType: 'snake',
       rounds: 16,
       teams: [
-        { id: 'team5', name: 'Storm Chasers', owner: 'Charlie Wilson', draftPosition: 1 },
-        { id: 'team6', name: 'Gas Giants', owner: 'Diana Prince', draftPosition: 2 },
-        { id: 'team7', name: 'Europa Explorers', owner: 'Frank Miller', draftPosition: 3 },
-        { id: 'team8', name: 'Jovian Jets', owner: 'Grace Lee', draftPosition: 4 }
-      ],
+      { id: 'team5', name: 'Storm Chasers', owner: 'Charlie Wilson', draftPosition: 1 },
+      { id: 'team6', name: 'Gas Giants', owner: 'Diana Prince', draftPosition: 2 },
+      { id: 'team7', name: 'Europa Explorers', owner: 'Frank Miller', draftPosition: 3 },
+      { id: 'team8', name: 'Jovian Jets', owner: 'Grace Lee', draftPosition: 4 }],
+
       picks: [
-        { round: 1, pick: 1, overall: 1, team: 'Storm Chasers', player: 'Josh Jacobs', position: 'RB', nflTeam: 'LV' },
-        { round: 1, pick: 2, overall: 2, team: 'Gas Giants', player: 'Nick Chubb', position: 'RB', nflTeam: 'CLE' },
-        { round: 1, pick: 3, overall: 3, team: 'Europa Explorers', player: 'Derrick Henry', position: 'RB', nflTeam: 'TEN' },
-        { round: 1, pick: 4, overall: 4, team: 'Jovian Jets', player: 'Ja\'Marr Chase', position: 'WR', nflTeam: 'CIN' }
-      ]
+      { round: 1, pick: 1, overall: 1, team: 'Storm Chasers', player: 'Josh Jacobs', position: 'RB', nflTeam: 'LV' },
+      { round: 1, pick: 2, overall: 2, team: 'Gas Giants', player: 'Nick Chubb', position: 'RB', nflTeam: 'CLE' },
+      { round: 1, pick: 3, overall: 3, team: 'Europa Explorers', player: 'Derrick Henry', position: 'RB', nflTeam: 'TEN' },
+      { round: 1, pick: 4, overall: 4, team: 'Jovian Jets', player: 'Ja\'Marr Chase', position: 'WR', nflTeam: 'CIN' }]
+
     },
     'vulcan': {
       name: "Vulcan's Oathsworn",
       draftType: 'snake',
       rounds: 16,
       teams: [
-        { id: 'team9', name: 'Forge Masters', owner: 'Henry Clark', draftPosition: 1 },
-        { id: 'team10', name: 'Lava Lords', owner: 'Ivy Davis', draftPosition: 2 },
-        { id: 'team11', name: 'Volcanic Victors', owner: 'Jack Turner', draftPosition: 3 },
-        { id: 'team12', name: 'Molten Marauders', owner: 'Kelly White', draftPosition: 4 }
-      ],
+      { id: 'team9', name: 'Forge Masters', owner: 'Henry Clark', draftPosition: 1 },
+      { id: 'team10', name: 'Lava Lords', owner: 'Ivy Davis', draftPosition: 2 },
+      { id: 'team11', name: 'Volcanic Victors', owner: 'Jack Turner', draftPosition: 3 },
+      { id: 'team12', name: 'Molten Marauders', owner: 'Kelly White', draftPosition: 4 }],
+
       picks: [
-        { round: 1, pick: 1, overall: 1, team: 'Forge Masters', player: 'Jonathan Taylor', position: 'RB', nflTeam: 'IND' },
-        { round: 1, pick: 2, overall: 2, team: 'Lava Lords', player: 'Dalvin Cook', position: 'RB', nflTeam: 'MIN' },
-        { round: 1, pick: 3, overall: 3, team: 'Volcanic Victors', player: 'Alvin Kamara', position: 'RB', nflTeam: 'NO' },
-        { round: 1, pick: 4, overall: 4, team: 'Molten Marauders', player: 'DeAndre Hopkins', position: 'WR', nflTeam: 'ARI' }
-      ]
+      { round: 1, pick: 1, overall: 1, team: 'Forge Masters', player: 'Jonathan Taylor', position: 'RB', nflTeam: 'IND' },
+      { round: 1, pick: 2, overall: 2, team: 'Lava Lords', player: 'Dalvin Cook', position: 'RB', nflTeam: 'MIN' },
+      { round: 1, pick: 3, overall: 3, team: 'Volcanic Victors', player: 'Alvin Kamara', position: 'RB', nflTeam: 'NO' },
+      { round: 1, pick: 4, overall: 4, team: 'Molten Marauders', player: 'DeAndre Hopkins', position: 'WR', nflTeam: 'ARI' }]
+
     }
   }
 };
@@ -74,19 +74,19 @@ const DraftResultsPage: React.FC = () => {
   const [viewMode, setViewMode] = useState<'board' | 'team'>('board');
 
   // Get conferences to display based on filter
-  const conferencesToShow = selectedConference 
-    ? [selectedConference]
-    : currentSeasonConfig.conferences.map(c => c.id);
+  const conferencesToShow = selectedConference ?
+  [selectedConference] :
+  currentSeasonConfig.conferences.map((c) => c.id);
 
   const getPositionColor = (position: string) => {
     switch (position) {
-      case 'QB': return 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200';
-      case 'RB': return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200';
-      case 'WR': return 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200';
-      case 'TE': return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200';
-      case 'K': return 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200';
-      case 'DEF': return 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200';
-      default: return 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200';
+      case 'QB':return 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200';
+      case 'RB':return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200';
+      case 'WR':return 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200';
+      case 'TE':return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200';
+      case 'K':return 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200';
+      case 'DEF':return 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200';
+      default:return 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200';
     }
   };
 
@@ -121,8 +121,8 @@ const DraftResultsPage: React.FC = () => {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {roundPicks.map((pick: any) => (
-                  <TableRow key={`${conferenceId}-${pick.overall}`}>
+                {roundPicks.map((pick: any) =>
+                <TableRow key={`${conferenceId}-${pick.overall}`}>
                     <TableCell className="font-medium">{pick.pick}</TableCell>
                     <TableCell className="font-medium">{pick.overall}</TableCell>
                     <TableCell className="font-semibold">{pick.player}</TableCell>
@@ -138,19 +138,19 @@ const DraftResultsPage: React.FC = () => {
                       </div>
                     </TableCell>
                   </TableRow>
-                ))}
+                )}
               </TableBody>
             </Table>
           </div>
         </CardContent>
-      </Card>
-    );
+      </Card>);
+
   };
 
   const renderTeamView = () => {
     return (
       <div className="space-y-6">
-        {conferencesToShow.map(conferenceId => {
+        {conferencesToShow.map((conferenceId) => {
           const conference = (mockDraftData.conferences as any)[conferenceId];
           if (!conference) return null;
 
@@ -166,7 +166,7 @@ const DraftResultsPage: React.FC = () => {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {conference.teams.map((team: any) => {
                     const teamPicks = conference.picks.filter((pick: any) => pick.team === team.name);
-                    
+
                     return (
                       <Card key={team.id}>
                         <CardHeader className="pb-2">
@@ -177,8 +177,8 @@ const DraftResultsPage: React.FC = () => {
                         </CardHeader>
                         <CardContent>
                           <div className="space-y-2">
-                            {teamPicks.slice(0, 5).map((pick: any) => (
-                              <div key={pick.overall} className="flex items-center justify-between p-2 rounded-md bg-accent/50">
+                            {teamPicks.slice(0, 5).map((pick: any) =>
+                            <div key={pick.overall} className="flex items-center justify-between p-2 rounded-md bg-accent/50">
                                 <div className="flex items-center space-x-2">
                                   <Badge variant="outline" className="text-xs">
                                     R{pick.round}
@@ -190,24 +190,24 @@ const DraftResultsPage: React.FC = () => {
                                 </div>
                                 <span className="text-xs text-muted-foreground">#{pick.overall}</span>
                               </div>
-                            ))}
-                            {teamPicks.length > 5 && (
-                              <p className="text-xs text-muted-foreground text-center pt-2">
+                            )}
+                            {teamPicks.length > 5 &&
+                            <p className="text-xs text-muted-foreground text-center pt-2">
                                 +{teamPicks.length - 5} more picks
                               </p>
-                            )}
+                            }
                           </div>
                         </CardContent>
-                      </Card>
-                    );
+                      </Card>);
+
                   })}
                 </div>
               </CardContent>
-            </Card>
-          );
+            </Card>);
+
         })}
-      </div>
-    );
+      </div>);
+
   };
 
   return (
@@ -219,9 +219,9 @@ const DraftResultsPage: React.FC = () => {
           <h1 className="text-3xl font-bold">Draft Results</h1>
         </div>
         <p className="text-muted-foreground">
-          {selectedSeason} Season • {selectedConference 
-            ? currentSeasonConfig.conferences.find(c => c.id === selectedConference)?.name 
-            : 'All Conferences'
+          {selectedSeason} Season • {selectedConference ?
+          currentSeasonConfig.conferences.find((c) => c.id === selectedConference)?.name :
+          'All Conferences'
           }
         </p>
       </div>
@@ -270,11 +270,11 @@ const DraftResultsPage: React.FC = () => {
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              {Array.from({ length: 16 }, (_, i) => (
-                <SelectItem key={i + 1} value={(i + 1).toString()}>
+              {Array.from({ length: 16 }, (_, i) =>
+              <SelectItem key={i + 1} value={(i + 1).toString()}>
                   Round {i + 1}
                 </SelectItem>
-              ))}
+              )}
             </SelectContent>
           </Select>
         </div>
@@ -288,7 +288,7 @@ const DraftResultsPage: React.FC = () => {
         </TabsList>
 
         <TabsContent value="board" className="space-y-6">
-          {conferencesToShow.map(conferenceId => renderDraftBoard(conferenceId))}
+          {conferencesToShow.map((conferenceId) => renderDraftBoard(conferenceId))}
         </TabsContent>
 
         <TabsContent value="team" className="space-y-6">
@@ -328,8 +328,8 @@ const DraftResultsPage: React.FC = () => {
           </div>
         </CardContent>
       </Card>
-    </div>
-  );
+    </div>);
+
 };
 
 export default DraftResultsPage;

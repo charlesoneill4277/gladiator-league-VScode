@@ -75,8 +75,8 @@ const LeagueRulesPage: React.FC = () => {
   const { selectedSeason, selectedConference, currentSeasonConfig } = useApp();
   const [activeTab, setActiveTab] = useState('scoring');
 
-  const renderScoringTable = (category: string, rules: any) => (
-    <Card>
+  const renderScoringTable = (category: string, rules: any) =>
+  <Card>
       <CardHeader>
         <CardTitle className="capitalize">{category}</CardTitle>
       </CardHeader>
@@ -91,10 +91,10 @@ const LeagueRulesPage: React.FC = () => {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {Object.entries(rules).map(([key, rule]: [string, any]) => (
-                <TableRow key={key}>
+              {Object.entries(rules).map(([key, rule]: [string, any]) =>
+            <TableRow key={key}>
                   <TableCell className="font-medium">
-                    {key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())}
+                    {key.replace(/([A-Z])/g, ' $1').replace(/^./, (str) => str.toUpperCase())}
                   </TableCell>
                   <TableCell className="text-right font-mono">
                     <Badge variant={rule.points > 0 ? 'default' : 'destructive'}>
@@ -105,13 +105,13 @@ const LeagueRulesPage: React.FC = () => {
                     {rule.description}
                   </TableCell>
                 </TableRow>
-              ))}
+            )}
             </TableBody>
           </Table>
         </div>
       </CardContent>
-    </Card>
-  );
+    </Card>;
+
 
   return (
     <div className="space-y-6">
@@ -194,19 +194,19 @@ const LeagueRulesPage: React.FC = () => {
               </CardHeader>
               <CardContent>
                 <div className="space-y-3">
-                  {Object.entries(mockLeagueRules.roster.positions).map(([position, count]) => (
-                    <div key={position} className="flex items-center justify-between p-3 border rounded-lg">
+                  {Object.entries(mockLeagueRules.roster.positions).map(([position, count]) =>
+                  <div key={position} className="flex items-center justify-between p-3 border rounded-lg">
                       <div className="flex items-center space-x-2">
                         <Badge variant="outline">{position}</Badge>
                         <span className="text-sm text-muted-foreground">
-                          {position === 'FLEX' ? 'RB/WR/TE' : 
-                           position === 'BENCH' ? 'Bench Players' :
-                           position === 'DEF' ? 'Team Defense' : position}
+                          {position === 'FLEX' ? 'RB/WR/TE' :
+                        position === 'BENCH' ? 'Bench Players' :
+                        position === 'DEF' ? 'Team Defense' : position}
                         </span>
                       </div>
                       <span className="font-semibold">{count}</span>
                     </div>
-                  ))}
+                  )}
                 </div>
               </CardContent>
             </Card>
@@ -460,8 +460,8 @@ const LeagueRulesPage: React.FC = () => {
           </Card>
         </TabsContent>
       </Tabs>
-    </div>
-  );
+    </div>);
+
 };
 
 export default LeagueRulesPage;
