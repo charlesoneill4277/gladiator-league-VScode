@@ -6,8 +6,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
-import { RefreshCw, Download, CheckCircle, AlertCircle, Clock, Database } from 'lucide-react';
+import { RefreshCw, Download, CheckCircle, AlertCircle, Clock, Database, Users, Trophy } from 'lucide-react';
 
 interface Season {
   id: number;
@@ -33,20 +34,45 @@ interface SyncResult {
   data?: any;
 }
 
+interface Team {
+  id: number;
+  team_name: string;
+  owner_name: string;
+  owner_id: string;
+  co_owner_name?: string;
+  co_owner_id?: string;
+  team_logo_url: string;
+  team_primary_color: string;
+  team_secondary_color: string;
+}
+
+interface TeamSyncResult {
+  league_id: string;
+  success: boolean;
+  error?: string;
+  teams_created: number;
+  junction_records_created: number;
+}
+
 const DataSync: React.FC = () => {
   const [seasons, setSeasons] = useState<Season[]>([]);
   const [conferences, setConferences] = useState<Conference[]>([]);
   const [selectedSeasonId, setSelectedSeasonId] = useState<number | null>(null);
   const [syncing, setSyncing] = useState(false);
+  const [syncingTeams, setSyncingTeams] = useState(false);
   const [progress, setProgress] = useState(0);
+  const [teamsProgress, setTeamsProgress] = useState(0);
   const [syncResults, setSyncResults] = useState<SyncResult[]>([]);
+  const [teamsSyncResults, setTeamsSyncResults] = useState<TeamSyncResult[]>([]);
   const [lastSyncTime, setLastSyncTime] = useState<string | null>(null);
+  const [lastTeamsSyncTime, setLastTeamsSyncTime] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
 
   useEffect(() => {
     loadSeasons();
     loadLastSyncTime();
+    loadLastTeamsSyncTime();
   }, []);
 
   useEffect(() => {
@@ -122,6 +148,13 @@ const DataSync: React.FC = () => {
     const lastSync = localStorage.getItem('last_data_sync');
     if (lastSync) {
       setLastSyncTime(new Date(lastSync).toLocaleString());
+    }
+  };
+
+  const loadLastTeamsSyncTime = () => {
+    const lastSync = localStorage.getItem('last_teams_sync');
+    if (lastSync) {
+      setLastTeamsSyncTime(new Date(lastSync).toLocaleString());
     }
   };
 
@@ -220,6 +253,178 @@ const DataSync: React.FC = () => {
     });
   };
 
+  const syncTeamsData = async () => {
+    if (!selectedSeasonId || conferences.length === 0) {
+      toast({
+        title: "No Data to Sync",
+        description: "Please select a season with conferences to sync teams",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setSyncingTeams(true);
+    setTeamsProgress(0);
+    setTeamsSyncResults([]);
+
+    const results: TeamSyncResult[] = [];
+    const total = conferences.length;
+
+    for (let i = 0; i < conferences.length; i++) {
+      const conference = conferences[i];
+      setTeamsProgress((i + 1) / total * 100);
+
+      try {
+        console.log(`Syncing teams for league ${conference.league_id}...`);
+
+        // Fetch users data from Sleeper API
+        const usersResponse = await fetch(`https://api.sleeper.app/v1/league/${conference.league_id}/users`);
+        if (!usersResponse.ok) {
+          throw new Error(`Users API returned ${usersResponse.status}: ${usersResponse.statusText}`);
+        }
+        const usersData = await usersResponse.json();
+        console.log('Users API response:', usersData);
+
+        // Fetch rosters data from Sleeper API
+        const rostersResponse = await fetch(`https://api.sleeper.app/v1/league/${conference.league_id}/rosters`);
+        if (!rostersResponse.ok) {
+          throw new Error(`Rosters API returned ${rostersResponse.status}: ${rostersResponse.statusText}`);
+        }
+        const rostersData = await rostersResponse.json();
+        console.log('Rosters API response:', rostersData);
+
+        let teamsCreated = 0;
+        let junctionRecordsCreated = 0;
+
+        // Process each user/team
+        for (const user of usersData) {
+          // Create or update team record
+          const teamData = {
+            team_name: user.metadata?.team_name || user.display_name || user.username,
+            owner_name: user.display_name || user.username,
+            owner_id: user.user_id,
+            team_logo_url: user.avatar ? `https://sleepercdn.com/avatars/thumbs/${user.avatar}` : '',
+            team_primary_color: '#1f2937',
+            team_secondary_color: '#6b7280'
+          };
+
+          // Check if team already exists by owner_id
+          const { data: existingTeams, error: searchError } = await window.ezsite.apis.tablePage(12852, {
+            PageNo: 1,
+            PageSize: 1,
+            Filters: [{
+              name: 'owner_id',
+              op: 'Equal',
+              value: user.user_id
+            }]
+          });
+
+          if (searchError) throw searchError;
+
+          let teamId;
+          if (existingTeams?.List?.length > 0) {
+            // Update existing team
+            const existingTeam = existingTeams.List[0];
+            const updateData = { ...teamData, ID: existingTeam.ID };
+            const { error: updateError } = await window.ezsite.apis.tableUpdate(12852, updateData);
+            if (updateError) throw updateError;
+            teamId = existingTeam.ID;
+            console.log(`Updated team ${teamId} for user ${user.user_id}`);
+          } else {
+            // Create new team
+            const { data: newTeam, error: createError } = await window.ezsite.apis.tableCreate(12852, teamData);
+            if (createError) throw createError;
+            teamId = newTeam.ID;
+            teamsCreated++;
+            console.log(`Created team ${teamId} for user ${user.user_id}`);
+          }
+
+          // Find the corresponding roster for this user
+          const roster = rostersData.find((r: any) => r.owner_id === user.user_id);
+          if (roster) {
+            // Create or update team-conference junction record
+            const junctionData = {
+              team_id: teamId,
+              conference_id: conference.id,
+              roster_id: roster.roster_id.toString(),
+              is_active: true,
+              joined_date: new Date().toISOString()
+            };
+
+            // Check if junction record already exists
+            const { data: existingJunction, error: junctionSearchError } = await window.ezsite.apis.tablePage(12853, {
+              PageNo: 1,
+              PageSize: 1,
+              Filters: [
+                { name: 'team_id', op: 'Equal', value: teamId },
+                { name: 'conference_id', op: 'Equal', value: conference.id }
+              ]
+            });
+
+            if (junctionSearchError) throw junctionSearchError;
+
+            if (existingJunction?.List?.length > 0) {
+              // Update existing junction record
+              const existingRecord = existingJunction.List[0];
+              const updateJunctionData = { ...junctionData, ID: existingRecord.ID };
+              const { error: updateJunctionError } = await window.ezsite.apis.tableUpdate(12853, updateJunctionData);
+              if (updateJunctionError) throw updateJunctionError;
+              console.log(`Updated junction record for team ${teamId} in conference ${conference.id}`);
+            } else {
+              // Create new junction record
+              const { error: createJunctionError } = await window.ezsite.apis.tableCreate(12853, junctionData);
+              if (createJunctionError) throw createJunctionError;
+              junctionRecordsCreated++;
+              console.log(`Created junction record for team ${teamId} in conference ${conference.id}`);
+            }
+          }
+        }
+
+        results.push({
+          league_id: conference.league_id,
+          success: true,
+          teams_created: teamsCreated,
+          junction_records_created: junctionRecordsCreated
+        });
+
+        console.log(`Successfully synced teams for league ${conference.league_id}`);
+
+      } catch (error) {
+        console.error(`Error syncing teams for league ${conference.league_id}:`, error);
+        results.push({
+          league_id: conference.league_id,
+          success: false,
+          error: error.toString(),
+          teams_created: 0,
+          junction_records_created: 0
+        });
+      }
+
+      // Small delay between requests to be respectful to the API
+      await new Promise((resolve) => setTimeout(resolve, 300));
+    }
+
+    setTeamsSyncResults(results);
+    setSyncingTeams(false);
+    setTeamsProgress(100);
+
+    // Update last sync time
+    const now = new Date().toISOString();
+    localStorage.setItem('last_teams_sync', now);
+    setLastTeamsSyncTime(new Date(now).toLocaleString());
+
+    const successCount = results.filter((r) => r.success).length;
+    const failureCount = results.filter((r) => !r.success).length;
+    const totalTeamsCreated = results.reduce((sum, r) => sum + r.teams_created, 0);
+    const totalJunctionCreated = results.reduce((sum, r) => sum + r.junction_records_created, 0);
+
+    toast({
+      title: "Teams Sync Complete",
+      description: `${successCount} leagues synced, ${totalTeamsCreated} teams created, ${totalJunctionCreated} connections created`,
+      variant: failureCount > 0 ? "destructive" : "default"
+    });
+  };
+
   const selectedSeason = seasons.find((s) => s.id === selectedSeasonId);
 
   if (loading) {
@@ -239,7 +444,7 @@ const DataSync: React.FC = () => {
             Data Synchronization
           </CardTitle>
           <CardDescription>
-            Sync conference data from Sleeper API to update database records
+            Sync conference and team data from Sleeper API to update database records
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -249,7 +454,6 @@ const DataSync: React.FC = () => {
                 <Select
                   value={selectedSeasonId?.toString() || ''}
                   onValueChange={(value) => setSelectedSeasonId(parseInt(value))}>
-
                   <SelectTrigger className="w-[200px]">
                     <SelectValue placeholder="Select season" />
                   </SelectTrigger>
@@ -262,42 +466,8 @@ const DataSync: React.FC = () => {
                   </SelectContent>
                 </Select>
               </div>
-              
-              {lastSyncTime &&
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <Clock className="h-4 w-4" />
-                  Last sync: {lastSyncTime}
-                </div>
-              }
             </div>
-
-            <Button
-              onClick={syncConferenceData}
-              disabled={syncing || !selectedSeasonId || conferences.length === 0}>
-
-              {syncing ?
-              <>
-                  <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                  Syncing...
-                </> :
-
-              <>
-                  <Download className="h-4 w-4 mr-2" />
-                  Sync Conference Data
-                </>
-              }
-            </Button>
           </div>
-
-          {syncing &&
-          <div className="mb-6">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-sm font-medium">Synchronizing data...</span>
-                <span className="text-sm text-muted-foreground">{Math.round(progress)}%</span>
-              </div>
-              <Progress value={progress} className="w-full" />
-            </div>
-          }
 
           {selectedSeason && conferences.length === 0 &&
           <Alert>
@@ -310,120 +480,295 @@ const DataSync: React.FC = () => {
           }
 
           {selectedSeason && conferences.length > 0 &&
-          <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">
-                  Conferences - {selectedSeason.season_name}
-                </CardTitle>
-                <CardDescription>
-                  {conferences.length} conference{conferences.length !== 1 ? 's' : ''} ready for synchronization
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Conference Name</TableHead>
-                      <TableHead>League ID</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Logo</TableHead>
-                      <TableHead>Sync Status</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {conferences.map((conference) => {
-                    const syncResult = syncResults.find((r) => r.league_id === conference.league_id);
+          <Tabs defaultValue="conferences" className="space-y-6">
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="conferences" className="flex items-center gap-2">
+                  <Trophy className="h-4 w-4" />
+                  Conference Sync
+                </TabsTrigger>
+                <TabsTrigger value="teams" className="flex items-center gap-2">
+                  <Users className="h-4 w-4" />
+                  Teams Sync
+                </TabsTrigger>
+              </TabsList>
 
-                    return (
-                      <TableRow key={conference.id}>
-                          <TableCell className="font-medium">
-                            {conference.conference_name}
-                          </TableCell>
-                          <TableCell>
-                            <code className="text-sm bg-muted px-2 py-1 rounded">
-                              {conference.league_id}
-                            </code>
-                          </TableCell>
-                          <TableCell>
-                            <Badge variant={
-                          conference.status === 'in_season' ? 'default' :
-                          conference.status === 'complete' ? 'secondary' :
-                          'outline'
-                          }>
-                              {conference.status}
-                            </Badge>
-                          </TableCell>
-                          <TableCell>
-                            {conference.league_logo_url ?
-                          <img
-                            src={conference.league_logo_url}
-                            alt="League logo"
-                            className="w-8 h-8 rounded-full" /> :
-
-
-                          <div className="w-8 h-8 bg-muted rounded-full flex items-center justify-center">
-                                <span className="text-xs text-muted-foreground">?</span>
-                              </div>
-                          }
-                          </TableCell>
-                          <TableCell>
-                            {syncResult ?
-                          syncResult.success ?
-                          <div className="flex items-center gap-2 text-green-600">
-                                  <CheckCircle className="h-4 w-4" />
-                                  <span className="text-sm">Synced</span>
-                                </div> :
-
-                          <div className="flex items-center gap-2 text-red-600">
-                                  <AlertCircle className="h-4 w-4" />
-                                  <span className="text-sm">Failed</span>
-                                </div> :
-
-
-                          <span className="text-sm text-muted-foreground">Ready</span>
-                          }
-                          </TableCell>
-                        </TableRow>);
-
-                  })}
-                  </TableBody>
-                </Table>
-              </CardContent>
-            </Card>
-          }
-
-          {syncResults.length > 0 &&
-          <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">Sync Results</CardTitle>
-                <CardDescription>
-                  Detailed results from the last synchronization
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-2">
-                  {syncResults.map((result, index) =>
-                <div key={index} className="flex items-center justify-between p-3 border rounded-lg">
-                      <div className="flex items-center gap-3">
-                        {result.success ?
-                    <CheckCircle className="h-5 w-5 text-green-600" /> :
-
-                    <AlertCircle className="h-5 w-5 text-red-600" />
-                    }
-                        <code className="text-sm">{result.league_id}</code>
-                      </div>
-                      <div className="text-sm">
-                        {result.success ?
-                    <span className="text-green-600">Success</span> :
-
-                    <span className="text-red-600">{result.error}</span>
-                    }
-                      </div>
+              <TabsContent value="conferences">
+                <div className="space-y-6">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-4">
+                      {lastSyncTime &&
+                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                          <Clock className="h-4 w-4" />
+                          Last sync: {lastSyncTime}
+                        </div>
+                      }
                     </div>
-                )}
+                    <Button
+                      onClick={syncConferenceData}
+                      disabled={syncing || !selectedSeasonId || conferences.length === 0}>
+                      {syncing ?
+                      <>
+                          <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                          Syncing...
+                        </> :
+                      <>
+                          <Download className="h-4 w-4 mr-2" />
+                          Sync Conference Data
+                        </>
+                      }
+                    </Button>
+                  </div>
+
+                  {syncing &&
+                  <div>
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-sm font-medium">Synchronizing conferences...</span>
+                        <span className="text-sm text-muted-foreground">{Math.round(progress)}%</span>
+                      </div>
+                      <Progress value={progress} className="w-full" />
+                    </div>
+                  }
+
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-lg">
+                        Conferences - {selectedSeason.season_name}
+                      </CardTitle>
+                      <CardDescription>
+                        {conferences.length} conference{conferences.length !== 1 ? 's' : ''} ready for synchronization
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Conference Name</TableHead>
+                            <TableHead>League ID</TableHead>
+                            <TableHead>Status</TableHead>
+                            <TableHead>Logo</TableHead>
+                            <TableHead>Sync Status</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {conferences.map((conference) => {
+                          const syncResult = syncResults.find((r) => r.league_id === conference.league_id);
+
+                          return (
+                            <TableRow key={conference.id}>
+                                <TableCell className="font-medium">
+                                  {conference.conference_name}
+                                </TableCell>
+                                <TableCell>
+                                  <code className="text-sm bg-muted px-2 py-1 rounded">
+                                    {conference.league_id}
+                                  </code>
+                                </TableCell>
+                                <TableCell>
+                                  <Badge variant={
+                                conference.status === 'in_season' ? 'default' :
+                                conference.status === 'complete' ? 'secondary' :
+                                'outline'
+                                }>
+                                    {conference.status}
+                                  </Badge>
+                                </TableCell>
+                                <TableCell>
+                                  {conference.league_logo_url ?
+                                <img
+                                  src={conference.league_logo_url}
+                                  alt="League logo"
+                                  className="w-8 h-8 rounded-full" /> :
+                                <div className="w-8 h-8 bg-muted rounded-full flex items-center justify-center">
+                                      <span className="text-xs text-muted-foreground">?</span>
+                                    </div>
+                                }
+                                </TableCell>
+                                <TableCell>
+                                  {syncResult ?
+                                syncResult.success ?
+                                <div className="flex items-center gap-2 text-green-600">
+                                        <CheckCircle className="h-4 w-4" />
+                                        <span className="text-sm">Synced</span>
+                                      </div> :
+                                <div className="flex items-center gap-2 text-red-600">
+                                        <AlertCircle className="h-4 w-4" />
+                                        <span className="text-sm">Failed</span>
+                                      </div> :
+                                <span className="text-sm text-muted-foreground">Ready</span>
+                                }
+                                </TableCell>
+                              </TableRow>);
+                        })}
+                        </TableBody>
+                      </Table>
+                    </CardContent>
+                  </Card>
+
+                  {syncResults.length > 0 &&
+                  <Card>
+                      <CardHeader>
+                        <CardTitle className="text-lg">Conference Sync Results</CardTitle>
+                        <CardDescription>
+                          Detailed results from the last conference synchronization
+                        </CardDescription>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="space-y-2">
+                          {syncResults.map((result, index) =>
+                        <div key={index} className="flex items-center justify-between p-3 border rounded-lg">
+                              <div className="flex items-center gap-3">
+                                {result.success ?
+                            <CheckCircle className="h-5 w-5 text-green-600" /> :
+                            <AlertCircle className="h-5 w-5 text-red-600" />
+                            }
+                                <code className="text-sm">{result.league_id}</code>
+                              </div>
+                              <div className="text-sm">
+                                {result.success ?
+                            <span className="text-green-600">Success</span> :
+                            <span className="text-red-600">{result.error}</span>
+                            }
+                              </div>
+                            </div>
+                        )}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  }
                 </div>
-              </CardContent>
-            </Card>
+              </TabsContent>
+
+              <TabsContent value="teams">
+                <div className="space-y-6">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-4">
+                      {lastTeamsSyncTime &&
+                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                          <Clock className="h-4 w-4" />
+                          Last teams sync: {lastTeamsSyncTime}
+                        </div>
+                      }
+                    </div>
+                    <Button
+                      onClick={syncTeamsData}
+                      disabled={syncingTeams || !selectedSeasonId || conferences.length === 0}>
+                      {syncingTeams ?
+                      <>
+                          <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                          Syncing...
+                        </> :
+                      <>
+                          <Users className="h-4 w-4 mr-2" />
+                          Sync Teams Data
+                        </>
+                      }
+                    </Button>
+                  </div>
+
+                  {syncingTeams &&
+                  <div>
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-sm font-medium">Synchronizing teams...</span>
+                        <span className="text-sm text-muted-foreground">{Math.round(teamsProgress)}%</span>
+                      </div>
+                      <Progress value={teamsProgress} className="w-full" />
+                    </div>
+                  }
+
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-lg">
+                        Teams Synchronization - {selectedSeason.season_name}
+                      </CardTitle>
+                      <CardDescription>
+                        Sync team data and roster connections from Sleeper API for {conferences.length} conference{conferences.length !== 1 ? 's' : ''}
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="p-4 border rounded-lg">
+                          <div className="flex items-center gap-2 mb-2">
+                            <Users className="h-5 w-5 text-blue-600" />
+                            <h4 className="font-semibold">Teams Data</h4>
+                          </div>
+                          <p className="text-sm text-muted-foreground">
+                            Syncs team names, owner information, and team logos from the Sleeper users endpoint
+                          </p>
+                        </div>
+                        <div className="p-4 border rounded-lg">
+                          <div className="flex items-center gap-2 mb-2">
+                            <Trophy className="h-5 w-5 text-green-600" />
+                            <h4 className="font-semibold">Team Connections</h4>
+                          </div>
+                          <p className="text-sm text-muted-foreground">
+                            Creates connections between teams and conferences using roster IDs from the Sleeper rosters endpoint
+                          </p>
+                        </div>
+                      </div>
+                      
+                      <div className="mt-4">
+                        <h4 className="font-semibold mb-2">Conferences to Sync:</h4>
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
+                          {conferences.map((conference) => (
+                            <div key={conference.id} className="flex items-center gap-2 p-2 border rounded">
+                              <Badge variant="outline" className="text-xs">
+                                {conference.league_id}
+                              </Badge>
+                              <span className="text-sm truncate">{conference.conference_name}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  {teamsSyncResults.length > 0 &&
+                  <Card>
+                      <CardHeader>
+                        <CardTitle className="text-lg">Teams Sync Results</CardTitle>
+                        <CardDescription>
+                          Detailed results from the last teams synchronization
+                        </CardDescription>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="space-y-2">
+                          {teamsSyncResults.map((result, index) =>
+                        <div key={index} className="p-3 border rounded-lg">
+                              <div className="flex items-center justify-between mb-2">
+                                <div className="flex items-center gap-3">
+                                  {result.success ?
+                              <CheckCircle className="h-5 w-5 text-green-600" /> :
+                              <AlertCircle className="h-5 w-5 text-red-600" />
+                              }
+                                  <code className="text-sm">{result.league_id}</code>
+                                </div>
+                                <div className="text-sm">
+                                  {result.success ?
+                              <span className="text-green-600">Success</span> :
+                              <span className="text-red-600">Failed</span>
+                              }
+                                </div>
+                              </div>
+                              {result.success && (
+                                <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                                  <span>Teams created: {result.teams_created}</span>
+                                  <span>Connections created: {result.junction_records_created}</span>
+                                </div>
+                              )}
+                              {result.error && (
+                                <div className="text-sm text-red-600 mt-1">
+                                  {result.error}
+                                </div>
+                              )}
+                            </div>
+                        )}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  }
+                </div>
+              </TabsContent>
+            </Tabs>
           }
         </CardContent>
       </Card>
