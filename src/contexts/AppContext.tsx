@@ -53,7 +53,7 @@ interface AppProviderProps {
 export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
   const [selectedSeason, setSelectedSeason] = useState<number>(2025); // Default to current season
   const [selectedConference, setSelectedConference] = useState<string | null>(null); // Default to all conferences
-  const [theme, setTheme] = useState<'light' | 'dark'>('dark'); // Default to dark theme
+  const [theme, setTheme] = useState<'light' | 'dark'>('light'); // Default to light theme
 
   const toggleTheme = () => {
     setTheme((prev) => prev === 'light' ? 'dark' : 'light');
