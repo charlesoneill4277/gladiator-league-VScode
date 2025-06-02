@@ -289,16 +289,16 @@ const DataSync: React.FC = () => {
 
         // Process each roster to create junction records
         console.log(`Processing ${rostersData.length} rosters for league ${conference.league_id}`);
-        
+
         for (const roster of rostersData) {
           const ownerId = roster.owner_id;
-          
+
           // Validate roster_id before processing
           if (!roster.roster_id) {
             console.warn(`Roster has no roster_id, skipping:`, roster);
             continue;
           }
-          
+
           if (!ownerId) {
             console.warn(`Roster ${roster.roster_id} has no owner_id, skipping`);
             continue;
@@ -322,7 +322,7 @@ const DataSync: React.FC = () => {
 
           if (existingTeams?.List?.length > 0) {
             const team = existingTeams.List[0];
-            const teamId = team.ID;
+            const teamId = team.id;
 
             // Create or update team-conference junction record
             const junctionData = {
@@ -340,10 +340,10 @@ const DataSync: React.FC = () => {
               PageNo: 1,
               PageSize: 1,
               Filters: [
-                { name: 'team_id', op: 'Equal', value: teamId },
-                { name: 'conference_id', op: 'Equal', value: conference.id },
-                { name: 'roster_id', op: 'Equal', value: roster.roster_id.toString() }
-              ]
+              { name: 'team_id', op: 'Equal', value: teamId },
+              { name: 'conference_id', op: 'Equal', value: conference.id },
+              { name: 'roster_id', op: 'Equal', value: roster.roster_id.toString() }]
+
             });
 
             if (junctionSearchError) {
@@ -478,13 +478,13 @@ const DataSync: React.FC = () => {
         // Process each roster to ensure proper mapping
         for (const roster of rostersData) {
           const ownerId = roster.owner_id;
-          
+
           // Validate roster_id before processing
           if (!roster.roster_id) {
             console.warn(`Roster has no roster_id, skipping:`, roster);
             continue;
           }
-          
+
           if (!ownerId) {
             console.warn(`Roster ${roster.roster_id} has no owner_id, skipping`);
             continue;
@@ -525,13 +525,13 @@ const DataSync: React.FC = () => {
           if (existingTeams?.List?.length > 0) {
             // Update existing team
             const existingTeam = existingTeams.List[0];
-            const updateData = { ...teamData, ID: existingTeam.ID };
+            const updateData = { ...teamData, ID: existingTeam.id };
             const { error: updateError } = await window.ezsite.apis.tableUpdate(12852, updateData);
             if (updateError) {
               console.error(`Error updating team ID ${existingTeam.ID}:`, updateError);
               throw updateError;
             }
-            teamId = existingTeam.ID;
+            teamId = existingTeam.id;
             console.log(`Updated team ${teamId} for owner ${ownerId}`);
           } else {
             // Create new team
@@ -561,10 +561,10 @@ const DataSync: React.FC = () => {
             PageNo: 1,
             PageSize: 1,
             Filters: [
-              { name: 'team_id', op: 'Equal', value: teamId },
-              { name: 'conference_id', op: 'Equal', value: conference.id },
-              { name: 'roster_id', op: 'Equal', value: roster.roster_id.toString() }
-            ]
+            { name: 'team_id', op: 'Equal', value: teamId },
+            { name: 'conference_id', op: 'Equal', value: conference.id },
+            { name: 'roster_id', op: 'Equal', value: roster.roster_id.toString() }]
+
           });
 
           if (junctionSearchError) {
