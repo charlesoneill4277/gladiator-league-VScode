@@ -269,24 +269,24 @@ export class SleeperApiService {
       }
 
       const data = await response.json();
-      
+
       // Enhanced logging for points debugging
       console.log(`✅ Fetched ${data.length} matchups for league ${leagueId}, week ${week}`);
-      
+
       if (data.length > 0) {
         const pointsAnalysis = {
           totalMatchups: data.length,
-          matchupsWithPoints: data.filter(m => m.points > 0).length,
-          matchupsWithZeroPoints: data.filter(m => m.points === 0).length,
-          matchupsWithNullPoints: data.filter(m => m.points === null || m.points === undefined).length,
+          matchupsWithPoints: data.filter((m) => m.points > 0).length,
+          matchupsWithZeroPoints: data.filter((m) => m.points === 0).length,
+          matchupsWithNullPoints: data.filter((m) => m.points === null || m.points === undefined).length,
           pointsRange: {
-            min: Math.min(...data.map(m => m.points || 0)),
-            max: Math.max(...data.map(m => m.points || 0)),
+            min: Math.min(...data.map((m) => m.points || 0)),
+            max: Math.max(...data.map((m) => m.points || 0)),
             average: data.reduce((sum, m) => sum + (m.points || 0), 0) / data.length
           },
           playersPointsAvailability: {
-            withPlayersPoints: data.filter(m => m.players_points && Object.keys(m.players_points).length > 0).length,
-            withStartersPoints: data.filter(m => m.starters_points && m.starters_points.length > 0).length
+            withPlayersPoints: data.filter((m) => m.players_points && Object.keys(m.players_points).length > 0).length,
+            withStartersPoints: data.filter((m) => m.starters_points && m.starters_points.length > 0).length
           },
           sampleMatchup: {
             rosterId: data[0].roster_id,
@@ -296,15 +296,15 @@ export class SleeperApiService {
             matchupId: data[0].matchup_id
           }
         };
-        
+
         console.log(`📊 Points analysis for league ${leagueId}, week ${week}:`, pointsAnalysis);
-        
+
         // Warn if no points data is available
         if (pointsAnalysis.matchupsWithPoints === 0) {
           console.warn(`⚠️ No matchups with points > 0 found for league ${leagueId}, week ${week}`);
           console.warn(`🔍 This could indicate: week hasn't started, games in progress, or API delay`);
         }
-        
+
         // Warn if detailed points are missing
         if (pointsAnalysis.playersPointsAvailability.withPlayersPoints === 0) {
           console.warn(`⚠️ No player-level points data available for league ${leagueId}, week ${week}`);
@@ -312,7 +312,7 @@ export class SleeperApiService {
       } else {
         console.warn(`⚠️ No matchup data returned for league ${leagueId}, week ${week}`);
       }
-      
+
       return data;
     } catch (error) {
       console.error(`❌ Error fetching matchups for league ${leagueId}, week ${week}:`, error);
@@ -325,7 +325,7 @@ export class SleeperApiService {
    */
   static async fetchLeague(leagueId: string): Promise<SleeperLeague> {
     try {
-      console.log(`🏆 Fetching league info: ${leagueId}`);
+      console.log(`Fetching league info: ${leagueId}`);
       const response = await fetch(`${this.baseUrl}/league/${leagueId}`);
 
       if (!response.ok) {
@@ -333,16 +333,10 @@ export class SleeperApiService {
       }
 
       const data = await response.json();
-      console.log(`✅ Fetched league info for ${leagueId}:`, {
-        name: data.name,
-        status: data.status,
-        season: data.season,
-        totalRosters: data.total_rosters,
-        playoffWeekStart: data.settings?.playoff_week_start
-      });
+      console.log(`Fetched league info for ${leagueId}`);
       return data;
     } catch (error) {
-      console.error(`❌ Error fetching league ${leagueId}:`, error);
+      console.error('Error fetching league:', error);
       throw error;
     }
   }
@@ -384,8 +378,6 @@ export class SleeperApiService {
       roster: SleeperRoster | null;
     }>;
   }> {
-    console.log(`🎲 Organizing ${matchups.length} matchups with ${rosters.length} rosters and ${users.length} users`);
-    
     const matchupGroups = new Map<number, SleeperMatchup[]>();
 
     // Group matchups by matchup_id
@@ -396,49 +388,22 @@ export class SleeperApiService {
       matchupGroups.get(matchup.matchup_id)!.push(matchup);
     });
 
-    console.log(`📋 Found ${matchupGroups.size} unique matchup groups`);
-    
-    // Log matchup group analysis
-    const groupAnalysis = Array.from(matchupGroups.entries()).map(([matchup_id, teams]) => ({
-      matchup_id,
-      teamCount: teams.length,
-      pointsData: teams.map(t => ({ roster_id: t.roster_id, points: t.points }))
-    }));
-    
-    console.log(`📄 Matchup groups analysis:`, groupAnalysis);
-    
-    const incompleteMatchups = Array.from(matchupGroups.entries()).filter(([_, teams]) => teams.length !== 2);
-    if (incompleteMatchups.length > 0) {
-      console.warn(`⚠️ Found ${incompleteMatchups.length} incomplete matchups (not exactly 2 teams):`, incompleteMatchups);
-    }
-
     // Convert to organized format
-    const organizedMatchups = Array.from(matchupGroups.entries())
-    .filter(([_, teams]) => teams.length === 2) // Only include complete matchup pairs
-    .map(([matchup_id, teams]) => {
-      const organizedTeams = teams.map((team) => {
+    return Array.from(matchupGroups.entries()).
+    filter(([_, teams]) => teams.length === 2) // Only include complete matchup pairs
+    .map(([matchup_id, teams]) => ({
+      matchup_id,
+      teams: teams.map((team) => {
         const roster = rosters.find((r) => r.roster_id === team.roster_id);
         const owner = roster ? users.find((u) => u.user_id === roster.owner_id) : null;
-        
-        console.log(`👤 Team mapping - Roster ${team.roster_id}: points=${team.points}, owner=${owner?.display_name || owner?.username || 'Unknown'}`);
-        
         return {
           roster_id: team.roster_id,
-          points: team.points ?? 0, // Provide fallback for null/undefined points
+          points: team.points,
           owner,
           roster
         };
-      });
-      
-      return {
-        matchup_id,
-        teams: organizedTeams
-      };
-    });
-    
-    console.log(`✅ Successfully organized ${organizedMatchups.length} complete matchups`);
-    
-    return organizedMatchups;
+      })
+    }));
   }
 
   /**
@@ -446,27 +411,15 @@ export class SleeperApiService {
    */
   static async getCurrentNFLWeek(): Promise<number> {
     try {
-      console.log('📅 Fetching current NFL week from Sleeper API...');
       const response = await fetch(`${this.baseUrl}/state/nfl`);
       if (!response.ok) {
         throw new Error('Failed to fetch NFL state');
       }
       const data = await response.json();
-      const currentWeek = data.week || 1;
-      
-      console.log(`✅ Current NFL week: ${currentWeek}`);
-      console.log(`📄 NFL state data:`, {
-        week: data.week,
-        season_type: data.season_type,
-        season: data.season
-      });
-      
-      return currentWeek;
+      return data.week || 1;
     } catch (error) {
-      console.error('❌ Error fetching current NFL week:', error);
-      const fallbackWeek = 14;
-      console.warn(`🔄 Using fallback week: ${fallbackWeek}`);
-      return fallbackWeek;
+      console.error('Error fetching current NFL week:', error);
+      return 14; // Default to week 14 as fallback
     }
   }
 }
