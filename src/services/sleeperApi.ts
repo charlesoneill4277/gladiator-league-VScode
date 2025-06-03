@@ -270,41 +270,9 @@ export class SleeperApiService {
 
       const data = await response.json();
       console.log(`Fetched ${data.length} matchups for league ${leagueId}, week ${week}`);
-
-      // Log points data for debugging
-      data.forEach((matchup: SleeperMatchup) => {
-        console.log(`Week ${week} - Roster ${matchup.roster_id}: ${matchup.points} points (Matchup ID: ${matchup.matchup_id})`);
-      });
-
       return data;
     } catch (error) {
       console.error('Error fetching matchups:', error);
-      throw error;
-    }
-  }
-
-  /**
-   * Fetch matchups for all weeks in a season (weeks 1-17)
-   */
-  static async fetchAllSeasonMatchups(leagueId: string): Promise<Record<number, SleeperMatchup[]>> {
-    try {
-      console.log(`Fetching all season matchups for league: ${leagueId}`);
-      const weeklyMatchups: Record<number, SleeperMatchup[]> = {};
-
-      // Fetch data for weeks 1-17
-      for (let week = 1; week <= 17; week++) {
-        try {
-          const matchups = await this.fetchMatchups(leagueId, week);
-          weeklyMatchups[week] = matchups;
-        } catch (error) {
-          console.warn(`Failed to fetch matchups for week ${week}:`, error);
-          weeklyMatchups[week] = [];
-        }
-      }
-
-      return weeklyMatchups;
-    } catch (error) {
-      console.error('Error fetching all season matchups:', error);
       throw error;
     }
   }
@@ -352,7 +320,7 @@ export class SleeperApiService {
   }
 
   /**
-   * Organize matchups by pairing teams with enhanced data preservation
+   * Organize matchups by pairing teams
    */
   static organizeMatchups(
   matchups: SleeperMatchup[],
@@ -363,137 +331,36 @@ export class SleeperApiService {
     teams: Array<{
       roster_id: number;
       points: number;
-      custom_points?: number;
-      starters: string[];
-      players: string[];
-      starters_points: number[];
-      players_points: Record<string, number>;
       owner: SleeperUser | null;
       roster: SleeperRoster | null;
     }>;
   }> {
-    console.log(`Starting organizeMatchups with ${matchups.length} raw matchups`);
-    
-    // Validate input data
-    if (!Array.isArray(matchups) || matchups.length === 0) {
-      console.warn('No matchups provided to organize');
-      return [];
-    }
-
-    if (!Array.isArray(rosters) || rosters.length === 0) {
-      console.warn('No rosters provided for matchup organization');
-    }
-
-    if (!Array.isArray(users) || users.length === 0) {
-      console.warn('No users provided for matchup organization');
-    }
-
     const matchupGroups = new Map<number, SleeperMatchup[]>();
 
-    // Group matchups by matchup_id with validation
-    matchups.forEach((matchup, index) => {
-      // Validate matchup data integrity
-      if (!matchup || typeof matchup.matchup_id !== 'number') {
-        console.warn(`Invalid matchup at index ${index}:`, matchup);
-        return;
-      }
-
+    // Group matchups by matchup_id
+    matchups.forEach((matchup) => {
       if (!matchupGroups.has(matchup.matchup_id)) {
         matchupGroups.set(matchup.matchup_id, []);
       }
-      
-      // Log points data preservation for debugging
-      console.log(`Processing matchup ${matchup.matchup_id} - Roster ${matchup.roster_id}:`, {
-        points: matchup.points,
-        custom_points: matchup.custom_points,
-        starters_points_length: matchup.starters_points?.length || 0,
-        players_points_count: Object.keys(matchup.players_points || {}).length,
-        starters_count: matchup.starters?.length || 0,
-        players_count: matchup.players?.length || 0
-      });
-      
       matchupGroups.get(matchup.matchup_id)!.push(matchup);
     });
 
-    console.log(`Grouped matchups into ${matchupGroups.size} matchup pairs`);
-
-    // Convert to organized format with comprehensive data preservation
-    const organizedMatchups = Array.from(matchupGroups.entries())
-    .filter(([matchup_id, teams]) => {
-      if (teams.length !== 2) {
-        console.warn(`Incomplete matchup ${matchup_id}: ${teams.length} teams (expected 2)`);
-        return false;
-      }
-      return true;
-    })
-    .map(([matchup_id, teams]) => {
-      console.log(`Organizing matchup ${matchup_id} with teams:`, teams.map(t => t.roster_id));
-      
-      return {
-        matchup_id,
-        teams: teams.map((team) => {
-          // Find associated roster and owner
-          const roster = rosters.find((r) => r.roster_id === team.roster_id);
-          const owner = roster ? users.find((u) => u.user_id === roster.owner_id) : null;
-
-          // Validate and preserve points data
-          const points = typeof team.points === 'number' ? team.points : 0;
-          const custom_points = typeof team.custom_points === 'number' ? team.custom_points : undefined;
-          const starters_points = Array.isArray(team.starters_points) ? team.starters_points : [];
-          const players_points = team.players_points && typeof team.players_points === 'object' ? team.players_points : {};
-          const starters = Array.isArray(team.starters) ? team.starters : [];
-          const players = Array.isArray(team.players) ? team.players : [];
-
-          // Log data preservation for debugging
-          console.log(`Team ${team.roster_id} data preservation:`, {
-            roster_id: team.roster_id,
-            points: points,
-            custom_points: custom_points,
-            starters_points_preserved: starters_points.length,
-            players_points_preserved: Object.keys(players_points).length,
-            starters_preserved: starters.length,
-            players_preserved: players.length,
-            owner_found: !!owner,
-            roster_found: !!roster
-          });
-
-          // Validate points data integrity
-          if (points === 0 && starters_points.length > 0) {
-            const calculatedPoints = starters_points.reduce((sum, p) => sum + (p || 0), 0);
-            console.warn(`Points mismatch for roster ${team.roster_id}: reported ${points}, calculated from starters ${calculatedPoints}`);
-          }
-
-          return {
-            roster_id: team.roster_id,
-            points: points,
-            custom_points: custom_points,
-            starters: starters,
-            players: players,
-            starters_points: starters_points,
-            players_points: players_points,
-            owner: owner,
-            roster: roster
-          };
-        })
-      };
-    });
-
-    console.log(`Successfully organized ${organizedMatchups.length} complete matchup pairs`);
-    
-    // Final validation log
-    organizedMatchups.forEach((matchup) => {
-      console.log(`Final matchup ${matchup.matchup_id} validation:`, {
-        teams_count: matchup.teams.length,
-        team_points: matchup.teams.map(t => ({ roster_id: t.roster_id, points: t.points })),
-        data_integrity: matchup.teams.every(t => 
-          typeof t.points === 'number' && 
-          Array.isArray(t.starters_points) && 
-          typeof t.players_points === 'object'
-        )
-      });
-    });
-    
-    return organizedMatchups;
+    // Convert to organized format
+    return Array.from(matchupGroups.entries()).
+    filter(([_, teams]) => teams.length === 2) // Only include complete matchup pairs
+    .map(([matchup_id, teams]) => ({
+      matchup_id,
+      teams: teams.map((team) => {
+        const roster = rosters.find((r) => r.roster_id === team.roster_id);
+        const owner = roster ? users.find((u) => u.user_id === roster.owner_id) : null;
+        return {
+          roster_id: team.roster_id,
+          points: team.points,
+          owner,
+          roster
+        };
+      })
+    }));
   }
 
   /**
