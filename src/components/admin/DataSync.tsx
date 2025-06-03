@@ -78,12 +78,6 @@ const DataSync: React.FC = () => {
   const [lastTeamsSyncTime, setLastTeamsSyncTime] = useState<string | null>(null);
   const [lastPlayersSyncTime, setLastPlayersSyncTime] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  
-  // Player sync filters
-  const [selectedTeamFilter, setSelectedTeamFilter] = useState<string>('all');
-  const [selectedPositionFilter, setSelectedPositionFilter] = useState<string>('all');
-  const [selectedStatusFilter, setSelectedStatusFilter] = useState<string>('all');
-  
   const { toast } = useToast();
 
   useEffect(() => {
@@ -759,7 +753,7 @@ const DataSync: React.FC = () => {
         }
 
         // Update progress
-        const progressPercent = 50 + (batchIndex + 1) / totalBatches * 45;
+        const progressPercent = 50 + ((batchIndex + 1) / totalBatches) * 45;
         setPlayersProgress(progressPercent);
 
         // Small delay between batches to be respectful to the database
@@ -852,7 +846,7 @@ const DataSync: React.FC = () => {
           {selectedSeason &&
           <>
             {conferences.length === 0 &&
-            <Alert className="mb-6">
+              <Alert className="mb-6">
                 <AlertCircle className="h-4 w-4" />
                 <AlertDescription>
                   No conferences found for {selectedSeason.season_name}. 
@@ -878,49 +872,49 @@ const DataSync: React.FC = () => {
               </TabsList>
 
               <TabsContent value="conferences">
-                {conferences.length === 0 ?
-                <Alert>
+                {conferences.length === 0 ? (
+                  <Alert>
                     <AlertCircle className="h-4 w-4" />
                     <AlertDescription>
                       No conferences available for synchronization. Please add leagues in the League Manager tab first.
                     </AlertDescription>
-                  </Alert> :
-
+                  </Alert>
+                ) : (
                 <div className="space-y-6">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-4">
                       {lastSyncTime &&
-                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
                           <Clock className="h-4 w-4" />
                           Last sync: {lastSyncTime}
                         </div>
-                      }
+                    }
                     </div>
                     <Button
-                      onClick={syncConferenceData}
-                      disabled={syncing || !selectedSeasonId || conferences.length === 0}>
+                    onClick={syncConferenceData}
+                    disabled={syncing || !selectedSeasonId || conferences.length === 0}>
                       {syncing ?
-                      <>
+                    <>
                           <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
                           Syncing...
                         </> :
-                      <>
+                    <>
                           <Download className="h-4 w-4 mr-2" />
                           Sync Conference Data
                         </>
-                      }
+                    }
                     </Button>
                   </div>
 
                   {syncing &&
-                  <div>
+                <div>
                       <div className="flex items-center justify-between mb-2">
                         <span className="text-sm font-medium">Synchronizing conferences...</span>
                         <span className="text-sm text-muted-foreground">{Math.round(progress)}%</span>
                       </div>
                       <Progress value={progress} className="w-full" />
                     </div>
-                  }
+                }
 
                   <Card>
                     <CardHeader>
@@ -944,10 +938,10 @@ const DataSync: React.FC = () => {
                         </TableHeader>
                         <TableBody>
                           {conferences.map((conference) => {
-                            const syncResult = syncResults.find((r) => r.league_id === conference.league_id);
+                          const syncResult = syncResults.find((r) => r.league_id === conference.league_id);
 
-                            return (
-                              <TableRow key={conference.id}>
+                          return (
+                            <TableRow key={conference.id}>
                                 <TableCell className="font-medium">
                                   {conference.conference_name}
                                 </TableCell>
@@ -958,47 +952,47 @@ const DataSync: React.FC = () => {
                                 </TableCell>
                                 <TableCell>
                                   <Badge variant={
-                                  conference.status === 'in_season' ? 'default' :
-                                  conference.status === 'complete' ? 'secondary' :
-                                  'outline'
-                                  }>
+                                conference.status === 'in_season' ? 'default' :
+                                conference.status === 'complete' ? 'secondary' :
+                                'outline'
+                                }>
                                     {conference.status}
                                   </Badge>
                                 </TableCell>
                                 <TableCell>
                                   {conference.league_logo_url ?
-                                  <img
-                                    src={conference.league_logo_url}
-                                    alt="League logo"
-                                    className="w-8 h-8 rounded-full" /> :
-                                  <div className="w-8 h-8 bg-muted rounded-full flex items-center justify-center">
+                                <img
+                                  src={conference.league_logo_url}
+                                  alt="League logo"
+                                  className="w-8 h-8 rounded-full" /> :
+                                <div className="w-8 h-8 bg-muted rounded-full flex items-center justify-center">
                                       <span className="text-xs text-muted-foreground">?</span>
                                     </div>
-                                  }
+                                }
                                 </TableCell>
                                 <TableCell>
                                   {syncResult ?
-                                  syncResult.success ?
-                                  <div className="flex items-center gap-2 text-green-600">
+                                syncResult.success ?
+                                <div className="flex items-center gap-2 text-green-600">
                                         <CheckCircle className="h-4 w-4" />
                                         <span className="text-sm">Synced</span>
                                       </div> :
-                                  <div className="flex items-center gap-2 text-red-600">
+                                <div className="flex items-center gap-2 text-red-600">
                                         <AlertCircle className="h-4 w-4" />
                                         <span className="text-sm">Failed</span>
                                       </div> :
-                                  <span className="text-sm text-muted-foreground">Ready</span>
-                                  }
+                                <span className="text-sm text-muted-foreground">Ready</span>
+                                }
                                 </TableCell>
                               </TableRow>);
-                          })}
+                        })}
                         </TableBody>
                       </Table>
                     </CardContent>
                   </Card>
 
                   {syncResults.length > 0 &&
-                  <Card>
+                <Card>
                       <CardHeader>
                         <CardTitle className="text-lg">Conference Sync Results</CardTitle>
                         <CardDescription>
@@ -1008,91 +1002,91 @@ const DataSync: React.FC = () => {
                       <CardContent>
                         <div className="space-y-2">
                           {syncResults.map((result, index) =>
-                        <div key={index} className="flex items-center justify-between p-3 border rounded-lg">
+                      <div key={index} className="flex items-center justify-between p-3 border rounded-lg">
                               <div className="flex items-center gap-3">
                                 {result.success ?
-                            <CheckCircle className="h-5 w-5 text-green-600" /> :
-                            <AlertCircle className="h-5 w-5 text-red-600" />
-                            }
+                          <CheckCircle className="h-5 w-5 text-green-600" /> :
+                          <AlertCircle className="h-5 w-5 text-red-600" />
+                          }
                                 <code className="text-sm">{result.league_id}</code>
                               </div>
                               <div className="text-sm">
                                 {result.success ?
-                            <span className="text-green-600">Success</span> :
-                            <span className="text-red-600">{result.error}</span>
-                            }
+                          <span className="text-green-600">Success</span> :
+                          <span className="text-red-600">{result.error}</span>
+                          }
                               </div>
                             </div>
-                        )}
+                      )}
                         </div>
                       </CardContent>
                     </Card>
-                  }
-                </div>
                 }
+                </div>
+                )}
               </TabsContent>
 
               <TabsContent value="teams">
-                {conferences.length === 0 ?
-                <Alert>
+                {conferences.length === 0 ? (
+                  <Alert>
                     <AlertCircle className="h-4 w-4" />
                     <AlertDescription>
                       No conferences available for team synchronization. Please add leagues in the League Manager tab first.
                     </AlertDescription>
-                  </Alert> :
-
+                  </Alert>
+                ) : (
                 <div className="space-y-6">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-4">
                       {lastTeamsSyncTime &&
-                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
                           <Clock className="h-4 w-4" />
                           Last teams sync: {lastTeamsSyncTime}
                         </div>
-                      }
+                    }
                     </div>
                     <div className="flex gap-2">
                       <Button
-                        onClick={syncTeamsData}
-                        disabled={syncingTeams || !selectedSeasonId || conferences.length === 0}>
+                      onClick={syncTeamsData}
+                      disabled={syncingTeams || !selectedSeasonId || conferences.length === 0}>
                         {syncingTeams ?
-                        <>
+                      <>
                             <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
                             Syncing...
                           </> :
-                        <>
+                      <>
                             <Users className="h-4 w-4 mr-2" />
                             Sync Teams Data
                           </>
-                        }
+                      }
                       </Button>
                       <Button
-                        variant="outline"
-                        onClick={syncJunctionData}
-                        disabled={syncingTeams || !selectedSeasonId || conferences.length === 0}>
+                      variant="outline"
+                      onClick={syncJunctionData}
+                      disabled={syncingTeams || !selectedSeasonId || conferences.length === 0}>
                         {syncingTeams ?
-                        <>
+                      <>
                             <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
                             Syncing...
                           </> :
-                        <>
+                      <>
                             <Trophy className="h-4 w-4 mr-2" />
                             Fix Junction Data
                           </>
-                        }
+                      }
                       </Button>
                     </div>
                   </div>
 
                   {syncingTeams &&
-                  <div>
+                <div>
                       <div className="flex items-center justify-between mb-2">
                         <span className="text-sm font-medium">Synchronizing teams...</span>
                         <span className="text-sm text-muted-foreground">{Math.round(teamsProgress)}%</span>
                       </div>
                       <Progress value={teamsProgress} className="w-full" />
                     </div>
-                  }
+                }
 
                   <Card>
                     <CardHeader>
@@ -1129,20 +1123,20 @@ const DataSync: React.FC = () => {
                         <h4 className="font-semibold mb-2">Conferences to Sync:</h4>
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
                           {conferences.map((conference) =>
-                          <div key={conference.id} className="flex items-center gap-2 p-2 border rounded">
+                        <div key={conference.id} className="flex items-center gap-2 p-2 border rounded">
                               <Badge variant="outline" className="text-xs">
                                 {conference.league_id}
                               </Badge>
                               <span className="text-sm truncate">{conference.conference_name}</span>
                             </div>
-                          )}
+                        )}
                         </div>
                       </div>
                     </CardContent>
                   </Card>
 
                   {teamsSyncResults.length > 0 &&
-                  <Card>
+                <Card>
                       <CardHeader>
                         <CardTitle className="text-lg">Teams Sync Results</CardTitle>
                         <CardDescription>
@@ -1152,41 +1146,41 @@ const DataSync: React.FC = () => {
                       <CardContent>
                         <div className="space-y-2">
                           {teamsSyncResults.map((result, index) =>
-                        <div key={index} className="p-3 border rounded-lg">
+                      <div key={index} className="p-3 border rounded-lg">
                               <div className="flex items-center justify-between mb-2">
                                 <div className="flex items-center gap-3">
                                   {result.success ?
-                              <CheckCircle className="h-5 w-5 text-green-600" /> :
-                              <AlertCircle className="h-5 w-5 text-red-600" />
-                              }
+                            <CheckCircle className="h-5 w-5 text-green-600" /> :
+                            <AlertCircle className="h-5 w-5 text-red-600" />
+                            }
                                   <code className="text-sm">{result.league_id}</code>
                                 </div>
                                 <div className="text-sm">
                                   {result.success ?
-                              <span className="text-green-600">Success</span> :
-                              <span className="text-red-600">Failed</span>
-                              }
+                            <span className="text-green-600">Success</span> :
+                            <span className="text-red-600">Failed</span>
+                            }
                                 </div>
                               </div>
                               {result.success &&
-                          <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                        <div className="flex items-center gap-4 text-sm text-muted-foreground">
                                   <span>Teams created: {result.teams_created}</span>
                                   <span>Connections created: {result.junction_records_created}</span>
                                 </div>
-                          }
+                        }
                               {result.error &&
-                          <div className="text-sm text-red-600 mt-1">
+                        <div className="text-sm text-red-600 mt-1">
                                   {result.error}
                                 </div>
-                          }
+                        }
                             </div>
-                        )}
+                      )}
                         </div>
                       </CardContent>
                     </Card>
-                  }
-                </div>
                 }
+                </div>
+                )}
               </TabsContent>
 
               <TabsContent value="players">
@@ -1194,7 +1188,7 @@ const DataSync: React.FC = () => {
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-4">
                       {lastPlayersSyncTime &&
-                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
                           <Clock className="h-4 w-4" />
                           Last players sync: {lastPlayersSyncTime}
                         </div>
@@ -1204,11 +1198,11 @@ const DataSync: React.FC = () => {
                       onClick={syncPlayersData}
                       disabled={syncingPlayers}>
                       {syncingPlayers ?
-                      <>
+                        <>
                           <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
                           Syncing...
                         </> :
-                      <>
+                        <>
                           <UserCheck className="h-4 w-4 mr-2" />
                           Sync Players Data
                         </>
@@ -1217,7 +1211,7 @@ const DataSync: React.FC = () => {
                   </div>
 
                   {syncingPlayers &&
-                  <div>
+                    <div>
                       <div className="flex items-center justify-between mb-2">
                         <span className="text-sm font-medium">Synchronizing players...</span>
                         <span className="text-sm text-muted-foreground">{Math.round(playersProgress)}%</span>
@@ -1280,7 +1274,7 @@ const DataSync: React.FC = () => {
                   </Card>
 
                   {playersSyncResult &&
-                  <Card>
+                    <Card>
                       <CardHeader>
                         <CardTitle className="text-lg">Players Sync Results</CardTitle>
                         <CardDescription>
@@ -1292,29 +1286,29 @@ const DataSync: React.FC = () => {
                           <div className="flex items-center justify-between mb-2">
                             <div className="flex items-center gap-3">
                               {playersSyncResult.success ?
-                            <CheckCircle className="h-5 w-5 text-green-600" /> :
-                            <AlertCircle className="h-5 w-5 text-red-600" />
-                            }
+                                <CheckCircle className="h-5 w-5 text-green-600" /> :
+                                <AlertCircle className="h-5 w-5 text-red-600" />
+                              }
                               <span className="font-medium">Players Synchronization</span>
                             </div>
                             <div className="text-sm">
                               {playersSyncResult.success ?
-                            <span className="text-green-600">Success</span> :
-                            <span className="text-red-600">Failed</span>
-                            }
+                                <span className="text-green-600">Success</span> :
+                                <span className="text-red-600">Failed</span>
+                              }
                             </div>
                           </div>
                           {playersSyncResult.success &&
-                        <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                            <div className="flex items-center gap-4 text-sm text-muted-foreground">
                               <span>Players created: {playersSyncResult.players_created}</span>
                               <span>Players updated: {playersSyncResult.players_updated}</span>
                             </div>
-                        }
+                          }
                           {playersSyncResult.error &&
-                        <div className="text-sm text-red-600 mt-1">
+                            <div className="text-sm text-red-600 mt-1">
                               {playersSyncResult.error}
                             </div>
-                        }
+                          }
                         </div>
                       </CardContent>
                     </Card>
