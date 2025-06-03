@@ -323,9 +323,9 @@ const StandingsPage: React.FC = () => {
 
   const getStreakIcon = (streak: string) => {
     if (streak.startsWith('W')) {
-      return <TrendingUp className="h-4 w-4 text-green-500" data-id="z9rkcskus" />;
+      return <TrendingUp className="h-4 w-4 text-green-500" />;
     } else if (streak.startsWith('L')) {
-      return <TrendingDown className="h-4 w-4 text-red-500" data-id="tv8wqysc7" />;
+      return <TrendingDown className="h-4 w-4 text-red-500" />;
     }
     return null;
   };
@@ -339,10 +339,10 @@ const StandingsPage: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-[400px]" data-id="loading-container">
-        <div className="flex items-center space-x-2" data-id="3egz2s5wd">
-          <Loader2 className="h-6 w-6 animate-spin" data-id="fnxhtqq2c" />
-          <span data-id="bcdq698sr">Loading standings data...</span>
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="flex items-center space-x-2">
+          <Loader2 className="h-6 w-6 animate-spin" />
+          <span>Loading standings data...</span>
         </div>
       </div>);
 
@@ -350,13 +350,13 @@ const StandingsPage: React.FC = () => {
 
   if (error) {
     return (
-      <div className="space-y-6" data-id="error-container">
-        <div className="flex flex-col space-y-2" data-id="4opi89zyu">
-          <div className="flex items-center space-x-2" data-id="afa6t3yw8">
-            <Trophy className="h-6 w-6 text-primary" data-id="xuh3ln99e" />
-            <h1 className="text-3xl font-bold" data-id="adzrv86r9">League Standings</h1>
+      <div className="space-y-6">
+        <div className="flex flex-col space-y-2">
+          <div className="flex items-center space-x-2">
+            <Trophy className="h-6 w-6 text-primary" />
+            <h1 className="text-3xl font-bold">League Standings</h1>
           </div>
-          <p className="text-muted-foreground" data-id="o99conzyq">
+          <p className="text-muted-foreground">
             {selectedSeason} Season • {selectedConference ?
             currentSeasonConfig.conferences.find((c) => c.id === selectedConference)?.name :
             'All Conferences'
@@ -364,15 +364,15 @@ const StandingsPage: React.FC = () => {
           </p>
         </div>
         
-        <Card data-id="0wmm9s88l">
-          <CardHeader data-id="w06wnd68x">
-            <CardTitle data-id="b55npsde9">Error Loading Standings</CardTitle>
-            <CardDescription data-id="wp3j91f4z">Unable to fetch standings data</CardDescription>
+        <Card>
+          <CardHeader>
+            <CardTitle>Error Loading Standings</CardTitle>
+            <CardDescription>Unable to fetch standings data</CardDescription>
           </CardHeader>
-          <CardContent data-id="dyksdvrqs">
-            <div className="text-center space-y-4" data-id="wu43hv1va">
-              <p className="text-muted-foreground" data-id="0njajotlb">{error}</p>
-              <Button onClick={fetchStandingsData} data-id="qac4k0lxi">
+          <CardContent>
+            <div className="text-center space-y-4">
+              <p className="text-muted-foreground">{error}</p>
+              <Button onClick={fetchStandingsData}>
                 Try Again
               </Button>
             </div>
@@ -383,14 +383,14 @@ const StandingsPage: React.FC = () => {
   }
 
   return (
-    <div className="space-y-6" data-id="wuqj71t25">
+    <div className="space-y-6">
       {/* Page Header */}
-      <div className="flex flex-col space-y-2" data-id="gy01b64co">
-        <div className="flex items-center space-x-2" data-id="hom6jliz5">
-          <Trophy className="h-6 w-6 text-primary" data-id="1cultcefs" />
-          <h1 className="text-3xl font-bold" data-id="ftu7r5dio">League Standings</h1>
+      <div className="flex flex-col space-y-2">
+        <div className="flex items-center space-x-2">
+          <Trophy className="h-6 w-6 text-primary" />
+          <h1 className="text-3xl font-bold">League Standings</h1>
         </div>
-        <p className="text-muted-foreground" data-id="eyuiv48dn">
+        <p className="text-muted-foreground">
           {selectedSeason} Season • {selectedConference ?
           currentSeasonConfig.conferences.find((c) => c.id === selectedConference)?.name :
           'All Conferences'
@@ -399,18 +399,18 @@ const StandingsPage: React.FC = () => {
       </div>
 
       {/* Standings Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4" data-id="vaymgr8lu">
-        <Card data-id="zkwz0bior">
-          <CardHeader className="pb-2" data-id="8093rogol">
-            <CardDescription data-id="j8ttzk135">Total Teams</CardDescription>
-            <CardTitle className="text-2xl" data-id="s2ryz3bqr">{filteredStandings.length}</CardTitle>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <Card>
+          <CardHeader className="pb-2">
+            <CardDescription>Total Teams</CardDescription>
+            <CardTitle className="text-2xl">{filteredStandings.length}</CardTitle>
           </CardHeader>
         </Card>
         
-        <Card data-id="pr5hn0c36">
-          <CardHeader className="pb-2" data-id="1bghgrmsl">
-            <CardDescription data-id="hfafa4lqb">Highest Scoring Team</CardDescription>
-            <CardTitle className="text-xl" data-id="ppgc45sl9">
+        <Card>
+          <CardHeader className="pb-2">
+            <CardDescription>Highest Scoring Team</CardDescription>
+            <CardTitle className="text-xl">
               {filteredStandings.length > 0 &&
               filteredStandings.reduce((prev, current) =>
               prev.pointsFor > current.pointsFor ? prev : current
@@ -420,10 +420,10 @@ const StandingsPage: React.FC = () => {
           </CardHeader>
         </Card>
 
-        <Card data-id="6ojp6wiwa">
-          <CardHeader className="pb-2" data-id="wit33nscw">
-            <CardDescription data-id="gwkfwd8v2">League Average PPG</CardDescription>
-            <CardTitle className="text-2xl" data-id="1m726kngv">
+        <Card>
+          <CardHeader className="pb-2">
+            <CardDescription>League Average PPG</CardDescription>
+            <CardTitle className="text-2xl">
               {filteredStandings.length > 0 &&
               (filteredStandings.reduce((sum, team) => sum + team.avgPointsFor, 0) / filteredStandings.length).toFixed(1)
               }
@@ -433,93 +433,93 @@ const StandingsPage: React.FC = () => {
       </div>
 
       {/* Standings Table */}
-      <Card data-id="f2uwxiqvm">
-        <CardHeader data-id="6ji03jvu1">
-          <CardTitle data-id="ihj1kt027">Team Standings</CardTitle>
-          <CardDescription data-id="54ay3yl1z">
+      <Card>
+        <CardHeader>
+          <CardTitle>Team Standings</CardTitle>
+          <CardDescription>
             Click column headers to sort. Current standings for the {selectedSeason} season.
           </CardDescription>
         </CardHeader>
-        <CardContent data-id="n39uwd4zp">
-          <div className="rounded-md border" data-id="9fsw1ut36">
-            <Table data-id="fvhpa8g0o">
-              <TableHeader data-id="3xy0isvnm">
-                <TableRow data-id="2wt5hwr6s">
-                  <TableHead className="w-12" data-id="qhwnp00s6">
-                    <Button variant="ghost" size="sm" onClick={() => handleSort('rank')} data-id="fr5r03pjx">
-                      Rank <ArrowUpDown className="ml-1 h-3 w-3" data-id="mnhxissp0" />
+        <CardContent>
+          <div className="rounded-md border">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-12">
+                    <Button variant="ghost" size="sm" onClick={() => handleSort('rank')}>
+                      Rank <ArrowUpDown className="ml-1 h-3 w-3" />
                     </Button>
                   </TableHead>
-                  <TableHead data-id="zug3x5uze">
-                    <Button variant="ghost" size="sm" onClick={() => handleSort('teamName')} data-id="vkaybfwg6">
-                      Team <ArrowUpDown className="ml-1 h-3 w-3" data-id="kf7466be0" />
+                  <TableHead>
+                    <Button variant="ghost" size="sm" onClick={() => handleSort('teamName')}>
+                      Team <ArrowUpDown className="ml-1 h-3 w-3" />
                     </Button>
                   </TableHead>
-                  <TableHead className="hidden md:table-cell" data-id="lcjve77m9">Owner</TableHead>
-                  <TableHead className="hidden lg:table-cell" data-id="fjg98x73f">Conference</TableHead>
-                  <TableHead data-id="cctqy9du5">
-                    <Button variant="ghost" size="sm" onClick={() => handleSort('wins')} data-id="hf84oozog">
-                      Record <ArrowUpDown className="ml-1 h-3 w-3" data-id="tql43til7" />
+                  <TableHead className="hidden md:table-cell">Owner</TableHead>
+                  <TableHead className="hidden lg:table-cell">Conference</TableHead>
+                  <TableHead>
+                    <Button variant="ghost" size="sm" onClick={() => handleSort('wins')}>
+                      Record <ArrowUpDown className="ml-1 h-3 w-3" />
                     </Button>
                   </TableHead>
-                  <TableHead className="text-right" data-id="8ysejqckv">
-                    <Button variant="ghost" size="sm" onClick={() => handleSort('pointsFor')} data-id="v1znfp2gi">
-                      PF <ArrowUpDown className="ml-1 h-3 w-3" data-id="d6aznk5wi" />
+                  <TableHead className="text-right">
+                    <Button variant="ghost" size="sm" onClick={() => handleSort('pointsFor')}>
+                      PF <ArrowUpDown className="ml-1 h-3 w-3" />
                     </Button>
                   </TableHead>
-                  <TableHead className="text-right hidden sm:table-cell" data-id="5r1gdakww">
-                    <Button variant="ghost" size="sm" onClick={() => handleSort('pointsAgainst')} data-id="s5vbjt777">
-                      PA <ArrowUpDown className="ml-1 h-3 w-3" data-id="bh5ognx3x" />
+                  <TableHead className="text-right hidden sm:table-cell">
+                    <Button variant="ghost" size="sm" onClick={() => handleSort('pointsAgainst')}>
+                      PA <ArrowUpDown className="ml-1 h-3 w-3" />
                     </Button>
                   </TableHead>
-                  <TableHead className="text-right hidden md:table-cell" data-id="t16l8pyfe">
-                    <Button variant="ghost" size="sm" onClick={() => handleSort('pointsDiff')} data-id="2ourhgl93">
-                      Diff <ArrowUpDown className="ml-1 h-3 w-3" data-id="chm0wxhzo" />
+                  <TableHead className="text-right hidden md:table-cell">
+                    <Button variant="ghost" size="sm" onClick={() => handleSort('pointsDiff')}>
+                      Diff <ArrowUpDown className="ml-1 h-3 w-3" />
                     </Button>
                   </TableHead>
-                  <TableHead className="hidden lg:table-cell" data-id="la2nd3oxx">Streak</TableHead>
+                  <TableHead className="hidden lg:table-cell">Streak</TableHead>
                 </TableRow>
               </TableHeader>
-              <TableBody data-id="dj6sn4jc7">
+              <TableBody>
                 {sortedStandings.map((team, index) =>
-                <TableRow key={team.id} className="hover:bg-muted/50" data-id="jhqzyb095">
-                    <TableCell className="font-medium" data-id="u9gu5jl8r">
-                      <div className="flex items-center space-x-1" data-id="4b1rowzak">
-                        {team.rank === 1 && <Trophy className="h-4 w-4 text-yellow-500" data-id="wrb3nker1" />}
-                        <span data-id="9j6hktat6">{team.rank}</span>
+                <TableRow key={team.id} className="hover:bg-muted/50">
+                    <TableCell className="font-medium">
+                      <div className="flex items-center space-x-1">
+                        {team.rank === 1 && <Trophy className="h-4 w-4 text-yellow-500" />}
+                        <span>{team.rank}</span>
                       </div>
                     </TableCell>
-                    <TableCell data-id="dmc03d8eq">
-                      <div className="font-medium" data-id="zqpbs7z6b">{team.teamName}</div>
-                      <div className="text-sm text-muted-foreground md:hidden" data-id="xey7h5qzf">{team.ownerName}</div>
+                    <TableCell>
+                      <div className="font-medium">{team.teamName}</div>
+                      <div className="text-sm text-muted-foreground md:hidden">{team.ownerName}</div>
                     </TableCell>
-                    <TableCell className="hidden md:table-cell" data-id="rhxhddkjn">{team.ownerName}</TableCell>
-                    <TableCell className="hidden lg:table-cell" data-id="66eria6a0">
-                      <Badge variant="outline" className="text-xs" data-id="z942428pq">
+                    <TableCell className="hidden md:table-cell">{team.ownerName}</TableCell>
+                    <TableCell className="hidden lg:table-cell">
+                      <Badge variant="outline" className="text-xs">
                         {team.conference}
                       </Badge>
                     </TableCell>
-                    <TableCell data-id="hgx28rdm6">
-                      <Badge variant={getRecordBadgeVariant(team.wins, team.losses)} data-id="bz43jbjjm">
+                    <TableCell>
+                      <Badge variant={getRecordBadgeVariant(team.wins, team.losses)}>
                         {team.wins}-{team.losses}
                         {team.ties > 0 && `-${team.ties}`}
                       </Badge>
                     </TableCell>
-                    <TableCell className="text-right font-mono" data-id="bbrgbzser">
+                    <TableCell className="text-right font-mono">
                       {team.pointsFor.toFixed(1)}
                     </TableCell>
-                    <TableCell className="text-right font-mono hidden sm:table-cell" data-id="bsbfwktra">
+                    <TableCell className="text-right font-mono hidden sm:table-cell">
                       {team.pointsAgainst.toFixed(1)}
                     </TableCell>
-                    <TableCell className="text-right font-mono hidden md:table-cell" data-id="8zc0vgf5g">
-                      <span className={team.pointsDiff > 0 ? 'text-green-600' : 'text-red-600'} data-id="v15hwtqir">
+                    <TableCell className="text-right font-mono hidden md:table-cell">
+                      <span className={team.pointsDiff > 0 ? 'text-green-600' : 'text-red-600'}>
                         {team.pointsDiff > 0 ? '+' : ''}{team.pointsDiff.toFixed(1)}
                       </span>
                     </TableCell>
-                    <TableCell className="hidden lg:table-cell" data-id="dj5ne68bv">
-                      <div className="flex items-center space-x-1" data-id="7sha3f0yg">
+                    <TableCell className="hidden lg:table-cell">
+                      <div className="flex items-center space-x-1">
                         {getStreakIcon(team.streak)}
-                        <span className="text-sm" data-id="1ww6kpfip">{team.streak}</span>
+                        <span className="text-sm">{team.streak}</span>
                       </div>
                     </TableCell>
                   </TableRow>
