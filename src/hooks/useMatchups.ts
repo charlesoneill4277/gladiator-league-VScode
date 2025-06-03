@@ -63,20 +63,20 @@ export const useMatchups = (seasonYear?: number, conferenceId?: string | null): 
         OrderByField: 'season_year',
         IsAsc: false,
         Filters: seasonYear ? [
-          {
-            name: 'season_year',
-            op: 'Equal',
-            value: seasonYear
-          }
-        ] : []
+        {
+          name: 'season_year',
+          op: 'Equal',
+          value: seasonYear
+        }] :
+        []
       });
 
       if (seasonsResponse.error) throw seasonsResponse.error;
 
       console.log('Seasons data:', seasonsResponse.data);
 
-      const currentSeason = seasonsResponse.data?.List?.find((season: any) => 
-        seasonYear ? season.season_year === seasonYear : season.is_current_season
+      const currentSeason = seasonsResponse.data?.List?.find((season: any) =>
+      seasonYear ? season.season_year === seasonYear : season.is_current_season
       ) || seasonsResponse.data?.List?.[0];
 
       if (!currentSeason) {
@@ -90,12 +90,12 @@ export const useMatchups = (seasonYear?: number, conferenceId?: string | null): 
         OrderByField: 'id',
         IsAsc: true,
         Filters: [
-          {
-            name: 'season_id',
-            op: 'Equal',
-            value: currentSeason.id
-          }
-        ]
+        {
+          name: 'season_id',
+          op: 'Equal',
+          value: currentSeason.id
+        }]
+
       });
 
       if (conferencesResponse.error) throw conferencesResponse.error;
@@ -117,18 +117,18 @@ export const useMatchups = (seasonYear?: number, conferenceId?: string | null): 
 
       // Build filters for matchups query
       const matchupFilters: any[] = [];
-      
+
       if (conferenceId && conferencesResponse.data?.List) {
         // Find the conference by the frontend conference ID (not database ID)
         const targetConference = conferencesResponse.data.List.find((conf: any) => {
           // Match against the conference name or some identifier
-          const conferenceMapping: { [key: string]: string[] } = {
+          const conferenceMapping: {[key: string]: string[];} = {
             'mars': ['Legions of Mars', 'The Legions of Mars'],
-            'jupiter': ['Guardians of Jupiter', 'The Guardians of Jupiter'], 
+            'jupiter': ['Guardians of Jupiter', 'The Guardians of Jupiter'],
             'vulcan': ["Vulcan's Oathsworn"]
           };
           const possibleNames = conferenceMapping[conferenceId] || [];
-          return possibleNames.some(name => name === conf.conference_name);
+          return possibleNames.some((name) => name === conf.conference_name);
         });
 
         if (targetConference) {
@@ -174,7 +174,7 @@ export const useMatchups = (seasonYear?: number, conferenceId?: string | null): 
             if (normalizedConferenceName.startsWith('The ')) {
               normalizedConferenceName = normalizedConferenceName.substring(4);
             }
-            
+
             transformedMatchups.push({
               id: matchup.id.toString(),
               week: matchup.week,
@@ -202,14 +202,14 @@ export const useMatchups = (seasonYear?: number, conferenceId?: string | null): 
       }
 
       // Generate weeks array
-      const weeksArray = Array.from(weekSet).sort((a, b) => a - b).map(weekNum => ({
+      const weeksArray = Array.from(weekSet).sort((a, b) => a - b).map((weekNum) => ({
         week: weekNum,
         status: weekNum <= 13 ? 'completed' : weekNum === 14 ? 'current' : 'upcoming'
-      } as WeekInfo));
+      }) as WeekInfo);
 
       setMatchups(transformedMatchups);
       setWeeks(weeksArray);
-      setCurrentWeek(Math.max(...Array.from(weekSet).filter(w => w <= 14)) || 14);
+      setCurrentWeek(Math.max(...Array.from(weekSet).filter((w) => w <= 14)) || 14);
 
       console.log('Transformed matchups:', transformedMatchups);
       console.log('Weeks:', weeksArray);
