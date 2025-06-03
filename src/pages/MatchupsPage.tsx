@@ -1,87 +1,98 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { useApp } from '@/contexts/AppContext';
-import { Swords, ChevronDown, Clock, Trophy, Users, RefreshCw, AlertCircle } from 'lucide-react';
-import { matchupService, LiveMatchupData } from '@/services/matchupService';
-import PlayerRoster from '@/components/matchups/PlayerRoster';
-import { useToast } from '@/hooks/use-toast';
+import { Swords, ChevronDown, Clock, Trophy, Users } from 'lucide-react';
+
+// Mock data for matchups - this will be replaced with real Sleeper API data
+const mockMatchupsData = {
+  currentWeek: 14,
+  weeks: Array.from({ length: 17 }, (_, i) => ({
+    week: i + 1,
+    status: i < 13 ? 'completed' : i === 13 ? 'current' : 'upcoming'
+  })),
+  matchups: [
+  {
+    id: '1',
+    week: 14,
+    conference: 'Legions of Mars',
+    homeTeam: {
+      id: '1',
+      name: 'Galactic Gladiators',
+      owner: 'John Doe',
+      score: 127.5,
+      projected: 118.2
+    },
+    awayTeam: {
+      id: '2',
+      name: 'Space Vikings',
+      owner: 'Jane Smith',
+      score: 112.8,
+      projected: 125.4
+    },
+    status: 'live', // live, completed, upcoming
+    lastUpdate: '2024-12-15T20:30:00Z'
+  },
+  {
+    id: '2',
+    week: 14,
+    conference: 'Guardians of Jupiter',
+    homeTeam: {
+      id: '3',
+      name: 'Meteor Crushers',
+      owner: 'Bob Johnson',
+      score: 98.3,
+      projected: 110.8
+    },
+    awayTeam: {
+      id: '4',
+      name: 'Asteroid Miners',
+      owner: 'Alice Brown',
+      score: 134.2,
+      projected: 115.6
+    },
+    status: 'live',
+    lastUpdate: '2024-12-15T20:30:00Z'
+  },
+  {
+    id: '3',
+    week: 14,
+    conference: "Vulcan's Oathsworn",
+    homeTeam: {
+      id: '5',
+      name: 'Solar Flares',
+      owner: 'Charlie Wilson',
+      score: 0,
+      projected: 108.4
+    },
+    awayTeam: {
+      id: '6',
+      name: 'Nebula Nomads',
+      owner: 'Diana Prince',
+      score: 0,
+      projected: 112.7
+    },
+    status: 'upcoming',
+    lastUpdate: null
+  }]
+
+};
 
 const MatchupsPage: React.FC = () => {
   const { selectedSeason, selectedConference, currentSeasonConfig } = useApp();
-  const { toast } = useToast();
-  const [selectedWeek, setSelectedWeek] = useState<number>(14);
+  const [selectedWeek, setSelectedWeek] = useState<number>(mockMatchupsData.currentWeek);
   const [expandedMatchups, setExpandedMatchups] = useState<Set<string>>(new Set());
-  const [matchups, setMatchups] = useState<LiveMatchupData[]>([]);
-  const [availableWeeks, setAvailableWeeks] = useState<{ week: number; status: string }[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [lastRefresh, setLastRefresh] = useState<Date | null>(null);
 
-  // Load available weeks on component mount
-  useEffect(() => {
-    const loadWeeks = async () => {
-      try {
-        const weeks = await matchupService.getAvailableWeeks();
-        setAvailableWeeks(weeks);
-        
-        // Set current week as default
-        const currentWeek = weeks.find(w => w.status === 'current');
-        if (currentWeek) {
-          setSelectedWeek(currentWeek.week);
-        }
-      } catch (error) {
-        console.error('Error loading weeks:', error);
-      }
-    };
-    
-    loadWeeks();
-  }, []);
+  // Filter matchups based on selected conference and week
+  const filteredMatchups = mockMatchupsData.matchups.filter((matchup) => {
+    const weekMatch = matchup.week === selectedWeek;
+    if (!selectedConference) return weekMatch;
 
-  // Load matchups when week or conference changes
-  useEffect(() => {
-    loadMatchups();
-  }, [selectedWeek, selectedConference]);
-
-  const loadMatchups = async () => {
-    if (!selectedWeek) return;
-    
-    setLoading(true);
-    setError(null);
-    
-    try {
-      console.log(`Loading matchups for week ${selectedWeek}, conference: ${selectedConference || 'all'}`);
-      const data = await matchupService.getMatchupsForWeek(selectedWeek, selectedConference || undefined);
-      setMatchups(data);
-      setLastRefresh(new Date());
-      
-      if (data.length === 0) {
-        toast({
-          title: "No matchups found",
-          description: `No matchups available for week ${selectedWeek}`,
-          variant: "default"
-        });
-      }
-    } catch (error) {
-      console.error('Error loading matchups:', error);
-      setError(error instanceof Error ? error.message : 'Failed to load matchups');
-      toast({
-        title: "Error loading matchups",
-        description: "Failed to fetch matchup data. Please try again.",
-        variant: "destructive"
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Filter matchups based on selected conference
-  const filteredMatchups = matchups.filter((matchup) => {
-    if (!selectedConference) return true;
-    return matchup.conference.id === selectedConference;
+    const conference = currentSeasonConfig.conferences.find((c) => c.id === selectedConference);
+    return weekMatch && matchup.conference === conference?.name;
   });
 
   const toggleMatchupExpansion = (matchupId: string) => {
@@ -108,12 +119,8 @@ const MatchupsPage: React.FC = () => {
   };
 
   const getWeekStatus = (weekNum: number) => {
-    const weekData = availableWeeks.find((w) => w.week === weekNum);
+    const weekData = mockMatchupsData.weeks.find((w) => w.week === weekNum);
     return weekData?.status || 'upcoming';
-  };
-
-  const refreshMatchups = () => {
-    loadMatchups();
   };
 
   return (
@@ -128,11 +135,7 @@ const MatchupsPage: React.FC = () => {
           {selectedSeason} Season • Week {selectedWeek} • {selectedConference ?
           currentSeasonConfig.conferences.find((c) => c.id === selectedConference)?.name :
           'All Conferences'
-          } {lastRefresh && (
-            <span className="ml-2 text-xs">
-              • Last updated: {lastRefresh.toLocaleTimeString()}
-            </span>
-          )}
+          }
         </p>
       </div>
 
@@ -144,7 +147,7 @@ const MatchupsPage: React.FC = () => {
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              {availableWeeks.map((week) =>
+              {mockMatchupsData.weeks.map((week) =>
               <SelectItem key={week.week} value={week.week.toString()}>
                   <div className="flex items-center space-x-2">
                     <span>Week {week.week}</span>
@@ -154,16 +157,6 @@ const MatchupsPage: React.FC = () => {
               )}
             </SelectContent>
           </Select>
-
-          <Button 
-            variant="outline" 
-            size="sm" 
-            onClick={refreshMatchups}
-            disabled={loading}
-          >
-            <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
-            Refresh
-          </Button>
 
           {getWeekStatus(selectedWeek) === 'current' &&
           <div className="flex items-center space-x-2 text-sm text-muted-foreground">
@@ -178,30 +171,8 @@ const MatchupsPage: React.FC = () => {
             <Users className="h-4 w-4" />
             <span>{filteredMatchups.length} matchups</span>
           </div>
-          {loading && (
-            <div className="flex items-center space-x-1">
-              <RefreshCw className="h-4 w-4 animate-spin" />
-              <span>Loading...</span>
-            </div>
-          )}
         </div>
       </div>
-
-      {/* Error Display */}
-      {error && (
-        <Card className="border-red-200 bg-red-50">
-          <CardContent className="py-4">
-            <div className="flex items-center space-x-2 text-red-600">
-              <AlertCircle className="h-4 w-4" />
-              <span className="font-medium">Error loading matchups</span>
-            </div>
-            <p className="text-sm text-red-600 mt-1">{error}</p>
-            <Button variant="outline" size="sm" className="mt-2" onClick={refreshMatchups}>
-              Try Again
-            </Button>
-          </CardContent>
-        </Card>
-      )}
 
       {/* Matchups Grid */}
       <div className="grid gap-4">
@@ -216,18 +187,13 @@ const MatchupsPage: React.FC = () => {
                   <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-2">
                       <CardTitle className="text-lg">
-                        {matchup.conference.name}
+                        {matchup.conference}
                       </CardTitle>
                       {getStatusBadge(matchup.status)}
-                      {matchup.isPlayoff && (
-                        <Badge variant="secondary" className="bg-yellow-100 text-yellow-800">
-                          Playoff
-                        </Badge>
-                      )}
                     </div>
                     <ChevronDown className={`h-4 w-4 transition-transform ${
-                  expandedMatchups.has(matchup.id) ? 'rotate-180' : ''
-                  }` } />
+                  expandedMatchups.has(matchup.id) ? 'rotate-180' : ''}`
+                  } />
                   </div>
                 </CardHeader>
               </CollapsibleTrigger>
@@ -240,9 +206,9 @@ const MatchupsPage: React.FC = () => {
                     <div className="font-semibold">{matchup.homeTeam.name}</div>
                     <div className="text-sm text-muted-foreground">{matchup.homeTeam.owner}</div>
                     <div className="text-2xl font-bold">
-                      {matchup.status === 'upcoming' ? '--' : matchup.homeTeam.score > 0 ? matchup.homeTeam.score.toFixed(1) : '0.0'}
+                      {matchup.status === 'upcoming' ? '--' : matchup.homeTeam.score.toFixed(1)}
                     </div>
-                    {matchup.homeTeam.projected > 0 &&
+                    {matchup.status !== 'upcoming' &&
                   <div className="text-xs text-muted-foreground">
                         Proj: {matchup.homeTeam.projected.toFixed(1)}
                       </div>
@@ -252,11 +218,9 @@ const MatchupsPage: React.FC = () => {
                   {/* VS Divider */}
                   <div className="text-center">
                     <div className="text-lg font-semibold text-muted-foreground">VS</div>
-                    {matchup.status === 'completed' && (
-                      <Trophy className={`h-6 w-6 mx-auto mt-2 ${
-                        matchup.homeTeam.score > matchup.awayTeam.score ? 'text-yellow-500' : 'text-gray-400'
-                      }`} />
-                    )}
+                    {matchup.status === 'completed' &&
+                  <Trophy className="h-6 w-6 mx-auto mt-2 text-yellow-500" />
+                  }
                   </div>
 
                   {/* Away Team */}
@@ -264,9 +228,9 @@ const MatchupsPage: React.FC = () => {
                     <div className="font-semibold">{matchup.awayTeam.name}</div>
                     <div className="text-sm text-muted-foreground">{matchup.awayTeam.owner}</div>
                     <div className="text-2xl font-bold">
-                      {matchup.status === 'upcoming' ? '--' : matchup.awayTeam.score > 0 ? matchup.awayTeam.score.toFixed(1) : '0.0'}
+                      {matchup.status === 'upcoming' ? '--' : matchup.awayTeam.score.toFixed(1)}
                     </div>
-                    {matchup.awayTeam.projected > 0 &&
+                    {matchup.status !== 'upcoming' &&
                   <div className="text-xs text-muted-foreground">
                         Proj: {matchup.awayTeam.projected.toFixed(1)}
                       </div>
@@ -278,50 +242,58 @@ const MatchupsPage: React.FC = () => {
                 <CollapsibleContent className="mt-6">
                   <div className="border-t pt-4 space-y-4">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      {/* Home Team Roster */}
-                      <PlayerRoster 
-                        teamName={matchup.homeTeam.name}
-                        starters={matchup.homeTeam.starters}
-                        bench={matchup.homeTeam.bench}
-                        totalScore={matchup.homeTeam.score}
-                        projectedScore={matchup.homeTeam.projected}
-                      />
+                      {/* Home Team Roster Placeholder */}
+                      <Card>
+                        <CardHeader className="pb-2">
+                          <CardTitle className="text-sm">{matchup.homeTeam.name} Roster</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <p className="text-sm text-muted-foreground">
+                            Detailed roster and player scores will be displayed here when connected to Sleeper API.
+                          </p>
+                        </CardContent>
+                      </Card>
 
-                      {/* Away Team Roster */}
-                      <PlayerRoster 
-                        teamName={matchup.awayTeam.name}
-                        starters={matchup.awayTeam.starters}
-                        bench={matchup.awayTeam.bench}
-                        totalScore={matchup.awayTeam.score}
-                        projectedScore={matchup.awayTeam.projected}
-                      />
+                      {/* Away Team Roster Placeholder */}
+                      <Card>
+                        <CardHeader className="pb-2">
+                          <CardTitle className="text-sm">{matchup.awayTeam.name} Roster</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <p className="text-sm text-muted-foreground">
+                            Detailed roster and player scores will be displayed here when connected to Sleeper API.
+                          </p>
+                        </CardContent>
+                      </Card>
                     </div>
 
                     {/* Matchup Stats */}
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
-                      <div>
-                        <div className="text-sm text-muted-foreground">Total Points</div>
-                        <div className="font-semibold">
-                          {matchup.status === 'upcoming' ? '--' : 
-                           (matchup.homeTeam.score + matchup.awayTeam.score).toFixed(1)}
+                    {matchup.status !== 'upcoming' &&
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
+                        <div>
+                          <div className="text-sm text-muted-foreground">Total Points</div>
+                          <div className="font-semibold">
+                            {(matchup.homeTeam.score + matchup.awayTeam.score).toFixed(1)}
+                          </div>
+                        </div>
+                        <div>
+                          <div className="text-sm text-muted-foreground">Point Spread</div>
+                          <div className="font-semibold">
+                            {Math.abs(matchup.homeTeam.score - matchup.awayTeam.score).toFixed(1)}
+                          </div>
+                        </div>
+                        <div>
+                          <div className="text-sm text-muted-foreground">Last Updated</div>
+                          <div className="text-xs">
+                            {matchup.lastUpdate ? new Date(matchup.lastUpdate).toLocaleTimeString() : 'N/A'}
+                          </div>
+                        </div>
+                        <div>
+                          <div className="text-sm text-muted-foreground">Status</div>
+                          <div className="text-xs">{matchup.status}</div>
                         </div>
                       </div>
-                      <div>
-                        <div className="text-sm text-muted-foreground">Point Spread</div>
-                        <div className="font-semibold">
-                          {matchup.status === 'upcoming' ? '--' : 
-                           Math.abs(matchup.homeTeam.score - matchup.awayTeam.score).toFixed(1)}
-                        </div>
-                      </div>
-                      <div>
-                        <div className="text-sm text-muted-foreground">Season</div>
-                        <div className="text-xs">{matchup.season.name}</div>
-                      </div>
-                      <div>
-                        <div className="text-sm text-muted-foreground">League ID</div>
-                        <div className="text-xs font-mono">{matchup.conference.league_id}</div>
-                      </div>
-                    </div>
+                  }
                   </div>
                 </CollapsibleContent>
               </CardContent>
@@ -329,14 +301,10 @@ const MatchupsPage: React.FC = () => {
           </Card>
         )}
 
-        {filteredMatchups.length === 0 && !loading &&
+        {filteredMatchups.length === 0 &&
         <Card>
             <CardContent className="py-8 text-center">
               <p className="text-muted-foreground">No matchups found for the selected filters.</p>
-              <Button variant="outline" className="mt-4" onClick={refreshMatchups}>
-                <RefreshCw className="h-4 w-4 mr-2" />
-                Refresh Data
-              </Button>
             </CardContent>
           </Card>
         }
