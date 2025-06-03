@@ -46,6 +46,34 @@ export interface OrganizedRoster {
   ir: string[];
 }
 
+export interface SleeperMatchup {
+  starters: string[];
+  roster_id: number;
+  players: string[];
+  matchup_id: number;
+  points: number;
+  custom_points?: number;
+  starters_points: number[];
+  players_points: Record<string, number>;
+}
+
+export interface LiveScoringData {
+  roster_id: number;
+  team_points: number;
+  matchup_id: number;
+  starters: Array<{
+    playerId: string;
+    position: string;
+    points: number;
+    is_starter: boolean;
+  }>;
+  bench: Array<{
+    playerId: string;
+    position: string;
+    points: number;
+  }>;
+}
+
 // Position mapping for starting lineup slots
 const STARTING_POSITIONS = [
 'QB', // Quarterback
@@ -63,6 +91,8 @@ const STARTING_POSITIONS = [
 
 export class SleeperApiService {
   private static baseUrl = 'https://api.sleeper.app/v1';
+  private static matchupCache = new Map<string, { data: SleeperMatchup[]; timestamp: number }>();
+  private static CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
 
   /**
    * Fetch roster data for a specific league
@@ -189,6 +219,133 @@ export class SleeperApiService {
    */
   static formatPoints(points: number, decimal: number = 0): number {
     return points + decimal / 100;
+  }
+
+  /**
+   * Fetch matchup data for a specific league and week
+   */
+  static async fetchLeagueMatchups(leagueId: string, week: number): Promise<SleeperMatchup[]> {
+    try {
+      const cacheKey = `${leagueId}_${week}`;
+      const cached = this.matchupCache.get(cacheKey);
+      
+      // Check if we have valid cached data
+      if (cached && Date.now() - cached.timestamp < this.CACHE_DURATION) {
+        console.log(`📦 Using cached matchup data for league ${leagueId}, week ${week}`);
+        return cached.data;
+      }
+
+      console.log(`🔄 Fetching fresh matchup data for league ${leagueId}, week ${week}`);
+      const response = await fetch(`${this.baseUrl}/league/${leagueId}/matchups/${week}`);
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch matchups: ${response.status} ${response.statusText}`);
+      }
+
+      const data: SleeperMatchup[] = await response.json();
+      
+      // Cache the data
+      this.matchupCache.set(cacheKey, {
+        data,
+        timestamp: Date.now()
+      });
+
+      console.log(`✅ Fetched ${data.length} matchups for league ${leagueId}, week ${week}`);
+      return data;
+    } catch (error) {
+      console.error('❌ Error fetching league matchups:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Process matchup data into live scoring format
+   */
+  static async processLiveScoringData(
+    leagueId: string, 
+    week: number, 
+    allPlayers?: Record<string, SleeperPlayer>
+  ): Promise<LiveScoringData[]> {
+    try {
+      // Fetch matchups and players data
+      const [matchups, players] = await Promise.all([
+        this.fetchLeagueMatchups(leagueId, week),
+        allPlayers || this.fetchAllPlayers()
+      ]);
+
+      const liveScoringData: LiveScoringData[] = [];
+
+      for (const matchup of matchups) {
+        const starters = matchup.starters.map((playerId, index) => ({
+          playerId,
+          position: players[playerId]?.position || 'UNK',
+          points: matchup.starters_points?.[index] || 0,
+          is_starter: true
+        }));
+
+        const bench = matchup.players
+          .filter(playerId => !matchup.starters.includes(playerId))
+          .map(playerId => ({
+            playerId,
+            position: players[playerId]?.position || 'UNK',
+            points: matchup.players_points?.[playerId] || 0
+          }));
+
+        liveScoringData.push({
+          roster_id: matchup.roster_id,
+          team_points: matchup.points || 0,
+          matchup_id: matchup.matchup_id,
+          starters,
+          bench
+        });
+      }
+
+      return liveScoringData;
+    } catch (error) {
+      console.error('❌ Error processing live scoring data:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get live scoring data for specific roster
+   */
+  static async getRosterLiveScoring(
+    leagueId: string, 
+    week: number, 
+    rosterId: number
+  ): Promise<LiveScoringData | null> {
+    try {
+      const liveScoringData = await this.processLiveScoringData(leagueId, week);
+      return liveScoringData.find(data => data.roster_id === rosterId) || null;
+    } catch (error) {
+      console.error('❌ Error getting roster live scoring:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Clear matchup cache (for manual refresh)
+   */
+  static clearMatchupCache(): void {
+    console.log('🗑️ Clearing matchup cache');
+    this.matchupCache.clear();
+  }
+
+  /**
+   * Get cache status for debugging
+   */
+  static getCacheStatus(): Record<string, { age: number; entries: number }> {
+    const status: Record<string, { age: number; entries: number }> = {};
+    
+    this.matchupCache.forEach((cached, key) => {
+      status[key] = {
+        age: Date.now() - cached.timestamp,
+        entries: cached.data.length
+      };
+    });
+
+    return status;
   }
 }
 
