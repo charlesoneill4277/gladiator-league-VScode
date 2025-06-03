@@ -270,12 +270,12 @@ export class SleeperApiService {
 
       const data = await response.json();
       console.log(`Fetched ${data.length} matchups for league ${leagueId}, week ${week}`);
-      
+
       // Log points data for debugging
       data.forEach((matchup: SleeperMatchup) => {
         console.log(`Week ${week} - Roster ${matchup.roster_id}: ${matchup.points} points (Matchup ID: ${matchup.matchup_id})`);
       });
-      
+
       return data;
     } catch (error) {
       console.error('Error fetching matchups:', error);
@@ -290,7 +290,7 @@ export class SleeperApiService {
     try {
       console.log(`Fetching all season matchups for league: ${leagueId}`);
       const weeklyMatchups: Record<number, SleeperMatchup[]> = {};
-      
+
       // Fetch data for weeks 1-17
       for (let week = 1; week <= 17; week++) {
         try {
@@ -301,7 +301,7 @@ export class SleeperApiService {
           weeklyMatchups[week] = [];
         }
       }
-      
+
       return weeklyMatchups;
     } catch (error) {
       console.error('Error fetching all season matchups:', error);
@@ -378,25 +378,25 @@ export class SleeperApiService {
     });
 
     // Convert to organized format
-    const organizedMatchups = Array.from(matchupGroups.entries())
-      .filter(([_, teams]) => teams.length === 2) // Only include complete matchup pairs
-      .map(([matchup_id, teams]) => ({
-        matchup_id,
-        teams: teams.map((team) => {
-          const roster = rosters.find((r) => r.roster_id === team.roster_id);
-          const owner = roster ? users.find((u) => u.user_id === roster.owner_id) : null;
-          
-          console.log(`Organizing team ${team.roster_id} with ${team.points} points`);
-          
-          return {
-            roster_id: team.roster_id,
-            points: team.points || 0, // Ensure points are properly passed through
-            owner,
-            roster
-          };
-        })
-      }));
-      
+    const organizedMatchups = Array.from(matchupGroups.entries()).
+    filter(([_, teams]) => teams.length === 2) // Only include complete matchup pairs
+    .map(([matchup_id, teams]) => ({
+      matchup_id,
+      teams: teams.map((team) => {
+        const roster = rosters.find((r) => r.roster_id === team.roster_id);
+        const owner = roster ? users.find((u) => u.user_id === roster.owner_id) : null;
+
+        console.log(`Organizing team ${team.roster_id} with ${team.points} points`);
+
+        return {
+          roster_id: team.roster_id,
+          points: team.points || 0, // Ensure points are properly passed through
+          owner,
+          roster
+        };
+      })
+    }));
+
     console.log(`Organized ${organizedMatchups.length} matchup pairs`);
     return organizedMatchups;
   }
