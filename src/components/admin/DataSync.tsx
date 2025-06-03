@@ -79,12 +79,12 @@ const DataSync: React.FC = () => {
   const [lastTeamsSyncTime, setLastTeamsSyncTime] = useState<string | null>(null);
   const [lastPlayersSyncTime, setLastPlayersSyncTime] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  
+
   // Player sync filters
   const [selectedTeamFilter, setSelectedTeamFilter] = useState<string>('all');
   const [selectedPositionFilter, setSelectedPositionFilter] = useState<string>('all');
   const [selectedStatusFilter, setSelectedStatusFilter] = useState<string>('all');
-  
+
   const { toast } = useToast();
 
   useEffect(() => {
@@ -725,19 +725,19 @@ const DataSync: React.FC = () => {
 
       // Apply filters
       if (selectedPositionFilter !== 'all') {
-        playersArray = playersArray.filter(player => player.position === selectedPositionFilter);
+        playersArray = playersArray.filter((player) => player.position === selectedPositionFilter);
       }
-      
+
       if (selectedStatusFilter !== 'all') {
         const isActive = selectedStatusFilter === 'active';
-        playersArray = playersArray.filter(player => {
+        playersArray = playersArray.filter((player) => {
           const playerActive = player.status === 'Active' || !player.status;
           return isActive ? playerActive : !playerActive;
         });
       }
-      
+
       if (selectedTeamFilter !== 'all') {
-        const selectedTeam = teams.find(team => team.id.toString() === selectedTeamFilter);
+        const selectedTeam = teams.find((team) => team.id.toString() === selectedTeamFilter);
         if (selectedTeam) {
           // For team filtering, we'll sync all players but focus on a specific fantasy team's needs
           // This is more of a logical filter for targeting specific roster management
@@ -752,10 +752,10 @@ const DataSync: React.FC = () => {
       let playersUpdated = 0;
       const batchSize = 50; // Process in batches to avoid overwhelming the database
       const totalBatches = Math.ceil(playersArray.length / batchSize);
-      
+
       // Log filter summary
       console.log(`Starting sync of ${playersArray.length} players with active filters:`, {
-        team: selectedTeamFilter !== 'all' ? teams.find(t => t.id.toString() === selectedTeamFilter)?.team_name : 'All Teams',
+        team: selectedTeamFilter !== 'all' ? teams.find((t) => t.id.toString() === selectedTeamFilter)?.team_name : 'All Teams',
         position: selectedPositionFilter !== 'all' ? selectedPositionFilter : 'All Positions',
         status: selectedStatusFilter !== 'all' ? selectedStatusFilter : 'All Players'
       });
@@ -1285,11 +1285,11 @@ const DataSync: React.FC = () => {
                             </SelectTrigger>
                             <SelectContent>
                               <SelectItem value="all">All Teams</SelectItem>
-                              {teams.map((team) => (
-                                <SelectItem key={team.id} value={team.id.toString()}>
+                              {teams.map((team) =>
+                              <SelectItem key={team.id} value={team.id.toString()}>
                                   {team.team_name}
                                 </SelectItem>
-                              ))}
+                              )}
                             </SelectContent>
                           </Select>
                         </div>
@@ -1337,7 +1337,7 @@ const DataSync: React.FC = () => {
                         </div>
                         <div className="flex flex-wrap gap-2 mb-2">
                           <Badge variant="outline">
-                            Team: {selectedTeamFilter === 'all' ? 'All Teams' : teams.find(t => t.id.toString() === selectedTeamFilter)?.team_name || 'Unknown'}
+                            Team: {selectedTeamFilter === 'all' ? 'All Teams' : teams.find((t) => t.id.toString() === selectedTeamFilter)?.team_name || 'Unknown'}
                           </Badge>
                           <Badge variant="outline">
                             Position: {selectedPositionFilter === 'all' ? 'All Positions' : selectedPositionFilter}
@@ -1347,9 +1347,9 @@ const DataSync: React.FC = () => {
                           </Badge>
                         </div>
                         <div className="text-xs text-muted-foreground">
-                          {(selectedTeamFilter !== 'all' || selectedPositionFilter !== 'all' || selectedStatusFilter !== 'all') ? 
-                            'Filters are active - sync will process a subset of players for faster performance.' :
-                            'No filters active - sync will process all NFL players (may take several minutes).'}
+                          {selectedTeamFilter !== 'all' || selectedPositionFilter !== 'all' || selectedStatusFilter !== 'all' ?
+                          'Filters are active - sync will process a subset of players for faster performance.' :
+                          'No filters active - sync will process all NFL players (may take several minutes).'}
                         </div>
                       </div>
                     </CardContent>
@@ -1390,8 +1390,8 @@ const DataSync: React.FC = () => {
                             <li>• Jersey numbers and physical stats</li>
                             <li>• College and experience data</li>
                           </ul>
-                          {(selectedTeamFilter !== 'all' || selectedPositionFilter !== 'all' || selectedStatusFilter !== 'all') && 
-                            <div className="mt-2 p-2 bg-blue-50 border border-blue-200 rounded text-xs text-blue-800">
+                          {(selectedTeamFilter !== 'all' || selectedPositionFilter !== 'all' || selectedStatusFilter !== 'all') &&
+                          <div className="mt-2 p-2 bg-blue-50 border border-blue-200 rounded text-xs text-blue-800">
                               <strong>Filtered Sync:</strong> Only players matching your criteria will be processed.
                             </div>
                           }
@@ -1416,9 +1416,9 @@ const DataSync: React.FC = () => {
                       <Alert>
                         <AlertCircle className="h-4 w-4" />
                         <AlertDescription>
-                          <strong>Note:</strong> {(selectedTeamFilter !== 'all' || selectedPositionFilter !== 'all' || selectedStatusFilter !== 'all') ? 
-                            'Filtered sync will process only players matching your criteria, making the sync faster and more targeted.' :
-                            'This sync processes all NFL players (~3,000+ records) and may take several minutes to complete.'}
+                          <strong>Note:</strong> {selectedTeamFilter !== 'all' || selectedPositionFilter !== 'all' || selectedStatusFilter !== 'all' ?
+                          'Filtered sync will process only players matching your criteria, making the sync faster and more targeted.' :
+                          'This sync processes all NFL players (~3,000+ records) and may take several minutes to complete.'}
                           {' '}The system will process players in batches to ensure reliable data synchronization.
                         </AlertDescription>
                       </Alert>

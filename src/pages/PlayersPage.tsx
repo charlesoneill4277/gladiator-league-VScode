@@ -80,6 +80,62 @@ const mockPlayersData = [
   injuryStatus: 'Q',
   gamesPlayed: 11,
   projectedPoints: 15.8
+},
+{
+  id: 'player6',
+  name: 'Travis Kelce',
+  position: 'TE',
+  nflTeam: 'KC',
+  points: 189.4,
+  avgPoints: 14.6,
+  status: 'rostered',
+  rosteredBy: 'Nebula Warriors',
+  rosteredByOwner: 'Sarah Wilson',
+  injuryStatus: null,
+  gamesPlayed: 13,
+  projectedPoints: 15.2
+},
+{
+  id: 'player7',
+  name: 'Myles Garrett',
+  position: 'DL',
+  nflTeam: 'CLE',
+  points: 98.5,
+  avgPoints: 7.6,
+  status: 'rostered',
+  rosteredBy: 'Cosmic Defenders',
+  rosteredByOwner: 'Mike Davis',
+  injuryStatus: null,
+  gamesPlayed: 13,
+  projectedPoints: 8.1
+},
+{
+  id: 'player8',
+  name: 'Micah Parsons',
+  position: 'LB',
+  nflTeam: 'DAL',
+  points: 112.8,
+  avgPoints: 8.7,
+  status: 'rostered',
+  rosteredBy: 'Star Destroyers',
+  rosteredByOwner: 'Lisa Brown',
+  injuryStatus: null,
+  gamesPlayed: 13,
+  projectedPoints: 9.2
+},
+{
+  id: 'player9',
+  name: 'Trevon Diggs',
+  position: 'DB',
+  nflTeam: 'DAL',
+  points: 87.3,
+  avgPoints: 6.7,
+  status: 'free_agent',
+  rosteredBy: null,
+  rosteredByOwner: null,
+  injuryStatus: null,
+  gamesPlayed: 13,
+  projectedPoints: 7.1
 }
 // Add more mock players...
 ];
@@ -91,7 +147,9 @@ const PlayersPage: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [sortConfig, setSortConfig] = useState<{key: string;direction: 'asc' | 'desc';} | null>(null);
 
-  const positions = ['QB', 'RB', 'WR', 'TE', 'K', 'DEF'];
+  const positions = ['QB', 'RB', 'WR', 'TE', 'K', 'DEF', 'DL', 'LB', 'DB'];
+  const offensePositions = ['QB', 'RB', 'WR', 'TE'];
+  const defensePositions = ['DEF', 'DL', 'LB', 'DB'];
 
   // Filter players based on search term and filters
   const filteredPlayers = mockPlayersData.filter((player) => {
@@ -100,7 +158,10 @@ const PlayersPage: React.FC = () => {
     player.nflTeam.toLowerCase().includes(searchTerm.toLowerCase()) ||
     player.rosteredBy && player.rosteredBy.toLowerCase().includes(searchTerm.toLowerCase());
 
-    const positionMatch = positionFilter === 'all' || player.position === positionFilter;
+    const positionMatch = positionFilter === 'all' || 
+      player.position === positionFilter ||
+      (positionFilter === 'offense' && offensePositions.includes(player.position)) ||
+      (positionFilter === 'defense' && defensePositions.includes(player.position));
     const statusMatch = statusFilter === 'all' || player.status === statusFilter;
 
     return searchMatch && positionMatch && statusMatch;
@@ -141,6 +202,9 @@ const PlayersPage: React.FC = () => {
       case 'TE':return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200';
       case 'K':return 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200';
       case 'DEF':return 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200';
+      case 'DL':return 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200';
+      case 'LB':return 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-200';
+      case 'DB':return 'bg-teal-100 text-teal-800 dark:bg-teal-900 dark:text-teal-200';
       default:return 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200';
     }
   };
@@ -195,6 +259,8 @@ const PlayersPage: React.FC = () => {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Positions</SelectItem>
+            <SelectItem value="offense">All Offense (QB, RB, WR, TE)</SelectItem>
+            <SelectItem value="defense">All Defense (DEF, DL, LB, DB)</SelectItem>
             {positions.map((pos) =>
             <SelectItem key={pos} value={pos}>{pos}</SelectItem>
             )}
