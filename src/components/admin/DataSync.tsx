@@ -61,6 +61,15 @@ interface PlayerSyncResult {
   players_updated: number;
 }
 
+interface MatchupSyncResult {
+  success: boolean;
+  error?: string;
+  matchups_created: number;
+  matchups_updated: number;
+  leagues_processed: number;
+  weeks_processed: number;
+}
+
 const DataSync: React.FC = () => {
   const [seasons, setSeasons] = useState<Season[]>([]);
   const [conferences, setConferences] = useState<Conference[]>([]);
@@ -69,15 +78,19 @@ const DataSync: React.FC = () => {
   const [syncing, setSyncing] = useState(false);
   const [syncingTeams, setSyncingTeams] = useState(false);
   const [syncingPlayers, setSyncingPlayers] = useState(false);
+  const [syncingMatchups, setSyncingMatchups] = useState(false);
   const [progress, setProgress] = useState(0);
   const [teamsProgress, setTeamsProgress] = useState(0);
   const [playersProgress, setPlayersProgress] = useState(0);
+  const [matchupsProgress, setMatchupsProgress] = useState(0);
   const [syncResults, setSyncResults] = useState<SyncResult[]>([]);
   const [teamsSyncResults, setTeamsSyncResults] = useState<TeamSyncResult[]>([]);
   const [playersSyncResult, setPlayersSyncResult] = useState<PlayerSyncResult | null>(null);
+  const [matchupsSyncResult, setMatchupsSyncResult] = useState<MatchupSyncResult | null>(null);
   const [lastSyncTime, setLastSyncTime] = useState<string | null>(null);
   const [lastTeamsSyncTime, setLastTeamsSyncTime] = useState<string | null>(null);
   const [lastPlayersSyncTime, setLastPlayersSyncTime] = useState<string | null>(null);
+  const [lastMatchupsSyncTime, setLastMatchupsSyncTime] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   // Player sync filters
@@ -92,6 +105,7 @@ const DataSync: React.FC = () => {
     loadLastSyncTime();
     loadLastTeamsSyncTime();
     loadLastPlayersSyncTime();
+    loadLastMatchupsSyncTime();
     loadTeams();
   }, []);
 
@@ -182,6 +196,13 @@ const DataSync: React.FC = () => {
     const lastSync = localStorage.getItem('last_players_sync');
     if (lastSync) {
       setLastPlayersSyncTime(new Date(lastSync).toLocaleString());
+    }
+  };
+
+  const loadLastMatchupsSyncTime = () => {
+    const lastSync = localStorage.getItem('last_matchups_sync');
+    if (lastSync) {
+      setLastMatchupsSyncTime(new Date(lastSync).toLocaleString());
     }
   };
 
@@ -867,6 +888,240 @@ const DataSync: React.FC = () => {
     }
   };
 
+  const syncMatchupsData = async () => {
+    if (!selectedSeasonId || conferences.length === 0) {
+      toast({
+        title: "No Data to Sync",
+        description: "Please select a season with conferences to sync matchups",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setSyncingMatchups(true);
+    setMatchupsProgress(0);
+    setMatchupsSyncResult(null);
+
+    try {
+      console.log('Starting matchups sync from Sleeper API...');
+      setMatchupsProgress(5);
+
+      let matchupsCreated = 0;
+      let matchupsUpdated = 0;
+      let leaguesProcessed = 0;
+      let weeksProcessed = 0;
+      const totalOperations = conferences.length * 17; // 17 weeks per season
+      let operationCount = 0;
+
+      for (const conference of conferences) {
+        try {
+          console.log(`Processing league ${conference.league_id}...`);
+          
+          // Process weeks 1-17 for this league
+          for (let week = 1; week <= 17; week++) {
+            try {
+              console.log(`Fetching matchups for league ${conference.league_id}, week ${week}...`);
+              
+              // Fetch matchups data from Sleeper API
+              const response = await fetch(`https://api.sleeper.app/v1/league/${conference.league_id}/matchups/${week}`);
+              if (!response.ok) {
+                if (response.status === 404) {
+                  console.log(`No matchups found for league ${conference.league_id}, week ${week} (404 - may not exist yet)`);
+                  continue;
+                }
+                throw new Error(`API returned ${response.status}: ${response.statusText}`);
+              }
+
+              const matchupsData = await response.json();
+              console.log(`Received ${matchupsData.length} roster entries for league ${conference.league_id}, week ${week}`);
+
+              if (!Array.isArray(matchupsData) || matchupsData.length === 0) {
+                console.log(`No matchup data available for league ${conference.league_id}, week ${week}`);
+                continue;
+              }
+
+              // Group by matchup_id to create head-to-head matchups
+              const matchupGroups = new Map();
+              for (const entry of matchupsData) {
+                if (!entry.matchup_id || !entry.roster_id) {
+                  console.warn('Skipping entry with missing matchup_id or roster_id:', entry);
+                  continue;
+                }
+                
+                if (!matchupGroups.has(entry.matchup_id)) {
+                  matchupGroups.set(entry.matchup_id, []);
+                }
+                matchupGroups.get(entry.matchup_id).push(entry);
+              }
+
+              // Process each matchup group (should have 2 teams per matchup_id)
+              for (const [matchupId, teams] of matchupGroups) {
+                if (teams.length !== 2) {
+                  console.warn(`Matchup ${matchupId} has ${teams.length} teams instead of 2, skipping`);
+                  continue;
+                }
+
+                const [team1Entry, team2Entry] = teams;
+                
+                // Get team IDs from roster IDs using the junction table
+                const team1Id = await getTeamIdFromRosterId(team1Entry.roster_id, conference.id);
+                const team2Id = await getTeamIdFromRosterId(team2Entry.roster_id, conference.id);
+
+                if (!team1Id || !team2Id) {
+                  console.warn(`Could not find team IDs for roster_ids ${team1Entry.roster_id}, ${team2Entry.roster_id} in conference ${conference.id}`);
+                  continue;
+                }
+
+                // Check if this matchup already exists
+                const { data: existingMatchups, error: searchError } = await window.ezsite.apis.tablePage(13329, {
+                  PageNo: 1,
+                  PageSize: 1,
+                  Filters: [
+                    { name: 'conference_id', op: 'Equal', value: conference.id },
+                    { name: 'week', op: 'Equal', value: week },
+                    { name: 'team_1_id', op: 'Equal', value: team1Id },
+                    { name: 'team_2_id', op: 'Equal', value: team2Id }
+                  ]
+                });
+
+                if (searchError) {
+                  console.error('Error searching for existing matchup:', searchError);
+                  continue;
+                }
+
+                // Determine if this is a playoff week (typically weeks 15-17)
+                const isPlayoff = week >= 15;
+
+                const matchupData = {
+                  conference_id: conference.id,
+                  week: week,
+                  team_1_id: team1Id,
+                  team_2_id: team2Id,
+                  is_playoff: isPlayoff
+                };
+
+                if (existingMatchups?.List?.length > 0) {
+                  // Update existing matchup
+                  const existingMatchup = existingMatchups.List[0];
+                  const updateData = { ...matchupData, ID: existingMatchup.id };
+                  const { error: updateError } = await window.ezsite.apis.tableUpdate(13329, updateData);
+                  if (updateError) {
+                    console.error('Error updating matchup:', updateError);
+                  } else {
+                    matchupsUpdated++;
+                    console.log(`✓ Updated matchup for week ${week}: ${team1Id} vs ${team2Id}`);
+                  }
+                } else {
+                  // Create new matchup
+                  const { error: createError } = await window.ezsite.apis.tableCreate(13329, matchupData);
+                  if (createError) {
+                    console.error('Error creating matchup:', createError);
+                  } else {
+                    matchupsCreated++;
+                    console.log(`✓ Created matchup for week ${week}: ${team1Id} vs ${team2Id}`);
+                  }
+                }
+              }
+
+              weeksProcessed++;
+              
+              // Small delay between week requests
+              await new Promise(resolve => setTimeout(resolve, 100));
+
+            } catch (error) {
+              console.error(`Error processing week ${week} for league ${conference.league_id}:`, error);
+            }
+
+            // Update progress
+            operationCount++;
+            const progressPercent = 5 + (operationCount / totalOperations) * 90;
+            setMatchupsProgress(progressPercent);
+          }
+
+          leaguesProcessed++;
+          console.log(`✓ Completed processing league ${conference.league_id}`);
+
+          // Small delay between league requests
+          await new Promise(resolve => setTimeout(resolve, 200));
+
+        } catch (error) {
+          console.error(`Error processing league ${conference.league_id}:`, error);
+        }
+      }
+
+      setMatchupsSyncResult({
+        success: true,
+        matchups_created: matchupsCreated,
+        matchups_updated: matchupsUpdated,
+        leagues_processed: leaguesProcessed,
+        weeks_processed: weeksProcessed
+      });
+
+      console.log(`✓ Successfully synced matchups: ${matchupsCreated} created, ${matchupsUpdated} updated`);
+
+      // Update last sync time
+      const now = new Date().toISOString();
+      localStorage.setItem('last_matchups_sync', now);
+      setLastMatchupsSyncTime(new Date(now).toLocaleString());
+
+      toast({
+        title: "Matchups Sync Complete",
+        description: `${matchupsCreated} matchups created, ${matchupsUpdated} updated across ${leaguesProcessed} leagues`,
+        variant: "default"
+      });
+
+    } catch (error) {
+      console.error('❌ Error syncing matchups:', error);
+      setMatchupsSyncResult({
+        success: false,
+        error: error.toString(),
+        matchups_created: 0,
+        matchups_updated: 0,
+        leagues_processed: 0,
+        weeks_processed: 0
+      });
+
+      toast({
+        title: "Matchups Sync Failed",
+        description: `Failed to sync matchups: ${error}`,
+        variant: "destructive"
+      });
+    } finally {
+      setSyncingMatchups(false);
+      setMatchupsProgress(100);
+    }
+  };
+
+  // Helper function to get team_id from roster_id using the junction table
+  const getTeamIdFromRosterId = async (rosterId: string, conferenceId: number): Promise<number | null> => {
+    try {
+      const { data, error } = await window.ezsite.apis.tablePage(12853, {
+        PageNo: 1,
+        PageSize: 1,
+        Filters: [
+          { name: 'roster_id', op: 'Equal', value: rosterId },
+          { name: 'conference_id', op: 'Equal', value: conferenceId },
+          { name: 'is_active', op: 'Equal', value: true }
+        ]
+      });
+
+      if (error) {
+        console.error(`Error finding team for roster_id ${rosterId}:`, error);
+        return null;
+      }
+
+      if (data?.List?.length > 0) {
+        return data.List[0].team_id;
+      }
+
+      console.warn(`No team found for roster_id ${rosterId} in conference ${conferenceId}`);
+      return null;
+    } catch (error) {
+      console.error(`Error in getTeamIdFromRosterId:`, error);
+      return null;
+    }
+  };
+
   const selectedSeason = seasons.find((s) => s.id === selectedSeasonId);
 
   if (loading) {
@@ -924,7 +1179,7 @@ const DataSync: React.FC = () => {
             }
             
             <Tabs defaultValue={conferences.length > 0 ? "conferences" : "players"} className="space-y-6">
-              <TabsList className="grid w-full grid-cols-3">
+              <TabsList className="grid w-full grid-cols-4">
                 <TabsTrigger value="conferences" className="flex items-center gap-2">
                   <Trophy className="h-4 w-4" />
                   Conference Sync
@@ -932,6 +1187,10 @@ const DataSync: React.FC = () => {
                 <TabsTrigger value="teams" className="flex items-center gap-2">
                   <Users className="h-4 w-4" />
                   Teams Sync
+                </TabsTrigger>
+                <TabsTrigger value="matchups" className="flex items-center gap-2">
+                  <RefreshCw className="h-4 w-4" />
+                  Matchups Sync
                 </TabsTrigger>
                 <TabsTrigger value="players" className="flex items-center gap-2">
                   <UserCheck className="h-4 w-4" />
@@ -1251,6 +1510,198 @@ const DataSync: React.FC = () => {
                 }
               </TabsContent>
 
+              <TabsContent value="matchups">
+                {conferences.length === 0 ?
+                <Alert>
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertDescription>
+                      No conferences available for matchups synchronization. Please add leagues in the League Manager tab first.
+                    </AlertDescription>
+                  </Alert> :
+
+                <div className="space-y-6">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-4">
+                      {lastMatchupsSyncTime &&
+                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                          <Clock className="h-4 w-4" />
+                          Last matchups sync: {lastMatchupsSyncTime}
+                        </div>
+                      }
+                    </div>
+                    <Button
+                      onClick={syncMatchupsData}
+                      disabled={syncingMatchups || !selectedSeasonId || conferences.length === 0}>
+                      {syncingMatchups ?
+                      <>
+                          <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                          Syncing...
+                        </> :
+                      <>
+                          <RefreshCw className="h-4 w-4 mr-2" />
+                          Sync Matchups Data
+                        </>
+                      }
+                    </Button>
+                  </div>
+
+                  {syncingMatchups &&
+                  <div>
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-sm font-medium">Synchronizing matchups...</span>
+                        <span className="text-sm text-muted-foreground">{Math.round(matchupsProgress)}%</span>
+                      </div>
+                      <Progress value={matchupsProgress} className="w-full" />
+                    </div>
+                  }
+
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-lg">
+                        Matchups Synchronization - {selectedSeason.season_name}
+                      </CardTitle>
+                      <CardDescription>
+                        Sync head-to-head matchup data from Sleeper API for all {conferences.length} conference{conferences.length !== 1 ? 's' : ''} across weeks 1-17
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                        <div className="p-4 border rounded-lg">
+                          <div className="flex items-center gap-2 mb-2">
+                            <RefreshCw className="h-5 w-5 text-blue-600" />
+                            <h4 className="font-semibold">Matchup Data</h4>
+                          </div>
+                          <p className="text-sm text-muted-foreground mb-2">
+                            Syncs weekly matchup information including:
+                          </p>
+                          <ul className="text-sm text-muted-foreground space-y-1">
+                            <li>• Head-to-head team pairings</li>
+                            <li>• Week numbers (1-17)</li>
+                            <li>• Playoff designations (weeks 15-17)</li>
+                            <li>• Conference associations</li>
+                          </ul>
+                        </div>
+                        <div className="p-4 border rounded-lg">
+                          <div className="flex items-center gap-2 mb-2">
+                            <Database className="h-5 w-5 text-green-600" />
+                            <h4 className="font-semibold">Team Mapping</h4>
+                          </div>
+                          <p className="text-sm text-muted-foreground mb-2">
+                            Uses roster mapping to identify teams:
+                          </p>
+                          <ul className="text-sm text-muted-foreground space-y-1">
+                            <li>• Maps Sleeper roster_id to team_id</li>
+                            <li>• Uses Team Conferences Junction table</li>
+                            <li>• Creates accurate head-to-head pairings</li>
+                            <li>• Processes {conferences.length * 17} total operations</li>
+                          </ul>
+                        </div>
+                      </div>
+                      
+                      <div className="mb-4">
+                        <h4 className="font-semibold mb-2">Sync Process Overview:</h4>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                          <div className="p-3 bg-blue-50 border border-blue-200 rounded">
+                            <div className="text-sm font-medium text-blue-800">Step 1: API Calls</div>
+                            <div className="text-xs text-blue-600">Fetch matchups for each league & week</div>
+                          </div>
+                          <div className="p-3 bg-yellow-50 border border-yellow-200 rounded">
+                            <div className="text-sm font-medium text-yellow-800">Step 2: Team Mapping</div>
+                            <div className="text-xs text-yellow-600">Map roster_id to team_id via junction table</div>
+                          </div>
+                          <div className="p-3 bg-green-50 border border-green-200 rounded">
+                            <div className="text-sm font-medium text-green-800">Step 3: Create Matchups</div>
+                            <div className="text-xs text-green-600">Store head-to-head pairings in database</div>
+                          </div>
+                        </div>
+                      </div>
+                      
+                      <div className="mt-4">
+                        <h4 className="font-semibold mb-2">Conferences to Process:</h4>
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
+                          {conferences.map((conference) =>
+                          <div key={conference.id} className="flex items-center gap-2 p-2 border rounded">
+                              <Badge variant="outline" className="text-xs">
+                                {conference.league_id}
+                              </Badge>
+                              <span className="text-sm truncate">{conference.conference_name}</span>
+                            </div>
+                          )}
+                        </div>
+                        <div className="mt-2 text-xs text-muted-foreground">
+                          Total operations: {conferences.length} leagues × 17 weeks = {conferences.length * 17} API calls
+                        </div>
+                      </div>
+                      
+                      <Alert className="mt-4">
+                        <AlertCircle className="h-4 w-4" />
+                        <AlertDescription>
+                          <strong>Note:</strong> This sync processes matchups for weeks 1-17 across all conferences. 
+                          The process may take several minutes as it makes multiple API calls to Sleeper. 
+                          Weeks that don't exist yet (future weeks) will be skipped automatically.
+                        </AlertDescription>
+                      </Alert>
+                    </CardContent>
+                  </Card>
+
+                  {matchupsSyncResult &&
+                  <Card>
+                      <CardHeader>
+                        <CardTitle className="text-lg">Matchups Sync Results</CardTitle>
+                        <CardDescription>
+                          Results from the last matchups synchronization
+                        </CardDescription>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="p-3 border rounded-lg">
+                          <div className="flex items-center justify-between mb-2">
+                            <div className="flex items-center gap-3">
+                              {matchupsSyncResult.success ?
+                            <CheckCircle className="h-5 w-5 text-green-600" /> :
+                            <AlertCircle className="h-5 w-5 text-red-600" />
+                            }
+                              <span className="font-medium">Matchups Synchronization</span>
+                            </div>
+                            <div className="text-sm">
+                              {matchupsSyncResult.success ?
+                            <span className="text-green-600">Success</span> :
+                            <span className="text-red-600">Failed</span>
+                            }
+                            </div>
+                          </div>
+                          {matchupsSyncResult.success &&
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm text-muted-foreground">
+                              <div>
+                                <span className="font-medium">Created:</span>
+                                <div className="text-lg font-semibold text-green-600">{matchupsSyncResult.matchups_created}</div>
+                              </div>
+                              <div>
+                                <span className="font-medium">Updated:</span>
+                                <div className="text-lg font-semibold text-blue-600">{matchupsSyncResult.matchups_updated}</div>
+                              </div>
+                              <div>
+                                <span className="font-medium">Leagues:</span>
+                                <div className="text-lg font-semibold text-purple-600">{matchupsSyncResult.leagues_processed}</div>
+                              </div>
+                              <div>
+                                <span className="font-medium">Weeks:</span>
+                                <div className="text-lg font-semibold text-orange-600">{matchupsSyncResult.weeks_processed}</div>
+                              </div>
+                            </div>
+                        }
+                          {matchupsSyncResult.error &&
+                        <div className="text-sm text-red-600 mt-1">
+                              {matchupsSyncResult.error}
+                            </div>
+                        }
+                        </div>
+                      </CardContent>
+                    </Card>
+                  }
+                </div>
+                }
+              </TabsContent>
+
               <TabsContent value="players">
                 <div className="space-y-6">
                   <div className="flex items-center justify-between">
@@ -1353,10 +1804,10 @@ const DataSync: React.FC = () => {
                             Team: {selectedTeamFilter === 'all' ? 'All Teams' : teams.find((t) => t.id.toString() === selectedTeamFilter)?.team_name || 'Unknown'}
                           </Badge>
                           <Badge variant="outline">
-                            Position: {selectedPositionFilter === 'all' ? 'All Positions' : 
-                                     selectedPositionFilter === 'all_offense' ? 'All Offense' :
-                                     selectedPositionFilter === 'all_defense' ? 'All Defense' :
-                                     selectedPositionFilter}
+                            Position: {selectedPositionFilter === 'all' ? 'All Positions' :
+                            selectedPositionFilter === 'all_offense' ? 'All Offense' :
+                            selectedPositionFilter === 'all_defense' ? 'All Defense' :
+                            selectedPositionFilter}
                           </Badge>
                           <Badge variant="outline">
                             Status: {selectedStatusFilter === 'all' ? 'All Players' : selectedStatusFilter === 'active' ? 'Active Only' : 'Inactive Only'}
