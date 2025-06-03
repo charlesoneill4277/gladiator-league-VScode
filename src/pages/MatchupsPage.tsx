@@ -244,13 +244,13 @@ const MatchupsPage: React.FC = () => {
               const organizedPoints = team.points;
               const hasApiData = rawMatchupData !== undefined;
               const hasApiPoints = apiPoints !== undefined && apiPoints !== null;
-              
+
               console.log(`\n=== TEAM ${team.roster_id} DATA MERGE ===`);
               console.log('Raw API data found:', hasApiData);
               console.log('API points value:', apiPoints);
               console.log('Organized points value:', organizedPoints);
               console.log('Using points from:', hasApiPoints ? 'API' : 'Organized');
-              
+
               // Error handling: Log missing data scenarios
               if (!hasApiData) {
                 console.warn(`WARNING: No raw API data found for roster ${team.roster_id}`);
@@ -258,12 +258,12 @@ const MatchupsPage: React.FC = () => {
               if (hasApiData && !hasApiPoints) {
                 console.warn(`WARNING: API data exists but points missing for roster ${team.roster_id}`);
               }
-              
+
               // PRIORITY LOGIC: API data takes absolute priority
-              const finalPoints = hasApiPoints ? apiPoints : (organizedPoints || 0);
+              const finalPoints = hasApiPoints ? apiPoints : organizedPoints || 0;
               const finalPlayersPoints = rawMatchupData?.players_points || team.players_points || {};
               const finalStartersPoints = rawMatchupData?.starters_points || team.starters_points || [];
-              
+
               console.log('Final points value:', finalPoints);
               console.log('Final players_points keys:', Object.keys(finalPlayersPoints).length);
               console.log('Final starters_points length:', finalStartersPoints.length);
@@ -281,26 +281,26 @@ const MatchupsPage: React.FC = () => {
 
             // Enhanced status determination with better validation
             let matchupStatus: 'live' | 'completed' | 'upcoming';
-            
+
             if (selectedWeek > currentWeek) {
               matchupStatus = 'upcoming';
               console.log(`Matchup ${matchup.matchup_id}: UPCOMING (week ${selectedWeek} > current ${currentWeek})`);
             } else {
               // Validate points data for this specific matchup
-              const teamPointsData = matchupTeams.map(team => ({
+              const teamPointsData = matchupTeams.map((team) => ({
                 roster_id: team.roster_id,
                 points: team.points,
                 hasValidPoints: team.points > 0
               }));
-              
-              const hasAnyPoints = teamPointsData.some(team => team.hasValidPoints);
-              const allTeamsHavePoints = teamPointsData.every(team => team.hasValidPoints);
-              
+
+              const hasAnyPoints = teamPointsData.some((team) => team.hasValidPoints);
+              const allTeamsHavePoints = teamPointsData.every((team) => team.hasValidPoints);
+
               console.log(`\n=== MATCHUP ${matchup.matchup_id} STATUS CHECK ===`);
               console.log('Team points data:', teamPointsData);
               console.log('Has any points:', hasAnyPoints);
               console.log('All teams have points:', allTeamsHavePoints);
-              
+
               // Determine status based on points availability
               if (allTeamsHavePoints) {
                 matchupStatus = 'completed';
@@ -329,19 +329,19 @@ const MatchupsPage: React.FC = () => {
 
           // Final validation and error reporting for this conference
           const totalMatchups = conferenceMatchups.length;
-          const completedMatchups = conferenceMatchups.filter(m => m.status === 'completed').length;
-          const liveMatchups = conferenceMatchups.filter(m => m.status === 'live').length;
-          const upcomingMatchups = conferenceMatchups.filter(m => m.status === 'upcoming').length;
-          
+          const completedMatchups = conferenceMatchups.filter((m) => m.status === 'completed').length;
+          const liveMatchups = conferenceMatchups.filter((m) => m.status === 'live').length;
+          const upcomingMatchups = conferenceMatchups.filter((m) => m.status === 'upcoming').length;
+
           console.log(`\n=== CONFERENCE ${conference.conference_name} SUMMARY ===`);
           console.log(`Total matchups: ${totalMatchups}`);
           console.log(`Completed: ${completedMatchups}, Live: ${liveMatchups}, Upcoming: ${upcomingMatchups}`);
-          
+
           // Check for data anomalies
           if (selectedWeek <= currentWeek && completedMatchups === 0 && liveMatchups > 0) {
             console.warn(`ANOMALY: Week ${selectedWeek} should have completed games but all are live`);
           }
-          
+
           if (selectedWeek < currentWeek && totalMatchups > 0 && completedMatchups === 0) {
             console.error(`ERROR: Past week ${selectedWeek} has no completed matchups!`);
             toast({
@@ -351,7 +351,7 @@ const MatchupsPage: React.FC = () => {
             });
           }
           console.log('=== END CONFERENCE SUMMARY ===\n');
-          
+
           allMatchups.push(...conferenceMatchups);
 
         } catch (error) {
@@ -366,21 +366,21 @@ const MatchupsPage: React.FC = () => {
 
       // Final data quality report
       const totalMatchups = allMatchups.length;
-      const completedCount = allMatchups.filter(m => m.status === 'completed').length;
-      const liveCount = allMatchups.filter(m => m.status === 'live').length;
-      const upcomingCount = allMatchups.filter(m => m.status === 'upcoming').length;
-      
+      const completedCount = allMatchups.filter((m) => m.status === 'completed').length;
+      const liveCount = allMatchups.filter((m) => m.status === 'live').length;
+      const upcomingCount = allMatchups.filter((m) => m.status === 'upcoming').length;
+
       console.log(`\n=== FINAL MATCHUP DATA SUMMARY ===`);
       console.log(`Week: ${selectedWeek} (Current: ${currentWeek})`);
       console.log(`Total matchups loaded: ${totalMatchups}`);
       console.log(`Status breakdown - Completed: ${completedCount}, Live: ${liveCount}, Upcoming: ${upcomingCount}`);
-      
+
       // Check for overall data quality issues
-      const hasDataQualityIssues = (
-        (selectedWeek < currentWeek && completedCount === 0 && totalMatchups > 0) || // Past week with no completed games
-        (selectedWeek === currentWeek && completedCount === 0 && liveCount === 0 && upcomingCount === 0 && totalMatchups > 0) // Current week with no active games
-      );
-      
+      const hasDataQualityIssues =
+      selectedWeek < currentWeek && completedCount === 0 && totalMatchups > 0 || // Past week with no completed games
+      selectedWeek === currentWeek && completedCount === 0 && liveCount === 0 && upcomingCount === 0 && totalMatchups > 0 // Current week with no active games
+      ;
+
       if (hasDataQualityIssues) {
         console.error('CRITICAL: Data quality issues detected!');
         toast({
@@ -392,7 +392,7 @@ const MatchupsPage: React.FC = () => {
         console.log('✓ Data quality looks good');
       }
       console.log('=== END SUMMARY ===\n');
-      
+
       setMatchups(allMatchups);
       console.log(`Successfully loaded ${allMatchups.length} total matchups`);
 
@@ -459,13 +459,13 @@ const MatchupsPage: React.FC = () => {
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'live':
-        return <Badge className="bg-green-500 hover:bg-green-600" data-id="fewvvu914">Live</Badge>;
+        return <Badge className="bg-green-500 hover:bg-green-600">Live</Badge>;
       case 'completed':
-        return <Badge variant="secondary" data-id="9es8w6uxj">Final</Badge>;
+        return <Badge variant="secondary">Final</Badge>;
       case 'upcoming':
-        return <Badge variant="outline" data-id="70g417pa1">Upcoming</Badge>;
+        return <Badge variant="outline">Upcoming</Badge>;
       default:
-        return <Badge variant="secondary" data-id="3canx3eko">{status}</Badge>;
+        return <Badge variant="secondary">{status}</Badge>;
     }
   };
 
@@ -482,15 +482,15 @@ const MatchupsPage: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="space-y-6" data-id="o8wnv0klw">
-        <div className="flex items-center space-x-2" data-id="bcygro0c4">
-          <Swords className="h-6 w-6 text-primary" data-id="h2ol7clu3" />
-          <h1 className="text-3xl font-bold" data-id="zresew2pn">Matchups</h1>
+      <div className="space-y-6">
+        <div className="flex items-center space-x-2">
+          <Swords className="h-6 w-6 text-primary" />
+          <h1 className="text-3xl font-bold">Matchups</h1>
         </div>
-        <Card data-id="ldb0q9qji">
-          <CardContent className="py-8 text-center" data-id="ftdti63my">
-            <RefreshCw className="h-8 w-8 animate-spin mx-auto mb-4 text-primary" data-id="v5qx4w8s6" />
-            <p data-id="n3i9ugc8d">Loading matchup data...</p>
+        <Card>
+          <CardContent className="py-8 text-center">
+            <RefreshCw className="h-8 w-8 animate-spin mx-auto mb-4 text-primary" />
+            <p>Loading matchup data...</p>
           </CardContent>
         </Card>
       </div>);
@@ -498,14 +498,14 @@ const MatchupsPage: React.FC = () => {
   }
 
   return (
-    <div className="space-y-6" data-id="b022z08vs">
+    <div className="space-y-6">
       {/* Page Header */}
-      <div className="flex flex-col space-y-2" data-id="s4ituyw4y">
-        <div className="flex items-center space-x-2" data-id="r155q4rp1">
-          <Swords className="h-6 w-6 text-primary" data-id="ofwmihnvk" />
-          <h1 className="text-3xl font-bold" data-id="8h1icol56">Matchups</h1>
+      <div className="flex flex-col space-y-2">
+        <div className="flex items-center space-x-2">
+          <Swords className="h-6 w-6 text-primary" />
+          <h1 className="text-3xl font-bold">Matchups</h1>
         </div>
-        <p className="text-muted-foreground" data-id="c1acp9qhf">
+        <p className="text-muted-foreground">
           {selectedSeason} Season • Week {selectedWeek} • {
           selectedConference ?
           currentSeasonConfig.conferences.find((c) => c.id === selectedConference)?.name || 'Selected Conference' :
@@ -517,18 +517,18 @@ const MatchupsPage: React.FC = () => {
       </div>
 
       {/* Controls */}
-      <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between" data-id="n0zl43nnn">
-        <div className="flex items-center space-x-4" data-id="nyckzqi8a">
-          <Select value={selectedWeek.toString()} onValueChange={(value) => setSelectedWeek(parseInt(value))} data-id="xv6xbmfe6">
-            <SelectTrigger className="w-32" data-id="wyq8talrb">
-              <SelectValue data-id="n139g7hib" />
+      <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
+        <div className="flex items-center space-x-4">
+          <Select value={selectedWeek.toString()} onValueChange={(value) => setSelectedWeek(parseInt(value))}>
+            <SelectTrigger className="w-32">
+              <SelectValue />
             </SelectTrigger>
-            <SelectContent data-id="nzf92gk9u">
+            <SelectContent>
               {Array.from({ length: 18 }, (_, i) => i + 1).map((week) =>
-              <SelectItem key={week} value={week.toString()} data-id="te15bpn3a">
-                  <div className="flex items-center space-x-2" data-id="p5yotuvut">
-                    <span data-id="zdptcjjvq">Week {week}</span>
-                    {week === currentWeek && <Badge variant="outline" className="text-xs" data-id="9sokqi6n2">Current</Badge>}
+              <SelectItem key={week} value={week.toString()}>
+                  <div className="flex items-center space-x-2">
+                    <span>Week {week}</span>
+                    {week === currentWeek && <Badge variant="outline" className="text-xs">Current</Badge>}
                   </div>
                 </SelectItem>
               )}
@@ -536,140 +536,140 @@ const MatchupsPage: React.FC = () => {
           </Select>
 
           {selectedWeek === currentWeek &&
-          <div className="flex items-center space-x-2 text-sm text-muted-foreground" data-id="4ysa24a6i">
-              <Clock className="h-4 w-4" data-id="xx4j2mh4n" />
-              <span data-id="a9w0lkl9n">Current week</span>
+          <div className="flex items-center space-x-2 text-sm text-muted-foreground">
+              <Clock className="h-4 w-4" />
+              <span>Current week</span>
             </div>
           }
         </div>
 
-        <div className="flex items-center space-x-4" data-id="cpiaj2as4">
+        <div className="flex items-center space-x-4">
           <Button
             variant="outline"
             size="sm"
             onClick={() => loadData(true)}
-            disabled={refreshing} data-id="qjzcx8v3j">
+            disabled={refreshing}>
 
-            <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} data-id="r5dkhnns4" />
+            <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
             Refresh
           </Button>
           
-          <div className="flex items-center space-x-2 text-sm text-muted-foreground" data-id="qkoude2gh">
-            <Users className="h-4 w-4" data-id="vbki4lvtd" />
-            <span data-id="x6p3fhmvq">{matchups.length} matchups</span>
+          <div className="flex items-center space-x-2 text-sm text-muted-foreground">
+            <Users className="h-4 w-4" />
+            <span>{matchups.length} matchups</span>
           </div>
         </div>
       </div>
 
       {/* Matchups Grid */}
-      <div className="grid gap-4" data-id="puhumtxh9">
+      <div className="grid gap-4">
         {matchups.map((matchup) => {
           const [team1, team2] = matchup.teams;
           const winningTeam = getWinningTeam(matchup);
 
           return (
-            <Card key={`${matchup.conference.id}-${matchup.matchup_id}`} className="hover:shadow-md transition-shadow" data-id="6jox7h91o">
-              <Collapsible data-id="m1w095x9y">
+            <Card key={`${matchup.conference.id}-${matchup.matchup_id}`} className="hover:shadow-md transition-shadow">
+              <Collapsible>
                 <CollapsibleTrigger
                   className="w-full"
-                  onClick={() => toggleMatchupExpansion(`${matchup.conference.id}-${matchup.matchup_id}`)} data-id="q4xst0oxd">
+                  onClick={() => toggleMatchupExpansion(`${matchup.conference.id}-${matchup.matchup_id}`)}>
 
-                  <CardHeader className="pb-4" data-id="axyd4wxlh">
-                    <div className="flex items-center justify-between" data-id="ekrkzbcs0">
-                      <div className="flex items-center space-x-2" data-id="sbefv536n">
-                        <CardTitle className="text-lg" data-id="pb4y9asae">
+                  <CardHeader className="pb-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-2">
+                        <CardTitle className="text-lg">
                           {matchup.conference.conference_name}
                         </CardTitle>
                         {getStatusBadge(matchup.status)}
                       </div>
                       <ChevronDown className={`h-4 w-4 transition-transform ${
                       expandedMatchups.has(`${matchup.conference.id}-${matchup.matchup_id}`) ? 'rotate-180' : ''}`
-                      } data-id="13gve218x" />
+                      } />
                     </div>
                   </CardHeader>
                 </CollapsibleTrigger>
 
-                <CardContent className="pt-0" data-id="lnllss44b">
+                <CardContent className="pt-0">
                   {/* Matchup Summary */}
-                  <div className="grid grid-cols-3 gap-4 items-center" data-id="hkv0g6021">
+                  <div className="grid grid-cols-3 gap-4 items-center">
                     {/* Team 1 */}
-                    <div className="text-right space-y-1" data-id="gsm1hshgs">
-                      <div className="font-semibold" data-id="iwmtmfp0n">
+                    <div className="text-right space-y-1">
+                      <div className="font-semibold">
                         {team1.team?.team_name || team1.owner?.display_name || team1.owner?.username || 'Unknown Team'}
                       </div>
-                      <div className="text-sm text-muted-foreground" data-id="2qzd7dlfa">
+                      <div className="text-sm text-muted-foreground">
                         {team1.team?.owner_name || team1.owner?.display_name || 'Unknown Owner'}
                       </div>
-                      <div className={`text-2xl font-bold ${winningTeam?.roster_id === team1.roster_id ? 'text-green-600' : ''}`} data-id="s9b1hyg23">
+                      <div className={`text-2xl font-bold ${winningTeam?.roster_id === team1.roster_id ? 'text-green-600' : ''}`}>
                         {matchup.status === 'upcoming' ? '--' : team1.points.toFixed(1)}
                       </div>
                     </div>
 
                     {/* VS Divider */}
-                    <div className="text-center" data-id="dz34bilm2">
-                      <div className="text-lg font-semibold text-muted-foreground" data-id="rc1zwkdlr">VS</div>
+                    <div className="text-center">
+                      <div className="text-lg font-semibold text-muted-foreground">VS</div>
                       {matchup.status === 'completed' && winningTeam &&
-                      <Trophy className="h-6 w-6 mx-auto mt-2 text-yellow-500" data-id="foa4dxojg" />
+                      <Trophy className="h-6 w-6 mx-auto mt-2 text-yellow-500" />
                       }
                     </div>
 
                     {/* Team 2 */}
-                    <div className="text-left space-y-1" data-id="pq8m4r5v6">
-                      <div className="font-semibold" data-id="j9rxz40a9">
+                    <div className="text-left space-y-1">
+                      <div className="font-semibold">
                         {team2.team?.team_name || team2.owner?.display_name || team2.owner?.username || 'Unknown Team'}
                       </div>
-                      <div className="text-sm text-muted-foreground" data-id="38n2q9dd8">
+                      <div className="text-sm text-muted-foreground">
                         {team2.team?.owner_name || team2.owner?.display_name || 'Unknown Owner'}
                       </div>
-                      <div className={`text-2xl font-bold ${winningTeam?.roster_id === team2.roster_id ? 'text-green-600' : ''}`} data-id="2t9dbmef6">
+                      <div className={`text-2xl font-bold ${winningTeam?.roster_id === team2.roster_id ? 'text-green-600' : ''}`}>
                         {matchup.status === 'upcoming' ? '--' : team2.points.toFixed(1)}
                       </div>
                     </div>
                   </div>
 
                   {/* Expanded Content */}
-                  <CollapsibleContent className="mt-6" data-id="hklf6k239">
-                    <div className="border-t pt-4 space-y-4" data-id="22pkop9w5">
+                  <CollapsibleContent className="mt-6">
+                    <div className="border-t pt-4 space-y-4">
                       {/* Team Rosters */}
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4" data-id="8xq9qpwzj">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         {/* Team 1 Roster */}
-                        <Card data-id="srrqevm0k">
-                          <CardHeader className="pb-2" data-id="cq9qzzy6m">
-                            <CardTitle className="text-sm" data-id="nz1uzsoqi">
+                        <Card>
+                          <CardHeader className="pb-2">
+                            <CardTitle className="text-sm">
                               {team1.team?.team_name || team1.owner?.display_name || 'Team 1'} Lineup
                             </CardTitle>
                           </CardHeader>
-                          <CardContent data-id="u9wy6vp1g">
-                            <div className="space-y-2" data-id="nc28wuj4r">
+                          <CardContent>
+                            <div className="space-y-2">
                               {team1.roster?.starters.map((playerId, index) =>
-                              <div key={`${playerId}-${index}`} className="flex justify-between items-center text-sm" data-id="gwm5u79l6">
-                                  <span data-id="ux655oprw">{getPlayerName(playerId)}</span>
-                                  <span className="font-medium" data-id="q0vrvzzcc">
+                              <div key={`${playerId}-${index}`} className="flex justify-between items-center text-sm">
+                                  <span>{getPlayerName(playerId)}</span>
+                                  <span className="font-medium">
                                     {team1.starters_points[index]?.toFixed(1) || '0.0'}
                                   </span>
                                 </div>
-                              ) || <p className="text-muted-foreground text-sm" data-id="dgsmvxmvv">No lineup data available</p>}
+                              ) || <p className="text-muted-foreground text-sm">No lineup data available</p>}
                             </div>
                           </CardContent>
                         </Card>
 
                         {/* Team 2 Roster */}
-                        <Card data-id="d6urnkjug">
-                          <CardHeader className="pb-2" data-id="92cnoteef">
-                            <CardTitle className="text-sm" data-id="pv12n8xwm">
+                        <Card>
+                          <CardHeader className="pb-2">
+                            <CardTitle className="text-sm">
                               {team2.team?.team_name || team2.owner?.display_name || 'Team 2'} Lineup
                             </CardTitle>
                           </CardHeader>
-                          <CardContent data-id="d30qfqjz8">
-                            <div className="space-y-2" data-id="4d9dv4hkq">
+                          <CardContent>
+                            <div className="space-y-2">
                               {team2.roster?.starters.map((playerId, index) =>
-                              <div key={`${playerId}-${index}`} className="flex justify-between items-center text-sm" data-id="m3kxhxu26">
-                                  <span data-id="cwmlbv4vx">{getPlayerName(playerId)}</span>
-                                  <span className="font-medium" data-id="poi29at0f">
+                              <div key={`${playerId}-${index}`} className="flex justify-between items-center text-sm">
+                                  <span>{getPlayerName(playerId)}</span>
+                                  <span className="font-medium">
                                     {team2.starters_points[index]?.toFixed(1) || '0.0'}
                                   </span>
                                 </div>
-                              ) || <p className="text-muted-foreground text-sm" data-id="4m00eoqny">No lineup data available</p>}
+                              ) || <p className="text-muted-foreground text-sm">No lineup data available</p>}
                             </div>
                           </CardContent>
                         </Card>
@@ -677,28 +677,28 @@ const MatchupsPage: React.FC = () => {
 
                       {/* Matchup Stats */}
                       {matchup.status !== 'upcoming' &&
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center" data-id="ztequjro5">
-                          <div data-id="gmcay091s">
-                            <div className="text-sm text-muted-foreground" data-id="4iytqun66">Total Points</div>
-                            <div className="font-semibold" data-id="kb0xx021k">
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
+                          <div>
+                            <div className="text-sm text-muted-foreground">Total Points</div>
+                            <div className="font-semibold">
                               {(team1.points + team2.points).toFixed(1)}
                             </div>
                           </div>
-                          <div data-id="veei88npd">
-                            <div className="text-sm text-muted-foreground" data-id="qz50xi1ws">Point Spread</div>
-                            <div className="font-semibold" data-id="hkdvebld8">
+                          <div>
+                            <div className="text-sm text-muted-foreground">Point Spread</div>
+                            <div className="font-semibold">
                               {Math.abs(team1.points - team2.points).toFixed(1)}
                             </div>
                           </div>
-                          <div data-id="kzvey4nqf">
-                            <div className="text-sm text-muted-foreground" data-id="8yqipy7sv">High Score</div>
-                            <div className="font-semibold" data-id="uhr33sbgr">
+                          <div>
+                            <div className="text-sm text-muted-foreground">High Score</div>
+                            <div className="font-semibold">
                               {Math.max(team1.points, team2.points).toFixed(1)}
                             </div>
                           </div>
-                          <div data-id="46ut3tlq2">
-                            <div className="text-sm text-muted-foreground" data-id="ztd5jr0kf">Status</div>
-                            <div className="text-xs capitalize" data-id="y1nsea8pd">{matchup.status}</div>
+                          <div>
+                            <div className="text-sm text-muted-foreground">Status</div>
+                            <div className="text-xs capitalize">{matchup.status}</div>
                           </div>
                         </div>
                       }
@@ -711,12 +711,12 @@ const MatchupsPage: React.FC = () => {
         })}
 
         {matchups.length === 0 &&
-        <Card data-id="x8pm8qv1q">
-            <CardContent className="py-8 text-center" data-id="2wqoiexbm">
-              <AlertCircle className="h-8 w-8 mx-auto mb-4 text-muted-foreground" data-id="3p7manw62" />
-              <p className="text-muted-foreground" data-id="fa10va6x7">No matchups found for the selected filters.</p>
+        <Card>
+            <CardContent className="py-8 text-center">
+              <AlertCircle className="h-8 w-8 mx-auto mb-4 text-muted-foreground" />
+              <p className="text-muted-foreground">No matchups found for the selected filters.</p>
               {conferences.length === 0 &&
-            <p className="text-sm text-muted-foreground mt-2" data-id="suagg1c7v">
+            <p className="text-sm text-muted-foreground mt-2">
                   Make sure conferences are configured in the admin panel.
                 </p>
             }
