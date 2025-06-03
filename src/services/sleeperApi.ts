@@ -48,17 +48,17 @@ export interface OrganizedRoster {
 
 // Position mapping for starting lineup slots
 const STARTING_POSITIONS = [
-  'QB',     // Quarterback
-  'RB',     // Running Back 1
-  'RB',     // Running Back 2
-  'WR',     // Wide Receiver 1
-  'WR',     // Wide Receiver 2
-  'WR',     // Wide Receiver 3
-  'TE',     // Tight End
-  'FLEX',   // Flex (WR/RB/TE)
-  'SUPER_FLEX', // Super Flex (QB/WR/RB/TE)
-  'K',      // Kicker
-  'DEF'     // Defense
+'QB', // Quarterback
+'RB', // Running Back 1
+'RB', // Running Back 2
+'WR', // Wide Receiver 1
+'WR', // Wide Receiver 2
+'WR', // Wide Receiver 3
+'TE', // Tight End
+'FLEX', // Flex (WR/RB/TE)
+'SUPER_FLEX', // Super Flex (QB/WR/RB/TE)
+'K', // Kicker
+'DEF' // Defense
 ];
 
 export class SleeperApiService {
@@ -71,11 +71,11 @@ export class SleeperApiService {
     try {
       console.log(`Fetching rosters for league: ${leagueId}`);
       const response = await fetch(`${this.baseUrl}/league/${leagueId}/rosters`);
-      
+
       if (!response.ok) {
         throw new Error(`Failed to fetch rosters: ${response.status} ${response.statusText}`);
       }
-      
+
       const data = await response.json();
       console.log(`Fetched ${data.length} rosters for league ${leagueId}`);
       return data;
@@ -92,11 +92,11 @@ export class SleeperApiService {
     try {
       console.log('Fetching all NFL players data...');
       const response = await fetch(`${this.baseUrl}/players/nfl`);
-      
+
       if (!response.ok) {
         throw new Error(`Failed to fetch players: ${response.status} ${response.statusText}`);
       }
-      
+
       const data = await response.json();
       console.log(`Fetched ${Object.keys(data).length} players from Sleeper API`);
       return data;
@@ -113,7 +113,7 @@ export class SleeperApiService {
     const starters = roster.starters.map((playerId, index) => {
       const player = allPlayers[playerId];
       const slotPosition = STARTING_POSITIONS[index] || 'BENCH';
-      
+
       return {
         playerId,
         position: player?.position || 'UNK',
@@ -122,8 +122,8 @@ export class SleeperApiService {
     });
 
     // Players not in starters array go to bench (excluding IR)
-    const bench = roster.players.filter(playerId => 
-      !roster.starters.includes(playerId) && !roster.reserve.includes(playerId)
+    const bench = roster.players.filter((playerId) =>
+    !roster.starters.includes(playerId) && !roster.reserve.includes(playerId)
     );
 
     return {
@@ -144,12 +144,12 @@ export class SleeperApiService {
     try {
       // Fetch both rosters and players data
       const [rosters, allPlayers] = await Promise.all([
-        this.fetchLeagueRosters(leagueId),
-        this.fetchAllPlayers()
-      ]);
+      this.fetchLeagueRosters(leagueId),
+      this.fetchAllPlayers()]
+      );
 
       // Find the specific roster
-      const roster = rosters.find(r => r.roster_id === rosterId);
+      const roster = rosters.find((r) => r.roster_id === rosterId);
       if (!roster) {
         throw new Error(`Roster with ID ${rosterId} not found in league ${leagueId}`);
       }
@@ -188,7 +188,7 @@ export class SleeperApiService {
    * Format points with decimal precision
    */
   static formatPoints(points: number, decimal: number = 0): number {
-    return points + (decimal / 100);
+    return points + decimal / 100;
   }
 }
 
