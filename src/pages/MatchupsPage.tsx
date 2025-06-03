@@ -5,31 +5,94 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { useApp } from '@/contexts/AppContext';
-import { useMatchups } from '@/hooks/useMatchups';
-import { useConferences } from '@/hooks/useConferences';
-import { findConferenceByName, getConferenceDisplayInfo } from '@/utils/conferenceUtils';
-import { Swords, ChevronDown, Clock, Trophy, Users, RefreshCw, AlertCircle } from 'lucide-react';
-import ValidatedMatchupRosterDisplay from '@/components/matchups/ValidatedMatchupRosterDisplay';
+import { Swords, ChevronDown, Clock, Trophy, Users } from 'lucide-react';
 
+// Mock data for matchups - this will be replaced with real Sleeper API data
+const mockMatchupsData = {
+  currentWeek: 14,
+  weeks: Array.from({ length: 17 }, (_, i) => ({
+    week: i + 1,
+    status: i < 13 ? 'completed' : i === 13 ? 'current' : 'upcoming'
+  })),
+  matchups: [
+  {
+    id: '1',
+    week: 14,
+    conference: 'Legions of Mars',
+    homeTeam: {
+      id: '1',
+      name: 'Galactic Gladiators',
+      owner: 'John Doe',
+      score: 127.5,
+      projected: 118.2
+    },
+    awayTeam: {
+      id: '2',
+      name: 'Space Vikings',
+      owner: 'Jane Smith',
+      score: 112.8,
+      projected: 125.4
+    },
+    status: 'live', // live, completed, upcoming
+    lastUpdate: '2024-12-15T20:30:00Z'
+  },
+  {
+    id: '2',
+    week: 14,
+    conference: 'Guardians of Jupiter',
+    homeTeam: {
+      id: '3',
+      name: 'Meteor Crushers',
+      owner: 'Bob Johnson',
+      score: 98.3,
+      projected: 110.8
+    },
+    awayTeam: {
+      id: '4',
+      name: 'Asteroid Miners',
+      owner: 'Alice Brown',
+      score: 134.2,
+      projected: 115.6
+    },
+    status: 'live',
+    lastUpdate: '2024-12-15T20:30:00Z'
+  },
+  {
+    id: '3',
+    week: 14,
+    conference: "Vulcan's Oathsworn",
+    homeTeam: {
+      id: '5',
+      name: 'Solar Flares',
+      owner: 'Charlie Wilson',
+      score: 0,
+      projected: 108.4
+    },
+    awayTeam: {
+      id: '6',
+      name: 'Nebula Nomads',
+      owner: 'Diana Prince',
+      score: 0,
+      projected: 112.7
+    },
+    status: 'upcoming',
+    lastUpdate: null
+  }]
 
+};
 
 const MatchupsPage: React.FC = () => {
   const { selectedSeason, selectedConference, currentSeasonConfig } = useApp();
-  const { matchups, weeks, currentWeek, loading, error, refreshMatchups } = useMatchups(selectedSeason, selectedConference);
-  const { conferences, loading: conferencesLoading, error: conferencesError, getConferenceById } = useConferences({ seasonYear: selectedSeason });
-  const [selectedWeek, setSelectedWeek] = useState<number>(currentWeek);
+  const [selectedWeek, setSelectedWeek] = useState<number>(mockMatchupsData.currentWeek);
   const [expandedMatchups, setExpandedMatchups] = useState<Set<string>>(new Set());
 
-  // Update selectedWeek when currentWeek changes
-  React.useEffect(() => {
-    if (currentWeek > 0) {
-      setSelectedWeek(currentWeek);
-    }
-  }, [currentWeek]);
+  // Filter matchups based on selected conference and week
+  const filteredMatchups = mockMatchupsData.matchups.filter((matchup) => {
+    const weekMatch = matchup.week === selectedWeek;
+    if (!selectedConference) return weekMatch;
 
-  // Filter matchups based on selected week (conference filtering is handled in the hook)
-  const filteredMatchups = matchups.filter((matchup) => {
-    return matchup.week === selectedWeek;
+    const conference = currentSeasonConfig.conferences.find((c) => c.id === selectedConference);
+    return weekMatch && matchup.conference === conference?.name;
   });
 
   const toggleMatchupExpansion = (matchupId: string) => {
@@ -56,49 +119,9 @@ const MatchupsPage: React.FC = () => {
   };
 
   const getWeekStatus = (weekNum: number) => {
-    const weekData = weeks.find((w) => w.week === weekNum);
+    const weekData = mockMatchupsData.weeks.find((w) => w.week === weekNum);
     return weekData?.status || 'upcoming';
   };
-
-  // Show loading state
-  if (loading || conferencesLoading) {
-    return (
-      <div className="space-y-6">
-        <div className="flex items-center space-x-2">
-          <Swords className="h-6 w-6 text-primary" />
-          <h1 className="text-3xl font-bold">Matchups</h1>
-        </div>
-        <div className="flex items-center justify-center py-12">
-          <RefreshCw className="h-8 w-8 animate-spin text-primary" />
-          <span className="ml-2 text-lg">Loading {loading ? 'matchups' : 'conferences'}...</span>
-        </div>
-      </div>);
-
-  }
-
-  // Show error state
-  if (error || conferencesError) {
-    const displayError = error || conferencesError;
-    return (
-      <div className="space-y-6">
-        <div className="flex items-center space-x-2">
-          <Swords className="h-6 w-6 text-primary" />
-          <h1 className="text-3xl font-bold">Matchups</h1>
-        </div>
-        <Card>
-          <CardContent className="py-8 text-center">
-            <AlertCircle className="h-12 w-12 text-destructive mx-auto mb-4" />
-            <h3 className="text-lg font-semibold mb-2">Error Loading Matchups</h3>
-            <p className="text-muted-foreground mb-4">{displayError}</p>
-            <Button onClick={refreshMatchups} variant="outline">
-              <RefreshCw className="h-4 w-4 mr-2" />
-              Try Again
-            </Button>
-          </CardContent>
-        </Card>
-      </div>);
-
-  }
 
   return (
     <div className="space-y-6">
@@ -109,7 +132,10 @@ const MatchupsPage: React.FC = () => {
           <h1 className="text-3xl font-bold">Matchups</h1>
         </div>
         <p className="text-muted-foreground">
-          {selectedSeason} Season • Week {selectedWeek} • {getConferenceDisplayInfo(conferences, selectedConference).name}
+          {selectedSeason} Season • Week {selectedWeek} • {selectedConference ?
+          currentSeasonConfig.conferences.find((c) => c.id === selectedConference)?.name :
+          'All Conferences'
+          }
         </p>
       </div>
 
@@ -121,7 +147,7 @@ const MatchupsPage: React.FC = () => {
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              {weeks.map((week) =>
+              {mockMatchupsData.weeks.map((week) =>
               <SelectItem key={week.week} value={week.week.toString()}>
                   <div className="flex items-center space-x-2">
                     <span>Week {week.week}</span>
@@ -131,16 +157,6 @@ const MatchupsPage: React.FC = () => {
               )}
             </SelectContent>
           </Select>
-
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={refreshMatchups}
-            disabled={loading}>
-
-            <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
-            Refresh
-          </Button>
 
           {getWeekStatus(selectedWeek) === 'current' &&
           <div className="flex items-center space-x-2 text-sm text-muted-foreground">
@@ -225,23 +241,31 @@ const MatchupsPage: React.FC = () => {
                 {/* Expanded Content */}
                 <CollapsibleContent className="mt-6">
                   <div className="border-t pt-4 space-y-4">
-                    {/* Enhanced Roster Display */}
-                  <ValidatedMatchupRosterDisplay
-                    conferenceId={(() => {
-                      // Use utility function to find conference
-                      const conference = findConferenceByName(conferences, matchup.conference);
-                      if (!conference) {
-                        console.warn(`Conference '${matchup.conference}' not found using utility function`);
-                        return '';
-                      }
-                      return conference.id;
-                    })()}
-                    conferenceName={matchup.conference}
-                    week={selectedWeek}
-                    matchupId={parseInt(matchup.id)}
-                    seasonYear={selectedSeason}
-                  />
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {/* Home Team Roster Placeholder */}
+                      <Card>
+                        <CardHeader className="pb-2">
+                          <CardTitle className="text-sm">{matchup.homeTeam.name} Roster</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <p className="text-sm text-muted-foreground">
+                            Detailed roster and player scores will be displayed here when connected to Sleeper API.
+                          </p>
+                        </CardContent>
+                      </Card>
 
+                      {/* Away Team Roster Placeholder */}
+                      <Card>
+                        <CardHeader className="pb-2">
+                          <CardTitle className="text-sm">{matchup.awayTeam.name} Roster</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <p className="text-sm text-muted-foreground">
+                            Detailed roster and player scores will be displayed here when connected to Sleeper API.
+                          </p>
+                        </CardContent>
+                      </Card>
+                    </div>
 
                     {/* Matchup Stats */}
                     {matchup.status !== 'upcoming' &&
