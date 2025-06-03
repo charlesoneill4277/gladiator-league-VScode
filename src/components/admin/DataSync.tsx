@@ -86,7 +86,7 @@ const DataSync: React.FC = () => {
   const [lastTeamsSyncTime, setLastTeamsSyncTime] = useState<string | null>(null);
   const [lastPlayersSyncTime, setLastPlayersSyncTime] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  const [playerFilters, setPlayerFilters] = useState<PlayerFilters>({}); 
+  const [playerFilters, setPlayerFilters] = useState<PlayerFilters>({});
   const [showFilters, setShowFilters] = useState(false);
   const { toast } = useToast();
 
@@ -708,16 +708,16 @@ const DataSync: React.FC = () => {
       // Apply filters
       const originalCount = playersArray.length;
       if (playerFilters.team) {
-        playersArray = playersArray.filter(player => player.nfl_team === playerFilters.team);
+        playersArray = playersArray.filter((player) => player.nfl_team === playerFilters.team);
       }
       if (playerFilters.position) {
-        playersArray = playersArray.filter(player => player.position === playerFilters.position);
+        playersArray = playersArray.filter((player) => player.position === playerFilters.position);
       }
       if (playerFilters.status) {
         if (playerFilters.status === 'Active') {
-          playersArray = playersArray.filter(player => player.status === 'Active');
+          playersArray = playersArray.filter((player) => player.status === 'Active');
         } else if (playerFilters.status === 'Inactive') {
-          playersArray = playersArray.filter(player => player.status !== 'Active');
+          playersArray = playersArray.filter((player) => player.status !== 'Active');
         }
       }
 
@@ -1224,8 +1224,8 @@ const DataSync: React.FC = () => {
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => setShowFilters(!showFilters)}
-                      >
+                        onClick={() => setShowFilters(!showFilters)}>
+
                         <Filter className="h-4 w-4 mr-2" />
                         {showFilters ? 'Hide Filters' : 'Show Filters'}
                       </Button>
@@ -1246,8 +1246,8 @@ const DataSync: React.FC = () => {
                     </div>
                   </div>
 
-                  {showFilters && (
-                    <Card>
+                  {showFilters &&
+                  <Card>
                       <CardHeader>
                         <CardTitle className="flex items-center gap-2">
                           <Filter className="h-5 w-5" />
@@ -1263,8 +1263,7 @@ const DataSync: React.FC = () => {
                             <Label htmlFor="team-filter">NFL Team</Label>
                             <Select
                               value={playerFilters.team || ''}
-                              onValueChange={(value) => setPlayerFilters(prev => ({ ...prev, team: value || undefined }))}
-                            >
+                              onValueChange={(value) => setPlayerFilters((prev) => ({ ...prev, team: value || undefined }))}>
                               <SelectTrigger id="team-filter">
                                 <SelectValue placeholder="All teams" />
                               </SelectTrigger>
@@ -1310,8 +1309,7 @@ const DataSync: React.FC = () => {
                             <Label htmlFor="position-filter">Position</Label>
                             <Select
                               value={playerFilters.position || ''}
-                              onValueChange={(value) => setPlayerFilters(prev => ({ ...prev, position: value || undefined }))}
-                            >
+                              onValueChange={(value) => setPlayerFilters((prev) => ({ ...prev, position: value || undefined }))}>
                               <SelectTrigger id="position-filter">
                                 <SelectValue placeholder="All positions" />
                               </SelectTrigger>
@@ -1339,8 +1337,7 @@ const DataSync: React.FC = () => {
                             <Label htmlFor="status-filter">Player Status</Label>
                             <Select
                               value={playerFilters.status || ''}
-                              onValueChange={(value) => setPlayerFilters(prev => ({ ...prev, status: value || undefined }))}
-                            >
+                              onValueChange={(value) => setPlayerFilters((prev) => ({ ...prev, status: value || undefined }))}>
                               <SelectTrigger id="status-filter">
                                 <SelectValue placeholder="All statuses" />
                               </SelectTrigger>
@@ -1357,12 +1354,11 @@ const DataSync: React.FC = () => {
                           <Button
                             variant="outline"
                             size="sm"
-                            onClick={() => setPlayerFilters({})}
-                          >
+                            onClick={() => setPlayerFilters({})}>
                             Clear All Filters
                           </Button>
                           <div className="text-sm text-muted-foreground">
-                            {Object.keys(playerFilters).filter(key => playerFilters[key as keyof PlayerFilters]).length > 0 && (
+                            {Object.keys(playerFilters).filter((key) => playerFilters[key as keyof PlayerFilters]).length > 0 && (
                               <span>
                                 Active filters: {Object.entries(playerFilters)
                                   .filter(([_, value]) => value)
@@ -1374,7 +1370,7 @@ const DataSync: React.FC = () => {
                         </div>
                       </CardContent>
                     </Card>
-                  )}
+                  }
 
                   {syncingPlayers &&
                   <div>
