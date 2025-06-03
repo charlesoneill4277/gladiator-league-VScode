@@ -323,10 +323,10 @@ export class SleeperApiService {
    * Organize matchups by pairing teams
    */
   static organizeMatchups(
-    matchups: SleeperMatchup[],
-    rosters: SleeperRoster[],
-    users: SleeperUser[]
-  ): Array<{
+  matchups: SleeperMatchup[],
+  rosters: SleeperRoster[],
+  users: SleeperUser[])
+  : Array<{
     matchup_id: number;
     teams: Array<{
       roster_id: number;
@@ -346,21 +346,21 @@ export class SleeperApiService {
     });
 
     // Convert to organized format
-    return Array.from(matchupGroups.entries())
-      .filter(([_, teams]) => teams.length === 2) // Only include complete matchup pairs
-      .map(([matchup_id, teams]) => ({
-        matchup_id,
-        teams: teams.map((team) => {
-          const roster = rosters.find((r) => r.roster_id === team.roster_id);
-          const owner = roster ? users.find((u) => u.user_id === roster.owner_id) : null;
-          return {
-            roster_id: team.roster_id,
-            points: team.points,
-            owner,
-            roster
-          };
-        })
-      }));
+    return Array.from(matchupGroups.entries()).
+    filter(([_, teams]) => teams.length === 2) // Only include complete matchup pairs
+    .map(([matchup_id, teams]) => ({
+      matchup_id,
+      teams: teams.map((team) => {
+        const roster = rosters.find((r) => r.roster_id === team.roster_id);
+        const owner = roster ? users.find((u) => u.user_id === roster.owner_id) : null;
+        return {
+          roster_id: team.roster_id,
+          points: team.points,
+          owner,
+          roster
+        };
+      })
+    }));
   }
 
   /**
