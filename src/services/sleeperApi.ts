@@ -46,6 +46,71 @@ export interface OrganizedRoster {
   ir: string[];
 }
 
+export interface SleeperMatchup {
+  starters: string[];
+  roster_id: number;
+  players: string[];
+  matchup_id: number;
+  points: number;
+  custom_points?: number;
+  starters_points: number[];
+  players_points: Record<string, number>;
+}
+
+export interface SleeperLeague {
+  total_rosters: number;
+  status: string;
+  sport: string;
+  settings: {
+    max_keepers: number;
+    draft_rounds: number;
+    trade_deadline: number;
+    playoff_week_start: number;
+    num_teams: number;
+    leg: number;
+    playoff_type: number;
+    playoff_round_type: number;
+    playoff_seed_type: number;
+    playoff_teams: number;
+    waiver_type: number;
+    waiver_clear_days: number;
+    waiver_day_of_week: number;
+    start_week: number;
+    league_average_match: number;
+    last_report: number;
+    last_scored_leg: number;
+    taxi_years: number;
+    taxi_allow_vets: number;
+    taxi_slots: number;
+    trade_review_days: number;
+    reserve_allow_dnr: number;
+    reserve_allow_doubtful: number;
+    reserve_slots: number;
+    reserve_allow_sus: number;
+    reserve_allow_out: number;
+    bench_lock: number;
+  };
+  season_type: string;
+  season: string;
+  scoring_settings: Record<string, number>;
+  roster_positions: string[];
+  previous_league_id: string;
+  name: string;
+  league_id: string;
+  draft_id: string;
+  avatar: string;
+}
+
+export interface SleeperUser {
+  user_id: string;
+  username: string;
+  display_name: string;
+  avatar: string;
+  metadata: {
+    team_name?: string;
+  };
+}
+
 // Position mapping for starting lineup slots
 const STARTING_POSITIONS = [
 'QB', // Quarterback
@@ -189,6 +254,130 @@ export class SleeperApiService {
    */
   static formatPoints(points: number, decimal: number = 0): number {
     return points + decimal / 100;
+  }
+
+  /**
+   * Fetch matchups for a specific league and week
+   */
+  static async fetchMatchups(leagueId: string, week: number): Promise<SleeperMatchup[]> {
+    try {
+      console.log(`Fetching matchups for league: ${leagueId}, week: ${week}`);
+      const response = await fetch(`${this.baseUrl}/league/${leagueId}/matchups/${week}`);
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch matchups: ${response.status} ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      console.log(`Fetched ${data.length} matchups for league ${leagueId}, week ${week}`);
+      return data;
+    } catch (error) {
+      console.error('Error fetching matchups:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Fetch league information
+   */
+  static async fetchLeague(leagueId: string): Promise<SleeperLeague> {
+    try {
+      console.log(`Fetching league info: ${leagueId}`);
+      const response = await fetch(`${this.baseUrl}/league/${leagueId}`);
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch league: ${response.status} ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      console.log(`Fetched league info for ${leagueId}`);
+      return data;
+    } catch (error) {
+      console.error('Error fetching league:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Fetch users in a league
+   */
+  static async fetchLeagueUsers(leagueId: string): Promise<SleeperUser[]> {
+    try {
+      console.log(`Fetching users for league: ${leagueId}`);
+      const response = await fetch(`${this.baseUrl}/league/${leagueId}/users`);
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch users: ${response.status} ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      console.log(`Fetched ${data.length} users for league ${leagueId}`);
+      return data;
+    } catch (error) {
+      console.error('Error fetching league users:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Organize matchups by pairing teams
+   */
+  static organizeMatchups(
+    matchups: SleeperMatchup[],
+    rosters: SleeperRoster[],
+    users: SleeperUser[]
+  ): Array<{
+    matchup_id: number;
+    teams: Array<{
+      roster_id: number;
+      points: number;
+      owner: SleeperUser | null;
+      roster: SleeperRoster | null;
+    }>;
+  }> {
+    const matchupGroups = new Map<number, SleeperMatchup[]>();
+
+    // Group matchups by matchup_id
+    matchups.forEach((matchup) => {
+      if (!matchupGroups.has(matchup.matchup_id)) {
+        matchupGroups.set(matchup.matchup_id, []);
+      }
+      matchupGroups.get(matchup.matchup_id)!.push(matchup);
+    });
+
+    // Convert to organized format
+    return Array.from(matchupGroups.entries())
+      .filter(([_, teams]) => teams.length === 2) // Only include complete matchup pairs
+      .map(([matchup_id, teams]) => ({
+        matchup_id,
+        teams: teams.map((team) => {
+          const roster = rosters.find((r) => r.roster_id === team.roster_id);
+          const owner = roster ? users.find((u) => u.user_id === roster.owner_id) : null;
+          return {
+            roster_id: team.roster_id,
+            points: team.points,
+            owner,
+            roster
+          };
+        })
+      }));
+  }
+
+  /**
+   * Get current NFL week
+   */
+  static async getCurrentNFLWeek(): Promise<number> {
+    try {
+      const response = await fetch(`${this.baseUrl}/state/nfl`);
+      if (!response.ok) {
+        throw new Error('Failed to fetch NFL state');
+      }
+      const data = await response.json();
+      return data.week || 1;
+    } catch (error) {
+      console.error('Error fetching current NFL week:', error);
+      return 14; // Default to week 14 as fallback
+    }
   }
 }
 
