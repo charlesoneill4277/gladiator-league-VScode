@@ -3,16 +3,16 @@ interface SleeperTransaction {
   transaction_id: string;
   status_updated: number;
   status: string;
-  settings: { waiver_bid?: number } | null;
+  settings: {waiver_bid?: number;} | null;
   roster_ids: number[];
-  metadata: { notes?: string } | null;
+  metadata: {notes?: string;} | null;
   leg: number; // week
-  drops: { [player_id: string]: number } | null;
+  drops: {[player_id: string]: number;} | null;
   draft_picks: DraftPick[];
   creator: string;
   created: number;
   consenter_ids: number[];
-  adds: { [player_id: string]: number } | null;
+  adds: {[player_id: string]: number;} | null;
   waiver_budget: WaiverBudget[];
 }
 
@@ -40,8 +40,8 @@ interface ProcessedTransaction {
   rosterIds: number[];
   details: string;
   players: {
-    added: { id: string; name: string; team: string }[];
-    dropped: { id: string; name: string; team: string }[];
+    added: {id: string;name: string;team: string;}[];
+    dropped: {id: string;name: string;team: string;}[];
   };
   draftPicks: DraftPick[];
   waiverBid?: number;
@@ -58,7 +58,7 @@ class TransactionService {
    */
   static async fetchTransactions(leagueId: string, week: number): Promise<SleeperTransaction[]> {
     const cacheKey = `${leagueId}_${week}`;
-    
+
     if (this.cache.has(cacheKey)) {
       return this.cache.get(cacheKey)!;
     }
@@ -66,14 +66,14 @@ class TransactionService {
     try {
       console.log(`Fetching transactions for league ${leagueId}, week ${week}`);
       const response = await fetch(`https://api.sleeper.app/v1/league/${leagueId}/transactions/${week}`);
-      
+
       if (!response.ok) {
         throw new Error(`Failed to fetch transactions: ${response.status}`);
       }
 
       const transactions: SleeperTransaction[] = await response.json();
       this.cache.set(cacheKey, transactions);
-      
+
       console.log(`Fetched ${transactions.length} transactions for week ${week}`);
       return transactions;
     } catch (error) {
@@ -177,15 +177,15 @@ class TransactionService {
    * Process raw transactions into a more user-friendly format
    */
   static async processTransactions(
-    transactions: SleeperTransaction[],
-    teamNameMap: Map<number, string>
-  ): Promise<ProcessedTransaction[]> {
+  transactions: SleeperTransaction[],
+  teamNameMap: Map<number, string>)
+  : Promise<ProcessedTransaction[]> {
     const processed: ProcessedTransaction[] = [];
 
     for (const tx of transactions) {
       try {
-        const teams = tx.roster_ids.map(rosterId => teamNameMap.get(rosterId) || `Team ${rosterId}`);
-        
+        const teams = tx.roster_ids.map((rosterId) => teamNameMap.get(rosterId) || `Team ${rosterId}`);
+
         // Process added players
         const addedPlayers = [];
         if (tx.adds) {
@@ -255,36 +255,36 @@ class TransactionService {
   }
 
   private static generateTradeDetails(
-    tx: SleeperTransaction,
-    teams: string[],
-    addedPlayers: any[],
-    droppedPlayers: any[]
-  ): string {
+  tx: SleeperTransaction,
+  teams: string[],
+  addedPlayers: any[],
+  droppedPlayers: any[])
+  : string {
     const parts = [];
-    
+
     if (teams.length >= 2) {
       parts.push(`Trade between ${teams.join(' and ')}`);
     }
 
     if (addedPlayers.length > 0 || droppedPlayers.length > 0) {
       const playerMoves = [];
-      addedPlayers.forEach(p => playerMoves.push(`${p.name} to ${p.team}`));
-      droppedPlayers.forEach(p => playerMoves.push(`${p.name} from ${p.team}`));
+      addedPlayers.forEach((p) => playerMoves.push(`${p.name} to ${p.team}`));
+      droppedPlayers.forEach((p) => playerMoves.push(`${p.name} from ${p.team}`));
       if (playerMoves.length > 0) {
         parts.push(playerMoves.join(', '));
       }
     }
 
     if (tx.draft_picks.length > 0) {
-      const picks = tx.draft_picks.map(pick => 
-        `${pick.season} Round ${pick.round} pick`
+      const picks = tx.draft_picks.map((pick) =>
+      `${pick.season} Round ${pick.round} pick`
       );
       parts.push(`Draft picks: ${picks.join(', ')}`);
     }
 
     if (tx.waiver_budget.length > 0) {
-      const faabMoves = tx.waiver_budget.map(wb => 
-        `$${wb.amount} FAAB`
+      const faabMoves = tx.waiver_budget.map((wb) =>
+      `$${wb.amount} FAAB`
       );
       parts.push(`FAAB: ${faabMoves.join(', ')}`);
     }
@@ -294,31 +294,31 @@ class TransactionService {
 
   private static generateFreeAgentDetails(addedPlayers: any[], droppedPlayers: any[]): string {
     const parts = [];
-    
+
     if (addedPlayers.length > 0) {
-      parts.push(`Added: ${addedPlayers.map(p => p.name).join(', ')}`);
+      parts.push(`Added: ${addedPlayers.map((p) => p.name).join(', ')}`);
     }
-    
+
     if (droppedPlayers.length > 0) {
-      parts.push(`Dropped: ${droppedPlayers.map(p => p.name).join(', ')}`);
+      parts.push(`Dropped: ${droppedPlayers.map((p) => p.name).join(', ')}`);
     }
 
     return parts.join(' | ') || 'Free agent pickup';
   }
 
   private static generateWaiverDetails(
-    tx: SleeperTransaction,
-    addedPlayers: any[],
-    droppedPlayers: any[]
-  ): string {
+  tx: SleeperTransaction,
+  addedPlayers: any[],
+  droppedPlayers: any[])
+  : string {
     const parts = [];
-    
+
     if (addedPlayers.length > 0) {
-      parts.push(`Claimed: ${addedPlayers.map(p => p.name).join(', ')}`);
+      parts.push(`Claimed: ${addedPlayers.map((p) => p.name).join(', ')}`);
     }
-    
+
     if (droppedPlayers.length > 0) {
-      parts.push(`Dropped: ${droppedPlayers.map(p => p.name).join(', ')}`);
+      parts.push(`Dropped: ${droppedPlayers.map((p) => p.name).join(', ')}`);
     }
 
     if (tx.settings?.waiver_bid) {
