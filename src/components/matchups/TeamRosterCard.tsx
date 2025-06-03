@@ -10,18 +10,18 @@ interface TeamRosterCardProps {
   isLoading?: boolean;
 }
 
-const PlayerRow: React.FC<{ player: PlayerWithPoints }> = ({ player }) => {
+const PlayerRow: React.FC<{player: PlayerWithPoints;}> = ({ player }) => {
   const getPositionColor = (position: string) => {
     switch (position) {
-      case 'QB': return 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200';
-      case 'RB': return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200';
-      case 'WR': return 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200';
-      case 'TE': return 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200';
-      case 'K': return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200';
-      case 'DEF': return 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200';
-      case 'DST': return 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200';
-      case 'UNK': return 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200';
-      default: return 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200';
+      case 'QB':return 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200';
+      case 'RB':return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200';
+      case 'WR':return 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200';
+      case 'TE':return 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200';
+      case 'K':return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200';
+      case 'DEF':return 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200';
+      case 'DST':return 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200';
+      case 'UNK':return 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200';
+      default:return 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200';
     }
   };
 
@@ -51,32 +51,32 @@ const PlayerRow: React.FC<{ player: PlayerWithPoints }> = ({ player }) => {
               <span className="font-medium text-sm truncate">
                 {player.player_name || `Player ${player.sleeper_player_id}`}
               </span>
-              {player.injury_status !== 'Healthy' && player.injury_status !== 'Unknown' && (
-                <AlertTriangle className={`h-3 w-3 ${getInjuryStatusColor(player.injury_status)}`} />
-              )}
+              {player.injury_status !== 'Healthy' && player.injury_status !== 'Unknown' &&
+              <AlertTriangle className={`h-3 w-3 ${getInjuryStatusColor(player.injury_status)}`} />
+              }
             </div>
             <div className="flex items-center space-x-2 text-xs text-muted-foreground">
               {player.nfl_team && <span>{player.nfl_team}</span>}
-              {player.jersey_number > 0 && (
-                <>
+              {player.jersey_number > 0 &&
+              <>
                   <span>•</span>
                   <span>#{player.jersey_number}</span>
                 </>
-              )}
-              {player.injury_status !== 'Healthy' && player.injury_status !== 'Unknown' && (
-                <>
+              }
+              {player.injury_status !== 'Healthy' && player.injury_status !== 'Unknown' &&
+              <>
                   <span>•</span>
                   <span className={getInjuryStatusColor(player.injury_status)}>
                     {player.injury_status}
                   </span>
                 </>
-              )}
-              {player.position === 'UNK' && (
-                <>
+              }
+              {player.position === 'UNK' &&
+              <>
                   <span>•</span>
                   <span className="text-orange-600">Missing Data</span>
                 </>
-              )}
+              }
             </div>
           </div>
         </div>
@@ -85,12 +85,12 @@ const PlayerRow: React.FC<{ player: PlayerWithPoints }> = ({ player }) => {
         <div className="font-semibold text-sm">
           {player.points > 0 ? player.points.toFixed(1) : '--'}
         </div>
-        {player.points > 0 && (
-          <div className="text-xs text-muted-foreground">pts</div>
-        )}
+        {player.points > 0 &&
+        <div className="text-xs text-muted-foreground">pts</div>
+        }
       </div>
-    </div>
-  );
+    </div>);
+
 };
 
 const TeamRosterCard: React.FC<TeamRosterCardProps> = ({ teamData, isLoading = false }) => {
@@ -102,19 +102,19 @@ const TeamRosterCard: React.FC<TeamRosterCardProps> = ({ teamData, isLoading = f
         </CardHeader>
         <CardContent>
           <div className="space-y-2">
-            {[1, 2, 3, 4, 5].map((i) => (
-              <div key={i} className="flex items-center justify-between py-2">
+            {[1, 2, 3, 4, 5].map((i) =>
+            <div key={i} className="flex items-center justify-between py-2">
                 <div className="flex items-center space-x-3 flex-1">
                   <div className="w-12 h-5 bg-muted animate-pulse rounded"></div>
                   <div className="w-24 h-4 bg-muted animate-pulse rounded"></div>
                 </div>
                 <div className="w-8 h-4 bg-muted animate-pulse rounded"></div>
               </div>
-            ))}
+            )}
           </div>
         </CardContent>
-      </Card>
-    );
+      </Card>);
+
   }
 
   const totalStarterPoints = teamData.starters.reduce((sum, player) => sum + player.points, 0);
@@ -148,15 +148,15 @@ const TeamRosterCard: React.FC<TeamRosterCardProps> = ({ teamData, isLoading = f
             </Badge>
           </div>
           <div className="space-y-1">
-            {teamData.starters.map((player) => (
-              <PlayerRow key={player.id} player={player} />
-            ))}
+            {teamData.starters.map((player) =>
+            <PlayerRow key={player.id} player={player} />
+            )}
           </div>
         </div>
 
         {/* Bench Section */}
-        {teamData.bench.length > 0 && (
-          <>
+        {teamData.bench.length > 0 &&
+        <>
             <Separator />
             <div>
               <div className="flex items-center justify-between mb-2">
@@ -169,13 +169,13 @@ const TeamRosterCard: React.FC<TeamRosterCardProps> = ({ teamData, isLoading = f
                 </Badge>
               </div>
               <div className="space-y-1">
-                {teamData.bench.map((player) => (
-                  <PlayerRow key={player.id} player={player} />
-                ))}
+                {teamData.bench.map((player) =>
+              <PlayerRow key={player.id} player={player} />
+              )}
               </div>
             </div>
           </>
-        )}
+        }
 
         {/* Team Summary */}
         <Separator />
@@ -190,8 +190,8 @@ const TeamRosterCard: React.FC<TeamRosterCardProps> = ({ teamData, isLoading = f
           </div>
         </div>
       </CardContent>
-    </Card>
-  );
+    </Card>);
+
 };
 
 export default TeamRosterCard;
