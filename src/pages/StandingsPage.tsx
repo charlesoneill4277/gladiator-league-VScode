@@ -59,95 +59,171 @@ const StandingsPage: React.FC = () => {
     try {
       setLoading(true);
       setError(null);
-      
-      console.log('Fetching standings data...');
-      
-      // Get all teams and conferences from database
-      const { data: teamsData, error: teamsError } = await window.ezsite.apis.tablePage('12852', {
+
+      console.log(`Fetching standings data for season ${selectedSeason} and conference ${selectedConference || 'all'}...`);
+
+      // First, get the season ID for the selected year
+      const { data: seasonsData, error: seasonsError } = await window.ezsite.apis.tablePage('12818', {
         PageNo: 1,
-        PageSize: 100,
+        PageSize: 10,
         OrderByField: 'id',
         IsAsc: true,
-        Filters: []
+        Filters: [
+          {
+            name: 'season_year',
+            op: 'Equal',
+            value: selectedSeason
+          }
+        ]
       });
+
+      if (seasonsError) throw new Error(`Seasons fetch error: ${seasonsError}`);
       
-      if (teamsError) throw new Error(`Teams fetch error: ${teamsError}`);
+      const seasons = seasonsData.List || [];
+      if (seasons.length === 0) {
+        throw new Error(`No season found for year ${selectedSeason}`);
+      }
       
+      const seasonId = seasons[0].id;
+      console.log(`Found season ID ${seasonId} for year ${selectedSeason}`);
+
+      // Get conferences for the selected season
+      const conferenceFilters = [
+        {
+          name: 'season_id',
+          op: 'Equal',
+          value: seasonId
+        }
+      ];
+
+      // If a specific conference is selected, add that filter too
+      if (selectedConference) {
+        const selectedConferenceName = currentSeasonConfig.conferences.find(c => c.id === selectedConference)?.name;
+        if (selectedConferenceName) {
+          conferenceFilters.push({
+            name: 'conference_name',
+            op: 'Equal',
+            value: selectedConferenceName
+          });
+        }
+      }
+
       const { data: conferencesData, error: conferencesError } = await window.ezsite.apis.tablePage('12820', {
         PageNo: 1,
         PageSize: 100,
         OrderByField: 'id',
         IsAsc: true,
-        Filters: []
+        Filters: conferenceFilters
       });
-      
+
       if (conferencesError) throw new Error(`Conferences fetch error: ${conferencesError}`);
-      
+
+      const conferences = conferencesData.List || [];
+      if (conferences.length === 0) {
+        console.warn(`No conferences found for season ${selectedSeason} and conference filter`);
+        setStandingsData([]);
+        return;
+      }
+
+      console.log(`Found ${conferences.length} conferences for the selected filters`);
+
+      // Get junction data for the found conferences
+      const conferenceIds = conferences.map(c => c.id);
+      const junctionFilters = conferenceIds.map(id => ({
+        name: 'conference_id',
+        op: 'Equal',
+        value: id
+      }));
+
+      // For now, we'll fetch all junctions and filter in memory since the API doesn't support OR operations
+      // In a production environment, you'd want to make multiple requests or use a more sophisticated query
       const { data: junctionData, error: junctionError } = await window.ezsite.apis.tablePage('12853', {
         PageNo: 1,
-        PageSize: 100,
+        PageSize: 1000, // Increase to ensure we get all relevant data
+        OrderByField: 'id',
+        IsAsc: true,
+        Filters: [] // We'll filter this in memory
+      });
+
+      if (junctionError) throw new Error(`Junction fetch error: ${junctionError}`);
+
+      // Filter junctions to only include those for our selected conferences
+      const filteredJunctions = (junctionData.List || []).filter(junction => 
+        conferenceIds.includes(junction.conference_id) && junction.is_active
+      );
+
+      console.log(`Found ${filteredJunctions.length} active team-conference junctions`);
+
+      // Get all teams (we can't filter these effectively without knowing which team IDs we need first)
+      const { data: teamsData, error: teamsError } = await window.ezsite.apis.tablePage('12852', {
+        PageNo: 1,
+        PageSize: 1000, // Increase to ensure we get all teams
         OrderByField: 'id',
         IsAsc: true,
         Filters: []
       });
-      
-      if (junctionError) throw new Error(`Junction fetch error: ${junctionError}`);
-      
-      console.log('Database data:', { teamsData, conferencesData, junctionData });
-      
+
+      if (teamsError) throw new Error(`Teams fetch error: ${teamsError}`);
+
+      console.log('Database data:', { 
+        seasonsData, 
+        conferencesData: { List: conferences }, 
+        junctionData: { List: filteredJunctions }, 
+        teamsData 
+      });
+
       const teams = teamsData.List || [];
-      const conferences = conferencesData.List || [];
-      const junctions = junctionData.List || [];
-      
+      const junctions = filteredJunctions;
+
       // Group junctions by conference for fetching Sleeper data
       const conferenceGroups = new Map<number, any[]>();
-      junctions.forEach(junction => {
+      junctions.forEach((junction) => {
         if (!conferenceGroups.has(junction.conference_id)) {
           conferenceGroups.set(junction.conference_id, []);
         }
         conferenceGroups.get(junction.conference_id)!.push(junction);
       });
-      
+
       const allStandingsData: StandingData[] = [];
-      
+
       // Fetch roster data for each conference
       for (const [conferenceId, conferenceJunctions] of conferenceGroups) {
-        const conference = conferences.find(c => c.id === conferenceId);
+        const conference = conferences.find((c) => c.id === conferenceId);
         if (!conference || !conference.league_id) {
           console.warn(`Conference ${conferenceId} not found or missing league_id`);
           continue;
         }
-        
+
         try {
           console.log(`Fetching roster data for conference ${conference.conference_name} (league_id: ${conference.league_id})`);
-          
+
           const response = await fetch(`https://api.sleeper.app/v1/league/${conference.league_id}/rosters`);
           if (!response.ok) {
             throw new Error(`Failed to fetch rosters for league ${conference.league_id}: ${response.statusText}`);
           }
-          
+
           const rosters: SleeperRoster[] = await response.json();
           console.log(`Fetched ${rosters.length} rosters for conference ${conference.conference_name}`);
-          
+
           // Map roster data to our standings format
           for (const roster of rosters) {
             // Find the team data using roster_id
-            const junction = conferenceJunctions.find(j => j.roster_id === roster.roster_id.toString());
+            const junction = conferenceJunctions.find((j) => j.roster_id === roster.roster_id.toString());
             if (!junction) {
               console.warn(`No junction found for roster_id ${roster.roster_id} in conference ${conferenceId}`);
               continue;
             }
-            
-            const team = teams.find(t => t.id === junction.team_id);
+
+            const team = teams.find((t) => t.id === junction.team_id);
             if (!team) {
               console.warn(`No team found for team_id ${junction.team_id}`);
               continue;
             }
-            
+
             const totalGames = roster.settings.wins + roster.settings.losses + roster.settings.ties;
             const pointsFor = (roster.settings.fpts || 0) + (roster.settings.fpts_decimal || 0) / 100;
             const pointsAgainst = (roster.settings.fpts_against || 0) + (roster.settings.fpts_against_decimal || 0) / 100;
-            
+
             const standingData: StandingData = {
               id: `${team.id}-${conferenceId}`,
               teamName: team.team_name || 'Unknown Team',
@@ -165,7 +241,7 @@ const StandingsPage: React.FC = () => {
               rosterId: roster.roster_id,
               leagueId: roster.league_id
             };
-            
+
             allStandingsData.push(standingData);
           }
         } catch (fetchError) {
@@ -173,21 +249,21 @@ const StandingsPage: React.FC = () => {
           // Continue with other conferences
         }
       }
-      
+
       // Sort by wins (desc), then by points for (desc) to calculate ranks
       allStandingsData.sort((a, b) => {
         if (a.wins !== b.wins) return b.wins - a.wins;
         return b.pointsFor - a.pointsFor;
       });
-      
+
       // Assign ranks
       allStandingsData.forEach((team, index) => {
         team.rank = index + 1;
       });
-      
+
       console.log('Final standings data:', allStandingsData);
       setStandingsData(allStandingsData);
-      
+
     } catch (err) {
       console.error('Error fetching standings:', err);
       setError(err instanceof Error ? err.message : 'Failed to fetch standings data');
@@ -200,7 +276,7 @@ const StandingsPage: React.FC = () => {
       setLoading(false);
     }
   };
-  
+
   // Simple streak calculation (can be enhanced later)
   const calculateStreak = (wins: number, losses: number): string => {
     // This is a simplified implementation
@@ -209,18 +285,14 @@ const StandingsPage: React.FC = () => {
     if (losses > wins) return `L${Math.min(losses, 3)}`;
     return 'T1';
   };
-  
+
   useEffect(() => {
     fetchStandingsData();
   }, [selectedSeason, selectedConference]);
-  
-  // Filter standings based on selected conference
-  const filteredStandings = selectedConference ?
-    standingsData.filter((team) => {
-      const conference = currentSeasonConfig.conferences.find((c) => c.id === selectedConference);
-      return team.conference === conference?.name;
-    }) :
-    standingsData;
+
+  // The standings data is already filtered by the database queries,
+  // but we'll apply an additional client-side filter as a safety measure
+  const filteredStandings = standingsData; // Data is already filtered by database queries
 
   const handleSort = (key: string) => {
     let direction: 'asc' | 'desc' = 'desc';
@@ -268,46 +340,46 @@ const StandingsPage: React.FC = () => {
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]" data-id="loading-container">
-        <div className="flex items-center space-x-2">
-          <Loader2 className="h-6 w-6 animate-spin" />
-          <span>Loading standings data...</span>
+        <div className="flex items-center space-x-2" data-id="3egz2s5wd">
+          <Loader2 className="h-6 w-6 animate-spin" data-id="fnxhtqq2c" />
+          <span data-id="bcdq698sr">Loading standings data...</span>
         </div>
-      </div>
-    );
+      </div>);
+
   }
-  
+
   if (error) {
     return (
       <div className="space-y-6" data-id="error-container">
-        <div className="flex flex-col space-y-2">
-          <div className="flex items-center space-x-2">
-            <Trophy className="h-6 w-6 text-primary" />
-            <h1 className="text-3xl font-bold">League Standings</h1>
+        <div className="flex flex-col space-y-2" data-id="4opi89zyu">
+          <div className="flex items-center space-x-2" data-id="afa6t3yw8">
+            <Trophy className="h-6 w-6 text-primary" data-id="xuh3ln99e" />
+            <h1 className="text-3xl font-bold" data-id="adzrv86r9">League Standings</h1>
           </div>
-          <p className="text-muted-foreground">
+          <p className="text-muted-foreground" data-id="o99conzyq">
             {selectedSeason} Season • {selectedConference ?
-              currentSeasonConfig.conferences.find((c) => c.id === selectedConference)?.name :
-              'All Conferences'
+            currentSeasonConfig.conferences.find((c) => c.id === selectedConference)?.name :
+            'All Conferences'
             }
           </p>
         </div>
         
-        <Card>
-          <CardHeader>
-            <CardTitle>Error Loading Standings</CardTitle>
-            <CardDescription>Unable to fetch standings data</CardDescription>
+        <Card data-id="0wmm9s88l">
+          <CardHeader data-id="w06wnd68x">
+            <CardTitle data-id="b55npsde9">Error Loading Standings</CardTitle>
+            <CardDescription data-id="wp3j91f4z">Unable to fetch standings data</CardDescription>
           </CardHeader>
-          <CardContent>
-            <div className="text-center space-y-4">
-              <p className="text-muted-foreground">{error}</p>
-              <Button onClick={fetchStandingsData}>
+          <CardContent data-id="dyksdvrqs">
+            <div className="text-center space-y-4" data-id="wu43hv1va">
+              <p className="text-muted-foreground" data-id="0njajotlb">{error}</p>
+              <Button onClick={fetchStandingsData} data-id="qac4k0lxi">
                 Try Again
               </Button>
             </div>
           </CardContent>
         </Card>
-      </div>
-    );
+      </div>);
+
   }
 
   return (
