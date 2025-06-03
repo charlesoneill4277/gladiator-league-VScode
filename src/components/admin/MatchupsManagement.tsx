@@ -5,36 +5,36 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useToast } from '@/hooks/use-toast';
-import { 
-  DndContext, 
-  closestCenter, 
-  KeyboardSensor, 
-  PointerSensor, 
-  useSensor, 
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
   useSensors,
-  DragEndEvent
-} from '@dnd-kit/core';
+  DragEndEvent } from
+'@dnd-kit/core';
 import {
   arrayMove,
   SortableContext,
   sortableKeyboardCoordinates,
-  verticalListSortingStrategy,
-} from '@dnd-kit/sortable';
+  verticalListSortingStrategy } from
+'@dnd-kit/sortable';
 import {
-  useSortable,
-} from '@dnd-kit/sortable';
+  useSortable } from
+'@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { 
-  Calendar, 
-  Users, 
-  AlertTriangle, 
-  Save, 
-  RotateCcw, 
-  Edit, 
+import {
+  Calendar,
+  Users,
+  AlertTriangle,
+  Save,
+  RotateCcw,
+  Edit,
   GripVertical,
   Trophy,
-  Loader2
-} from 'lucide-react';
+  Loader2 } from
+'lucide-react';
 
 interface Season {
   id: number;
@@ -77,9 +77,14 @@ interface TeamWithDetails extends Team {
   conference_id: number;
 }
 
+interface MatchupWithConference extends Matchup {
+  conference_name?: string;
+}
+
 interface SortableMatchupCardProps {
-  matchup: Matchup;
+  matchup: MatchupWithConference;
   teams: TeamWithDetails[];
+  conferences: Conference[];
   onToggleOverride: (matchupId: number) => void;
   onUpdateScores: (matchupId: number, team1Score: number, team2Score: number) => void;
 }
@@ -87,6 +92,7 @@ interface SortableMatchupCardProps {
 const SortableMatchupCard: React.FC<SortableMatchupCardProps> = ({
   matchup,
   teams,
+  conferences,
   onToggleOverride,
   onUpdateScores
 }) => {
@@ -95,16 +101,17 @@ const SortableMatchupCard: React.FC<SortableMatchupCardProps> = ({
     listeners,
     setNodeRef,
     transform,
-    transition,
+    transition
   } = useSortable({ id: matchup.id });
 
   const style = {
     transform: CSS.Transform.toString(transform),
-    transition,
+    transition
   };
 
-  const team1 = teams.find(t => t.id === matchup.team_1_id);
-  const team2 = teams.find(t => t.id === matchup.team_2_id);
+  const team1 = teams.find((t) => t.id === matchup.team_1_id);
+  const team2 = teams.find((t) => t.id === matchup.team_2_id);
+  const conference = conferences.find((c) => c.id === matchup.conference_id);
 
   const [editingScores, setEditingScores] = useState(false);
   const [team1Score, setTeam1Score] = useState(matchup.team_1_score);
@@ -118,8 +125,8 @@ const SortableMatchupCard: React.FC<SortableMatchupCardProps> = ({
   return (
     <div ref={setNodeRef} style={style} {...attributes}>
       <Card className={`mb-4 transition-all duration-200 hover:shadow-md ${
-        matchup.is_manual_override ? 'border-orange-400 bg-orange-50' : 'border-gray-200'
-      }`}>
+      matchup.is_manual_override ? 'border-orange-400 bg-orange-50' : 'border-gray-200'}`
+      }>
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
@@ -129,24 +136,29 @@ const SortableMatchupCard: React.FC<SortableMatchupCardProps> = ({
               <div className="flex items-center gap-2">
                 <Trophy className="h-4 w-4 text-blue-600" />
                 <span className="font-medium">Matchup {matchup.id}</span>
+                {conference && (
+                  <Badge variant="secondary" className="text-xs">
+                    {conference.conference_name}
+                  </Badge>
+                )}
               </div>
-              {matchup.is_manual_override && (
-                <Badge variant="outline" className="text-orange-600 border-orange-300">
+              {matchup.is_manual_override &&
+              <Badge variant="outline" className="text-orange-600 border-orange-300">
                   Manual Override
                 </Badge>
-              )}
-              {matchup.is_playoff && (
-                <Badge variant="default" className="bg-purple-600">
+              }
+              {matchup.is_playoff &&
+              <Badge variant="default" className="bg-purple-600">
                   Playoff
                 </Badge>
-              )}
+              }
             </div>
             <div className="flex items-center gap-2">
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => onToggleOverride(matchup.id)}
-              >
+                onClick={() => onToggleOverride(matchup.id)}>
+
                 <Edit className="h-3 w-3 mr-1" />
                 {matchup.is_manual_override ? 'Remove Override' : 'Override'}
               </Button>
@@ -157,13 +169,13 @@ const SortableMatchupCard: React.FC<SortableMatchupCardProps> = ({
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-center">
             {/* Team 1 */}
             <div className="flex items-center gap-3">
-              {team1?.team_logo_url && (
-                <img 
-                  src={team1.team_logo_url} 
-                  alt={team1.team_name}
-                  className="w-8 h-8 rounded-full"
-                />
-              )}
+              {team1?.team_logo_url &&
+              <img
+                src={team1.team_logo_url}
+                alt={team1.team_name}
+                className="w-8 h-8 rounded-full" />
+
+              }
               <div>
                 <div className="font-medium">{team1?.team_name || 'Team 1'}</div>
                 <div className="text-sm text-gray-600">{team1?.owner_name}</div>
@@ -172,45 +184,45 @@ const SortableMatchupCard: React.FC<SortableMatchupCardProps> = ({
 
             {/* Score Section */}
             <div className="flex items-center justify-center">
-              {editingScores ? (
-                <div className="flex items-center gap-2">
+              {editingScores ?
+              <div className="flex items-center gap-2">
                   <input
-                    type="number"
-                    value={team1Score}
-                    onChange={(e) => setTeam1Score(parseFloat(e.target.value) || 0)}
-                    className="w-16 px-2 py-1 text-center border rounded"
-                    step="0.1"
-                  />
+                  type="number"
+                  value={team1Score}
+                  onChange={(e) => setTeam1Score(parseFloat(e.target.value) || 0)}
+                  className="w-16 px-2 py-1 text-center border rounded"
+                  step="0.1" />
+
                   <span className="text-gray-400">-</span>
                   <input
-                    type="number"
-                    value={team2Score}
-                    onChange={(e) => setTeam2Score(parseFloat(e.target.value) || 0)}
-                    className="w-16 px-2 py-1 text-center border rounded"
-                    step="0.1"
-                  />
+                  type="number"
+                  value={team2Score}
+                  onChange={(e) => setTeam2Score(parseFloat(e.target.value) || 0)}
+                  className="w-16 px-2 py-1 text-center border rounded"
+                  step="0.1" />
+
                   <Button size="sm" onClick={handleSaveScores}>
                     <Save className="h-3 w-3" />
                   </Button>
-                  <Button 
-                    size="sm" 
-                    variant="outline" 
-                    onClick={() => setEditingScores(false)}
-                  >
+                  <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setEditingScores(false)}>
+
                     Cancel
                   </Button>
-                </div>
-              ) : (
-                <div 
-                  className="flex items-center gap-2 cursor-pointer hover:bg-gray-50 px-3 py-1 rounded"
-                  onClick={() => setEditingScores(true)}
-                >
+                </div> :
+
+              <div
+                className="flex items-center gap-2 cursor-pointer hover:bg-gray-50 px-3 py-1 rounded"
+                onClick={() => setEditingScores(true)}>
+
                   <span className="text-xl font-bold">{matchup.team_1_score}</span>
                   <span className="text-gray-400">-</span>
                   <span className="text-xl font-bold">{matchup.team_2_score}</span>
                   <Edit className="h-3 w-3 text-gray-400 ml-1" />
                 </div>
-              )}
+              }
             </div>
 
             {/* Team 2 */}
@@ -219,41 +231,40 @@ const SortableMatchupCard: React.FC<SortableMatchupCardProps> = ({
                 <div className="font-medium">{team2?.team_name || 'Team 2'}</div>
                 <div className="text-sm text-gray-600">{team2?.owner_name}</div>
               </div>
-              {team2?.team_logo_url && (
-                <img 
-                  src={team2.team_logo_url} 
-                  alt={team2.team_name}
-                  className="w-8 h-8 rounded-full"
-                />
-              )}
+              {team2?.team_logo_url &&
+              <img
+                src={team2.team_logo_url}
+                alt={team2.team_name}
+                className="w-8 h-8 rounded-full" />
+
+              }
             </div>
           </div>
 
-          {matchup.notes && (
-            <div className="mt-3 p-2 bg-gray-50 rounded text-sm">
+          {matchup.notes &&
+          <div className="mt-3 p-2 bg-gray-50 rounded text-sm">
               <strong>Notes:</strong> {matchup.notes}
             </div>
-          )}
+          }
 
           <div className="mt-3 flex items-center justify-between text-xs text-gray-500">
             <span>Status: {matchup.status}</span>
-            {matchup.matchup_date && (
-              <span>Date: {new Date(matchup.matchup_date).toLocaleDateString()}</span>
-            )}
+            {matchup.matchup_date &&
+            <span>Date: {new Date(matchup.matchup_date).toLocaleDateString()}</span>
+            }
           </div>
         </CardContent>
       </Card>
-    </div>
-  );
+    </div>);
+
 };
 
 const MatchupsManagement: React.FC = () => {
   const [seasons, setSeasons] = useState<Season[]>([]);
   const [conferences, setConferences] = useState<Conference[]>([]);
   const [teams, setTeams] = useState<TeamWithDetails[]>([]);
-  const [matchups, setMatchups] = useState<Matchup[]>([]);
+  const [matchups, setMatchups] = useState<MatchupWithConference[]>([]);
   const [selectedSeason, setSelectedSeason] = useState<string>('');
-  const [selectedConference, setSelectedConference] = useState<string>('');
   const [selectedWeek, setSelectedWeek] = useState<string>('');
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -263,7 +274,7 @@ const MatchupsManagement: React.FC = () => {
   const sensors = useSensors(
     useSensor(PointerSensor),
     useSensor(KeyboardSensor, {
-      coordinateGetter: sortableKeyboardCoordinates,
+      coordinateGetter: sortableKeyboardCoordinates
     })
   );
 
@@ -282,10 +293,10 @@ const MatchupsManagement: React.FC = () => {
 
   // Load matchups when filters change
   useEffect(() => {
-    if (selectedSeason && selectedConference && selectedWeek) {
+    if (selectedSeason && selectedWeek && conferences.length > 0) {
       loadMatchups();
     }
-  }, [selectedSeason, selectedConference, selectedWeek]);
+  }, [selectedSeason, selectedWeek, conferences]);
 
   const loadSeasons = async () => {
     try {
@@ -297,7 +308,7 @@ const MatchupsManagement: React.FC = () => {
       });
       if (error) throw error;
       setSeasons(data.List || []);
-      
+
       // Auto-select current season
       const currentSeason = data.List?.find((s: Season) => s.is_current_season);
       if (currentSeason) {
@@ -319,8 +330,8 @@ const MatchupsManagement: React.FC = () => {
         PageNo: 1,
         PageSize: 100,
         Filters: [
-          { name: 'season_id', op: 'Equal', value: parseInt(selectedSeason) }
-        ]
+        { name: 'season_id', op: 'Equal', value: parseInt(selectedSeason) }]
+
       });
       if (error) throw error;
       setConferences(data.List || []);
@@ -341,14 +352,14 @@ const MatchupsManagement: React.FC = () => {
         PageSize: 100
       });
       if (error) throw error;
-      
+
       // Also load team-conference junction data
       const { data: junctionData, error: junctionError } = await window.ezsite.apis.tablePage(12853, {
         PageNo: 1,
         PageSize: 1000
       });
       if (junctionError) throw junctionError;
-      
+
       // Combine team data with conference associations
       const teamsWithConferences = data.List?.map((team: Team) => {
         const junction = junctionData.List?.find((j: any) => j.team_id === team.id);
@@ -357,7 +368,7 @@ const MatchupsManagement: React.FC = () => {
           conference_id: junction?.conference_id || 0
         };
       }) || [];
-      
+
       setTeams(teamsWithConferences);
     } catch (error) {
       console.error('Error loading teams:', error);
@@ -372,18 +383,44 @@ const MatchupsManagement: React.FC = () => {
   const loadMatchups = async () => {
     setLoading(true);
     try {
-      const { data, error } = await window.ezsite.apis.tablePage(13329, {
-        PageNo: 1,
-        PageSize: 100,
-        Filters: [
-          { name: 'conference_id', op: 'Equal', value: parseInt(selectedConference) },
-          { name: 'week', op: 'Equal', value: parseInt(selectedWeek) }
-        ],
-        OrderByField: 'id',
-        IsAsc: true
+      // Get all conference IDs for the selected season
+      const conferenceIds = conferences.map(c => c.id);
+      
+      // Fetch matchups for all conferences
+      const allMatchups: MatchupWithConference[] = [];
+      
+      for (const conferenceId of conferenceIds) {
+        const { data, error } = await window.ezsite.apis.tablePage(13329, {
+          PageNo: 1,
+          PageSize: 100,
+          Filters: [
+            { name: 'conference_id', op: 'Equal', value: conferenceId },
+            { name: 'week', op: 'Equal', value: parseInt(selectedWeek) }
+          ],
+          OrderByField: 'id',
+          IsAsc: true
+        });
+        
+        if (error) throw error;
+        
+        const conference = conferences.find(c => c.id === conferenceId);
+        const matchupsWithConference = (data.List || []).map((matchup: Matchup) => ({
+          ...matchup,
+          conference_name: conference?.conference_name
+        }));
+        
+        allMatchups.push(...matchupsWithConference);
+      }
+      
+      // Sort by conference_id and then by id
+      allMatchups.sort((a, b) => {
+        if (a.conference_id !== b.conference_id) {
+          return a.conference_id - b.conference_id;
+        }
+        return a.id - b.id;
       });
-      if (error) throw error;
-      setMatchups(data.List || []);
+      
+      setMatchups(allMatchups);
     } catch (error) {
       console.error('Error loading matchups:', error);
       toast({
@@ -412,26 +449,26 @@ const MatchupsManagement: React.FC = () => {
   };
 
   const handleToggleOverride = (matchupId: number) => {
-    setMatchups(prev => prev.map(matchup => 
-      matchup.id === matchupId 
-        ? { ...matchup, is_manual_override: !matchup.is_manual_override }
-        : matchup
+    setMatchups((prev) => prev.map((matchup) =>
+    matchup.id === matchupId ?
+    { ...matchup, is_manual_override: !matchup.is_manual_override } :
+    matchup
     ));
     setHasChanges(true);
   };
 
   const handleUpdateScores = (matchupId: number, team1Score: number, team2Score: number) => {
-    setMatchups(prev => prev.map(matchup => 
-      matchup.id === matchupId 
-        ? { 
-            ...matchup, 
-            team_1_score: team1Score, 
-            team_2_score: team2Score,
-            winner_id: team1Score > team2Score ? matchup.team_1_id : 
-                      team2Score > team1Score ? matchup.team_2_id : 0,
-            is_manual_override: true
-          }
-        : matchup
+    setMatchups((prev) => prev.map((matchup) =>
+    matchup.id === matchupId ?
+    {
+      ...matchup,
+      team_1_score: team1Score,
+      team_2_score: team2Score,
+      winner_id: team1Score > team2Score ? matchup.team_1_id :
+      team2Score > team1Score ? matchup.team_2_id : 0,
+      is_manual_override: true
+    } :
+    matchup
     ));
     setHasChanges(true);
   };
@@ -455,7 +492,7 @@ const MatchupsManagement: React.FC = () => {
       setHasChanges(false);
       toast({
         title: 'Success',
-        description: 'Matchups updated successfully',
+        description: 'Matchups updated successfully'
       });
     } catch (error) {
       console.error('Error saving matchups:', error);
@@ -485,11 +522,11 @@ const MatchupsManagement: React.FC = () => {
             Matchups Management
           </CardTitle>
           <CardDescription>
-            Manage weekly matchups, scores, and overrides for conferences
+            Manage weekly matchups, scores, and overrides across all conferences. Showing up to 18 matchups per week (6 per conference).
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
             <div className="space-y-2">
               <label className="text-sm font-medium">Season</label>
               <Select value={selectedSeason} onValueChange={setSelectedSeason}>
@@ -497,108 +534,88 @@ const MatchupsManagement: React.FC = () => {
                   <SelectValue placeholder="Select season..." />
                 </SelectTrigger>
                 <SelectContent>
-                  {seasons.map((season) => (
-                    <SelectItem key={season.id} value={season.id.toString()}>
+                  {seasons.map((season) =>
+                  <SelectItem key={season.id} value={season.id.toString()}>
                       {season.season_name}
-                      {season.is_current_season && (
-                        <Badge variant="secondary" className="ml-2">Current</Badge>
-                      )}
+                      {season.is_current_season &&
+                    <Badge variant="secondary" className="ml-2">Current</Badge>
+                    }
                     </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Conference</label>
-              <Select 
-                value={selectedConference} 
-                onValueChange={setSelectedConference}
-                disabled={!selectedSeason}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select conference..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {conferences.map((conference) => (
-                    <SelectItem key={conference.id} value={conference.id.toString()}>
-                      {conference.conference_name}
-                    </SelectItem>
-                  ))}
+                  )}
                 </SelectContent>
               </Select>
             </div>
 
             <div className="space-y-2">
               <label className="text-sm font-medium">Week</label>
-              <Select 
-                value={selectedWeek} 
+              <Select
+                value={selectedWeek}
                 onValueChange={setSelectedWeek}
-                disabled={!selectedConference}
-              >
+                disabled={!selectedSeason}>
+
                 <SelectTrigger>
                   <SelectValue placeholder="Select week..." />
                 </SelectTrigger>
                 <SelectContent>
-                  {weeks.map((week) => (
-                    <SelectItem key={week} value={week.toString()}>
+                  {weeks.map((week) =>
+                  <SelectItem key={week} value={week.toString()}>
                       Week {week}
                     </SelectItem>
-                  ))}
+                  )}
                 </SelectContent>
               </Select>
             </div>
 
             <div className="space-y-2 flex items-end">
-              {hasChanges && (
-                <div className="flex gap-2">
-                  <Button 
-                    onClick={handleSaveChanges} 
-                    disabled={saving}
-                    className="flex items-center gap-2"
-                  >
-                    {saving ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <Save className="h-4 w-4" />
-                    )}
+              {hasChanges &&
+              <div className="flex gap-2">
+                  <Button
+                  onClick={handleSaveChanges}
+                  disabled={saving}
+                  className="flex items-center gap-2">
+
+                    {saving ?
+                  <Loader2 className="h-4 w-4 animate-spin" /> :
+
+                  <Save className="h-4 w-4" />
+                  }
                     Save Changes
                   </Button>
-                  <Button 
-                    variant="outline" 
-                    onClick={handleResetChanges}
-                    className="flex items-center gap-2"
-                  >
+                  <Button
+                  variant="outline"
+                  onClick={handleResetChanges}
+                  className="flex items-center gap-2">
+
                     <RotateCcw className="h-4 w-4" />
                     Reset
                   </Button>
                 </div>
-              )}
+              }
             </div>
           </div>
 
-          {hasChanges && (
-            <Alert className="mb-4">
+          {hasChanges &&
+          <Alert className="mb-4">
               <AlertTriangle className="h-4 w-4" />
               <AlertDescription>
                 You have unsaved changes. Remember to save your modifications.
               </AlertDescription>
             </Alert>
-          )}
+          }
         </CardContent>
       </Card>
 
-      {loading ? (
-        <Card>
+      {loading ?
+      <Card>
           <CardContent className="flex items-center justify-center py-12">
             <div className="flex items-center gap-2">
               <Loader2 className="h-6 w-6 animate-spin" />
               <span>Loading matchups...</span>
             </div>
           </CardContent>
-        </Card>
-      ) : matchups.length === 0 && selectedWeek ? (
-        <Card>
+        </Card> :
+      matchups.length === 0 && selectedWeek ?
+      <Card>
           <CardContent className="flex items-center justify-center py-12">
             <div className="text-center">
               <Users className="h-12 w-12 text-gray-400 mx-auto mb-4" />
@@ -608,45 +625,94 @@ const MatchupsManagement: React.FC = () => {
               </p>
             </div>
           </CardContent>
+        </Card> :
+      matchups.length > 0 ?
+      <div className="space-y-6">
+        {/* Summary Stats */}
+        <Card>
+          <CardContent className="pt-6">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 text-center">
+              <div className="space-y-1">
+                <div className="text-2xl font-bold text-blue-600">{matchups.length}</div>
+                <div className="text-sm text-gray-600">Total Matchups</div>
+              </div>
+              <div className="space-y-1">
+                <div className="text-2xl font-bold text-green-600">
+                  {matchups.filter(m => m.status === 'complete').length}
+                </div>
+                <div className="text-sm text-gray-600">Complete</div>
+              </div>
+              <div className="space-y-1">
+                <div className="text-2xl font-bold text-orange-600">
+                  {matchups.filter(m => m.is_manual_override).length}
+                </div>
+                <div className="text-sm text-gray-600">Manual Overrides</div>
+              </div>
+              <div className="space-y-1">
+                <div className="text-2xl font-bold text-purple-600">
+                  {matchups.filter(m => m.is_playoff).length}
+                </div>
+                <div className="text-sm text-gray-600">Playoff Games</div>
+              </div>
+            </div>
+          </CardContent>
         </Card>
-      ) : matchups.length > 0 ? (
-        <DndContext 
+
+        {/* Matchups by Conference */}
+        <DndContext
           sensors={sensors}
           collisionDetection={closestCenter}
-          onDragEnd={handleDragEnd}
-        >
-          <SortableContext 
-            items={matchups.map(m => m.id)} 
-            strategy={verticalListSortingStrategy}
-          >
-            <div className="space-y-4">
-              {matchups.map((matchup) => (
-                <SortableMatchupCard
-                  key={matchup.id}
-                  matchup={matchup}
-                  teams={teams.filter(t => t.conference_id === parseInt(selectedConference))}
-                  onToggleOverride={handleToggleOverride}
-                  onUpdateScores={handleUpdateScores}
-                />
-              ))}
+          onDragEnd={handleDragEnd}>
+
+          <SortableContext
+            items={matchups.map((m) => m.id)}
+            strategy={verticalListSortingStrategy}>
+
+            <div className="space-y-6">
+              {conferences.map((conference) => {
+                const conferenceMatchups = matchups.filter(m => m.conference_id === conference.id);
+                if (conferenceMatchups.length === 0) return null;
+                
+                return (
+                  <div key={conference.id} className="space-y-4">
+                    <div className="flex items-center gap-2 border-b pb-2">
+                      <Users className="h-5 w-5 text-blue-600" />
+                      <h3 className="text-lg font-semibold">{conference.conference_name}</h3>
+                      <Badge variant="secondary">{conferenceMatchups.length} matchups</Badge>
+                    </div>
+                    <div className="space-y-4 pl-4">
+                      {conferenceMatchups.map((matchup) =>
+                        <SortableMatchupCard
+                          key={matchup.id}
+                          matchup={matchup}
+                          teams={teams}
+                          conferences={conferences}
+                          onToggleOverride={handleToggleOverride}
+                          onUpdateScores={handleUpdateScores} />
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           </SortableContext>
         </DndContext>
-      ) : (
-        <Card>
+      </div> :
+
+      <Card>
           <CardContent className="flex items-center justify-center py-12">
             <div className="text-center">
               <Calendar className="h-12 w-12 text-gray-400 mx-auto mb-4" />
               <h3 className="text-lg font-medium text-gray-900 mb-2">Select Filters</h3>
               <p className="text-gray-600">
-                Please select a season, conference, and week to manage matchups.
+                Please select a season and week to manage matchups across all conferences.
               </p>
             </div>
           </CardContent>
         </Card>
-      )}
-    </div>
-  );
+      }
+    </div>);
+
 };
 
 export default MatchupsManagement;
