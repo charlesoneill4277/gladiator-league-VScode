@@ -1,72 +1,226 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useApp } from '@/contexts/AppContext';
-import { ArrowUpDown, Trophy, TrendingUp, TrendingDown } from 'lucide-react';
+import { ArrowUpDown, Trophy, TrendingUp, TrendingDown, Loader2 } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
 
-// Mock data for standings - this will be replaced with real Sleeper API data
-const mockStandingsData = [
-{
-  id: '1',
-  teamName: 'Galactic Gladiators',
-  ownerName: 'John Doe',
-  conference: 'Legions of Mars',
-  rank: 1,
-  wins: 11,
-  losses: 2,
-  ties: 0,
-  pointsFor: 1485.2,
-  pointsAgainst: 1289.5,
-  pointsDiff: 195.7,
-  streak: 'W5',
-  avgPointsFor: 114.2
-},
-{
-  id: '2',
-  teamName: 'Space Vikings',
-  ownerName: 'Jane Smith',
-  conference: 'Guardians of Jupiter',
-  rank: 2,
-  wins: 10,
-  losses: 3,
-  ties: 0,
-  pointsFor: 1442.8,
-  pointsAgainst: 1321.4,
-  pointsDiff: 121.4,
-  streak: 'W3',
-  avgPointsFor: 111.0
-},
-{
-  id: '3',
-  teamName: 'Meteor Crushers',
-  ownerName: 'Bob Johnson',
-  conference: "Vulcan's Oathsworn",
-  rank: 3,
-  wins: 9,
-  losses: 4,
-  ties: 0,
-  pointsFor: 1398.6,
-  pointsAgainst: 1356.2,
-  pointsDiff: 42.4,
-  streak: 'L1',
-  avgPointsFor: 107.6
+interface StandingData {
+  id: string;
+  teamName: string;
+  ownerName: string;
+  conference: string;
+  rank: number;
+  wins: number;
+  losses: number;
+  ties: number;
+  pointsFor: number;
+  pointsAgainst: number;
+  pointsDiff: number;
+  streak: string;
+  avgPointsFor: number;
+  rosterId: number;
+  leagueId: string;
 }
-// Add more mock data...
-];
+
+interface SleeperRoster {
+  roster_id: number;
+  owner_id: string;
+  league_id: string;
+  settings: {
+    wins: number;
+    losses: number;
+    ties: number;
+    fpts: number;
+    fpts_against: number;
+    fpts_decimal: number;
+    fpts_against_decimal: number;
+    waiver_position: number;
+    waiver_budget_used: number;
+    total_moves: number;
+  };
+  starters: string[];
+  players: string[];
+  reserve: string[];
+}
 
 const StandingsPage: React.FC = () => {
   const { selectedSeason, selectedConference, currentSeasonConfig } = useApp();
   const [sortConfig, setSortConfig] = useState<{key: string;direction: 'asc' | 'desc';} | null>(null);
+  const [standingsData, setStandingsData] = useState<StandingData[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const { toast } = useToast();
 
+  // Fetch standings data from Sleeper API and database
+  const fetchStandingsData = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      console.log('Fetching standings data...');
+      
+      // Get all teams and conferences from database
+      const { data: teamsData, error: teamsError } = await window.ezsite.apis.tablePage('12852', {
+        PageNo: 1,
+        PageSize: 100,
+        OrderByField: 'id',
+        IsAsc: true,
+        Filters: []
+      });
+      
+      if (teamsError) throw new Error(`Teams fetch error: ${teamsError}`);
+      
+      const { data: conferencesData, error: conferencesError } = await window.ezsite.apis.tablePage('12820', {
+        PageNo: 1,
+        PageSize: 100,
+        OrderByField: 'id',
+        IsAsc: true,
+        Filters: []
+      });
+      
+      if (conferencesError) throw new Error(`Conferences fetch error: ${conferencesError}`);
+      
+      const { data: junctionData, error: junctionError } = await window.ezsite.apis.tablePage('12853', {
+        PageNo: 1,
+        PageSize: 100,
+        OrderByField: 'id',
+        IsAsc: true,
+        Filters: []
+      });
+      
+      if (junctionError) throw new Error(`Junction fetch error: ${junctionError}`);
+      
+      console.log('Database data:', { teamsData, conferencesData, junctionData });
+      
+      const teams = teamsData.List || [];
+      const conferences = conferencesData.List || [];
+      const junctions = junctionData.List || [];
+      
+      // Group junctions by conference for fetching Sleeper data
+      const conferenceGroups = new Map<number, any[]>();
+      junctions.forEach(junction => {
+        if (!conferenceGroups.has(junction.conference_id)) {
+          conferenceGroups.set(junction.conference_id, []);
+        }
+        conferenceGroups.get(junction.conference_id)!.push(junction);
+      });
+      
+      const allStandingsData: StandingData[] = [];
+      
+      // Fetch roster data for each conference
+      for (const [conferenceId, conferenceJunctions] of conferenceGroups) {
+        const conference = conferences.find(c => c.id === conferenceId);
+        if (!conference || !conference.league_id) {
+          console.warn(`Conference ${conferenceId} not found or missing league_id`);
+          continue;
+        }
+        
+        try {
+          console.log(`Fetching roster data for conference ${conference.conference_name} (league_id: ${conference.league_id})`);
+          
+          const response = await fetch(`https://api.sleeper.app/v1/league/${conference.league_id}/rosters`);
+          if (!response.ok) {
+            throw new Error(`Failed to fetch rosters for league ${conference.league_id}: ${response.statusText}`);
+          }
+          
+          const rosters: SleeperRoster[] = await response.json();
+          console.log(`Fetched ${rosters.length} rosters for conference ${conference.conference_name}`);
+          
+          // Map roster data to our standings format
+          for (const roster of rosters) {
+            // Find the team data using roster_id
+            const junction = conferenceJunctions.find(j => j.roster_id === roster.roster_id.toString());
+            if (!junction) {
+              console.warn(`No junction found for roster_id ${roster.roster_id} in conference ${conferenceId}`);
+              continue;
+            }
+            
+            const team = teams.find(t => t.id === junction.team_id);
+            if (!team) {
+              console.warn(`No team found for team_id ${junction.team_id}`);
+              continue;
+            }
+            
+            const totalGames = roster.settings.wins + roster.settings.losses + roster.settings.ties;
+            const pointsFor = (roster.settings.fpts || 0) + (roster.settings.fpts_decimal || 0) / 100;
+            const pointsAgainst = (roster.settings.fpts_against || 0) + (roster.settings.fpts_against_decimal || 0) / 100;
+            
+            const standingData: StandingData = {
+              id: `${team.id}-${conferenceId}`,
+              teamName: team.team_name || 'Unknown Team',
+              ownerName: team.owner_name || 'Unknown Owner',
+              conference: conference.conference_name,
+              rank: 0, // Will be calculated later
+              wins: roster.settings.wins || 0,
+              losses: roster.settings.losses || 0,
+              ties: roster.settings.ties || 0,
+              pointsFor: pointsFor,
+              pointsAgainst: pointsAgainst,
+              pointsDiff: pointsFor - pointsAgainst,
+              streak: calculateStreak(roster.settings.wins, roster.settings.losses), // Simplified for now
+              avgPointsFor: totalGames > 0 ? pointsFor / totalGames : 0,
+              rosterId: roster.roster_id,
+              leagueId: roster.league_id
+            };
+            
+            allStandingsData.push(standingData);
+          }
+        } catch (fetchError) {
+          console.error(`Error fetching rosters for conference ${conference.conference_name}:`, fetchError);
+          // Continue with other conferences
+        }
+      }
+      
+      // Sort by wins (desc), then by points for (desc) to calculate ranks
+      allStandingsData.sort((a, b) => {
+        if (a.wins !== b.wins) return b.wins - a.wins;
+        return b.pointsFor - a.pointsFor;
+      });
+      
+      // Assign ranks
+      allStandingsData.forEach((team, index) => {
+        team.rank = index + 1;
+      });
+      
+      console.log('Final standings data:', allStandingsData);
+      setStandingsData(allStandingsData);
+      
+    } catch (err) {
+      console.error('Error fetching standings:', err);
+      setError(err instanceof Error ? err.message : 'Failed to fetch standings data');
+      toast({
+        title: 'Error',
+        description: 'Failed to fetch standings data. Please try again.',
+        variant: 'destructive'
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+  
+  // Simple streak calculation (can be enhanced later)
+  const calculateStreak = (wins: number, losses: number): string => {
+    // This is a simplified implementation
+    // In a real scenario, you'd need historical matchup data
+    if (wins > losses) return `W${Math.min(wins, 3)}`;
+    if (losses > wins) return `L${Math.min(losses, 3)}`;
+    return 'T1';
+  };
+  
+  useEffect(() => {
+    fetchStandingsData();
+  }, [selectedSeason, selectedConference]);
+  
   // Filter standings based on selected conference
   const filteredStandings = selectedConference ?
-  mockStandingsData.filter((team) => {
-    const conference = currentSeasonConfig.conferences.find((c) => c.id === selectedConference);
-    return team.conference === conference?.name;
-  }) :
-  mockStandingsData;
+    standingsData.filter((team) => {
+      const conference = currentSeasonConfig.conferences.find((c) => c.id === selectedConference);
+      return team.conference === conference?.name;
+    }) :
+    standingsData;
 
   const handleSort = (key: string) => {
     let direction: 'asc' | 'desc' = 'desc';
@@ -97,9 +251,9 @@ const StandingsPage: React.FC = () => {
 
   const getStreakIcon = (streak: string) => {
     if (streak.startsWith('W')) {
-      return <TrendingUp className="h-4 w-4 text-green-500" />;
+      return <TrendingUp className="h-4 w-4 text-green-500" data-id="z9rkcskus" />;
     } else if (streak.startsWith('L')) {
-      return <TrendingDown className="h-4 w-4 text-red-500" />;
+      return <TrendingDown className="h-4 w-4 text-red-500" data-id="tv8wqysc7" />;
     }
     return null;
   };
@@ -111,15 +265,60 @@ const StandingsPage: React.FC = () => {
     return 'destructive';
   };
 
-  return (
-    <div className="space-y-6">
-      {/* Page Header */}
-      <div className="flex flex-col space-y-2">
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]" data-id="loading-container">
         <div className="flex items-center space-x-2">
-          <Trophy className="h-6 w-6 text-primary" />
-          <h1 className="text-3xl font-bold">League Standings</h1>
+          <Loader2 className="h-6 w-6 animate-spin" />
+          <span>Loading standings data...</span>
         </div>
-        <p className="text-muted-foreground">
+      </div>
+    );
+  }
+  
+  if (error) {
+    return (
+      <div className="space-y-6" data-id="error-container">
+        <div className="flex flex-col space-y-2">
+          <div className="flex items-center space-x-2">
+            <Trophy className="h-6 w-6 text-primary" />
+            <h1 className="text-3xl font-bold">League Standings</h1>
+          </div>
+          <p className="text-muted-foreground">
+            {selectedSeason} Season • {selectedConference ?
+              currentSeasonConfig.conferences.find((c) => c.id === selectedConference)?.name :
+              'All Conferences'
+            }
+          </p>
+        </div>
+        
+        <Card>
+          <CardHeader>
+            <CardTitle>Error Loading Standings</CardTitle>
+            <CardDescription>Unable to fetch standings data</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="text-center space-y-4">
+              <p className="text-muted-foreground">{error}</p>
+              <Button onClick={fetchStandingsData}>
+                Try Again
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6" data-id="wuqj71t25">
+      {/* Page Header */}
+      <div className="flex flex-col space-y-2" data-id="gy01b64co">
+        <div className="flex items-center space-x-2" data-id="hom6jliz5">
+          <Trophy className="h-6 w-6 text-primary" data-id="1cultcefs" />
+          <h1 className="text-3xl font-bold" data-id="ftu7r5dio">League Standings</h1>
+        </div>
+        <p className="text-muted-foreground" data-id="eyuiv48dn">
           {selectedSeason} Season • {selectedConference ?
           currentSeasonConfig.conferences.find((c) => c.id === selectedConference)?.name :
           'All Conferences'
@@ -128,18 +327,18 @@ const StandingsPage: React.FC = () => {
       </div>
 
       {/* Standings Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card>
-          <CardHeader className="pb-2">
-            <CardDescription>Total Teams</CardDescription>
-            <CardTitle className="text-2xl">{filteredStandings.length}</CardTitle>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4" data-id="vaymgr8lu">
+        <Card data-id="zkwz0bior">
+          <CardHeader className="pb-2" data-id="8093rogol">
+            <CardDescription data-id="j8ttzk135">Total Teams</CardDescription>
+            <CardTitle className="text-2xl" data-id="s2ryz3bqr">{filteredStandings.length}</CardTitle>
           </CardHeader>
         </Card>
         
-        <Card>
-          <CardHeader className="pb-2">
-            <CardDescription>Highest Scoring Team</CardDescription>
-            <CardTitle className="text-xl">
+        <Card data-id="pr5hn0c36">
+          <CardHeader className="pb-2" data-id="1bghgrmsl">
+            <CardDescription data-id="hfafa4lqb">Highest Scoring Team</CardDescription>
+            <CardTitle className="text-xl" data-id="ppgc45sl9">
               {filteredStandings.length > 0 &&
               filteredStandings.reduce((prev, current) =>
               prev.pointsFor > current.pointsFor ? prev : current
@@ -149,10 +348,10 @@ const StandingsPage: React.FC = () => {
           </CardHeader>
         </Card>
 
-        <Card>
-          <CardHeader className="pb-2">
-            <CardDescription>League Average PPG</CardDescription>
-            <CardTitle className="text-2xl">
+        <Card data-id="6ojp6wiwa">
+          <CardHeader className="pb-2" data-id="wit33nscw">
+            <CardDescription data-id="gwkfwd8v2">League Average PPG</CardDescription>
+            <CardTitle className="text-2xl" data-id="1m726kngv">
               {filteredStandings.length > 0 &&
               (filteredStandings.reduce((sum, team) => sum + team.avgPointsFor, 0) / filteredStandings.length).toFixed(1)
               }
@@ -162,93 +361,93 @@ const StandingsPage: React.FC = () => {
       </div>
 
       {/* Standings Table */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Team Standings</CardTitle>
-          <CardDescription>
+      <Card data-id="f2uwxiqvm">
+        <CardHeader data-id="6ji03jvu1">
+          <CardTitle data-id="ihj1kt027">Team Standings</CardTitle>
+          <CardDescription data-id="54ay3yl1z">
             Click column headers to sort. Current standings for the {selectedSeason} season.
           </CardDescription>
         </CardHeader>
-        <CardContent>
-          <div className="rounded-md border">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-12">
-                    <Button variant="ghost" size="sm" onClick={() => handleSort('rank')}>
-                      Rank <ArrowUpDown className="ml-1 h-3 w-3" />
+        <CardContent data-id="n39uwd4zp">
+          <div className="rounded-md border" data-id="9fsw1ut36">
+            <Table data-id="fvhpa8g0o">
+              <TableHeader data-id="3xy0isvnm">
+                <TableRow data-id="2wt5hwr6s">
+                  <TableHead className="w-12" data-id="qhwnp00s6">
+                    <Button variant="ghost" size="sm" onClick={() => handleSort('rank')} data-id="fr5r03pjx">
+                      Rank <ArrowUpDown className="ml-1 h-3 w-3" data-id="mnhxissp0" />
                     </Button>
                   </TableHead>
-                  <TableHead>
-                    <Button variant="ghost" size="sm" onClick={() => handleSort('teamName')}>
-                      Team <ArrowUpDown className="ml-1 h-3 w-3" />
+                  <TableHead data-id="zug3x5uze">
+                    <Button variant="ghost" size="sm" onClick={() => handleSort('teamName')} data-id="vkaybfwg6">
+                      Team <ArrowUpDown className="ml-1 h-3 w-3" data-id="kf7466be0" />
                     </Button>
                   </TableHead>
-                  <TableHead className="hidden md:table-cell">Owner</TableHead>
-                  <TableHead className="hidden lg:table-cell">Conference</TableHead>
-                  <TableHead>
-                    <Button variant="ghost" size="sm" onClick={() => handleSort('wins')}>
-                      Record <ArrowUpDown className="ml-1 h-3 w-3" />
+                  <TableHead className="hidden md:table-cell" data-id="lcjve77m9">Owner</TableHead>
+                  <TableHead className="hidden lg:table-cell" data-id="fjg98x73f">Conference</TableHead>
+                  <TableHead data-id="cctqy9du5">
+                    <Button variant="ghost" size="sm" onClick={() => handleSort('wins')} data-id="hf84oozog">
+                      Record <ArrowUpDown className="ml-1 h-3 w-3" data-id="tql43til7" />
                     </Button>
                   </TableHead>
-                  <TableHead className="text-right">
-                    <Button variant="ghost" size="sm" onClick={() => handleSort('pointsFor')}>
-                      PF <ArrowUpDown className="ml-1 h-3 w-3" />
+                  <TableHead className="text-right" data-id="8ysejqckv">
+                    <Button variant="ghost" size="sm" onClick={() => handleSort('pointsFor')} data-id="v1znfp2gi">
+                      PF <ArrowUpDown className="ml-1 h-3 w-3" data-id="d6aznk5wi" />
                     </Button>
                   </TableHead>
-                  <TableHead className="text-right hidden sm:table-cell">
-                    <Button variant="ghost" size="sm" onClick={() => handleSort('pointsAgainst')}>
-                      PA <ArrowUpDown className="ml-1 h-3 w-3" />
+                  <TableHead className="text-right hidden sm:table-cell" data-id="5r1gdakww">
+                    <Button variant="ghost" size="sm" onClick={() => handleSort('pointsAgainst')} data-id="s5vbjt777">
+                      PA <ArrowUpDown className="ml-1 h-3 w-3" data-id="bh5ognx3x" />
                     </Button>
                   </TableHead>
-                  <TableHead className="text-right hidden md:table-cell">
-                    <Button variant="ghost" size="sm" onClick={() => handleSort('pointsDiff')}>
-                      Diff <ArrowUpDown className="ml-1 h-3 w-3" />
+                  <TableHead className="text-right hidden md:table-cell" data-id="t16l8pyfe">
+                    <Button variant="ghost" size="sm" onClick={() => handleSort('pointsDiff')} data-id="2ourhgl93">
+                      Diff <ArrowUpDown className="ml-1 h-3 w-3" data-id="chm0wxhzo" />
                     </Button>
                   </TableHead>
-                  <TableHead className="hidden lg:table-cell">Streak</TableHead>
+                  <TableHead className="hidden lg:table-cell" data-id="la2nd3oxx">Streak</TableHead>
                 </TableRow>
               </TableHeader>
-              <TableBody>
+              <TableBody data-id="dj6sn4jc7">
                 {sortedStandings.map((team, index) =>
-                <TableRow key={team.id} className="hover:bg-muted/50">
-                    <TableCell className="font-medium">
-                      <div className="flex items-center space-x-1">
-                        {team.rank === 1 && <Trophy className="h-4 w-4 text-yellow-500" />}
-                        <span>{team.rank}</span>
+                <TableRow key={team.id} className="hover:bg-muted/50" data-id="jhqzyb095">
+                    <TableCell className="font-medium" data-id="u9gu5jl8r">
+                      <div className="flex items-center space-x-1" data-id="4b1rowzak">
+                        {team.rank === 1 && <Trophy className="h-4 w-4 text-yellow-500" data-id="wrb3nker1" />}
+                        <span data-id="9j6hktat6">{team.rank}</span>
                       </div>
                     </TableCell>
-                    <TableCell>
-                      <div className="font-medium">{team.teamName}</div>
-                      <div className="text-sm text-muted-foreground md:hidden">{team.ownerName}</div>
+                    <TableCell data-id="dmc03d8eq">
+                      <div className="font-medium" data-id="zqpbs7z6b">{team.teamName}</div>
+                      <div className="text-sm text-muted-foreground md:hidden" data-id="xey7h5qzf">{team.ownerName}</div>
                     </TableCell>
-                    <TableCell className="hidden md:table-cell">{team.ownerName}</TableCell>
-                    <TableCell className="hidden lg:table-cell">
-                      <Badge variant="outline" className="text-xs">
+                    <TableCell className="hidden md:table-cell" data-id="rhxhddkjn">{team.ownerName}</TableCell>
+                    <TableCell className="hidden lg:table-cell" data-id="66eria6a0">
+                      <Badge variant="outline" className="text-xs" data-id="z942428pq">
                         {team.conference}
                       </Badge>
                     </TableCell>
-                    <TableCell>
-                      <Badge variant={getRecordBadgeVariant(team.wins, team.losses)}>
+                    <TableCell data-id="hgx28rdm6">
+                      <Badge variant={getRecordBadgeVariant(team.wins, team.losses)} data-id="bz43jbjjm">
                         {team.wins}-{team.losses}
                         {team.ties > 0 && `-${team.ties}`}
                       </Badge>
                     </TableCell>
-                    <TableCell className="text-right font-mono">
+                    <TableCell className="text-right font-mono" data-id="bbrgbzser">
                       {team.pointsFor.toFixed(1)}
                     </TableCell>
-                    <TableCell className="text-right font-mono hidden sm:table-cell">
+                    <TableCell className="text-right font-mono hidden sm:table-cell" data-id="bsbfwktra">
                       {team.pointsAgainst.toFixed(1)}
                     </TableCell>
-                    <TableCell className="text-right font-mono hidden md:table-cell">
-                      <span className={team.pointsDiff > 0 ? 'text-green-600' : 'text-red-600'}>
+                    <TableCell className="text-right font-mono hidden md:table-cell" data-id="8zc0vgf5g">
+                      <span className={team.pointsDiff > 0 ? 'text-green-600' : 'text-red-600'} data-id="v15hwtqir">
                         {team.pointsDiff > 0 ? '+' : ''}{team.pointsDiff.toFixed(1)}
                       </span>
                     </TableCell>
-                    <TableCell className="hidden lg:table-cell">
-                      <div className="flex items-center space-x-1">
+                    <TableCell className="hidden lg:table-cell" data-id="dj5ne68bv">
+                      <div className="flex items-center space-x-1" data-id="7sha3f0yg">
                         {getStreakIcon(team.streak)}
-                        <span className="text-sm">{team.streak}</span>
+                        <span className="text-sm" data-id="1ww6kpfip">{team.streak}</span>
                       </div>
                     </TableCell>
                   </TableRow>
