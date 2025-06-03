@@ -725,7 +725,18 @@ const DataSync: React.FC = () => {
 
       // Apply filters
       if (selectedPositionFilter !== 'all') {
-        playersArray = playersArray.filter((player) => player.position === selectedPositionFilter);
+        if (selectedPositionFilter === 'all_offense') {
+          // Filter for all offensive positions
+          const offensivePositions = ['QB', 'RB', 'WR', 'TE', 'K'];
+          playersArray = playersArray.filter((player) => offensivePositions.includes(player.position));
+        } else if (selectedPositionFilter === 'all_defense') {
+          // Filter for all defensive positions
+          const defensivePositions = ['DEF', 'DL', 'LB', 'DB'];
+          playersArray = playersArray.filter((player) => defensivePositions.includes(player.position));
+        } else {
+          // Filter for specific position
+          playersArray = playersArray.filter((player) => player.position === selectedPositionFilter);
+        }
       }
 
       if (selectedStatusFilter !== 'all') {
@@ -1302,6 +1313,8 @@ const DataSync: React.FC = () => {
                             </SelectTrigger>
                             <SelectContent>
                               <SelectItem value="all">All Positions</SelectItem>
+                              <SelectItem value="all_offense">All Offense</SelectItem>
+                              <SelectItem value="all_defense">All Defense</SelectItem>
                               <SelectItem value="QB">Quarterback (QB)</SelectItem>
                               <SelectItem value="RB">Running Back (RB)</SelectItem>
                               <SelectItem value="WR">Wide Receiver (WR)</SelectItem>
@@ -1340,7 +1353,10 @@ const DataSync: React.FC = () => {
                             Team: {selectedTeamFilter === 'all' ? 'All Teams' : teams.find((t) => t.id.toString() === selectedTeamFilter)?.team_name || 'Unknown'}
                           </Badge>
                           <Badge variant="outline">
-                            Position: {selectedPositionFilter === 'all' ? 'All Positions' : selectedPositionFilter}
+                            Position: {selectedPositionFilter === 'all' ? 'All Positions' : 
+                                     selectedPositionFilter === 'all_offense' ? 'All Offense' :
+                                     selectedPositionFilter === 'all_defense' ? 'All Defense' :
+                                     selectedPositionFilter}
                           </Badge>
                           <Badge variant="outline">
                             Status: {selectedStatusFilter === 'all' ? 'All Players' : selectedStatusFilter === 'active' ? 'Active Only' : 'Inactive Only'}

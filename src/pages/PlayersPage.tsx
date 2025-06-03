@@ -158,10 +158,10 @@ const PlayersPage: React.FC = () => {
     player.nflTeam.toLowerCase().includes(searchTerm.toLowerCase()) ||
     player.rosteredBy && player.rosteredBy.toLowerCase().includes(searchTerm.toLowerCase());
 
-    const positionMatch = positionFilter === 'all' || 
-      player.position === positionFilter ||
-      (positionFilter === 'offense' && offensePositions.includes(player.position)) ||
-      (positionFilter === 'defense' && defensePositions.includes(player.position));
+    const positionMatch = positionFilter === 'all' ||
+    player.position === positionFilter ||
+    positionFilter === 'offense' && offensePositions.includes(player.position) ||
+    positionFilter === 'defense' && defensePositions.includes(player.position);
     const statusMatch = statusFilter === 'all' || player.status === statusFilter;
 
     return searchMatch && positionMatch && statusMatch;
