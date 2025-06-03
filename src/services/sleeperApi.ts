@@ -46,6 +46,44 @@ export interface OrganizedRoster {
   ir: string[];
 }
 
+export interface SleeperMatchup {
+  starters: string[];
+  roster_id: number;
+  players: string[];
+  matchup_id: number;
+  custom_points: number | null;
+  points: number;
+}
+
+export interface ProcessedMatchupData {
+  matchupId: number;
+  week: number;
+  teams: Array<{
+    teamId: number;
+    teamName: string;
+    ownerName: string;
+    rosterId: number;
+    points: number;
+    starters: Array<{
+      playerId: string;
+      playerName: string;
+      position: string;
+      nflTeam: string;
+      points: number;
+      slotPosition: string;
+    }>;
+    bench: Array<{
+      playerId: string;
+      playerName: string;
+      position: string;
+      nflTeam: string;
+      points: number;
+    }>;
+  }>;
+  isLive: boolean;
+  lastUpdate: string;
+}
+
 // Position mapping for starting lineup slots
 const STARTING_POSITIONS = [
 'QB', // Quarterback
@@ -189,6 +227,123 @@ export class SleeperApiService {
    */
   static formatPoints(points: number, decimal: number = 0): number {
     return points + decimal / 100;
+  }
+
+  /**
+   * Fetch matchup data for a specific league and week
+   */
+  static async fetchMatchups(leagueId: string, week: number): Promise<SleeperMatchup[]> {
+    try {
+      console.log(`Fetching matchups for league: ${leagueId}, week: ${week}`);
+      const response = await fetch(`${this.baseUrl}/league/${leagueId}/matchups/${week}`);
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch matchups: ${response.status} ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      console.log(`Fetched ${data.length} matchup entries for league ${leagueId}, week ${week}`);
+      return data;
+    } catch (error) {
+      console.error('Error fetching matchups:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Process matchup data by combining teams and mapping to database info
+   */
+  static async processMatchupData(
+    leagueId: string,
+    week: number,
+    teamDataMap: Map<number, { teamId: number; teamName: string; ownerName: string }>
+  ): Promise<ProcessedMatchupData[]> {
+    try {
+      const [matchups, allPlayers] = await Promise.all([
+        this.fetchMatchups(leagueId, week),
+        this.fetchAllPlayers()
+      ]);
+
+      // Group matchups by matchup_id
+      const matchupGroups = new Map<number, SleeperMatchup[]>();
+      matchups.forEach(matchup => {
+        if (!matchupGroups.has(matchup.matchup_id)) {
+          matchupGroups.set(matchup.matchup_id, []);
+        }
+        matchupGroups.get(matchup.matchup_id)!.push(matchup);
+      });
+
+      const processedMatchups: ProcessedMatchupData[] = [];
+
+      for (const [matchupId, teamMatchups] of matchupGroups) {
+        if (teamMatchups.length !== 2) {
+          console.warn(`Matchup ${matchupId} has ${teamMatchups.length} teams, skipping`);
+          continue;
+        }
+
+        const teams = teamMatchups.map(matchup => {
+          const teamData = teamDataMap.get(matchup.roster_id);
+          if (!teamData) {
+            console.warn(`No team data found for roster_id ${matchup.roster_id}`);
+            return null;
+          }
+
+          // Process starters
+          const starters = matchup.starters.map((playerId, index) => {
+            const player = allPlayers[playerId];
+            const slotPosition = STARTING_POSITIONS[index] || 'BENCH';
+            
+            return {
+              playerId,
+              playerName: player ? this.getPlayerName(player) : 'Unknown Player',
+              position: player?.position || 'UNK',
+              nflTeam: player?.team || 'FA',
+              points: 0, // Will be updated with real scoring data when available
+              slotPosition
+            };
+          });
+
+          // Process bench players
+          const bench = matchup.players
+            .filter(playerId => !matchup.starters.includes(playerId))
+            .map(playerId => {
+              const player = allPlayers[playerId];
+              return {
+                playerId,
+                playerName: player ? this.getPlayerName(player) : 'Unknown Player',
+                position: player?.position || 'UNK',
+                nflTeam: player?.team || 'FA',
+                points: 0 // Will be updated with real scoring data when available
+              };
+            });
+
+          return {
+            teamId: teamData.teamId,
+            teamName: teamData.teamName,
+            ownerName: teamData.ownerName,
+            rosterId: matchup.roster_id,
+            points: matchup.custom_points || matchup.points,
+            starters,
+            bench
+          };
+        }).filter(Boolean) as ProcessedMatchupData['teams'];
+
+        if (teams.length === 2) {
+          processedMatchups.push({
+            matchupId,
+            week,
+            teams,
+            isLive: true, // Can be determined based on game status
+            lastUpdate: new Date().toISOString()
+          });
+        }
+      }
+
+      return processedMatchups;
+    } catch (error) {
+      console.error('Error processing matchup data:', error);
+      throw error;
+    }
   }
 }
 
