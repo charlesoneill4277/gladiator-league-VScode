@@ -8,7 +8,7 @@ import { Progress } from '@/components/ui/progress';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
-import { RefreshCw, Download, CheckCircle, AlertCircle, Clock, Database, Users, Trophy } from 'lucide-react';
+import { RefreshCw, Download, CheckCircle, AlertCircle, Clock, Database, Users, Trophy, UserCheck } from 'lucide-react';
 
 interface Season {
   id: number;
@@ -54,18 +54,29 @@ interface TeamSyncResult {
   junction_records_created: number;
 }
 
+interface PlayerSyncResult {
+  success: boolean;
+  error?: string;
+  players_created: number;
+  players_updated: number;
+}
+
 const DataSync: React.FC = () => {
   const [seasons, setSeasons] = useState<Season[]>([]);
   const [conferences, setConferences] = useState<Conference[]>([]);
   const [selectedSeasonId, setSelectedSeasonId] = useState<number | null>(null);
   const [syncing, setSyncing] = useState(false);
   const [syncingTeams, setSyncingTeams] = useState(false);
+  const [syncingPlayers, setSyncingPlayers] = useState(false);
   const [progress, setProgress] = useState(0);
   const [teamsProgress, setTeamsProgress] = useState(0);
+  const [playersProgress, setPlayersProgress] = useState(0);
   const [syncResults, setSyncResults] = useState<SyncResult[]>([]);
   const [teamsSyncResults, setTeamsSyncResults] = useState<TeamSyncResult[]>([]);
+  const [playersSyncResult, setPlayersSyncResult] = useState<PlayerSyncResult | null>(null);
   const [lastSyncTime, setLastSyncTime] = useState<string | null>(null);
   const [lastTeamsSyncTime, setLastTeamsSyncTime] = useState<string | null>(null);
+  const [lastPlayersSyncTime, setLastPlayersSyncTime] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
 
@@ -73,6 +84,7 @@ const DataSync: React.FC = () => {
     loadSeasons();
     loadLastSyncTime();
     loadLastTeamsSyncTime();
+    loadLastPlayersSyncTime();
   }, []);
 
   useEffect(() => {
@@ -155,6 +167,13 @@ const DataSync: React.FC = () => {
     const lastSync = localStorage.getItem('last_teams_sync');
     if (lastSync) {
       setLastTeamsSyncTime(new Date(lastSync).toLocaleString());
+    }
+  };
+
+  const loadLastPlayersSyncTime = () => {
+    const lastSync = localStorage.getItem('last_players_sync');
+    if (lastSync) {
+      setLastPlayersSyncTime(new Date(lastSync).toLocaleString());
     }
   };
 
@@ -639,6 +658,147 @@ const DataSync: React.FC = () => {
     });
   };
 
+  const syncPlayersData = async () => {
+    setSyncingPlayers(true);
+    setPlayersProgress(0);
+    setPlayersSyncResult(null);
+
+    try {
+      console.log('Starting players sync from Sleeper API...');
+      setPlayersProgress(10);
+
+      // Fetch players data from Sleeper API
+      const response = await fetch('https://api.sleeper.app/v1/players/nfl');
+      if (!response.ok) {
+        throw new Error(`API returned ${response.status}: ${response.statusText}`);
+      }
+
+      const playersData = await response.json();
+      console.log('Sleeper Players API response received:', Object.keys(playersData).length, 'players');
+      setPlayersProgress(30);
+
+      // Transform the data structure from object to array
+      const playersArray = Object.entries(playersData).map(([playerId, playerData]: [string, any]) => ({
+        sleeper_player_id: playerData.player_id || playerId,
+        player_name: `${playerData.first_name || ''} ${playerData.last_name || ''}`.trim() || 'Unknown Player',
+        position: playerData.position || '',
+        team_id: 0, // Default to 0 as this is just player sync without team assignments
+        nfl_team: playerData.team || '',
+        jersey_number: parseInt(playerData.number) || 0,
+        status: playerData.status || 'Active',
+        injury_status: playerData.injury_status || 'Healthy',
+        age: parseInt(playerData.age) || 0,
+        height: playerData.height || '',
+        weight: parseInt(playerData.weight) || 0,
+        years_experience: parseInt(playerData.years_exp) || 0,
+        depth_chart_position: parseInt(playerData.depth_chart_position) || 1,
+        college: playerData.college || ''
+      }));
+
+      console.log('Transformed players data:', playersArray.length, 'players to sync');
+      setPlayersProgress(50);
+
+      let playersCreated = 0;
+      let playersUpdated = 0;
+      const batchSize = 50; // Process in batches to avoid overwhelming the database
+      const totalBatches = Math.ceil(playersArray.length / batchSize);
+
+      for (let batchIndex = 0; batchIndex < totalBatches; batchIndex++) {
+        const startIndex = batchIndex * batchSize;
+        const endIndex = Math.min(startIndex + batchSize, playersArray.length);
+        const batch = playersArray.slice(startIndex, endIndex);
+
+        console.log(`Processing batch ${batchIndex + 1}/${totalBatches} (${batch.length} players)`);
+
+        for (const player of batch) {
+          try {
+            // Check if player already exists by sleeper_player_id
+            const { data: existingPlayers, error: searchError } = await window.ezsite.apis.tablePage(12870, {
+              PageNo: 1,
+              PageSize: 1,
+              Filters: [{
+                name: 'sleeper_player_id',
+                op: 'Equal',
+                value: player.sleeper_player_id
+              }]
+            });
+
+            if (searchError) {
+              console.error(`Error searching for player ${player.sleeper_player_id}:`, searchError);
+              continue;
+            }
+
+            if (existingPlayers?.List?.length > 0) {
+              // Update existing player
+              const existingPlayer = existingPlayers.List[0];
+              const updateData = { ...player, ID: existingPlayer.id };
+              const { error: updateError } = await window.ezsite.apis.tableUpdate(12870, updateData);
+              if (updateError) {
+                console.error(`Error updating player ${player.sleeper_player_id}:`, updateError);
+              } else {
+                playersUpdated++;
+              }
+            } else {
+              // Create new player
+              const { error: createError } = await window.ezsite.apis.tableCreate(12870, player);
+              if (createError) {
+                console.error(`Error creating player ${player.sleeper_player_id}:`, createError);
+              } else {
+                playersCreated++;
+              }
+            }
+          } catch (error) {
+            console.error(`Error processing player ${player.sleeper_player_id}:`, error);
+          }
+        }
+
+        // Update progress
+        const progressPercent = 50 + ((batchIndex + 1) / totalBatches) * 45;
+        setPlayersProgress(progressPercent);
+
+        // Small delay between batches to be respectful to the database
+        await new Promise((resolve) => setTimeout(resolve, 100));
+      }
+
+      setPlayersSyncResult({
+        success: true,
+        players_created: playersCreated,
+        players_updated: playersUpdated
+      });
+
+      console.log(`✓ Successfully synced players: ${playersCreated} created, ${playersUpdated} updated`);
+
+      // Update last sync time
+      const now = new Date().toISOString();
+      localStorage.setItem('last_players_sync', now);
+      setLastPlayersSyncTime(new Date(now).toLocaleString());
+
+      toast({
+        title: "Players Sync Complete",
+        description: `${playersCreated} players created, ${playersUpdated} players updated`,
+        variant: "default"
+      });
+
+    } catch (error) {
+      console.error('❌ Error syncing players:', error);
+      setPlayersSyncResult({
+        success: false,
+        error: error.toString(),
+        players_created: 0,
+        players_updated: 0
+      });
+
+      toast({
+        title: "Players Sync Failed",
+        description: `Failed to sync players: ${error}`,
+        variant: "destructive"
+      });
+    } finally {
+      setSyncingPlayers(false);
+      setPlayersProgress(100);
+    }
+  };
+
   const selectedSeason = seasons.find((s) => s.id === selectedSeasonId);
 
   if (loading) {
@@ -658,7 +818,7 @@ const DataSync: React.FC = () => {
             Data Synchronization
           </CardTitle>
           <CardDescription>
-            Sync conference and team data from Sleeper API to update database records
+            Sync conference, team, and player data from Sleeper API to update database records
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -683,19 +843,20 @@ const DataSync: React.FC = () => {
             </div>
           </div>
 
-          {selectedSeason && conferences.length === 0 &&
-          <Alert>
-              <AlertCircle className="h-4 w-4" />
-              <AlertDescription>
-                No conferences found for {selectedSeason.season_name}. 
-                Please add leagues in the League Manager tab first.
-              </AlertDescription>
-            </Alert>
-          }
-
-          {selectedSeason && conferences.length > 0 &&
-          <Tabs defaultValue="conferences" className="space-y-6">
-              <TabsList className="grid w-full grid-cols-2">
+          {selectedSeason &&
+          <>
+            {conferences.length === 0 &&
+              <Alert className="mb-6">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>
+                  No conferences found for {selectedSeason.season_name}. 
+                  Conference and Team sync require leagues to be added first, but Player sync can be performed independently.
+                </AlertDescription>
+              </Alert>
+            }
+            
+            <Tabs defaultValue={conferences.length > 0 ? "conferences" : "players"} className="space-y-6">
+              <TabsList className="grid w-full grid-cols-3">
                 <TabsTrigger value="conferences" className="flex items-center gap-2">
                   <Trophy className="h-4 w-4" />
                   Conference Sync
@@ -704,9 +865,21 @@ const DataSync: React.FC = () => {
                   <Users className="h-4 w-4" />
                   Teams Sync
                 </TabsTrigger>
+                <TabsTrigger value="players" className="flex items-center gap-2">
+                  <UserCheck className="h-4 w-4" />
+                  Players Sync
+                </TabsTrigger>
               </TabsList>
 
               <TabsContent value="conferences">
+                {conferences.length === 0 ? (
+                  <Alert>
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertDescription>
+                      No conferences available for synchronization. Please add leagues in the League Manager tab first.
+                    </AlertDescription>
+                  </Alert>
+                ) : (
                 <div className="space-y-6">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-4">
@@ -850,9 +1023,18 @@ const DataSync: React.FC = () => {
                     </Card>
                 }
                 </div>
+                )}
               </TabsContent>
 
               <TabsContent value="teams">
+                {conferences.length === 0 ? (
+                  <Alert>
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertDescription>
+                      No conferences available for team synchronization. Please add leagues in the League Manager tab first.
+                    </AlertDescription>
+                  </Alert>
+                ) : (
                 <div className="space-y-6">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-4">
@@ -998,8 +1180,143 @@ const DataSync: React.FC = () => {
                     </Card>
                 }
                 </div>
+                )}
+              </TabsContent>
+
+              <TabsContent value="players">
+                <div className="space-y-6">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-4">
+                      {lastPlayersSyncTime &&
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                          <Clock className="h-4 w-4" />
+                          Last players sync: {lastPlayersSyncTime}
+                        </div>
+                      }
+                    </div>
+                    <Button
+                      onClick={syncPlayersData}
+                      disabled={syncingPlayers}>
+                      {syncingPlayers ?
+                        <>
+                          <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                          Syncing...
+                        </> :
+                        <>
+                          <UserCheck className="h-4 w-4 mr-2" />
+                          Sync Players Data
+                        </>
+                      }
+                    </Button>
+                  </div>
+
+                  {syncingPlayers &&
+                    <div>
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-sm font-medium">Synchronizing players...</span>
+                        <span className="text-sm text-muted-foreground">{Math.round(playersProgress)}%</span>
+                      </div>
+                      <Progress value={playersProgress} className="w-full" />
+                    </div>
+                  }
+
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-lg">
+                        NFL Players Synchronization
+                      </CardTitle>
+                      <CardDescription>
+                        Sync all NFL player data from Sleeper API. This will update player information including positions, teams, stats, and injury status.
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                        <div className="p-4 border rounded-lg">
+                          <div className="flex items-center gap-2 mb-2">
+                            <UserCheck className="h-5 w-5 text-blue-600" />
+                            <h4 className="font-semibold">Player Data</h4>
+                          </div>
+                          <p className="text-sm text-muted-foreground mb-2">
+                            Syncs comprehensive player information including:
+                          </p>
+                          <ul className="text-sm text-muted-foreground space-y-1">
+                            <li>• Player names and positions</li>
+                            <li>• NFL team assignments</li>
+                            <li>• Jersey numbers and physical stats</li>
+                            <li>• College and experience data</li>
+                          </ul>
+                        </div>
+                        <div className="p-4 border rounded-lg">
+                          <div className="flex items-center gap-2 mb-2">
+                            <AlertCircle className="h-5 w-5 text-green-600" />
+                            <h4 className="font-semibold">Status Updates</h4>
+                          </div>
+                          <p className="text-sm text-muted-foreground mb-2">
+                            Real-time status tracking including:
+                          </p>
+                          <ul className="text-sm text-muted-foreground space-y-1">
+                            <li>• Active/Inactive status</li>
+                            <li>• Injury status and designations</li>
+                            <li>• Depth chart positions</li>
+                            <li>• Age and years of experience</li>
+                          </ul>
+                        </div>
+                      </div>
+                      
+                      <Alert>
+                        <AlertCircle className="h-4 w-4" />
+                        <AlertDescription>
+                          <strong>Note:</strong> This sync processes all NFL players (~3,000+ records) and may take several minutes to complete. 
+                          The system will process players in batches to ensure reliable data synchronization.
+                        </AlertDescription>
+                      </Alert>
+                    </CardContent>
+                  </Card>
+
+                  {playersSyncResult &&
+                    <Card>
+                      <CardHeader>
+                        <CardTitle className="text-lg">Players Sync Results</CardTitle>
+                        <CardDescription>
+                          Results from the last players synchronization
+                        </CardDescription>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="p-3 border rounded-lg">
+                          <div className="flex items-center justify-between mb-2">
+                            <div className="flex items-center gap-3">
+                              {playersSyncResult.success ?
+                                <CheckCircle className="h-5 w-5 text-green-600" /> :
+                                <AlertCircle className="h-5 w-5 text-red-600" />
+                              }
+                              <span className="font-medium">Players Synchronization</span>
+                            </div>
+                            <div className="text-sm">
+                              {playersSyncResult.success ?
+                                <span className="text-green-600">Success</span> :
+                                <span className="text-red-600">Failed</span>
+                              }
+                            </div>
+                          </div>
+                          {playersSyncResult.success &&
+                            <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                              <span>Players created: {playersSyncResult.players_created}</span>
+                              <span>Players updated: {playersSyncResult.players_updated}</span>
+                            </div>
+                          }
+                          {playersSyncResult.error &&
+                            <div className="text-sm text-red-600 mt-1">
+                              {playersSyncResult.error}
+                            </div>
+                          }
+                        </div>
+                      </CardContent>
+                    </Card>
+                  }
+                </div>
               </TabsContent>
             </Tabs>
+          </>
           }
         </CardContent>
       </Card>
