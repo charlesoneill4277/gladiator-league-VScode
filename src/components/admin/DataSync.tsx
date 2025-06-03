@@ -916,12 +916,12 @@ const DataSync: React.FC = () => {
       for (const conference of conferences) {
         try {
           console.log(`Processing league ${conference.league_id}...`);
-          
+
           // Process weeks 1-17 for this league
           for (let week = 1; week <= 17; week++) {
             try {
               console.log(`Fetching matchups for league ${conference.league_id}, week ${week}...`);
-              
+
               // Fetch matchups data from Sleeper API
               const response = await fetch(`https://api.sleeper.app/v1/league/${conference.league_id}/matchups/${week}`);
               if (!response.ok) {
@@ -947,7 +947,7 @@ const DataSync: React.FC = () => {
                   console.warn('Skipping entry with missing matchup_id or roster_id:', entry);
                   continue;
                 }
-                
+
                 if (!matchupGroups.has(entry.matchup_id)) {
                   matchupGroups.set(entry.matchup_id, []);
                 }
@@ -962,7 +962,7 @@ const DataSync: React.FC = () => {
                 }
 
                 const [team1Entry, team2Entry] = teams;
-                
+
                 // Get team IDs from roster IDs using the junction table
                 const team1Id = await getTeamIdFromRosterId(team1Entry.roster_id, conference.id);
                 const team2Id = await getTeamIdFromRosterId(team2Entry.roster_id, conference.id);
@@ -977,11 +977,11 @@ const DataSync: React.FC = () => {
                   PageNo: 1,
                   PageSize: 1,
                   Filters: [
-                    { name: 'conference_id', op: 'Equal', value: conference.id },
-                    { name: 'week', op: 'Equal', value: week },
-                    { name: 'team_1_id', op: 'Equal', value: team1Id },
-                    { name: 'team_2_id', op: 'Equal', value: team2Id }
-                  ]
+                  { name: 'conference_id', op: 'Equal', value: conference.id },
+                  { name: 'week', op: 'Equal', value: week },
+                  { name: 'team_1_id', op: 'Equal', value: team1Id },
+                  { name: 'team_2_id', op: 'Equal', value: team2Id }]
+
                 });
 
                 if (searchError) {
@@ -1024,9 +1024,9 @@ const DataSync: React.FC = () => {
               }
 
               weeksProcessed++;
-              
+
               // Small delay between week requests
-              await new Promise(resolve => setTimeout(resolve, 100));
+              await new Promise((resolve) => setTimeout(resolve, 100));
 
             } catch (error) {
               console.error(`Error processing week ${week} for league ${conference.league_id}:`, error);
@@ -1034,7 +1034,7 @@ const DataSync: React.FC = () => {
 
             // Update progress
             operationCount++;
-            const progressPercent = 5 + (operationCount / totalOperations) * 90;
+            const progressPercent = 5 + operationCount / totalOperations * 90;
             setMatchupsProgress(progressPercent);
           }
 
@@ -1042,7 +1042,7 @@ const DataSync: React.FC = () => {
           console.log(`✓ Completed processing league ${conference.league_id}`);
 
           // Small delay between league requests
-          await new Promise(resolve => setTimeout(resolve, 200));
+          await new Promise((resolve) => setTimeout(resolve, 200));
 
         } catch (error) {
           console.error(`Error processing league ${conference.league_id}:`, error);
@@ -1099,10 +1099,10 @@ const DataSync: React.FC = () => {
         PageNo: 1,
         PageSize: 1,
         Filters: [
-          { name: 'roster_id', op: 'Equal', value: rosterId },
-          { name: 'conference_id', op: 'Equal', value: conferenceId },
-          { name: 'is_active', op: 'Equal', value: true }
-        ]
+        { name: 'roster_id', op: 'Equal', value: rosterId },
+        { name: 'conference_id', op: 'Equal', value: conferenceId },
+        { name: 'is_active', op: 'Equal', value: true }]
+
       });
 
       if (error) {
