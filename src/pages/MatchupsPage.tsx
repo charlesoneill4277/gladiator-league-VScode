@@ -56,7 +56,7 @@ interface ProcessedMatchup {
     points: number;
     starters: string[];
     players: string[];
-    players_points?: { [key: string]: number };
+    players_points?: {[key: string]: number;};
   };
   team2: {
     id: number;
@@ -66,7 +66,7 @@ interface ProcessedMatchup {
     points: number;
     starters: string[];
     players: string[];
-    players_points?: { [key: string]: number };
+    players_points?: {[key: string]: number;};
   };
   week: number;
   status: 'live' | 'completed' | 'upcoming';
@@ -99,7 +99,7 @@ const MatchupsPage: React.FC = () => {
         setSelectedWeek(1);
       }
     };
-    
+
     initializeCurrentWeek();
   }, []);
 
@@ -124,12 +124,12 @@ const MatchupsPage: React.FC = () => {
         PageNo: 1,
         PageSize: 100,
         Filters: [
-          {
-            name: 'season_id',
-            op: 'Equal',
-            value: selectedSeason
-          }
-        ]
+        {
+          name: 'season_id',
+          op: 'Equal',
+          value: selectedSeason
+        }]
+
       });
 
       if (conferencesResponse.error) {
@@ -157,12 +157,12 @@ const MatchupsPage: React.FC = () => {
         PageNo: 1,
         PageSize: 1000,
         Filters: [
-          {
-            name: 'is_active',
-            op: 'Equal',
-            value: true
-          }
-        ]
+        {
+          name: 'is_active',
+          op: 'Equal',
+          value: true
+        }]
+
       });
 
       if (junctionsResponse.error) {
@@ -177,7 +177,7 @@ const MatchupsPage: React.FC = () => {
       toast({
         title: 'Error Loading Data',
         description: 'Failed to load teams and conferences. Please try again.',
-        variant: 'destructive',
+        variant: 'destructive'
       });
     } finally {
       setLoading(false);
@@ -190,21 +190,26 @@ const MatchupsPage: React.FC = () => {
 
       // Get matchups from database for selected week and conference
       const filters = [
-        {
-          name: 'week',
-          op: 'Equal',
-          value: selectedWeek
-        }
-      ];
+      {
+        name: 'week',
+        op: 'Equal',
+        value: selectedWeek
+      }];
+
 
       if (selectedConference) {
-        const selectedConf = conferences.find(c => c.conference_name === selectedConference);
-        if (selectedConf) {
-          filters.push({
-            name: 'conference_id',
-            op: 'Equal',
-            value: selectedConf.id
-          });
+        // Find the AppContext conference to get its league_id
+        const appContextConf = currentSeasonConfig.conferences.find((c) => c.id === selectedConference);
+        if (appContextConf) {
+          // Find the database conference by matching league_id
+          const selectedConf = conferences.find((c) => c.league_id === appContextConf.id);
+          if (selectedConf) {
+            filters.push({
+              name: 'conference_id',
+              op: 'Equal',
+              value: selectedConf.id
+            });
+          }
         }
       }
 
@@ -219,7 +224,7 @@ const MatchupsPage: React.FC = () => {
       }
 
       const dbMatchups: DatabaseMatchup[] = matchupsResponse.data?.List || [];
-      
+
       // Process each matchup
       const processedMatchups: ProcessedMatchup[] = [];
 
@@ -241,7 +246,7 @@ const MatchupsPage: React.FC = () => {
       toast({
         title: 'Error Loading Matchups',
         description: 'Failed to load matchup data. Please try again.',
-        variant: 'destructive',
+        variant: 'destructive'
       });
     } finally {
       setLoading(false);
@@ -251,27 +256,27 @@ const MatchupsPage: React.FC = () => {
   const processMatchup = async (dbMatchup: DatabaseMatchup): Promise<ProcessedMatchup | null> => {
     try {
       // Get conference info
-      const conference = conferences.find(c => c.id === dbMatchup.conference_id);
+      const conference = conferences.find((c) => c.id === dbMatchup.conference_id);
       if (!conference) {
         console.error(`Conference not found for ID ${dbMatchup.conference_id}`);
         return null;
       }
 
       // Get team info
-      const team1 = teams.find(t => t.id === dbMatchup.team_1_id);
-      const team2 = teams.find(t => t.id === dbMatchup.team_2_id);
-      
+      const team1 = teams.find((t) => t.id === dbMatchup.team_1_id);
+      const team2 = teams.find((t) => t.id === dbMatchup.team_2_id);
+
       if (!team1 || !team2) {
         console.error(`Teams not found: ${dbMatchup.team_1_id}, ${dbMatchup.team_2_id}`);
         return null;
       }
 
       // Get roster IDs from junctions
-      const team1Junction = teamJunctions.find(tj => 
-        tj.team_id === team1.id && tj.conference_id === conference.id && tj.is_active
+      const team1Junction = teamJunctions.find((tj) =>
+      tj.team_id === team1.id && tj.conference_id === conference.id && tj.is_active
       );
-      const team2Junction = teamJunctions.find(tj => 
-        tj.team_id === team2.id && tj.conference_id === conference.id && tj.is_active
+      const team2Junction = teamJunctions.find((tj) =>
+      tj.team_id === team2.id && tj.conference_id === conference.id && tj.is_active
       );
 
       if (!team1Junction || !team2Junction) {
@@ -281,9 +286,9 @@ const MatchupsPage: React.FC = () => {
 
       // Get Sleeper matchup data
       const sleeperMatchups = await sleeperService.getMatchupData(conference.league_id, selectedWeek);
-      
-      const team1SleeperData = sleeperMatchups.find(sm => sm.roster_id.toString() === team1Junction.roster_id);
-      const team2SleeperData = sleeperMatchups.find(sm => sm.roster_id.toString() === team2Junction.roster_id);
+
+      const team1SleeperData = sleeperMatchups.find((sm) => sm.roster_id.toString() === team1Junction.roster_id);
+      const team2SleeperData = sleeperMatchups.find((sm) => sm.roster_id.toString() === team2Junction.roster_id);
 
       // Determine status
       let status: 'live' | 'completed' | 'upcoming' = 'upcoming';
@@ -332,7 +337,7 @@ const MatchupsPage: React.FC = () => {
     loadMatchups();
     toast({
       title: 'Refreshing Matchups',
-      description: 'Loading latest matchup data...',
+      description: 'Loading latest matchup data...'
     });
   };
 
@@ -349,39 +354,39 @@ const MatchupsPage: React.FC = () => {
 
   const getSelectedConferenceName = () => {
     if (!selectedConference) return 'All Conferences';
-    const conf = currentSeasonConfig.conferences.find(c => c.id === selectedConference);
+    const conf = currentSeasonConfig.conferences.find((c) => c.id === selectedConference);
     return conf?.name || 'All Conferences';
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6" data-id="k0ql2x85c">
       {/* Page Header */}
-      <div className="flex flex-col space-y-2">
-        <div className="flex items-center space-x-2">
-          <Swords className="h-6 w-6 text-primary" />
-          <h1 className="text-3xl font-bold">Matchups</h1>
+      <div className="flex flex-col space-y-2" data-id="5v6qg7rt1">
+        <div className="flex items-center space-x-2" data-id="qja8sd619">
+          <Swords className="h-6 w-6 text-primary" data-id="etuj4z249" />
+          <h1 className="text-3xl font-bold" data-id="gw3qth46g">Matchups</h1>
         </div>
-        <p className="text-muted-foreground">
+        <p className="text-muted-foreground" data-id="m8gld9mge">
           {selectedSeason} Season • Week {selectedWeek} • {getSelectedConferenceName()}
         </p>
       </div>
 
       {/* Controls */}
-      <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
-        <div className="flex items-center space-x-4">
-          <Select value={selectedWeek.toString()} onValueChange={(value) => setSelectedWeek(parseInt(value))}>
-            <SelectTrigger className="w-32">
-              <SelectValue />
+      <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between" data-id="l2ra6s8ai">
+        <div className="flex items-center space-x-4" data-id="mno80xag7">
+          <Select value={selectedWeek.toString()} onValueChange={(value) => setSelectedWeek(parseInt(value))} data-id="resqf8e56">
+            <SelectTrigger className="w-32" data-id="ltszttoyd">
+              <SelectValue data-id="64zqx5t8d" />
             </SelectTrigger>
-            <SelectContent>
-              {getWeekOptions().map((week) => (
-                <SelectItem key={week.week} value={week.week.toString()}>
-                  <div className="flex items-center space-x-2">
-                    <span>Week {week.week}</span>
-                    {week.status === 'current' && <Badge variant="outline" className="text-xs">Current</Badge>}
+            <SelectContent data-id="4i8uo7e9g">
+              {getWeekOptions().map((week) =>
+              <SelectItem key={week.week} value={week.week.toString()} data-id="uurqeod9r">
+                  <div className="flex items-center space-x-2" data-id="8i5f2bj2w">
+                    <span data-id="ibnapcl4o">Week {week.week}</span>
+                    {week.status === 'current' && <Badge variant="outline" className="text-xs" data-id="5k8kew23w">Current</Badge>}
                   </div>
                 </SelectItem>
-              ))}
+              )}
             </SelectContent>
           </Select>
 
@@ -389,67 +394,67 @@ const MatchupsPage: React.FC = () => {
             variant="outline"
             size="sm"
             onClick={refreshMatchups}
-            disabled={loading}
-          >
-            <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+            disabled={loading} data-id="zwnls5vjv">
+
+            <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} data-id="xgiu4l3zk" />
             Refresh
           </Button>
 
-          {selectedWeek === currentWeek && (
-            <div className="flex items-center space-x-2 text-sm text-muted-foreground">
-              <Clock className="h-4 w-4" />
-              <span>Live Week</span>
+          {selectedWeek === currentWeek &&
+          <div className="flex items-center space-x-2 text-sm text-muted-foreground" data-id="oqa7i0xv4">
+              <Clock className="h-4 w-4" data-id="jvbz6mqno" />
+              <span data-id="8ylwzm19g">Live Week</span>
             </div>
-          )}
+          }
         </div>
 
-        <div className="flex items-center space-x-4 text-sm text-muted-foreground">
-          <div className="flex items-center space-x-1">
-            <Users className="h-4 w-4" />
-            <span>{matchups.length} matchups</span>
+        <div className="flex items-center space-x-4 text-sm text-muted-foreground" data-id="j1my9a1ck">
+          <div className="flex items-center space-x-1" data-id="a68d4bnzv">
+            <Users className="h-4 w-4" data-id="hivvq1ydw" />
+            <span data-id="avmiy19w5">{matchups.length} matchups</span>
           </div>
         </div>
       </div>
 
       {/* Loading State */}
-      {loading && (
-        <div className="flex items-center justify-center py-8">
-          <RefreshCw className="h-8 w-8 animate-spin text-primary" />
-          <span className="ml-2 text-muted-foreground">Loading matchups...</span>
+      {loading &&
+      <div className="flex items-center justify-center py-8" data-id="k5lx6wxoc">
+          <RefreshCw className="h-8 w-8 animate-spin text-primary" data-id="iovq0wb91" />
+          <span className="ml-2 text-muted-foreground" data-id="six4mnx7g">Loading matchups...</span>
         </div>
-      )}
+      }
 
       {/* Matchups Grid */}
-      {!loading && (
-        <div className="grid gap-4">
-          {matchups.map((matchup) => (
-            <MatchupCard
-              key={`${matchup.matchupId}-${matchup.week}`}
-              matchupId={matchup.matchupId}
-              conference={matchup.conference}
-              team1={matchup.team1}
-              team2={matchup.team2}
-              week={matchup.week}
-              status={matchup.status}
-              isPlayoff={matchup.isPlayoff}
-            />
-          ))}
+      {!loading &&
+      <div className="grid gap-4" data-id="7k8v8w5u0">
+          {matchups.map((matchup) =>
+        <MatchupCard
+          key={`${matchup.matchupId}-${matchup.week}`}
+          matchupId={matchup.matchupId}
+          conference={matchup.conference}
+          team1={matchup.team1}
+          team2={matchup.team2}
+          week={matchup.week}
+          status={matchup.status}
+          isPlayoff={matchup.isPlayoff} data-id="2xbv5b536" />
 
-          {matchups.length === 0 && !loading && (
-            <Card>
-              <CardContent className="py-8 text-center">
-                <AlertCircle className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
-                <p className="text-muted-foreground">No matchups found for the selected filters.</p>
-                <p className="text-sm text-muted-foreground mt-1">
+        )}
+
+          {matchups.length === 0 && !loading &&
+        <Card data-id="kegtbuc90">
+              <CardContent className="py-8 text-center" data-id="r0hmrqht1">
+                <AlertCircle className="h-8 w-8 mx-auto mb-2 text-muted-foreground" data-id="2rww3jyeh" />
+                <p className="text-muted-foreground" data-id="f8e8r72sc">No matchups found for the selected filters.</p>
+                <p className="text-sm text-muted-foreground mt-1" data-id="h3hsw2kj6">
                   Try selecting a different week or conference.
                 </p>
               </CardContent>
             </Card>
-          )}
+        }
         </div>
-      )}
-    </div>
-  );
+      }
+    </div>);
+
 };
 
 export default MatchupsPage;

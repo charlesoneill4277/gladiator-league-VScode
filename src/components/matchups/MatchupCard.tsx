@@ -14,7 +14,7 @@ interface Team {
   points: number;
   starters: string[];
   players: string[];
-  players_points?: { [key: string]: number };
+  players_points?: {[key: string]: number;};
 }
 
 interface MatchupCardProps {
@@ -70,11 +70,11 @@ const MatchupCard: React.FC<MatchupCardProps> = ({
                   {getStatusBadge()}
                   {isPlayoff && <Badge variant="destructive">Playoff</Badge>}
                 </div>
-                <ChevronDown 
+                <ChevronDown
                   className={`h-4 w-4 transition-transform ${
-                    isExpanded ? 'rotate-180' : ''
-                  }`} 
-                />
+                  isExpanded ? 'rotate-180' : ''}`
+                  } />
+
               </div>
             </CardHeader>
           </div>
@@ -95,9 +95,9 @@ const MatchupCard: React.FC<MatchupCardProps> = ({
             {/* VS Divider */}
             <div className="text-center">
               <div className="text-lg font-semibold text-muted-foreground">VS</div>
-              {winner && (
-                <Trophy className="h-6 w-6 mx-auto mt-2 text-yellow-500" />
-              )}
+              {winner &&
+              <Trophy className="h-6 w-6 mx-auto mt-2 text-yellow-500" />
+              }
             </div>
 
             {/* Team 2 */}
@@ -113,24 +113,24 @@ const MatchupCard: React.FC<MatchupCardProps> = ({
           {/* Expanded Content */}
           <CollapsibleContent className="mt-6">
             <div className="border-t pt-4 space-y-4">
-              {status !== 'upcoming' && (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {status !== 'upcoming' &&
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <TeamLineup
-                    team={team1}
-                    week={week}
-                    isWinner={winner?.id === team1.id}
-                  />
+                  team={team1}
+                  week={week}
+                  isWinner={winner?.id === team1.id} />
+
                   <TeamLineup
-                    team={team2}
-                    week={week}
-                    isWinner={winner?.id === team2.id}
-                  />
+                  team={team2}
+                  week={week}
+                  isWinner={winner?.id === team2.id} />
+
                 </div>
-              )}
+              }
 
               {/* Matchup Stats */}
-              {status !== 'upcoming' && (
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
+              {status !== 'upcoming' &&
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
                   <div>
                     <div className="text-sm text-muted-foreground">Total Points</div>
                     <div className="font-semibold">
@@ -152,20 +152,20 @@ const MatchupCard: React.FC<MatchupCardProps> = ({
                     <div className="text-xs capitalize">{status}</div>
                   </div>
                 </div>
-              )}
+              }
 
-              {status === 'upcoming' && (
-                <div className="text-center py-4 text-muted-foreground">
+              {status === 'upcoming' &&
+              <div className="text-center py-4 text-muted-foreground">
                   <Clock className="h-8 w-8 mx-auto mb-2" />
                   <p>Matchup details will be available once the week begins</p>
                 </div>
-              )}
+              }
             </div>
           </CollapsibleContent>
         </CardContent>
       </Collapsible>
-    </Card>
-  );
+    </Card>);
+
 };
 
 export default MatchupCard;

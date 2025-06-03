@@ -12,7 +12,7 @@ interface Team {
   points: number;
   starters: string[];
   players: string[];
-  players_points?: { [key: string]: number };
+  players_points?: {[key: string]: number;};
 }
 
 interface Player {
@@ -33,17 +33,17 @@ interface TeamLineupProps {
 const POSITIONS = ['QB', 'RB', 'RB', 'WR', 'WR', 'WR', 'TE', 'FLEX', 'SUPERFLEX'];
 
 const TeamLineup: React.FC<TeamLineupProps> = ({ team, week, isWinner = false }) => {
-  const [players, setPlayers] = useState<{ [key: string]: Player }>({});
+  const [players, setPlayers] = useState<{[key: string]: Player;}>({});
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchPlayers = async () => {
       try {
         setLoading(true);
-        
+
         // Get all unique player IDs from starters and players
         const allPlayerIds = [...new Set([...team.starters, ...team.players])];
-        
+
         if (allPlayerIds.length === 0) {
           setLoading(false);
           return;
@@ -53,7 +53,7 @@ const TeamLineup: React.FC<TeamLineupProps> = ({ team, week, isWinner = false })
         const response = await window.ezsite.apis.tablePage('12870', {
           PageNo: 1,
           PageSize: 100,
-          Filters: allPlayerIds.map(playerId => ({
+          Filters: allPlayerIds.map((playerId) => ({
             name: 'sleeper_player_id',
             op: 'Equal',
             value: playerId
@@ -66,7 +66,7 @@ const TeamLineup: React.FC<TeamLineupProps> = ({ team, week, isWinner = false })
           return;
         }
 
-        const playersMap: { [key: string]: Player } = {};
+        const playersMap: {[key: string]: Player;} = {};
         response.data?.List?.forEach((player: any) => {
           playersMap[player.sleeper_player_id] = player;
         });
@@ -96,14 +96,14 @@ const TeamLineup: React.FC<TeamLineupProps> = ({ team, week, isWinner = false })
             <Skeleton className="h-4 w-12" />
           </div>
           <Skeleton className="h-4 w-12" />
-        </div>
-      );
+        </div>);
+
     }
 
     const getInjuryBadge = () => {
       if (!player || player.injury_status === 'Healthy') return null;
-      
-      const colorMap: { [key: string]: string } = {
+
+      const colorMap: {[key: string]: string;} = {
         'Questionable': 'bg-yellow-500',
         'Doubtful': 'bg-orange-500',
         'Out': 'bg-red-500',
@@ -111,21 +111,21 @@ const TeamLineup: React.FC<TeamLineupProps> = ({ team, week, isWinner = false })
       };
 
       return (
-        <Badge 
-          className={`text-xs ${colorMap[player.injury_status] || 'bg-gray-500'} text-white`}
-        >
+        <Badge
+          className={`text-xs ${colorMap[player.injury_status] || 'bg-gray-500'} text-white`}>
+
           {player.injury_status}
-        </Badge>
-      );
+        </Badge>);
+
     };
 
     return (
-      <div 
+      <div
         key={playerId}
         className={`flex items-center justify-between py-2 px-3 border rounded ${
-          isStarter ? 'border-green-200 bg-green-50' : 'border-gray-200'
-        }`}
-      >
+        isStarter ? 'border-green-200 bg-green-50' : 'border-gray-200'}`
+        }>
+
         <div className="flex items-center space-x-3 flex-1">
           <Badge variant={isStarter ? 'default' : 'secondary'} className="text-xs font-mono">
             {position}
@@ -134,12 +134,12 @@ const TeamLineup: React.FC<TeamLineupProps> = ({ team, week, isWinner = false })
             <div className="font-medium text-sm truncate">
               {player?.player_name || `Player ${playerId}`}
             </div>
-            {player && (
-              <div className="text-xs text-muted-foreground flex items-center space-x-2">
+            {player &&
+            <div className="text-xs text-muted-foreground flex items-center space-x-2">
                 <span>{player.nfl_team}</span>
                 {getInjuryBadge()}
               </div>
-            )}
+            }
           </div>
         </div>
         <div className="text-right">
@@ -148,11 +148,11 @@ const TeamLineup: React.FC<TeamLineupProps> = ({ team, week, isWinner = false })
           </div>
           <div className="text-xs text-muted-foreground">pts</div>
         </div>
-      </div>
-    );
+      </div>);
+
   };
 
-  const benchPlayers = team.players.filter(playerId => !team.starters.includes(playerId));
+  const benchPlayers = team.players.filter((playerId) => !team.starters.includes(playerId));
 
   return (
     <Card className={isWinner ? 'border-green-500 border-2' : ''}>
@@ -173,25 +173,25 @@ const TeamLineup: React.FC<TeamLineupProps> = ({ team, week, isWinner = false })
             <span>STARTERS</span>
           </div>
           <div className="space-y-1">
-            {team.starters.map((playerId, index) => 
-              getPlayerDisplay(playerId, true, index)
+            {team.starters.map((playerId, index) =>
+            getPlayerDisplay(playerId, true, index)
             )}
           </div>
         </div>
 
         {/* Bench */}
-        {benchPlayers.length > 0 && (
-          <div>
+        {benchPlayers.length > 0 &&
+        <div>
             <div className="text-xs font-semibold text-muted-foreground mb-2">
               BENCH
             </div>
             <div className="space-y-1">
-              {benchPlayers.map(playerId => 
-                getPlayerDisplay(playerId, false)
-              )}
+              {benchPlayers.map((playerId) =>
+            getPlayerDisplay(playerId, false)
+            )}
             </div>
           </div>
-        )}
+        }
 
         {/* Team Summary */}
         <div className="border-t pt-2 text-xs text-muted-foreground">
@@ -209,8 +209,8 @@ const TeamLineup: React.FC<TeamLineupProps> = ({ team, week, isWinner = false })
           </div>
         </div>
       </CardContent>
-    </Card>
-  );
+    </Card>);
+
 };
 
 export default TeamLineup;

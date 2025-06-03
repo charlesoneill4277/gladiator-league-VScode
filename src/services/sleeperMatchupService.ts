@@ -5,7 +5,7 @@ interface SleeperMatchupData {
   matchup_id: number;
   points: number;
   custom_points?: number;
-  players_points?: { [key: string]: number };
+  players_points?: {[key: string]: number;};
 }
 
 interface SleeperPlayerData {
@@ -39,16 +39,16 @@ class SleeperMatchupService {
   async getMatchupData(leagueId: string, week: number): Promise<SleeperMatchupData[]> {
     try {
       console.log(`Fetching matchup data for league ${leagueId}, week ${week}`);
-      
+
       const response = await fetch(`https://api.sleeper.app/v1/league/${leagueId}/matchups/${week}`);
-      
+
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
-      
+
       const data = await response.json();
       console.log(`Retrieved ${data.length} matchup entries for week ${week}`);
-      
+
       return data;
     } catch (error) {
       console.error('Error fetching Sleeper matchup data:', error);
@@ -59,19 +59,19 @@ class SleeperMatchupService {
   /**
    * Fetch all NFL players data from Sleeper API
    */
-  async getAllPlayersData(): Promise<{ [key: string]: SleeperPlayerData }> {
+  async getAllPlayersData(): Promise<{[key: string]: SleeperPlayerData;}> {
     try {
       console.log('Fetching all players data from Sleeper');
-      
+
       const response = await fetch('https://api.sleeper.app/v1/players/nfl');
-      
+
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
-      
+
       const data = await response.json();
       console.log(`Retrieved data for ${Object.keys(data).length} players`);
-      
+
       return data;
     } catch (error) {
       console.error('Error fetching Sleeper players data:', error);
@@ -85,16 +85,16 @@ class SleeperMatchupService {
   async getLeagueInfo(leagueId: string) {
     try {
       console.log(`Fetching league info for ${leagueId}`);
-      
+
       const response = await fetch(`https://api.sleeper.app/v1/league/${leagueId}`);
-      
+
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
-      
+
       const data = await response.json();
       console.log(`Retrieved league info: ${data.name} (${data.status})`);
-      
+
       return data;
     } catch (error) {
       console.error('Error fetching Sleeper league info:', error);
@@ -108,16 +108,16 @@ class SleeperMatchupService {
   async getLeagueRosters(leagueId: string) {
     try {
       console.log(`Fetching rosters for league ${leagueId}`);
-      
+
       const response = await fetch(`https://api.sleeper.app/v1/league/${leagueId}/rosters`);
-      
+
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
-      
+
       const data = await response.json();
       console.log(`Retrieved ${data.length} rosters`);
-      
+
       return data;
     } catch (error) {
       console.error('Error fetching Sleeper rosters:', error);
@@ -131,16 +131,16 @@ class SleeperMatchupService {
   async getLeagueUsers(leagueId: string) {
     try {
       console.log(`Fetching users for league ${leagueId}`);
-      
+
       const response = await fetch(`https://api.sleeper.app/v1/league/${leagueId}/users`);
-      
+
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
-      
+
       const data = await response.json();
       console.log(`Retrieved ${data.length} users`);
-      
+
       return data;
     } catch (error) {
       console.error('Error fetching Sleeper users:', error);
@@ -154,11 +154,11 @@ class SleeperMatchupService {
   async getCurrentNFLWeek(): Promise<number> {
     try {
       const response = await fetch('https://api.sleeper.app/v1/state/nfl');
-      
+
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
-      
+
       const data = await response.json();
       return data.week || 1;
     } catch (error) {
@@ -172,14 +172,14 @@ class SleeperMatchupService {
    */
   processMatchupData(matchupData: SleeperMatchupData[]): Map<number, SleeperMatchupData[]> {
     const groupedMatchups = new Map<number, SleeperMatchupData[]>();
-    
-    matchupData.forEach(team => {
+
+    matchupData.forEach((team) => {
       if (!groupedMatchups.has(team.matchup_id)) {
         groupedMatchups.set(team.matchup_id, []);
       }
       groupedMatchups.get(team.matchup_id)!.push(team);
     });
-    
+
     return groupedMatchups;
   }
 }
