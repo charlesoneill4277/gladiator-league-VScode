@@ -6,14 +6,17 @@ import { Badge } from '@/components/ui/badge';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { useApp } from '@/contexts/AppContext';
 import { useMatchups } from '@/hooks/useMatchups';
+import { useConferences } from '@/hooks/useConferences';
+import { findConferenceByName, getConferenceDisplayInfo } from '@/utils/conferenceUtils';
 import { Swords, ChevronDown, Clock, Trophy, Users, RefreshCw, AlertCircle } from 'lucide-react';
-import MatchupRosterDisplay from '@/components/matchups/MatchupRosterDisplay';
+import ValidatedMatchupRosterDisplay from '@/components/matchups/ValidatedMatchupRosterDisplay';
 
 
 
 const MatchupsPage: React.FC = () => {
   const { selectedSeason, selectedConference, currentSeasonConfig } = useApp();
   const { matchups, weeks, currentWeek, loading, error, refreshMatchups } = useMatchups(selectedSeason, selectedConference);
+  const { conferences, loading: conferencesLoading, error: conferencesError, getConferenceById } = useConferences({ seasonYear: selectedSeason });
   const [selectedWeek, setSelectedWeek] = useState<number>(currentWeek);
   const [expandedMatchups, setExpandedMatchups] = useState<Set<string>>(new Set());
 
@@ -58,7 +61,7 @@ const MatchupsPage: React.FC = () => {
   };
 
   // Show loading state
-  if (loading) {
+  if (loading || conferencesLoading) {
     return (
       <div className="space-y-6">
         <div className="flex items-center space-x-2">
@@ -67,14 +70,15 @@ const MatchupsPage: React.FC = () => {
         </div>
         <div className="flex items-center justify-center py-12">
           <RefreshCw className="h-8 w-8 animate-spin text-primary" />
-          <span className="ml-2 text-lg">Loading matchups...</span>
+          <span className="ml-2 text-lg">Loading {loading ? 'matchups' : 'conferences'}...</span>
         </div>
       </div>);
 
   }
 
   // Show error state
-  if (error) {
+  if (error || conferencesError) {
+    const displayError = error || conferencesError;
     return (
       <div className="space-y-6">
         <div className="flex items-center space-x-2">
@@ -85,7 +89,7 @@ const MatchupsPage: React.FC = () => {
           <CardContent className="py-8 text-center">
             <AlertCircle className="h-12 w-12 text-destructive mx-auto mb-4" />
             <h3 className="text-lg font-semibold mb-2">Error Loading Matchups</h3>
-            <p className="text-muted-foreground mb-4">{error}</p>
+            <p className="text-muted-foreground mb-4">{displayError}</p>
             <Button onClick={refreshMatchups} variant="outline">
               <RefreshCw className="h-4 w-4 mr-2" />
               Try Again
@@ -105,10 +109,7 @@ const MatchupsPage: React.FC = () => {
           <h1 className="text-3xl font-bold">Matchups</h1>
         </div>
         <p className="text-muted-foreground">
-          {selectedSeason} Season • Week {selectedWeek} • {selectedConference ?
-          currentSeasonConfig.conferences.find((c) => c.id === selectedConference)?.name :
-          'All Conferences'
-          }
+          {selectedSeason} Season • Week {selectedWeek} • {getConferenceDisplayInfo(conferences, selectedConference).name}
         </p>
       </div>
 
@@ -225,27 +226,21 @@ const MatchupsPage: React.FC = () => {
                 <CollapsibleContent className="mt-6">
                   <div className="border-t pt-4 space-y-4">
                     {/* Enhanced Roster Display */}
-                  <MatchupRosterDisplay
-                    leagueId={(() => {
-                      // Find the league ID for this matchup's conference
-                      const conferenceMapping: {[key: string]: string;} = {
-                        'Legions of Mars': 'mars',
-                        'Guardians of Jupiter': 'jupiter',
-                        "Vulcan's Oathsworn": 'vulcan'
-                      };
-                      const conferenceKey = conferenceMapping[matchup.conference];
-                      return currentSeasonConfig.conferences.find((c) => c.id === conferenceKey)?.leagueId || '';
+                  <ValidatedMatchupRosterDisplay
+                    conferenceId={(() => {
+                      // Use utility function to find conference
+                      const conference = findConferenceByName(conferences, matchup.conference);
+                      if (!conference) {
+                        console.warn(`Conference '${matchup.conference}' not found using utility function`);
+                        return '';
+                      }
+                      return conference.id;
                     })()}
+                    conferenceName={matchup.conference}
                     week={selectedWeek}
                     matchupId={parseInt(matchup.id)}
-                    conferenceId={(() => {
-                      const conferenceMapping: {[key: string]: string;} = {
-                        'Legions of Mars': 'mars',
-                        'Guardians of Jupiter': 'jupiter',
-                        "Vulcan's Oathsworn": 'vulcan'
-                      };
-                      return conferenceMapping[matchup.conference];
-                    })()} />
+                    seasonYear={selectedSeason}
+                  />
 
 
                     {/* Matchup Stats */}

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useToast } from '@/hooks/use-toast';
+import { conferenceService } from '@/services/conferenceService';
 
 // Table IDs from the database schema
 const MATCHUPS_TABLE_ID = '13329';
@@ -119,24 +120,29 @@ export const useMatchups = (seasonYear?: number, conferenceId?: string | null): 
       const matchupFilters: any[] = [];
 
       if (conferenceId && conferencesResponse.data?.List) {
-        // Find the conference by the frontend conference ID (not database ID)
-        const targetConference = conferencesResponse.data.List.find((conf: any) => {
-          // Match against the conference name or some identifier
-          const conferenceMapping: {[key: string]: string[];} = {
-            'mars': ['Legions of Mars', 'The Legions of Mars'],
-            'jupiter': ['Guardians of Jupiter', 'The Guardians of Jupiter'],
-            'vulcan': ["Vulcan's Oathsworn"]
-          };
-          const possibleNames = conferenceMapping[conferenceId] || [];
-          return possibleNames.some((name) => name === conf.conference_name);
-        });
-
-        if (targetConference) {
-          matchupFilters.push({
-            name: 'conference_id',
-            op: 'Equal',
-            value: targetConference.id
+        // Use the conference service to find the correct conference
+        const conferenceResult = await conferenceService.getConferenceById(conferenceId, seasonYear);
+        
+        if (conferenceResult.data) {
+          // Find the database conference that matches our conference service result
+          const targetConference = conferencesResponse.data.List.find((conf: any) => {
+            const normalizedDbName = conf.conference_name.startsWith('The ') 
+              ? conf.conference_name.substring(4) 
+              : conf.conference_name;
+            return normalizedDbName === conferenceResult.data.name;
           });
+
+          if (targetConference) {
+            matchupFilters.push({
+              name: 'conference_id',
+              op: 'Equal',
+              value: targetConference.id
+            });
+          } else {
+            console.warn(`Conference ${conferenceId} not found in database`);
+          }
+        } else {
+          console.warn(`Conference service error: ${conferenceResult.error}`);
         }
       }
 
@@ -169,11 +175,9 @@ export const useMatchups = (seasonYear?: number, conferenceId?: string | null): 
           const conference = conferences.find((conf: any) => conf.id === matchup.conference_id);
 
           if (homeTeam && awayTeam && conference) {
-            // Normalize conference name to match frontend expectations
-            let normalizedConferenceName = conference.conference_name;
-            if (normalizedConferenceName.startsWith('The ')) {
-              normalizedConferenceName = normalizedConferenceName.substring(4);
-            }
+            // Use conference service to get normalized name
+            const conferenceResult = conferenceService.getConferenceByName(conference.conference_name, seasonYear);
+            const normalizedConferenceName = conferenceResult.data?.name || conference.conference_name;
 
             transformedMatchups.push({
               id: matchup.id.toString(),

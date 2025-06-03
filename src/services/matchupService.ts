@@ -103,9 +103,9 @@ export class MatchupService {
         "PageNo": 1,
         "PageSize": 1,
         "Filters": [
-          { "name": "conference_id", "op": "Equal", "value": conferenceId },
-          { "name": "roster_id", "op": "Equal", "value": rosterId.toString() }
-        ]
+        { "name": "conference_id", "op": "Equal", "value": conferenceId },
+        { "name": "roster_id", "op": "Equal", "value": rosterId.toString() }]
+
       });
 
       if (error) {
@@ -141,8 +141,8 @@ export class MatchupService {
         "PageNo": 1,
         "PageSize": 1,
         "Filters": [
-          { "name": "id", "op": "Equal", "value": teamId }
-        ]
+        { "name": "id", "op": "Equal", "value": teamId }]
+
       });
 
       if (error) {
@@ -168,7 +168,7 @@ export class MatchupService {
     const cachedPlayers: PlayerData[] = [];
     const uncachedPlayerIds: string[] = [];
 
-    sleeperPlayerIds.forEach(playerId => {
+    sleeperPlayerIds.forEach((playerId) => {
       if (this.playersCache.has(playerId)) {
         const cachedPlayer = this.playersCache.get(playerId);
         if (cachedPlayer) {
@@ -190,7 +190,7 @@ export class MatchupService {
 
       for (let i = 0; i < uncachedPlayerIds.length; i += batchSize) {
         const batch = uncachedPlayerIds.slice(i, i + batchSize);
-        
+
         // Create filter conditions for this batch
         const playerPromises = batch.map(async (playerId) => {
           try {
@@ -198,8 +198,8 @@ export class MatchupService {
               "PageNo": 1,
               "PageSize": 10,
               "Filters": [
-                { "name": "sleeper_player_id", "op": "Equal", "value": playerId }
-              ]
+              { "name": "sleeper_player_id", "op": "Equal", "value": playerId }]
+
             });
 
             if (error) {
@@ -215,22 +215,22 @@ export class MatchupService {
         });
 
         const batchResults = await Promise.all(playerPromises);
-        const validPlayers = batchResults.filter(player => player !== null);
+        const validPlayers = batchResults.filter((player) => player !== null);
         allFetchedPlayers.push(...validPlayers);
       }
 
       // Cache the fetched players
-      allFetchedPlayers.forEach(player => {
+      allFetchedPlayers.forEach((player) => {
         this.playersCache.set(player.sleeper_player_id, player);
       });
 
       // Handle missing players by attempting to fetch from Sleeper API
-      const foundPlayerIds = new Set(allFetchedPlayers.map(p => p.sleeper_player_id));
-      const missingPlayerIds = uncachedPlayerIds.filter(id => !foundPlayerIds.has(id));
+      const foundPlayerIds = new Set(allFetchedPlayers.map((p) => p.sleeper_player_id));
+      const missingPlayerIds = uncachedPlayerIds.filter((id) => !foundPlayerIds.has(id));
 
       if (missingPlayerIds.length > 0) {
         console.log(`Attempting to fetch ${missingPlayerIds.length} missing players from Sleeper API`);
-        
+
         // Attempt to fetch missing players from Sleeper API
         const sleeperPlayerPromises = missingPlayerIds.slice(0, 10).map(async (playerId) => {
           try {
@@ -253,7 +253,7 @@ export class MatchupService {
                 depth_chart_position: 1,
                 college: sleeperPlayerData.college || ''
               };
-              
+
               // Cache the player data
               this.playersCache.set(playerId, playerData);
               return playerData;
@@ -265,7 +265,7 @@ export class MatchupService {
         });
 
         const sleeperPlayers = await Promise.all(sleeperPlayerPromises);
-        const validSleeperPlayers = sleeperPlayers.filter(p => p !== null) as PlayerData[];
+        const validSleeperPlayers = sleeperPlayers.filter((p) => p !== null) as PlayerData[];
         allFetchedPlayers.push(...validSleeperPlayers);
       }
 
@@ -282,8 +282,8 @@ export class MatchupService {
         "PageNo": 1,
         "PageSize": 1,
         "Filters": [
-          { "name": "league_id", "op": "Equal", "value": leagueId }
-        ]
+        { "name": "league_id", "op": "Equal", "value": leagueId }]
+
       });
 
       if (error) {
@@ -308,8 +308,8 @@ export class MatchupService {
         "PageNo": 1,
         "PageSize": 50, // Assuming max 50 teams per conference
         "Filters": [
-          { "name": "conference_id", "op": "Equal", "value": conferenceId }
-        ]
+        { "name": "conference_id", "op": "Equal", "value": conferenceId }]
+
       });
 
       if (error) {
@@ -353,15 +353,15 @@ export class MatchupService {
       college: '',
       points: typeof points === 'number' ? points : 0,
       isStarter,
-      starterPosition: isStarter && starterIndex !== undefined ? (STARTER_POSITIONS[starterIndex] || 'FLEX') : undefined
+      starterPosition: isStarter && starterIndex !== undefined ? STARTER_POSITIONS[starterIndex] || 'FLEX' : undefined
     };
   }
 
   static async processMatchupData(
-    leagueId: string,
-    week: number,
-    matchupId?: number
-  ): Promise<TeamRosterData[]> {
+  leagueId: string,
+  week: number,
+  matchupId?: number)
+  : Promise<TeamRosterData[]> {
     try {
       console.log(`Processing matchup data for league ${leagueId}, week ${week}, matchup ${matchupId || 'all'}`);
 
@@ -383,9 +383,9 @@ export class MatchupService {
       }
 
       // Step 4: Filter by matchup ID if provided
-      const filteredData = matchupId ? 
-        sleeperData.filter((team) => team.matchup_id === matchupId) : 
-        sleeperData;
+      const filteredData = matchupId ?
+      sleeperData.filter((team) => team.matchup_id === matchupId) :
+      sleeperData;
 
       if (filteredData.length === 0) {
         console.warn(`No matchup data found for matchup ID: ${matchupId}`);
@@ -396,11 +396,11 @@ export class MatchupService {
       const teamIds = new Set<number>();
       const allPlayerIds = new Set<string>();
 
-      const validTeamData = filteredData.filter(teamData => {
+      const validTeamData = filteredData.filter((teamData) => {
         const teamId = teamMappings[teamData.roster_id];
         if (teamId) {
           teamIds.add(teamId);
-          [...teamData.starters, ...teamData.players].forEach(playerId => {
+          [...teamData.starters, ...teamData.players].forEach((playerId) => {
             if (playerId) allPlayerIds.add(playerId);
           });
           return true;
@@ -416,9 +416,9 @@ export class MatchupService {
 
       // Step 6: Batch fetch team info and player data in parallel
       const [teamInfoResults, playersData] = await Promise.all([
-        Promise.all(Array.from(teamIds).map(teamId => this.getTeamInfo(teamId))),
-        this.getPlayersDataOptimized(Array.from(allPlayerIds))
-      ]);
+      Promise.all(Array.from(teamIds).map((teamId) => this.getTeamInfo(teamId))),
+      this.getPlayersDataOptimized(Array.from(allPlayerIds))]
+      );
 
       // Step 7: Create lookup maps
       const teamInfoLookup = new Map<number, any>();
@@ -452,7 +452,7 @@ export class MatchupService {
           const starters: PlayerWithPoints[] = [];
           teamData.starters.forEach((playerId, index) => {
             if (!playerId) return;
-            
+
             const player = playerLookup.get(playerId);
             const playerPoints = teamData.players_points?.[playerId] || 0;
 
@@ -472,10 +472,10 @@ export class MatchupService {
           // Process bench players
           const benchPlayerIds = teamData.players.filter((id) => id && !teamData.starters.includes(id));
           const bench: PlayerWithPoints[] = [];
-          
+
           benchPlayerIds.forEach((playerId) => {
             if (!playerId) return;
-            
+
             const player = playerLookup.get(playerId);
             const playerPoints = teamData.players_points?.[playerId] || 0;
 
@@ -509,13 +509,13 @@ export class MatchupService {
 
       console.log(`Successfully processed ${teamRosterData.length} teams`);
       return teamRosterData;
-      
+
     } catch (error) {
       console.error('Error processing matchup data:', error);
       toast({
         title: "Error Loading Matchup Data",
         description: error instanceof Error ? error.message : "An unexpected error occurred",
-        variant: "destructive",
+        variant: "destructive"
       });
       throw error;
     }
