@@ -7,9 +7,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useToast } from '@/hooks/use-toast';
-import { Shield, Lock, Settings, Database, Clock, Activity } from 'lucide-react';
+import { Shield, Lock, Settings, Database, Clock, Activity, Calendar } from 'lucide-react';
 import LeagueManager from '@/components/admin/LeagueManager';
 import DataSync from '@/components/admin/DataSync';
+import MatchupsManagement from '@/components/admin/MatchupsManagement';
 
 const AdminPage: React.FC = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -170,7 +171,7 @@ const AdminPage: React.FC = () => {
       </div>
 
       <Tabs defaultValue="league-manager" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-2">
+        <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="league-manager" className="flex items-center gap-2">
             <Settings className="h-4 w-4" />
             League Manager
@@ -178,6 +179,10 @@ const AdminPage: React.FC = () => {
           <TabsTrigger value="data-sync" className="flex items-center gap-2">
             <Database className="h-4 w-4" />
             Data Sync
+          </TabsTrigger>
+          <TabsTrigger value="matchups-management" className="flex items-center gap-2">
+            <Calendar className="h-4 w-4" />
+            Matchups
           </TabsTrigger>
         </TabsList>
 
@@ -187,6 +192,10 @@ const AdminPage: React.FC = () => {
 
         <TabsContent value="data-sync">
           <DataSync />
+        </TabsContent>
+
+        <TabsContent value="matchups-management">
+          <MatchupsManagement />
         </TabsContent>
       </Tabs>
     </div>);
