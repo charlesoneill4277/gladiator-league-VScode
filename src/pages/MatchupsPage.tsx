@@ -190,12 +190,36 @@ const MatchupsPage: React.FC = () => {
         try {
           console.log(`Processing conference: ${conference.conference_name} (${conference.league_id})`);
 
-          // Fetch league data
-          const [matchupsData, rostersData, usersData] = await Promise.all([
-          SleeperApiService.fetchMatchups(conference.league_id, selectedWeek),
-          SleeperApiService.fetchLeagueRosters(conference.league_id),
-          SleeperApiService.fetchLeagueUsers(conference.league_id)]
-          );
+          // Fetch league data - get rosters and users data
+          const [rostersData, usersData] = await Promise.all([
+            SleeperApiService.fetchLeagueRosters(conference.league_id),
+            SleeperApiService.fetchLeagueUsers(conference.league_id)
+          ]);
+
+          // Fetch matchup data for the selected week
+          const matchupsData = await SleeperApiService.fetchMatchups(conference.league_id, selectedWeek);
+          console.log(`Fetched ${matchupsData.length} matchups for week ${selectedWeek}`);
+
+          // Log detailed points data for debugging
+          console.log(`\n=== WEEK ${selectedWeek} MATCHUP DATA ===`);
+          matchupsData.forEach((matchup) => {
+            console.log(`Roster ${matchup.roster_id}:`, {
+              points: matchup.points,
+              matchup_id: matchup.matchup_id,
+              has_starters: matchup.starters?.length || 0,
+              has_players_points: Object.keys(matchup.players_points || {}).length,
+              starters_points: matchup.starters_points?.reduce((sum, p) => sum + (p || 0), 0) || 0
+            });
+          });
+          console.log(`=== END WEEK ${selectedWeek} DATA ===\n`);
+          
+          // Check if this week has any points data
+          const hasAnyPoints = matchupsData.some(m => m.points > 0);
+          console.log(`Week ${selectedWeek} has points data: ${hasAnyPoints}`);
+          
+          if (!hasAnyPoints && selectedWeek <= currentWeek) {
+            console.warn(`WARNING: Week ${selectedWeek} should have points data but none found!`);
+          }
 
           // Organize matchups
           const organizedMatchups = SleeperApiService.organizeMatchups(
@@ -213,10 +237,19 @@ const MatchupsPage: React.FC = () => {
               );
 
               const matchupTeam = matchupsData.find((m) => m.roster_id === team.roster_id);
+              
+              console.log(`Team ${team.roster_id} matchup data:`, {
+                found_matchup: !!matchupTeam,
+                original_points: team.points,
+                matchup_points: matchupTeam?.points,
+                final_points: matchupTeam?.points || team.points || 0
+              });
 
               return {
                 ...team,
                 team: dbTeam || null,
+                points: matchupTeam?.points !== undefined ? matchupTeam.points : (team.points || 0),
+                projected_points: team.projected_points,
                 players_points: matchupTeam?.players_points || {},
                 starters_points: matchupTeam?.starters_points || []
               };
@@ -228,7 +261,7 @@ const MatchupsPage: React.FC = () => {
               matchupStatus = 'upcoming';
             } else {
               // Check if this specific matchup has points
-              const hasPoints = matchupTeams.some(team => team.points > 0);
+              const hasPoints = matchupTeams.some((team) => team.points > 0);
               matchupStatus = hasPoints ? 'completed' : 'live';
             }
 
