@@ -69,36 +69,36 @@ const StandingsPage: React.FC = () => {
         OrderByField: 'id',
         IsAsc: true,
         Filters: [
-          {
-            name: 'season_year',
-            op: 'Equal',
-            value: selectedSeason
-          }
-        ]
+        {
+          name: 'season_year',
+          op: 'Equal',
+          value: selectedSeason
+        }]
+
       });
 
       if (seasonsError) throw new Error(`Seasons fetch error: ${seasonsError}`);
-      
+
       const seasons = seasonsData.List || [];
       if (seasons.length === 0) {
         throw new Error(`No season found for year ${selectedSeason}`);
       }
-      
+
       const seasonId = seasons[0].id;
       console.log(`Found season ID ${seasonId} for year ${selectedSeason}`);
 
       // Get conferences for the selected season
       const conferenceFilters = [
-        {
-          name: 'season_id',
-          op: 'Equal',
-          value: seasonId
-        }
-      ];
+      {
+        name: 'season_id',
+        op: 'Equal',
+        value: seasonId
+      }];
+
 
       // If a specific conference is selected, add that filter too
       if (selectedConference) {
-        const selectedConferenceName = currentSeasonConfig.conferences.find(c => c.id === selectedConference)?.name;
+        const selectedConferenceName = currentSeasonConfig.conferences.find((c) => c.id === selectedConference)?.name;
         if (selectedConferenceName) {
           conferenceFilters.push({
             name: 'conference_name',
@@ -128,8 +128,8 @@ const StandingsPage: React.FC = () => {
       console.log(`Found ${conferences.length} conferences for the selected filters`);
 
       // Get junction data for the found conferences
-      const conferenceIds = conferences.map(c => c.id);
-      const junctionFilters = conferenceIds.map(id => ({
+      const conferenceIds = conferences.map((c) => c.id);
+      const junctionFilters = conferenceIds.map((id) => ({
         name: 'conference_id',
         op: 'Equal',
         value: id
@@ -148,8 +148,8 @@ const StandingsPage: React.FC = () => {
       if (junctionError) throw new Error(`Junction fetch error: ${junctionError}`);
 
       // Filter junctions to only include those for our selected conferences
-      const filteredJunctions = (junctionData.List || []).filter(junction => 
-        conferenceIds.includes(junction.conference_id) && junction.is_active
+      const filteredJunctions = (junctionData.List || []).filter((junction) =>
+      conferenceIds.includes(junction.conference_id) && junction.is_active
       );
 
       console.log(`Found ${filteredJunctions.length} active team-conference junctions`);
@@ -165,11 +165,11 @@ const StandingsPage: React.FC = () => {
 
       if (teamsError) throw new Error(`Teams fetch error: ${teamsError}`);
 
-      console.log('Database data:', { 
-        seasonsData, 
-        conferencesData: { List: conferences }, 
-        junctionData: { List: filteredJunctions }, 
-        teamsData 
+      console.log('Database data:', {
+        seasonsData,
+        conferencesData: { List: conferences },
+        junctionData: { List: filteredJunctions },
+        teamsData
       });
 
       const teams = teamsData.List || [];

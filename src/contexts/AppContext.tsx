@@ -29,16 +29,16 @@ const SEASON_CONFIGS: SeasonConfig[] = [
 {
   year: 2024,
   conferences: [
-  { id: 'mars', name: 'Legions of Mars', leagueId: '1072580179844857856' },
-  { id: 'jupiter', name: 'Guardians of Jupiter', leagueId: '1072593839715667968' },
+  { id: 'mars', name: 'The Legions of Mars', leagueId: '1072580179844857856' },
+  { id: 'jupiter', name: 'The Guardians of Jupiter', leagueId: '1072593839715667968' },
   { id: 'vulcan', name: "Vulcan's Oathsworn", leagueId: '1072593416955015168' }]
 
 },
 {
   year: 2025,
   conferences: [
-  { id: 'mars', name: 'Legions of Mars', leagueId: '1204854057169072128' },
-  { id: 'jupiter', name: 'Guardians of Jupiter', leagueId: '1204857692007440384' },
+  { id: 'mars', name: 'The Legions of Mars', leagueId: '1204854057169072128' },
+  { id: 'jupiter', name: 'The Guardians of Jupiter', leagueId: '1204857692007440384' },
   { id: 'vulcan', name: "Vulcan's Oathsworn", leagueId: '1204857608989577216' }]
 
 }];
