@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -6,143 +6,213 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { ArrowLeft, Users, Trophy, TrendingUp, Calendar, Star } from 'lucide-react';
+import { ArrowLeft, Users, Trophy, TrendingUp, Calendar, Star, Loader2, AlertCircle } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
+import SleeperApiService, { type SleeperRoster, type SleeperPlayer, type OrganizedRoster } from '../services/sleeperApi';
 
-// Mock data for team detail - this will be replaced with real Sleeper API data
-const mockTeamDetail = {
-  id: '1',
-  teamName: 'Galactic Gladiators',
-  ownerName: 'John Doe',
-  ownerAvatar: null,
-  conference: 'Legions of Mars',
-  record: { wins: 11, losses: 2, ties: 0 },
-  pointsFor: 1485.2,
-  pointsAgainst: 1289.5,
-  rank: 1,
-  streak: 'W5',
-  avgPointsFor: 114.2,
-  roster: [
-  {
-    id: 'player1',
-    name: 'Josh Allen',
-    position: 'QB',
-    team: 'BUF',
-    points: 287.5,
-    starter: true,
-    injury_status: null
-  },
-  {
-    id: 'player2',
-    name: 'Christian McCaffrey',
-    position: 'RB',
-    team: 'SF',
-    points: 245.8,
-    starter: true,
-    injury_status: 'IR'
-  },
-  {
-    id: 'player3',
-    name: 'Tyreek Hill',
-    position: 'WR',
-    team: 'MIA',
-    points: 198.2,
-    starter: true,
-    injury_status: null
-  },
-  {
-    id: 'player4',
-    name: 'Travis Kelce',
-    position: 'TE',
-    team: 'KC',
-    points: 156.7,
-    starter: true,
-    injury_status: 'Q'
-  },
-  {
-    id: 'player5',
-    name: 'Justin Tucker',
-    position: 'K',
-    team: 'BAL',
-    points: 112.3,
-    starter: true,
-    injury_status: null
-  }],
+interface TeamData {
+  id: number;
+  team_name: string;
+  owner_name: string;
+  owner_id: string;
+  co_owner_name?: string;
+  co_owner_id?: string;
+  team_logo_url?: string;
+  team_primary_color: string;
+  team_secondary_color: string;
+}
 
-  transactions: [
-  {
-    id: 'trans1',
-    type: 'waiver',
-    date: '2024-12-10',
-    description: 'Added Jerome Ford, Dropped Antonio Gibson',
-    week: 14
-  },
-  {
-    id: 'trans2',
-    type: 'trade',
-    date: '2024-11-28',
-    description: 'Traded Saquon Barkley for Stefon Diggs + 2025 2nd Round Pick',
-    week: 12,
-    tradePartner: 'Space Vikings'
-  },
-  {
-    id: 'trans3',
-    type: 'waiver',
-    date: '2024-11-20',
-    description: 'Added Tank Dell, Dropped Marquise Goodwin',
-    week: 11
-  }],
+interface ConferenceData {
+  id: number;
+  conference_name: string;
+  league_id: string;
+  season_id: number;
+  draft_id: string;
+  status: string;
+  league_logo_url?: string;
+}
 
-  weeklyScores: [
-  { week: 1, score: 128.5, opponent: 'Space Vikings', result: 'W' },
-  { week: 2, score: 105.2, opponent: 'Meteor Crushers', result: 'L' },
-  { week: 3, score: 142.8, opponent: 'Asteroid Miners', result: 'W' },
-  { week: 4, score: 118.6, opponent: 'Solar Flares', result: 'W' },
-  { week: 5, score: 95.4, opponent: 'Nebula Nomads', result: 'L' },
-  { week: 6, score: 134.2, opponent: 'Cosmic Crusaders', result: 'W' }]
-
-};
+interface TeamRosterData {
+  roster: SleeperRoster;
+  organizedRoster: OrganizedRoster;
+  allPlayers: Record<string, SleeperPlayer>;
+  teamData: TeamData;
+  conferenceData: ConferenceData;
+}
 
 const TeamDetailPage: React.FC = () => {
   const { teamId } = useParams<{teamId: string;}>();
   const [activeTab, setActiveTab] = useState('roster');
+  const [teamRosterData, setTeamRosterData] = useState<TeamRosterData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const { toast } = useToast();
 
-  // In a real app, you would fetch team data based on teamId
-  const team = mockTeamDetail;
+  useEffect(() => {
+    if (teamId) {
+      fetchTeamData(parseInt(teamId));
+    }
+  }, [teamId]);
+
+  const fetchTeamData = async (id: number) => {
+    try {
+      setLoading(true);
+      setError(null);
+      console.log(`Fetching data for team ID: ${id}`);
+
+      // Fetch team data from database
+      const teamResponse = await window.ezsite.apis.tablePage('12852', {
+        PageNo: 1,
+        PageSize: 1,
+        Filters: [{ name: 'id', op: 'Equal', value: id }]
+      });
+
+      if (teamResponse.error) throw new Error(teamResponse.error);
+      if (!teamResponse.data?.List?.length) {
+        throw new Error('Team not found');
+      }
+
+      const teamData = teamResponse.data.List[0] as TeamData;
+      console.log('Team data:', teamData);
+
+      // Find the conference this team belongs to
+      const junctionResponse = await window.ezsite.apis.tablePage('12853', {
+        PageNo: 1,
+        PageSize: 1,
+        Filters: [{ name: 'team_id', op: 'Equal', value: id }]
+      });
+
+      if (junctionResponse.error) throw new Error(junctionResponse.error);
+      if (!junctionResponse.data?.List?.length) {
+        throw new Error('Team conference mapping not found');
+      }
+
+      const junction = junctionResponse.data.List[0];
+      const rosterId = parseInt(junction.roster_id);
+      console.log('Junction data:', junction, 'Roster ID:', rosterId);
+
+      // Get conference data
+      const conferenceResponse = await window.ezsite.apis.tablePage('12820', {
+        PageNo: 1,
+        PageSize: 1,
+        Filters: [{ name: 'id', op: 'Equal', value: junction.conference_id }]
+      });
+
+      if (conferenceResponse.error) throw new Error(conferenceResponse.error);
+      if (!conferenceResponse.data?.List?.length) {
+        throw new Error('Conference not found');
+      }
+
+      const conferenceData = conferenceResponse.data.List[0] as ConferenceData;
+      console.log('Conference data:', conferenceData);
+
+      // Fetch roster data from Sleeper API
+      console.log(`Fetching Sleeper data for league ${conferenceData.league_id}, roster ${rosterId}`);
+      const sleeperData = await SleeperApiService.getTeamRosterData(
+        conferenceData.league_id,
+        rosterId
+      );
+
+      setTeamRosterData({
+        ...sleeperData,
+        teamData,
+        conferenceData
+      });
+
+      console.log('Successfully loaded team roster data');
+
+    } catch (error) {
+      console.error('Error fetching team data:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Failed to load team data';
+      setError(errorMessage);
+      toast({
+        title: 'Error',
+        description: errorMessage,
+        variant: 'destructive',
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const getPositionColor = (position: string) => {
     switch (position) {
-      case 'QB':return 'bg-red-100 text-red-800';
-      case 'RB':return 'bg-green-100 text-green-800';
-      case 'WR':return 'bg-blue-100 text-blue-800';
-      case 'TE':return 'bg-yellow-100 text-yellow-800';
-      case 'K':return 'bg-purple-100 text-purple-800';
-      case 'DEF':return 'bg-gray-100 text-gray-800';
-      default:return 'bg-gray-100 text-gray-800';
+      case 'QB': return 'bg-red-100 text-red-800';
+      case 'RB': return 'bg-green-100 text-green-800';
+      case 'WR': return 'bg-blue-100 text-blue-800';
+      case 'TE': return 'bg-yellow-100 text-yellow-800';
+      case 'K': return 'bg-purple-100 text-purple-800';
+      case 'DEF': return 'bg-gray-100 text-gray-800';
+      default: return 'bg-gray-100 text-gray-800';
+    }
+  };
+
+  const getSlotPositionColor = (position: string) => {
+    switch (position) {
+      case 'FLEX': return 'bg-orange-100 text-orange-800';
+      case 'SUPER_FLEX': return 'bg-pink-100 text-pink-800';
+      default: return 'bg-slate-100 text-slate-800';
     }
   };
 
   const getInjuryBadge = (status: string | null) => {
-    if (!status) return null;
+    if (!status || status === 'Active') return null;
 
     const variants: {[key: string]: string;} = {
       'IR': 'destructive',
-      'O': 'destructive',
-      'D': 'destructive',
-      'Q': 'secondary',
-      'P': 'outline'
+      'Out': 'destructive',
+      'Doubtful': 'destructive',
+      'Questionable': 'secondary',
+      'Probable': 'outline'
     };
 
     return <Badge variant={variants[status] || 'outline'} className="text-xs">{status}</Badge>;
   };
 
-  const getTransactionIcon = (type: string) => {
-    switch (type) {
-      case 'trade':return '🔄';
-      case 'waiver':return '📈';
-      case 'draft':return '🎯';
-      default:return '📝';
-    }
-  };
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-64">
+        <div className="flex items-center space-x-2">
+          <Loader2 className="h-6 w-6 animate-spin" />
+          <span>Loading team data...</span>
+        </div>
+      </div>
+    );
+  }
+
+  if (error || !teamRosterData) {
+    return (
+      <div className="space-y-6">
+        <Link to="/teams">
+          <Button variant="ghost" className="mb-4">
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            Back to Teams
+          </Button>
+        </Link>
+        <Card>
+          <CardContent className="flex items-center justify-center min-h-64">
+            <div className="text-center space-y-2">
+              <AlertCircle className="h-12 w-12 text-destructive mx-auto" />
+              <h3 className="text-lg font-semibold">Error Loading Team</h3>
+              <p className="text-muted-foreground">{error || 'Team data not available'}</p>
+              <Button onClick={() => teamId && fetchTeamData(parseInt(teamId))}>
+                Try Again
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  const { roster, organizedRoster, allPlayers, teamData, conferenceData } = teamRosterData;
+  
+  // Calculate additional stats
+  const totalPoints = SleeperApiService.formatPoints(roster.settings.fpts, roster.settings.fpts_decimal);
+  const totalPointsAgainst = SleeperApiService.formatPoints(roster.settings.fpts_against, roster.settings.fpts_against_decimal);
+  const gamesPlayed = roster.settings.wins + roster.settings.losses + roster.settings.ties;
+  const avgPointsPerGame = SleeperApiService.calculatePointsPerGame(totalPoints, gamesPlayed);
+  const winPercentage = gamesPlayed > 0 ? (roster.settings.wins / gamesPlayed * 100) : 0;
 
   return (
     <div className="space-y-6">
@@ -158,37 +228,40 @@ const TeamDetailPage: React.FC = () => {
       <div className="flex flex-col md:flex-row md:items-start md:justify-between space-y-4 md:space-y-0">
         <div className="flex items-center space-x-4">
           <Avatar className="h-16 w-16">
-            <AvatarImage src={team.ownerAvatar || undefined} />
-            <AvatarFallback className="bg-primary/10 text-lg">
-              {team.ownerName.split(' ').map((n) => n[0]).join('').toUpperCase()}
+            <AvatarImage src={teamData.team_logo_url || undefined} />
+            <AvatarFallback className="bg-primary/10 text-lg" style={{backgroundColor: teamData.team_primary_color + '20'}}>
+              {teamData.team_name.split(' ').map((n) => n[0]).join('').toUpperCase()}
             </AvatarFallback>
           </Avatar>
           <div>
-            <h1 className="text-3xl font-bold">{team.teamName}</h1>
-            <p className="text-muted-foreground">Owned by {team.ownerName}</p>
+            <h1 className="text-3xl font-bold">{teamData.team_name}</h1>
+            <p className="text-muted-foreground">Owned by {teamData.owner_name}</p>
+            {teamData.co_owner_name && (
+              <p className="text-sm text-muted-foreground">Co-owner: {teamData.co_owner_name}</p>
+            )}
             <div className="flex items-center space-x-2 mt-2">
-              <Badge variant="outline">{team.conference}</Badge>
-              <Badge variant="secondary">Rank #{team.rank}</Badge>
+              <Badge variant="outline">{conferenceData.conference_name}</Badge>
+              <Badge variant="secondary">Roster #{roster.roster_id}</Badge>
             </div>
           </div>
         </div>
 
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
           <div>
-            <div className="text-2xl font-bold">{team.record.wins}-{team.record.losses}</div>
+            <div className="text-2xl font-bold">{roster.settings.wins}-{roster.settings.losses}</div>
             <div className="text-sm text-muted-foreground">Record</div>
           </div>
           <div>
-            <div className="text-2xl font-bold">{team.pointsFor.toFixed(0)}</div>
+            <div className="text-2xl font-bold">{totalPoints.toFixed(1)}</div>
             <div className="text-sm text-muted-foreground">Points For</div>
           </div>
           <div>
-            <div className="text-2xl font-bold">{team.avgPointsFor.toFixed(1)}</div>
+            <div className="text-2xl font-bold">{avgPointsPerGame.toFixed(1)}</div>
             <div className="text-sm text-muted-foreground">Avg/Game</div>
           </div>
           <div>
-            <div className="text-2xl font-bold text-green-600">{team.streak}</div>
-            <div className="text-sm text-muted-foreground">Streak</div>
+            <div className="text-2xl font-bold text-blue-600">{winPercentage.toFixed(1)}%</div>
+            <div className="text-sm text-muted-foreground">Win %</div>
           </div>
         </div>
       </div>
@@ -204,14 +277,72 @@ const TeamDetailPage: React.FC = () => {
 
         {/* Roster Tab */}
         <TabsContent value="roster" className="space-y-4">
+          {/* Starting Lineup */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center space-x-2">
+                <Star className="h-5 w-5" />
+                <span>Starting Lineup</span>
+              </CardTitle>
+              <CardDescription>
+                Current starting players for this roster
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="rounded-md border">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Position</TableHead>
+                      <TableHead>Player</TableHead>
+                      <TableHead>NFL Team</TableHead>
+                      <TableHead>Status</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {organizedRoster.starters.map((starter, index) => {
+                      const player = allPlayers[starter.playerId];
+                      return (
+                        <TableRow key={`starter-${index}`}>
+                          <TableCell>
+                            <Badge className={getSlotPositionColor(starter.slotPosition)}>
+                              {starter.slotPosition}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center space-x-2">
+                              <span className="font-medium">
+                                {player ? SleeperApiService.getPlayerName(player) : 'Unknown Player'}
+                              </span>
+                              {player && (
+                                <Badge className={getPositionColor(player.position)}>
+                                  {player.position}
+                                </Badge>
+                              )}
+                            </div>
+                          </TableCell>
+                          <TableCell>{player?.team || 'N/A'}</TableCell>
+                          <TableCell>
+                            {getInjuryBadge(player?.injury_status)}
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Bench Players */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center space-x-2">
                 <Users className="h-5 w-5" />
-                <span>Current Roster</span>
+                <span>Bench ({organizedRoster.bench.length})</span>
               </CardTitle>
               <CardDescription>
-                Active players and their season performance
+                Players available as substitutes
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -221,39 +352,36 @@ const TeamDetailPage: React.FC = () => {
                     <TableRow>
                       <TableHead>Player</TableHead>
                       <TableHead>Position</TableHead>
-                      <TableHead>Team</TableHead>
-                      <TableHead className="text-right">Points</TableHead>
+                      <TableHead>NFL Team</TableHead>
                       <TableHead>Status</TableHead>
-                      <TableHead>Role</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {team.roster.map((player) =>
-                    <TableRow key={player.id}>
-                        <TableCell>
-                          <Link to={`/players/${player.id}`} className="font-medium hover:underline">
-                            {player.name}
-                          </Link>
-                        </TableCell>
-                        <TableCell>
-                          <Badge className={getPositionColor(player.position)}>
-                            {player.position}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>{player.team}</TableCell>
-                        <TableCell className="text-right font-mono">
-                          {player.points.toFixed(1)}
-                        </TableCell>
-                        <TableCell>
-                          {getInjuryBadge(player.injury_status)}
-                        </TableCell>
-                        <TableCell>
-                          {player.starter &&
-                        <Badge variant="outline" className="text-xs">
-                              <Star className="mr-1 h-3 w-3" />
-                              Starter
-                            </Badge>
-                        }
+                    {organizedRoster.bench.map((playerId) => {
+                      const player = allPlayers[playerId];
+                      return (
+                        <TableRow key={`bench-${playerId}`}>
+                          <TableCell className="font-medium">
+                            {player ? SleeperApiService.getPlayerName(player) : 'Unknown Player'}
+                          </TableCell>
+                          <TableCell>
+                            {player && (
+                              <Badge className={getPositionColor(player.position)}>
+                                {player.position}
+                              </Badge>
+                            )}
+                          </TableCell>
+                          <TableCell>{player?.team || 'N/A'}</TableCell>
+                          <TableCell>
+                            {getInjuryBadge(player?.injury_status)}
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                    {organizedRoster.bench.length === 0 && (
+                      <TableRow>
+                        <TableCell colSpan={4} className="text-center text-muted-foreground py-4">
+                          No bench players
                         </TableCell>
                       </TableRow>
                     )}
@@ -262,6 +390,58 @@ const TeamDetailPage: React.FC = () => {
               </div>
             </CardContent>
           </Card>
+
+          {/* Injured Reserve */}
+          {organizedRoster.ir.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center space-x-2">
+                  <AlertCircle className="h-5 w-5" />
+                  <span>Injured Reserve ({organizedRoster.ir.length})</span>
+                </CardTitle>
+                <CardDescription>
+                  Players on injured reserve
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="rounded-md border">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Player</TableHead>
+                        <TableHead>Position</TableHead>
+                        <TableHead>NFL Team</TableHead>
+                        <TableHead>Status</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {organizedRoster.ir.map((playerId) => {
+                        const player = allPlayers[playerId];
+                        return (
+                          <TableRow key={`ir-${playerId}`}>
+                            <TableCell className="font-medium">
+                              {player ? SleeperApiService.getPlayerName(player) : 'Unknown Player'}
+                            </TableCell>
+                            <TableCell>
+                              {player && (
+                                <Badge className={getPositionColor(player.position)}>
+                                  {player.position}
+                                </Badge>
+                              )}
+                            </TableCell>
+                            <TableCell>{player?.team || 'N/A'}</TableCell>
+                            <TableCell>
+                              <Badge variant="destructive" className="text-xs">IR</Badge>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                </div>
+              </CardContent>
+            </Card>
+          )}
         </TabsContent>
 
         {/* Performance Tab */}
@@ -278,23 +458,21 @@ const TeamDetailPage: React.FC = () => {
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <p className="text-sm text-muted-foreground">Total Points For</p>
-                    <p className="text-2xl font-bold">{team.pointsFor.toFixed(1)}</p>
+                    <p className="text-2xl font-bold">{totalPoints.toFixed(1)}</p>
                   </div>
                   <div>
                     <p className="text-sm text-muted-foreground">Total Points Against</p>
-                    <p className="text-2xl font-bold">{team.pointsAgainst.toFixed(1)}</p>
+                    <p className="text-2xl font-bold">{totalPointsAgainst.toFixed(1)}</p>
                   </div>
                   <div>
                     <p className="text-sm text-muted-foreground">Point Differential</p>
-                    <p className="text-2xl font-bold text-green-600">
-                      +{(team.pointsFor - team.pointsAgainst).toFixed(1)}
+                    <p className={`text-2xl font-bold ${(totalPoints - totalPointsAgainst) > 0 ? 'text-green-600' : 'text-red-600'}`}>
+                      {(totalPoints - totalPointsAgainst) > 0 ? '+' : ''}{(totalPoints - totalPointsAgainst).toFixed(1)}
                     </p>
                   </div>
                   <div>
                     <p className="text-sm text-muted-foreground">Win Percentage</p>
-                    <p className="text-2xl font-bold">
-                      {(team.record.wins / (team.record.wins + team.record.losses) * 100).toFixed(1)}%
-                    </p>
+                    <p className="text-2xl font-bold">{winPercentage.toFixed(1)}%</p>
                   </div>
                 </div>
               </CardContent>
@@ -304,25 +482,27 @@ const TeamDetailPage: React.FC = () => {
               <CardHeader>
                 <CardTitle className="flex items-center space-x-2">
                   <TrendingUp className="h-5 w-5" />
-                  <span>Weekly Scores</span>
+                  <span>Team Management</span>
                 </CardTitle>
               </CardHeader>
-              <CardContent>
-                <div className="space-y-2">
-                  {team.weeklyScores.slice(-6).map((week) =>
-                  <div key={week.week} className="flex items-center justify-between p-2 rounded-md bg-accent/50">
-                      <div className="flex items-center space-x-2">
-                        <Badge variant="outline">Week {week.week}</Badge>
-                        <span className="text-sm text-muted-foreground">vs {week.opponent}</span>
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        <span className="font-mono">{week.score}</span>
-                        <Badge variant={week.result === 'W' ? 'default' : 'destructive'}>
-                          {week.result}
-                        </Badge>
-                      </div>
-                    </div>
-                  )}
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-sm text-muted-foreground">Waiver Position</p>
+                    <p className="text-2xl font-bold">{roster.settings.waiver_position}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Waiver Budget Used</p>
+                    <p className="text-2xl font-bold">${roster.settings.waiver_budget_used}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Total Moves</p>
+                    <p className="text-2xl font-bold">{roster.settings.total_moves}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Games Played</p>
+                    <p className="text-2xl font-bold">{gamesPlayed}</p>
+                  </div>
                 </div>
               </CardContent>
             </Card>
@@ -335,39 +515,17 @@ const TeamDetailPage: React.FC = () => {
             <CardHeader>
               <CardTitle className="flex items-center space-x-2">
                 <Calendar className="h-5 w-5" />
-                <span>Recent Transactions</span>
+                <span>Transaction History</span>
               </CardTitle>
               <CardDescription>
-                Trades, waivers, and roster moves
+                Trades, waivers, and roster moves (requires additional API integration)
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="space-y-4">
-                {team.transactions.map((transaction) =>
-                <div key={transaction.id} className="flex items-start space-x-3 p-3 rounded-md border">
-                    <div className="text-2xl">{getTransactionIcon(transaction.type)}</div>
-                    <div className="flex-1">
-                      <div className="flex items-center space-x-2 mb-1">
-                        <Badge variant="outline" className="text-xs">
-                          Week {transaction.week}
-                        </Badge>
-                        <Badge variant="secondary" className="text-xs capitalize">
-                          {transaction.type}
-                        </Badge>
-                        <span className="text-xs text-muted-foreground">
-                          {new Date(transaction.date).toLocaleDateString()}
-                        </span>
-                      </div>
-                      <p className="text-sm">{transaction.description}</p>
-                      {transaction.tradePartner &&
-                    <p className="text-xs text-muted-foreground mt-1">
-                          Trade partner: {transaction.tradePartner}
-                        </p>
-                    }
-                    </div>
-                  </div>
-                )}
-              </div>
+              <p className="text-muted-foreground text-center py-8">
+                Transaction history will be available when connected to Sleeper's transaction API endpoints.
+                Current stats: {roster.settings.total_moves} total moves this season.
+              </p>
             </CardContent>
           </Card>
         </TabsContent>
@@ -383,15 +541,15 @@ const TeamDetailPage: React.FC = () => {
             </CardHeader>
             <CardContent>
               <p className="text-muted-foreground text-center py-8">
-                Full schedule view will be implemented when connected to Sleeper API.
-                This will show all past and upcoming matchups with scores and opponents.
+                Full schedule view will be implemented when connected to Sleeper's matchup API endpoints.
+                Current record: {roster.settings.wins}-{roster.settings.losses}-{roster.settings.ties}
               </p>
             </CardContent>
           </Card>
         </TabsContent>
       </Tabs>
-    </div>);
-
+    </div>
+  );
 };
 
 export default TeamDetailPage;
