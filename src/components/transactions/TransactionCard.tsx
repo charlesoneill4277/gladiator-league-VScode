@@ -97,12 +97,12 @@ const TransactionCard: React.FC<TransactionCardProps> = ({ transaction }) => {
             </div>
           </div>
           
-          {transaction.waiverBid && (
-            <div className="flex items-center space-x-1 text-sm text-muted-foreground">
+          {transaction.waiverBid &&
+          <div className="flex items-center space-x-1 text-sm text-muted-foreground">
               <DollarSign className="h-3 w-3" />
               <span>${transaction.waiverBid}</span>
             </div>
-          )}
+          }
         </div>
       </CardHeader>
 
@@ -114,69 +114,69 @@ const TransactionCard: React.FC<TransactionCardProps> = ({ transaction }) => {
           </div>
 
           {/* Teams Involved */}
-          {transaction.teams.length > 0 && (
-            <div>
+          {transaction.teams.length > 0 &&
+          <div>
               <p className="text-xs text-muted-foreground mb-1">Teams:</p>
               <div className="flex flex-wrap gap-1">
-                {transaction.teams.map((team, index) => (
-                  <Badge key={index} variant="secondary" className="text-xs">
+                {transaction.teams.map((team, index) =>
+              <Badge key={index} variant="secondary" className="text-xs">
                     {team}
                   </Badge>
-                ))}
+              )}
               </div>
             </div>
-          )}
+          }
 
           {/* Player Movements */}
-          {(transaction.players.added.length > 0 || transaction.players.dropped.length > 0) && (
-            <div className="space-y-2">
-              {transaction.players.added.length > 0 && (
-                <div>
+          {(transaction.players.added.length > 0 || transaction.players.dropped.length > 0) &&
+          <div className="space-y-2">
+              {transaction.players.added.length > 0 &&
+            <div>
                   <p className="text-xs text-muted-foreground mb-1 flex items-center">
                     <Plus className="h-3 w-3 mr-1 text-green-600" />
                     Added:
                   </p>
                   <div className="space-y-1">
-                    {transaction.players.added.map((player, index) => (
-                      <div key={index} className="flex items-center justify-between text-sm">
+                    {transaction.players.added.map((player, index) =>
+                <div key={index} className="flex items-center justify-between text-sm">
                         <span className="font-medium">{player.name}</span>
                         <Badge variant="outline" className="text-xs">
                           to {player.team}
                         </Badge>
                       </div>
-                    ))}
+                )}
                   </div>
                 </div>
-              )}
+            }
 
-              {transaction.players.dropped.length > 0 && (
-                <div>
+              {transaction.players.dropped.length > 0 &&
+            <div>
                   <p className="text-xs text-muted-foreground mb-1 flex items-center">
                     <Minus className="h-3 w-3 mr-1 text-red-600" />
                     Dropped:
                   </p>
                   <div className="space-y-1">
-                    {transaction.players.dropped.map((player, index) => (
-                      <div key={index} className="flex items-center justify-between text-sm">
+                    {transaction.players.dropped.map((player, index) =>
+                <div key={index} className="flex items-center justify-between text-sm">
                         <span className="font-medium">{player.name}</span>
                         <Badge variant="outline" className="text-xs">
                           from {player.team}
                         </Badge>
                       </div>
-                    ))}
+                )}
                   </div>
                 </div>
-              )}
+            }
             </div>
-          )}
+          }
 
           {/* Draft Picks */}
-          {transaction.draftPicks.length > 0 && (
-            <div>
+          {transaction.draftPicks.length > 0 &&
+          <div>
               <p className="text-xs text-muted-foreground mb-1">Draft Picks:</p>
               <div className="space-y-1">
-                {transaction.draftPicks.map((pick, index) => (
-                  <div key={index} className="text-sm">
+                {transaction.draftPicks.map((pick, index) =>
+              <div key={index} className="text-sm">
                     <span className="font-medium">
                       {pick.season} Round {pick.round}
                     </span>
@@ -184,45 +184,45 @@ const TransactionCard: React.FC<TransactionCardProps> = ({ transaction }) => {
                       (Roster {pick.previous_owner_id} → Roster {pick.owner_id})
                     </span>
                   </div>
-                ))}
+              )}
               </div>
             </div>
-          )}
+          }
 
           {/* FAAB Transfers */}
-          {transaction.waiverBudget.length > 0 && (
-            <div>
+          {transaction.waiverBudget.length > 0 &&
+          <div>
               <p className="text-xs text-muted-foreground mb-1 flex items-center">
                 <DollarSign className="h-3 w-3 mr-1" />
                 FAAB Transfers:
               </p>
               <div className="space-y-1">
-                {transaction.waiverBudget.map((transfer, index) => (
-                  <div key={index} className="text-sm">
+                {transaction.waiverBudget.map((transfer, index) =>
+              <div key={index} className="text-sm">
                     <span className="font-medium">${transfer.amount}</span>
                     <span className="text-muted-foreground ml-2">
                       (Roster {transfer.sender} → Roster {transfer.receiver})
                     </span>
                   </div>
-                ))}
+              )}
               </div>
             </div>
-          )}
+          }
 
           {/* Notes */}
-          {transaction.notes && (
-            <>
+          {transaction.notes &&
+          <>
               <Separator />
               <div>
                 <p className="text-xs text-muted-foreground mb-1">Notes:</p>
                 <p className="text-sm italic text-muted-foreground">{transaction.notes}</p>
               </div>
             </>
-          )}
+          }
         </div>
       </CardContent>
-    </Card>
-  );
+    </Card>);
+
 };
 
 export default TransactionCard;

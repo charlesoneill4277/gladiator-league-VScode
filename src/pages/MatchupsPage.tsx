@@ -1,127 +1,241 @@
-import React, { useState } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import React, { useState, useEffect, useCallback } from 'react';
+import { Card, CardContent } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { useApp } from '@/contexts/AppContext';
-import { Swords, ChevronDown, Clock, Trophy, Users } from 'lucide-react';
-
-// Mock data for matchups - this will be replaced with real Sleeper API data
-const mockMatchupsData = {
-  currentWeek: 14,
-  weeks: Array.from({ length: 17 }, (_, i) => ({
-    week: i + 1,
-    status: i < 13 ? 'completed' : i === 13 ? 'current' : 'upcoming'
-  })),
-  matchups: [
-  {
-    id: '1',
-    week: 14,
-    conference: 'Legions of Mars',
-    homeTeam: {
-      id: '1',
-      name: 'Galactic Gladiators',
-      owner: 'John Doe',
-      score: 127.5,
-      projected: 118.2
-    },
-    awayTeam: {
-      id: '2',
-      name: 'Space Vikings',
-      owner: 'Jane Smith',
-      score: 112.8,
-      projected: 125.4
-    },
-    status: 'live', // live, completed, upcoming
-    lastUpdate: '2024-12-15T20:30:00Z'
-  },
-  {
-    id: '2',
-    week: 14,
-    conference: 'Guardians of Jupiter',
-    homeTeam: {
-      id: '3',
-      name: 'Meteor Crushers',
-      owner: 'Bob Johnson',
-      score: 98.3,
-      projected: 110.8
-    },
-    awayTeam: {
-      id: '4',
-      name: 'Asteroid Miners',
-      owner: 'Alice Brown',
-      score: 134.2,
-      projected: 115.6
-    },
-    status: 'live',
-    lastUpdate: '2024-12-15T20:30:00Z'
-  },
-  {
-    id: '3',
-    week: 14,
-    conference: "Vulcan's Oathsworn",
-    homeTeam: {
-      id: '5',
-      name: 'Solar Flares',
-      owner: 'Charlie Wilson',
-      score: 0,
-      projected: 108.4
-    },
-    awayTeam: {
-      id: '6',
-      name: 'Nebula Nomads',
-      owner: 'Diana Prince',
-      score: 0,
-      projected: 112.7
-    },
-    status: 'upcoming',
-    lastUpdate: null
-  }]
-
-};
+import { useToast } from '@/hooks/use-toast';
+import MatchupDataService, { MatchupData, LiveMatchupData } from '@/services/matchupDataService';
+import MatchupCard from '@/components/matchups/MatchupCard';
+import { 
+  Swords, 
+  Clock, 
+  Users, 
+  RefreshCw, 
+  AlertCircle,
+  Loader2,
+  Calendar,
+  Trophy
+} from 'lucide-react';
 
 const MatchupsPage: React.FC = () => {
   const { selectedSeason, selectedConference, currentSeasonConfig } = useApp();
-  const [selectedWeek, setSelectedWeek] = useState<number>(mockMatchupsData.currentWeek);
-  const [expandedMatchups, setExpandedMatchups] = useState<Set<string>>(new Set());
+  const { toast } = useToast();
+  
+  // State
+  const [selectedWeek, setSelectedWeek] = useState<number>(1);
+  const [matchupsData, setMatchupsData] = useState<MatchupData[]>([]);
+  const [liveMatchupsData, setLiveMatchupsData] = useState<LiveMatchupData[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [refreshingMatchups, setRefreshingMatchups] = useState<Set<number>>(new Set());
+  const [error, setError] = useState<string | null>(null);
+  
+  // Get weeks data
+  const weeks = MatchupDataService.getWeeksForSeason();
+  const currentWeek = weeks.find(w => w.status === 'current')?.week || 1;
 
-  // Filter matchups based on selected conference and week
-  const filteredMatchups = mockMatchupsData.matchups.filter((matchup) => {
-    const weekMatch = matchup.week === selectedWeek;
-    if (!selectedConference) return weekMatch;
+  // Set initial week to current week
+  useEffect(() => {
+    setSelectedWeek(currentWeek);
+  }, [currentWeek]);
 
-    const conference = currentSeasonConfig.conferences.find((c) => c.id === selectedConference);
-    return weekMatch && matchup.conference === conference?.name;
-  });
+  // Load matchups data
+  const loadMatchupsData = useCallback(async () => {
+    if (!selectedSeason) return;
 
-  const toggleMatchupExpansion = (matchupId: string) => {
-    const newExpanded = new Set(expandedMatchups);
-    if (newExpanded.has(matchupId)) {
-      newExpanded.delete(matchupId);
-    } else {
-      newExpanded.add(matchupId);
+    setLoading(true);
+    setError(null);
+    
+    try {
+      console.log('Loading matchups data...', { 
+        selectedSeason, 
+        selectedConference, 
+        selectedWeek 
+      });
+
+      // Find the season ID based on selected season
+      const seasonResponse = await window.ezsite.apis.tablePage(12818, {
+        PageNo: 1,
+        PageSize: 10,
+        Filters: [{ name: 'season_year', op: 'Equal', value: selectedSeason }]
+      });
+
+      if (seasonResponse.error) {
+        throw new Error(seasonResponse.error);
+      }
+
+      const season = seasonResponse.data?.List[0];
+      if (!season) {
+        throw new Error(`Season ${selectedSeason} not found`);
+      }
+
+      console.log('Found season:', season);
+
+      // Get conference ID if one is selected
+      let conferenceId: number | undefined;
+      if (selectedConference) {
+        const conference = currentSeasonConfig.conferences.find(c => c.id === selectedConference);
+        if (conference) {
+          // Find the conference in the database
+          const conferenceResponse = await window.ezsite.apis.tablePage(12820, {
+            PageNo: 1,
+            PageSize: 1,
+            Filters: [
+              { name: 'league_id', op: 'Equal', value: conference.leagueId },
+              { name: 'season_id', op: 'Equal', value: season.ID }
+            ]
+          });
+
+          if (conferenceResponse.error) {
+            throw new Error(conferenceResponse.error);
+          }
+
+          const dbConference = conferenceResponse.data?.List[0];
+          if (dbConference) {
+            conferenceId = dbConference.ID;
+          }
+        }
+      }
+
+      console.log('Conference ID:', conferenceId);
+
+      // Load matchups using our service
+      const matchups = await MatchupDataService.getMatchupsData(
+        season.ID,
+        conferenceId,
+        selectedWeek
+      );
+
+      console.log('Loaded matchups:', matchups);
+      setMatchupsData(matchups);
+
+      // Load live data for each matchup
+      await loadLiveDataForMatchups(matchups);
+
+    } catch (error) {
+      console.error('Error loading matchups:', error);
+      setError(error instanceof Error ? error.message : 'Failed to load matchups');
+      toast({
+        title: 'Error Loading Matchups',
+        description: error instanceof Error ? error.message : 'Failed to load matchups',
+        variant: 'destructive'
+      });
+    } finally {
+      setLoading(false);
     }
-    setExpandedMatchups(newExpanded);
+  }, [selectedSeason, selectedConference, selectedWeek, currentSeasonConfig, toast]);
+
+  // Load live data for matchups
+  const loadLiveDataForMatchups = async (matchups: MatchupData[]) => {
+    console.log('Loading live data for matchups...');
+    const liveData: LiveMatchupData[] = [];
+
+    for (const matchup of matchups) {
+      try {
+        const liveMatchup = await MatchupDataService.getLiveMatchupData(matchup);
+        liveData.push(liveMatchup);
+      } catch (error) {
+        console.error('Error loading live data for matchup:', matchup.id, error);
+        // Create a fallback live matchup without Sleeper data
+        liveData.push({
+          ...matchup,
+          team1Roster: {
+            teamId: matchup.team1.id,
+            rosterId: matchup.team1.rosterId,
+            totalPoints: 0,
+            starters: [],
+            bench: []
+          },
+          team2Roster: {
+            teamId: matchup.team2.id,
+            rosterId: matchup.team2.rosterId,
+            totalPoints: 0,
+            starters: [],
+            bench: []
+          },
+          status: 'upcoming'
+        });
+      }
+    }
+
+    console.log('Live matchups data:', liveData);
+    setLiveMatchupsData(liveData);
   };
 
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case 'live':
-        return <Badge className="bg-green-500 hover:bg-green-600">Live</Badge>;
-      case 'completed':
-        return <Badge variant="secondary">Final</Badge>;
-      case 'upcoming':
-        return <Badge variant="outline">Upcoming</Badge>;
-      default:
-        return <Badge variant="secondary">{status}</Badge>;
+  // Refresh specific matchup
+  const refreshMatchup = async (matchupId: number) => {
+    const matchup = matchupsData.find(m => m.id === matchupId);
+    if (!matchup) return;
+
+    setRefreshingMatchups(prev => new Set([...prev, matchupId]));
+
+    try {
+      const updatedLiveMatchup = await MatchupDataService.getLiveMatchupData(matchup);
+      
+      setLiveMatchupsData(prev => 
+        prev.map(m => m.id === matchupId ? updatedLiveMatchup : m)
+      );
+
+      toast({
+        title: 'Matchup Refreshed',
+        description: `Updated data for ${matchup.team1.name} vs ${matchup.team2.name}`,
+      });
+    } catch (error) {
+      console.error('Error refreshing matchup:', error);
+      toast({
+        title: 'Refresh Failed',
+        description: error instanceof Error ? error.message : 'Failed to refresh matchup',
+        variant: 'destructive'
+      });
+    } finally {
+      setRefreshingMatchups(prev => {
+        const next = new Set(prev);
+        next.delete(matchupId);
+        return next;
+      });
     }
   };
+
+  // Refresh all matchups
+  const refreshAllMatchups = async () => {
+    if (matchupsData.length === 0) return;
+    
+    setLoading(true);
+    try {
+      await loadLiveDataForMatchups(matchupsData);
+      toast({
+        title: 'All Matchups Refreshed',
+        description: 'Updated live data for all matchups',
+      });
+    } catch (error) {
+      console.error('Error refreshing all matchups:', error);
+      toast({
+        title: 'Refresh Failed',
+        description: 'Failed to refresh all matchups',
+        variant: 'destructive'
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Load data when dependencies change
+  useEffect(() => {
+    loadMatchupsData();
+  }, [loadMatchupsData]);
+
+  // Get the selected conference name
+  const selectedConferenceName = selectedConference
+    ? currentSeasonConfig.conferences.find(c => c.id === selectedConference)?.name
+    : 'All Conferences';
 
   const getWeekStatus = (weekNum: number) => {
-    const weekData = mockMatchupsData.weeks.find((w) => w.week === weekNum);
+    const weekData = weeks.find(w => w.week === weekNum);
     return weekData?.status || 'upcoming';
   };
+
+  const liveMatchupsCount = liveMatchupsData.filter(m => m.status === 'live').length;
+  const completedMatchupsCount = liveMatchupsData.filter(m => m.status === 'completed').length;
 
   return (
     <div className="space-y-6">
@@ -132,185 +246,130 @@ const MatchupsPage: React.FC = () => {
           <h1 className="text-3xl font-bold">Matchups</h1>
         </div>
         <p className="text-muted-foreground">
-          {selectedSeason} Season • Week {selectedWeek} • {selectedConference ?
-          currentSeasonConfig.conferences.find((c) => c.id === selectedConference)?.name :
-          'All Conferences'
-          }
+          {selectedSeason} Season • Week {selectedWeek} • {selectedConferenceName}
         </p>
       </div>
 
-      {/* Week Selector and Summary */}
+      {/* Controls and Summary */}
       <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
         <div className="flex items-center space-x-4">
+          {/* Week Selector */}
           <Select value={selectedWeek.toString()} onValueChange={(value) => setSelectedWeek(parseInt(value))}>
-            <SelectTrigger className="w-32">
+            <SelectTrigger className="w-36">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              {mockMatchupsData.weeks.map((week) =>
-              <SelectItem key={week.week} value={week.week.toString()}>
+              {weeks.map((week) => (
+                <SelectItem key={week.week} value={week.week.toString()}>
                   <div className="flex items-center space-x-2">
                     <span>Week {week.week}</span>
-                    {week.status === 'current' && <Badge variant="outline" className="text-xs">Current</Badge>}
+                    {week.status === 'current' && (
+                      <Badge variant="outline" className="text-xs">Current</Badge>
+                    )}
                   </div>
                 </SelectItem>
-              )}
+              ))}
             </SelectContent>
           </Select>
 
-          {getWeekStatus(selectedWeek) === 'current' &&
-          <div className="flex items-center space-x-2 text-sm text-muted-foreground">
+          {/* Current Week Indicator */}
+          {getWeekStatus(selectedWeek) === 'current' && (
+            <div className="flex items-center space-x-2 text-sm text-muted-foreground">
               <Clock className="h-4 w-4" />
-              <span>Games in progress</span>
+              <span>Current Week</span>
             </div>
-          }
+          )}
+
+          {/* Refresh All Button */}
+          {liveMatchupsData.length > 0 && getWeekStatus(selectedWeek) !== 'upcoming' && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={refreshAllMatchups}
+              disabled={loading}
+              className="flex items-center space-x-2"
+            >
+              <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+              <span>Refresh All</span>
+            </Button>
+          )}
         </div>
 
-        <div className="flex items-center space-x-4 text-sm text-muted-foreground">
+        {/* Summary Stats */}
+        <div className="flex items-center space-x-6 text-sm text-muted-foreground">
           <div className="flex items-center space-x-1">
             <Users className="h-4 w-4" />
-            <span>{filteredMatchups.length} matchups</span>
+            <span>{liveMatchupsData.length} matchups</span>
           </div>
+          {liveMatchupsCount > 0 && (
+            <div className="flex items-center space-x-1">
+              <Clock className="h-4 w-4 text-green-500" />
+              <span>{liveMatchupsCount} live</span>
+            </div>
+          )}
+          {completedMatchupsCount > 0 && (
+            <div className="flex items-center space-x-1">
+              <Trophy className="h-4 w-4 text-yellow-500" />
+              <span>{completedMatchupsCount} completed</span>
+            </div>
+          )}
         </div>
       </div>
 
-      {/* Matchups Grid */}
-      <div className="grid gap-4">
-        {filteredMatchups.map((matchup) =>
-        <Card key={matchup.id} className="hover:shadow-md transition-shadow">
-            <Collapsible>
-              <CollapsibleTrigger
-              className="w-full"
-              onClick={() => toggleMatchupExpansion(matchup.id)}>
-
-                <CardHeader className="pb-4">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-2">
-                      <CardTitle className="text-lg">
-                        {matchup.conference}
-                      </CardTitle>
-                      {getStatusBadge(matchup.status)}
-                    </div>
-                    <ChevronDown className={`h-4 w-4 transition-transform ${
-                  expandedMatchups.has(matchup.id) ? 'rotate-180' : ''}`
-                  } />
-                  </div>
-                </CardHeader>
-              </CollapsibleTrigger>
-
-              <CardContent className="pt-0">
-                {/* Matchup Summary */}
-                <div className="grid grid-cols-3 gap-4 items-center">
-                  {/* Home Team */}
-                  <div className="text-right space-y-1">
-                    <div className="font-semibold">{matchup.homeTeam.name}</div>
-                    <div className="text-sm text-muted-foreground">{matchup.homeTeam.owner}</div>
-                    <div className="text-2xl font-bold">
-                      {matchup.status === 'upcoming' ? '--' : matchup.homeTeam.score.toFixed(1)}
-                    </div>
-                    {matchup.status !== 'upcoming' &&
-                  <div className="text-xs text-muted-foreground">
-                        Proj: {matchup.homeTeam.projected.toFixed(1)}
-                      </div>
-                  }
-                  </div>
-
-                  {/* VS Divider */}
-                  <div className="text-center">
-                    <div className="text-lg font-semibold text-muted-foreground">VS</div>
-                    {matchup.status === 'completed' &&
-                  <Trophy className="h-6 w-6 mx-auto mt-2 text-yellow-500" />
-                  }
-                  </div>
-
-                  {/* Away Team */}
-                  <div className="text-left space-y-1">
-                    <div className="font-semibold">{matchup.awayTeam.name}</div>
-                    <div className="text-sm text-muted-foreground">{matchup.awayTeam.owner}</div>
-                    <div className="text-2xl font-bold">
-                      {matchup.status === 'upcoming' ? '--' : matchup.awayTeam.score.toFixed(1)}
-                    </div>
-                    {matchup.status !== 'upcoming' &&
-                  <div className="text-xs text-muted-foreground">
-                        Proj: {matchup.awayTeam.projected.toFixed(1)}
-                      </div>
-                  }
-                  </div>
-                </div>
-
-                {/* Expanded Content */}
-                <CollapsibleContent className="mt-6">
-                  <div className="border-t pt-4 space-y-4">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      {/* Home Team Roster Placeholder */}
-                      <Card>
-                        <CardHeader className="pb-2">
-                          <CardTitle className="text-sm">{matchup.homeTeam.name} Roster</CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                          <p className="text-sm text-muted-foreground">
-                            Detailed roster and player scores will be displayed here when connected to Sleeper API.
-                          </p>
-                        </CardContent>
-                      </Card>
-
-                      {/* Away Team Roster Placeholder */}
-                      <Card>
-                        <CardHeader className="pb-2">
-                          <CardTitle className="text-sm">{matchup.awayTeam.name} Roster</CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                          <p className="text-sm text-muted-foreground">
-                            Detailed roster and player scores will be displayed here when connected to Sleeper API.
-                          </p>
-                        </CardContent>
-                      </Card>
-                    </div>
-
-                    {/* Matchup Stats */}
-                    {matchup.status !== 'upcoming' &&
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
-                        <div>
-                          <div className="text-sm text-muted-foreground">Total Points</div>
-                          <div className="font-semibold">
-                            {(matchup.homeTeam.score + matchup.awayTeam.score).toFixed(1)}
-                          </div>
-                        </div>
-                        <div>
-                          <div className="text-sm text-muted-foreground">Point Spread</div>
-                          <div className="font-semibold">
-                            {Math.abs(matchup.homeTeam.score - matchup.awayTeam.score).toFixed(1)}
-                          </div>
-                        </div>
-                        <div>
-                          <div className="text-sm text-muted-foreground">Last Updated</div>
-                          <div className="text-xs">
-                            {matchup.lastUpdate ? new Date(matchup.lastUpdate).toLocaleTimeString() : 'N/A'}
-                          </div>
-                        </div>
-                        <div>
-                          <div className="text-sm text-muted-foreground">Status</div>
-                          <div className="text-xs">{matchup.status}</div>
-                        </div>
-                      </div>
-                  }
-                  </div>
-                </CollapsibleContent>
-              </CardContent>
-            </Collapsible>
-          </Card>
-        )}
-
-        {filteredMatchups.length === 0 &&
+      {/* Loading State */}
+      {loading && liveMatchupsData.length === 0 && (
         <Card>
-            <CardContent className="py-8 text-center">
-              <p className="text-muted-foreground">No matchups found for the selected filters.</p>
-            </CardContent>
-          </Card>
-        }
-      </div>
-    </div>);
+          <CardContent className="py-8 text-center">
+            <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4" />
+            <p className="text-muted-foreground">Loading matchups...</p>
+          </CardContent>
+        </Card>
+      )}
 
+      {/* Error State */}
+      {error && (
+        <Card>
+          <CardContent className="py-8 text-center">
+            <AlertCircle className="h-8 w-8 text-destructive mx-auto mb-4" />
+            <p className="text-destructive font-medium mb-2">Error Loading Matchups</p>
+            <p className="text-muted-foreground mb-4">{error}</p>
+            <Button onClick={loadMatchupsData} variant="outline">
+              Try Again
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Matchups Grid */}
+      {!loading && !error && (
+        <div className="space-y-4">
+          {liveMatchupsData.map((matchup) => (
+            <MatchupCard
+              key={matchup.id}
+              matchup={matchup}
+              onRefresh={refreshMatchup}
+              isRefreshing={refreshingMatchups.has(matchup.id)}
+            />
+          ))}
+
+          {liveMatchupsData.length === 0 && (
+            <Card>
+              <CardContent className="py-8 text-center">
+                <Calendar className="h-12 w-12 mx-auto mb-4 text-muted-foreground opacity-50" />
+                <p className="text-muted-foreground font-medium mb-2">No Matchups Found</p>
+                <p className="text-sm text-muted-foreground">
+                  No matchups found for Week {selectedWeek} in {selectedConferenceName}.
+                </p>
+                <p className="text-sm text-muted-foreground mt-2">
+                  Try selecting a different week or conference.
+                </p>
+              </CardContent>
+            </Card>
+          )}
+        </div>
+      )}
+    </div>
+  );
 };
 
 export default MatchupsPage;
