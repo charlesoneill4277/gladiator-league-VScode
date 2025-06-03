@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { useApp } from '@/contexts/AppContext';
-import { Swords, ChevronDown, Clock, Trophy, Users, RefreshCw, AlertCircle, Download } from 'lucide-react';
+import { Swords, ChevronDown, Clock, Trophy, Users, RefreshCw, AlertCircle, Bug, CheckCircle, Play, Pause } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import SleeperApiService, { SleeperMatchup, SleeperRoster, SleeperUser, SleeperPlayer } from '@/services/sleeperApi';
 
@@ -45,17 +45,14 @@ interface OrganizedMatchup {
     starters_points: number[];
   }>;
   status: 'live' | 'completed' | 'upcoming';
+  rawData?: any; // For debug mode
 }
 
-interface TeamWeeklyScore {
-  conference_id: number;
-  team_roster_id: string;
+type WeekStatus = {
   week: number;
-  points: number;
-  matchup_id: string;
-  starters: string;
-  last_updated: string;
-}
+  status: 'future' | 'current' | 'live' | 'completed';
+  description: string;
+};
 
 const MatchupsPage: React.FC = () => {
   const { selectedSeason, selectedConference, currentSeasonConfig } = useApp();
@@ -68,183 +65,12 @@ const MatchupsPage: React.FC = () => {
   const [teams, setTeams] = useState<Team[]>([]);
   const [matchups, setMatchups] = useState<OrganizedMatchup[]>([]);
   const [allPlayers, setAllPlayers] = useState<Record<string, SleeperPlayer>>({});
-  const [teamWeeklyScores, setTeamWeeklyScores] = useState<Record<string, Record<number, number>>>({});
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [syncingScores, setSyncingScores] = useState(false);
-
-  // Fetch and store team scores for all weeks
-  const fetchAndStoreAllWeeklyScores = async (conferenceData: Conference[]) => {
-    try {
-      console.log('Fetching all weekly scores from Sleeper API...');
-      
-      for (const conference of conferenceData) {
-        console.log(`Processing all weeks for conference: ${conference.conference_name} (${conference.league_id})`);
-        
-        // Get all unique weeks from matchups table for this conference
-        const matchupsResponse = await window.ezsite.apis.tablePage('13329', {
-          PageNo: 1,
-          PageSize: 100,
-          OrderByField: 'week',
-          IsAsc: true,
-          Filters: [
-            {
-              name: 'conference_id',
-              op: 'Equal',
-              value: conference.id
-            }
-          ]
-        });
-        
-        if (matchupsResponse.error) {
-          console.error('Error fetching matchups:', matchupsResponse.error);
-          continue;
-        }
-        
-        const weeks = [...new Set(matchupsResponse.data.List.map((m: any) => m.week))];
-        console.log(`Found weeks for ${conference.conference_name}:`, weeks);
-        
-        // If no weeks found in matchups table, use standard weeks 1-18
-        const weeksToProcess = weeks.length > 0 ? weeks : Array.from({ length: 18 }, (_, i) => i + 1);
-        
-        // Fetch scores for each week
-        for (const week of weeksToProcess) {
-          try {
-            console.log(`Fetching scores for ${conference.conference_name} week ${week}`);
-            
-            // Fetch matchup data from Sleeper API
-            const response = await fetch(`https://api.sleeper.app/v1/league/${conference.league_id}/matchups/${week}`);
-            if (!response.ok) {
-              console.error(`Failed to fetch week ${week} for league ${conference.league_id}:`, response.status);
-              continue;
-            }
-            
-            const weeklyMatchups = await response.json();
-            console.log(`Fetched ${weeklyMatchups.length} team scores for week ${week}`);
-            
-            // Store each team's score for this week
-            for (const teamData of weeklyMatchups) {
-              try {
-                // Check if this score already exists
-                const existingScoreResponse = await window.ezsite.apis.tablePage('13740', {
-                  PageNo: 1,
-                  PageSize: 1,
-                  OrderByField: 'id',
-                  IsAsc: false,
-                  Filters: [
-                    {
-                      name: 'conference_id',
-                      op: 'Equal',
-                      value: conference.id
-                    },
-                    {
-                      name: 'team_roster_id',
-                      op: 'Equal',
-                      value: teamData.roster_id.toString()
-                    },
-                    {
-                      name: 'week',
-                      op: 'Equal',
-                      value: week
-                    }
-                  ]
-                });
-                
-                const scoreData = {
-                  conference_id: conference.id,
-                  team_roster_id: teamData.roster_id.toString(),
-                  week: week,
-                  points: teamData.points || 0,
-                  matchup_id: teamData.matchup_id?.toString() || '',
-                  starters: JSON.stringify(teamData.starters || []),
-                  last_updated: new Date().toISOString()
-                };
-                
-                if (existingScoreResponse.data.List.length > 0) {
-                  // Update existing record
-                  const existingRecord = existingScoreResponse.data.List[0];
-                  await window.ezsite.apis.tableUpdate('13740', {
-                    ID: existingRecord.ID,
-                    ...scoreData
-                  });
-                  console.log(`Updated score for roster ${teamData.roster_id} week ${week}`);
-                } else {
-                  // Create new record
-                  await window.ezsite.apis.tableCreate('13740', scoreData);
-                  console.log(`Created score for roster ${teamData.roster_id} week ${week}`);
-                }
-              } catch (error) {
-                console.error(`Error storing score for roster ${teamData.roster_id} week ${week}:`, error);
-              }
-            }
-          } catch (error) {
-            console.error(`Error fetching week ${week} for ${conference.conference_name}:`, error);
-          }
-        }
-      }
-      
-      // After syncing, fetch the updated scores for display
-      await fetchTeamWeeklyScores(conferenceData);
-      
-      toast({
-        title: 'Success',
-        description: 'All weekly scores have been updated from Sleeper API.',
-        variant: 'default'
-      });
-      
-    } catch (error) {
-      console.error('Error fetching all weekly scores:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to fetch all weekly scores.',
-        variant: 'destructive'
-      });
-    }
-  };
-
-  // Fetch team weekly scores from database
-  const fetchTeamWeeklyScores = async (conferenceData: Conference[]) => {
-    try {
-      console.log('Fetching team weekly scores from database...');
-      
-      const scoresMap: Record<string, Record<number, number>> = {};
-      
-      for (const conference of conferenceData) {
-        const scoresResponse = await window.ezsite.apis.tablePage('13740', {
-          PageNo: 1,
-          PageSize: 1000,
-          OrderByField: 'week',
-          IsAsc: true,
-          Filters: [
-            {
-              name: 'conference_id',
-              op: 'Equal',
-              value: conference.id
-            }
-          ]
-        });
-        
-        if (scoresResponse.error) {
-          console.error('Error fetching weekly scores:', scoresResponse.error);
-          continue;
-        }
-        
-        scoresResponse.data.List.forEach((score: any) => {
-          const rosterId = score.team_roster_id;
-          if (!scoresMap[rosterId]) {
-            scoresMap[rosterId] = {};
-          }
-          scoresMap[rosterId][score.week] = score.points;
-        });
-      }
-      
-      setTeamWeeklyScores(scoresMap);
-      console.log('Loaded team weekly scores:', Object.keys(scoresMap).length, 'teams');
-      
-    } catch (error) {
-      console.error('Error fetching team weekly scores:', error);
-    }
-  };
+  const [debugMode, setDebugMode] = useState(false);
+  const [weekStatus, setWeekStatus] = useState<WeekStatus | null>(null);
+  const [apiErrors, setApiErrors] = useState<string[]>([]);
+  const [rawApiData, setRawApiData] = useState<any>(null);
 
   // Fetch conferences and teams from database
   const fetchDatabaseData = async () => {
@@ -350,37 +176,117 @@ const MatchupsPage: React.FC = () => {
     }
   };
 
+  // Determine week status
+  const determineWeekStatus = (week: number, currentWeek: number): WeekStatus => {
+    console.log(`🔍 Determining status for week ${week}, current week: ${currentWeek}`);
+    
+    if (week > currentWeek) {
+      return {
+        week,
+        status: 'future',
+        description: `Week ${week} has not started yet`
+      };
+    } else if (week === currentWeek) {
+      return {
+        week,
+        status: 'current',
+        description: `Week ${week} is the current week`
+      };
+    } else {
+      return {
+        week,
+        status: 'completed',
+        description: `Week ${week} has been completed`
+      };
+    }
+  };
+
   // Fetch matchup data from Sleeper API
   const fetchMatchupData = async (conferenceData: Conference[], teamData: Team[]) => {
     try {
-      console.log('Fetching matchup data from Sleeper API...');
+      console.log('🚀 Starting fetchMatchupData...');
+      console.log(`📊 Conference count: ${conferenceData.length}`);
+      console.log(`👥 Team count: ${teamData.length}`);
+      console.log(`📅 Selected week: ${selectedWeek}`);
+      console.log(`📅 Current week: ${currentWeek}`);
+      
+      setApiErrors([]);
+      const errors: string[] = [];
+      
+      // Determine and set week status
+      const status = determineWeekStatus(selectedWeek, currentWeek);
+      setWeekStatus(status);
+      console.log(`📋 Week status:`, status);
 
       // Use all the filtered conferences from the database query
-      // They are already filtered by season and optionally by specific conference
       const targetConferences = conferenceData;
 
       if (targetConferences.length === 0) {
+        console.warn('⚠️ No target conferences found');
         setMatchups([]);
         return;
       }
 
+      console.log('🔗 Fetching players data from Sleeper API...');
       // Fetch players data once
       const playersData = await SleeperApiService.fetchAllPlayers();
       setAllPlayers(playersData);
+      console.log(`✅ Loaded ${Object.keys(playersData).length} players`);
 
       const allMatchups: OrganizedMatchup[] = [];
+      const debugData: any = {
+        conferences: [],
+        totalMatchups: 0,
+        errors: [],
+        weekStatus: status
+      };
 
       // Process each conference
       for (const conference of targetConferences) {
         try {
-          console.log(`Processing conference: ${conference.conference_name} (${conference.league_id})`);
+          console.log(`🏟️ Processing conference: ${conference.conference_name} (${conference.league_id})`);
+          const conferenceDebugData: any = {
+            conference: conference.conference_name,
+            leagueId: conference.league_id,
+            matchupsData: null,
+            rostersData: null,
+            usersData: null,
+            organizedMatchups: null
+          };
 
+          console.log(`🔄 Fetching league data for ${conference.conference_name}...`);
           // Fetch league data
           const [matchupsData, rostersData, usersData] = await Promise.all([
             SleeperApiService.fetchMatchups(conference.league_id, selectedWeek),
             SleeperApiService.fetchLeagueRosters(conference.league_id),
             SleeperApiService.fetchLeagueUsers(conference.league_id)
           ]);
+
+          console.log(`📈 Raw matchup data for ${conference.conference_name}:`, {
+            matchupsCount: matchupsData.length,
+            rostersCount: rostersData.length,
+            usersCount: usersData.length,
+            sampleMatchup: matchupsData[0] || null
+          });
+
+          // Store debug data
+          conferenceDebugData.matchupsData = matchupsData;
+          conferenceDebugData.rostersData = rostersData;
+          conferenceDebugData.usersData = usersData;
+
+          // Check for points data availability
+          const hasPointsData = matchupsData.some(m => m.points > 0);
+          const hasPlayersPoints = matchupsData.some(m => m.players_points && Object.keys(m.players_points).length > 0);
+          const hasStartersPoints = matchupsData.some(m => m.starters_points && m.starters_points.length > 0);
+          
+          console.log(`🎯 Points data analysis for ${conference.conference_name}:`, {
+            hasPointsData,
+            hasPlayersPoints,
+            hasStartersPoints,
+            pointsRange: matchupsData.map(m => m.points),
+            playersPointsKeys: matchupsData.map(m => Object.keys(m.players_points || {}).length),
+            startersPointsLengths: matchupsData.map(m => (m.starters_points || []).length)
+          });
 
           // Organize matchups
           const organizedMatchups = SleeperApiService.organizeMatchups(
@@ -389,34 +295,63 @@ const MatchupsPage: React.FC = () => {
             usersData
           );
 
+          conferenceDebugData.organizedMatchups = organizedMatchups;
+          console.log(`🎲 Organized ${organizedMatchups.length} matchups for ${conference.conference_name}`);
+
           // Convert to our format and add team data
-          const conferenceMatchups: OrganizedMatchup[] = organizedMatchups.map((matchup) => ({
-            matchup_id: matchup.matchup_id,
-            conference,
-            teams: matchup.teams.map((team) => {
-              // Find corresponding team from database
-              const dbTeam = teamData.find((t) =>
-                team.owner && t.owner_id === team.owner.user_id
-              );
+          const conferenceMatchups: OrganizedMatchup[] = organizedMatchups.map((matchup) => {
+            const matchupWithData = {
+              matchup_id: matchup.matchup_id,
+              conference,
+              teams: matchup.teams.map((team) => {
+                // Find corresponding team from database
+                const dbTeam = teamData.find((t) =>
+                  team.owner && t.owner_id === team.owner.user_id
+                );
 
-              const matchupTeam = matchupsData.find((m) => m.roster_id === team.roster_id);
+                const matchupTeam = matchupsData.find((m) => m.roster_id === team.roster_id);
+                
+                console.log(`👤 Team data for roster ${team.roster_id}:`, {
+                  points: team.points,
+                  hasMatchupTeam: !!matchupTeam,
+                  playersPointsCount: Object.keys(matchupTeam?.players_points || {}).length,
+                  startersPointsCount: (matchupTeam?.starters_points || []).length,
+                  dbTeamFound: !!dbTeam
+                });
 
-              return {
-                ...team,
-                team: dbTeam || null,
-                players_points: matchupTeam?.players_points || {},
-                starters_points: matchupTeam?.starters_points || []
-              };
-            }),
-            status: selectedWeek <= currentWeek ?
-              matchupsData.some((m) => m.points > 0) ? 'completed' : 'live' :
-              'upcoming'
-          }));
+                return {
+                  ...team,
+                  team: dbTeam || null,
+                  players_points: matchupTeam?.players_points || {},
+                  starters_points: matchupTeam?.starters_points || [],
+                  // Add fallback handling for zero points
+                  points: team.points ?? 0 // Use nullish coalescing to handle null/undefined
+                };
+              }),
+              status: determineMatchupStatus(selectedWeek, currentWeek, matchupsData),
+              rawData: debugMode ? {
+                matchupsData: matchupsData.filter(m => 
+                  matchup.teams.some(t => t.roster_id === m.roster_id)
+                ),
+                status: status
+              } : undefined
+            };
+            
+            return matchupWithData;
+          });
 
           allMatchups.push(...conferenceMatchups);
+          debugData.conferences.push(conferenceDebugData);
 
         } catch (error) {
-          console.error(`Error processing conference ${conference.conference_name}:`, error);
+          const errorMsg = `Error processing conference ${conference.conference_name}: ${error}`;
+          console.error(`❌ ${errorMsg}`, error);
+          errors.push(errorMsg);
+          debugData.errors.push({
+            conference: conference.conference_name,
+            error: error instanceof Error ? error.message : String(error)
+          });
+          
           toast({
             title: 'Conference Error',
             description: `Failed to load data for ${conference.conference_name}`,
@@ -425,17 +360,42 @@ const MatchupsPage: React.FC = () => {
         }
       }
 
+      debugData.totalMatchups = allMatchups.length;
+      setRawApiData(debugData);
+      setApiErrors(errors);
       setMatchups(allMatchups);
-      console.log(`Loaded ${allMatchups.length} total matchups`);
+      
+      console.log(`✅ Successfully loaded ${allMatchups.length} total matchups`);
+      console.log(`🐛 Debug data:`, debugData);
 
     } catch (error) {
-      console.error('Error fetching matchup data:', error);
+      const errorMsg = `Failed to fetch matchup data: ${error}`;
+      console.error('❌ Error fetching matchup data:', error);
+      setApiErrors(prev => [...prev, errorMsg]);
+      
       toast({
         title: 'API Error',
         description: 'Failed to load matchup data from Sleeper API.',
         variant: 'destructive'
       });
     }
+  };
+
+  // Helper method to determine matchup status with better logic
+  const determineMatchupStatus = (selectedWeek: number, currentWeek: number, matchupsData: SleeperMatchup[]): 'live' | 'completed' | 'upcoming' => {
+    if (selectedWeek > currentWeek) {
+      return 'upcoming';
+    }
+    
+    // Check if any matchup has points > 0
+    const hasPoints = matchupsData.some((m) => m.points > 0);
+    
+    if (selectedWeek < currentWeek) {
+      return hasPoints ? 'completed' : 'completed'; // Past weeks should always be completed
+    }
+    
+    // Current week - check if scoring has started
+    return hasPoints ? 'live' : 'upcoming';
   };
 
   // Load all data
@@ -448,10 +408,7 @@ const MatchupsPage: React.FC = () => {
       }
 
       const { conferences: conferenceData, teams: teamData } = await fetchDatabaseData();
-      await Promise.all([
-        fetchMatchupData(conferenceData, teamData),
-        fetchTeamWeeklyScores(conferenceData)
-      ]);
+      await fetchMatchupData(conferenceData, teamData);
 
     } catch (error) {
       console.error('Error loading data:', error);
@@ -515,15 +472,6 @@ const MatchupsPage: React.FC = () => {
     return team1.points > team2.points ? team1 : team2;
   };
 
-  const getTeamAverage = (rosterId: number): string => {
-    const scores = teamWeeklyScores[rosterId.toString()];
-    if (!scores || Object.keys(scores).length === 0) return 'No data';
-    
-    const totalPoints = Object.values(scores).reduce((a, b) => a + b, 0);
-    const weekCount = Object.keys(scores).length;
-    return `Avg: ${(totalPoints / weekCount).toFixed(1)} (${weekCount} games)`;
-  };
-
   if (loading) {
     return (
       <div className="space-y-6" data-id="7ubytizhl">
@@ -569,7 +517,7 @@ const MatchupsPage: React.FC = () => {
             </SelectTrigger>
             <SelectContent data-id="s94crve2c">
               {Array.from({ length: 18 }, (_, i) => i + 1).map((week) =>
-                <SelectItem key={week} value={week.toString()} data-id="0ohde1ngz">
+              <SelectItem key={week} value={week.toString()} data-id="0ohde1ngz">
                   <div className="flex items-center space-x-2" data-id="t1negi6i9">
                     <span data-id="cma1y578b">Week {week}</span>
                     {week === currentWeek && <Badge variant="outline" className="text-xs" data-id="4g2ihh1a3">Current</Badge>}
@@ -580,7 +528,7 @@ const MatchupsPage: React.FC = () => {
           </Select>
 
           {selectedWeek === currentWeek &&
-            <div className="flex items-center space-x-2 text-sm text-muted-foreground" data-id="7n00nwfyf">
+          <div className="flex items-center space-x-2 text-sm text-muted-foreground" data-id="7n00nwfyf">
               <Clock className="h-4 w-4" data-id="yilc3so0o" />
               <span data-id="crxpf776f">Current week</span>
             </div>
@@ -599,17 +547,12 @@ const MatchupsPage: React.FC = () => {
           </Button>
           
           <Button
-            variant="default"
+            variant={debugMode ? "default" : "outline"}
             size="sm"
-            onClick={async () => {
-              setSyncingScores(true);
-              await fetchAndStoreAllWeeklyScores(conferences);
-              setSyncingScores(false);
-            }}
-            disabled={syncingScores || conferences.length === 0} data-id="s9b1hyg23">
-
-            <Download className={`h-4 w-4 ${syncingScores ? 'animate-spin' : ''}`} data-id="sync-scores-icon" />
-            Sync All Scores
+            onClick={() => setDebugMode(!debugMode)}
+            data-id="debug-toggle">
+            <Bug className="h-4 w-4" />
+            Debug {debugMode ? 'ON' : 'OFF'}
           </Button>
           
           <div className="flex items-center space-x-2 text-sm text-muted-foreground" data-id="iynipopcu">
@@ -618,6 +561,94 @@ const MatchupsPage: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* Week Status Indicator */}
+      {weekStatus && (
+        <Card className="border-l-4 border-l-blue-500" data-id="week-status-card">
+          <CardContent className="py-3">
+            <div className="flex items-center space-x-3">
+              {weekStatus.status === 'future' && <Clock className="h-5 w-5 text-blue-500" />}
+              {weekStatus.status === 'current' && <Play className="h-5 w-5 text-green-500" />}
+              {weekStatus.status === 'live' && <Pause className="h-5 w-5 text-yellow-500" />}
+              {weekStatus.status === 'completed' && <CheckCircle className="h-5 w-5 text-gray-500" />}
+              <div>
+                <div className="font-medium">Week {weekStatus.week} Status</div>
+                <div className="text-sm text-muted-foreground">{weekStatus.description}</div>
+                {weekStatus.status === 'future' && (
+                  <div className="text-xs text-muted-foreground mt-1">
+                    ⚠️ Points will not be available until games begin
+                  </div>
+                )}
+                {weekStatus.status === 'current' && (
+                  <div className="text-xs text-muted-foreground mt-1">
+                    🔴 Points may update in real-time during games
+                  </div>
+                )}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* API Errors Display */}
+      {apiErrors.length > 0 && (
+        <Card className="border-l-4 border-l-red-500" data-id="api-errors-card">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm flex items-center space-x-2">
+              <AlertCircle className="h-4 w-4 text-red-500" />
+              <span>API Errors ({apiErrors.length})</span>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-1">
+              {apiErrors.map((error, index) => (
+                <div key={index} className="text-sm text-red-600 bg-red-50 p-2 rounded">
+                  {error}
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Debug Mode Display */}
+      {debugMode && rawApiData && (
+        <Card className="border-l-4 border-l-purple-500" data-id="debug-data-card">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm flex items-center space-x-2">
+              <Bug className="h-4 w-4 text-purple-500" />
+              <span>Debug Information</span>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              <div className="text-sm">
+                <strong>Week Status:</strong> {rawApiData.weekStatus?.status} - {rawApiData.weekStatus?.description}
+              </div>
+              <div className="text-sm">
+                <strong>Total Conferences:</strong> {rawApiData.conferences.length}
+              </div>
+              <div className="text-sm">
+                <strong>Total Matchups:</strong> {rawApiData.totalMatchups}
+              </div>
+              {rawApiData.errors.length > 0 && (
+                <div className="text-sm">
+                  <strong>Errors:</strong>
+                  <pre className="mt-1 p-2 bg-red-50 rounded text-xs overflow-x-auto">
+                    {JSON.stringify(rawApiData.errors, null, 2)}
+                  </pre>
+                </div>
+              )}
+              <details className="text-sm">
+                <summary className="cursor-pointer font-medium">Raw API Data</summary>
+                <pre className="mt-2 p-3 bg-gray-50 rounded text-xs overflow-x-auto max-h-96">
+                  {JSON.stringify(rawApiData, null, 2)}
+                </pre>
+              </details>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Matchups Grid */}
       <div className="grid gap-4" data-id="zvjzf9i6i">
@@ -641,7 +672,7 @@ const MatchupsPage: React.FC = () => {
                         {getStatusBadge(matchup.status)}
                       </div>
                       <ChevronDown className={`h-4 w-4 transition-transform ${
-                        expandedMatchups.has(`${matchup.conference.id}-${matchup.matchup_id}`) ? 'rotate-180' : ''}`
+                      expandedMatchups.has(`${matchup.conference.id}-${matchup.matchup_id}`) ? 'rotate-180' : ''}`
                       } data-id="gca0gddo8" />
                     </div>
                   </CardHeader>
@@ -659,10 +690,12 @@ const MatchupsPage: React.FC = () => {
                         {team1.team?.owner_name || team1.owner?.display_name || 'Unknown Owner'}
                       </div>
                       <div className={`text-2xl font-bold ${winningTeam?.roster_id === team1.roster_id ? 'text-green-600' : ''}`} data-id="cc50fwyfz">
-                        {matchup.status === 'upcoming' ? '--' : team1.points.toFixed(1)}
-                      </div>
-                      <div className="text-xs text-muted-foreground mt-1" data-id="team1-weekly-scores">
-                        {getTeamAverage(team1.roster_id)}
+                        {matchup.status === 'upcoming' ? '--' : (team1.points ?? 0).toFixed(1)}
+                        {debugMode && (
+                          <div className="text-xs text-muted-foreground mt-1">
+                            Raw: {team1.points ?? 'null'}
+                          </div>
+                        )}
                       </div>
                     </div>
 
@@ -670,7 +703,7 @@ const MatchupsPage: React.FC = () => {
                     <div className="text-center" data-id="9n15z45kn">
                       <div className="text-lg font-semibold text-muted-foreground" data-id="9b07cmgpc">VS</div>
                       {matchup.status === 'completed' && winningTeam &&
-                        <Trophy className="h-6 w-6 mx-auto mt-2 text-yellow-500" data-id="c7271tgd7" />
+                      <Trophy className="h-6 w-6 mx-auto mt-2 text-yellow-500" data-id="c7271tgd7" />
                       }
                     </div>
 
@@ -683,10 +716,12 @@ const MatchupsPage: React.FC = () => {
                         {team2.team?.owner_name || team2.owner?.display_name || 'Unknown Owner'}
                       </div>
                       <div className={`text-2xl font-bold ${winningTeam?.roster_id === team2.roster_id ? 'text-green-600' : ''}`} data-id="qe2zegfup">
-                        {matchup.status === 'upcoming' ? '--' : team2.points.toFixed(1)}
-                      </div>
-                      <div className="text-xs text-muted-foreground mt-1" data-id="team2-weekly-scores">
-                        {getTeamAverage(team2.roster_id)}
+                        {matchup.status === 'upcoming' ? '--' : (team2.points ?? 0).toFixed(1)}
+                        {debugMode && (
+                          <div className="text-xs text-muted-foreground mt-1">
+                            Raw: {team2.points ?? 'null'}
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -706,11 +741,18 @@ const MatchupsPage: React.FC = () => {
                           <CardContent data-id="bgw6ozitx">
                             <div className="space-y-2" data-id="21mvokaf1">
                               {team1.roster?.starters.map((playerId, index) =>
-                                <div key={`${playerId}-${index}`} className="flex justify-between items-center text-sm" data-id="8k8emqpo4">
+                              <div key={`${playerId}-${index}`} className="flex justify-between items-center text-sm" data-id="8k8emqpo4">
                                   <span data-id="pas27okwd">{getPlayerName(playerId)}</span>
-                                  <span className="font-medium" data-id="clg6dy6iq">
-                                    {team1.starters_points[index]?.toFixed(1) || '0.0'}
-                                  </span>
+                                  <div className="text-right">
+                                    <span className="font-medium" data-id="clg6dy6iq">
+                                      {team1.starters_points[index]?.toFixed(1) || '0.0'}
+                                    </span>
+                                    {debugMode && (
+                                      <div className="text-xs text-muted-foreground">
+                                        Player: {team1.players_points[playerId]?.toFixed(1) || 'N/A'}
+                                      </div>
+                                    )}
+                                  </div>
                                 </div>
                               ) || <p className="text-muted-foreground text-sm" data-id="mkoj6ewa5">No lineup data available</p>}
                             </div>
@@ -727,11 +769,18 @@ const MatchupsPage: React.FC = () => {
                           <CardContent data-id="sg70vosuu">
                             <div className="space-y-2" data-id="2la9a2ufg">
                               {team2.roster?.starters.map((playerId, index) =>
-                                <div key={`${playerId}-${index}`} className="flex justify-between items-center text-sm" data-id="fhfk5nbfz">
+                              <div key={`${playerId}-${index}`} className="flex justify-between items-center text-sm" data-id="fhfk5nbfz">
                                   <span data-id="spf3pshho">{getPlayerName(playerId)}</span>
-                                  <span className="font-medium" data-id="w049qhlpy">
-                                    {team2.starters_points[index]?.toFixed(1) || '0.0'}
-                                  </span>
+                                  <div className="text-right">
+                                    <span className="font-medium" data-id="w049qhlpy">
+                                      {team2.starters_points[index]?.toFixed(1) || '0.0'}
+                                    </span>
+                                    {debugMode && (
+                                      <div className="text-xs text-muted-foreground">
+                                        Player: {team2.players_points[playerId]?.toFixed(1) || 'N/A'}
+                                      </div>
+                                    )}
+                                  </div>
                                 </div>
                               ) || <p className="text-muted-foreground text-sm" data-id="r5k4pne3n">No lineup data available</p>}
                             </div>
@@ -741,28 +790,33 @@ const MatchupsPage: React.FC = () => {
 
                       {/* Matchup Stats */}
                       {matchup.status !== 'upcoming' &&
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center" data-id="t1tca5g5j">
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center" data-id="t1tca5g5j">
                           <div data-id="dbvfphcff">
                             <div className="text-sm text-muted-foreground" data-id="s1ubdscjr">Total Points</div>
                             <div className="font-semibold" data-id="msxumz9n2">
-                              {(team1.points + team2.points).toFixed(1)}
+                              {((team1.points ?? 0) + (team2.points ?? 0)).toFixed(1)}
                             </div>
                           </div>
                           <div data-id="edaqyar81">
                             <div className="text-sm text-muted-foreground" data-id="mpapjnwa1">Point Spread</div>
                             <div className="font-semibold" data-id="5aj8oqchi">
-                              {Math.abs(team1.points - team2.points).toFixed(1)}
+                              {Math.abs((team1.points ?? 0) - (team2.points ?? 0)).toFixed(1)}
                             </div>
                           </div>
                           <div data-id="1wmv16xj6">
                             <div className="text-sm text-muted-foreground" data-id="r9vmtm8w8">High Score</div>
                             <div className="font-semibold" data-id="crev968qq">
-                              {Math.max(team1.points, team2.points).toFixed(1)}
+                              {Math.max((team1.points ?? 0), (team2.points ?? 0)).toFixed(1)}
                             </div>
                           </div>
                           <div data-id="964bpstih">
                             <div className="text-sm text-muted-foreground" data-id="0ab7hq11q">Status</div>
                             <div className="text-xs capitalize" data-id="e0u2yhiho">{matchup.status}</div>
+                            {debugMode && matchup.rawData && (
+                              <div className="text-xs text-muted-foreground mt-1">
+                                Raw matchups: {matchup.rawData.matchupsData?.length || 0}
+                              </div>
+                            )}
                           </div>
                         </div>
                       }
@@ -775,15 +829,15 @@ const MatchupsPage: React.FC = () => {
         })}
 
         {matchups.length === 0 &&
-          <Card data-id="96qho6imr">
+        <Card data-id="96qho6imr">
             <CardContent className="py-8 text-center" data-id="zpdwuyr72">
               <AlertCircle className="h-8 w-8 mx-auto mb-4 text-muted-foreground" data-id="y2fbd1viq" />
               <p className="text-muted-foreground" data-id="60mmhbn6f">No matchups found for the selected filters.</p>
               {conferences.length === 0 &&
-                <p className="text-sm text-muted-foreground mt-2" data-id="hldwd8nsn">
+            <p className="text-sm text-muted-foreground mt-2" data-id="hldwd8nsn">
                   Make sure conferences are configured in the admin panel.
                 </p>
-              }
+            }
             </CardContent>
           </Card>
         }
