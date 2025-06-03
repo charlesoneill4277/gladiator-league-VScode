@@ -8,6 +8,7 @@ import { useApp } from '@/contexts/AppContext';
 import { Swords, ChevronDown, Clock, Trophy, Users, RefreshCw, AlertCircle, Bug, CheckCircle, Play, Pause } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import SleeperApiService, { SleeperMatchup, SleeperRoster, SleeperUser, SleeperPlayer } from '@/services/sleeperApi';
+import StartingLineup from '@/components/StartingLineup';
 
 interface Conference {
   id: number;
@@ -179,13 +180,13 @@ const MatchupsPage: React.FC = () => {
   // Determine week status
   const determineWeekStatus = (week: number, currentWeek: number): WeekStatus => {
     console.log(`🔍 Determining status for week ${week}, current week: ${currentWeek}, selected season: ${selectedSeason}`);
-    
+
     // Get current year to determine if this is a historical season
     const currentYear = new Date().getFullYear();
     const isHistoricalSeason = selectedSeason < currentYear;
-    
+
     console.log(`📅 Season analysis: ${selectedSeason} (current year: ${currentYear}, historical: ${isHistoricalSeason})`);
-    
+
     // For historical seasons, all weeks should be treated as completed
     if (isHistoricalSeason) {
       return {
@@ -194,7 +195,7 @@ const MatchupsPage: React.FC = () => {
         description: `Week ${week} - ${selectedSeason} Season (Historical)`
       };
     }
-    
+
     // For current season, use normal logic
     if (week > currentWeek) {
       return {
@@ -402,14 +403,14 @@ const MatchupsPage: React.FC = () => {
     // Get current year to determine if this is a historical season
     const currentYear = new Date().getFullYear();
     const isHistoricalSeason = selectedSeason < currentYear;
-    
+
     console.log(`🏈 Determining matchup status: week ${selectedWeek}, current week ${currentWeek}, historical: ${isHistoricalSeason}`);
-    
+
     // For historical seasons, all matchups should be treated as completed
     if (isHistoricalSeason) {
       return 'completed';
     }
-    
+
     // For current season, use normal logic
     if (selectedWeek > currentWeek) {
       return 'upcoming';
@@ -723,7 +724,7 @@ const MatchupsPage: React.FC = () => {
                         {team1.team?.owner_name || team1.owner?.display_name || 'Unknown Owner'}
                       </div>
                       <div className={`text-2xl font-bold ${winningTeam?.roster_id === team1.roster_id ? 'text-green-600' : ''}`} data-id="cc50fwyfz">
-                        {(matchup.status === 'upcoming' && selectedSeason >= new Date().getFullYear()) ? '--' : (team1.points ?? 0).toFixed(1)}
+                        {matchup.status === 'upcoming' && selectedSeason >= new Date().getFullYear() ? '--' : (team1.points ?? 0).toFixed(1)}
                         {debugMode &&
                         <div className="text-xs text-muted-foreground mt-1" data-id="jiqxzzdfi">
                             Raw: {team1.points ?? 'null'}
@@ -749,7 +750,7 @@ const MatchupsPage: React.FC = () => {
                         {team2.team?.owner_name || team2.owner?.display_name || 'Unknown Owner'}
                       </div>
                       <div className={`text-2xl font-bold ${winningTeam?.roster_id === team2.roster_id ? 'text-green-600' : ''}`} data-id="qe2zegfup">
-                        {(matchup.status === 'upcoming' && selectedSeason >= new Date().getFullYear()) ? '--' : (team2.points ?? 0).toFixed(1)}
+                        {matchup.status === 'upcoming' && selectedSeason >= new Date().getFullYear() ? '--' : (team2.points ?? 0).toFixed(1)}
                         {debugMode &&
                         <div className="text-xs text-muted-foreground mt-1" data-id="wdwipokg2">
                             Raw: {team2.points ?? 'null'}
@@ -762,63 +763,25 @@ const MatchupsPage: React.FC = () => {
                   {/* Expanded Content */}
                   <CollapsibleContent className="mt-6" data-id="asgu6eh6p">
                     <div className="border-t pt-4 space-y-4" data-id="5bfhs7wve">
-                      {/* Team Rosters */}
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4" data-id="ly97xjb46">
-                        {/* Team 1 Roster */}
-                        <Card data-id="9trgpa4jm">
-                          <CardHeader className="pb-2" data-id="ltc0zwlrx">
-                            <CardTitle className="text-sm" data-id="dysqm10dq">
-                              {team1.team?.team_name || team1.owner?.display_name || 'Team 1'} Lineup
-                            </CardTitle>
-                          </CardHeader>
-                          <CardContent data-id="bgw6ozitx">
-                            <div className="space-y-2" data-id="21mvokaf1">
-                              {team1.roster?.starters.map((playerId, index) =>
-                              <div key={`${playerId}-${index}`} className="flex justify-between items-center text-sm" data-id="8k8emqpo4">
-                                  <span data-id="pas27okwd">{getPlayerName(playerId)}</span>
-                                  <div className="text-right" data-id="7tup9hizn">
-                                    <span className="font-medium" data-id="clg6dy6iq">
-                                      {team1.starters_points[index]?.toFixed(1) || '0.0'}
-                                    </span>
-                                    {debugMode &&
-                                  <div className="text-xs text-muted-foreground" data-id="z6siqnm8g">
-                                        Player: {team1.players_points[playerId]?.toFixed(1) || 'N/A'}
-                                      </div>
-                                  }
-                                  </div>
-                                </div>
-                              ) || <p className="text-muted-foreground text-sm" data-id="mkoj6ewa5">No lineup data available</p>}
-                            </div>
-                          </CardContent>
-                        </Card>
+                      {/* Team Starting Lineups */}
+                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4" data-id="ly97xjb46">
+                        {/* Team 1 Starting Lineup */}
+                        <StartingLineup
+                          roster={team1.roster}
+                          allPlayers={allPlayers}
+                          teamName={team1.team?.team_name || team1.owner?.display_name || 'Team 1'}
+                          playerPoints={team1.players_points}
+                          startersPoints={team1.starters_points}
+                        />
 
-                        {/* Team 2 Roster */}
-                        <Card data-id="nv2i6ths9">
-                          <CardHeader className="pb-2" data-id="dzxahfxhe">
-                            <CardTitle className="text-sm" data-id="9qgo6ywvp">
-                              {team2.team?.team_name || team2.owner?.display_name || 'Team 2'} Lineup
-                            </CardTitle>
-                          </CardHeader>
-                          <CardContent data-id="sg70vosuu">
-                            <div className="space-y-2" data-id="2la9a2ufg">
-                              {team2.roster?.starters.map((playerId, index) =>
-                              <div key={`${playerId}-${index}`} className="flex justify-between items-center text-sm" data-id="fhfk5nbfz">
-                                  <span data-id="spf3pshho">{getPlayerName(playerId)}</span>
-                                  <div className="text-right" data-id="iwmf57vj3">
-                                    <span className="font-medium" data-id="w049qhlpy">
-                                      {team2.starters_points[index]?.toFixed(1) || '0.0'}
-                                    </span>
-                                    {debugMode &&
-                                  <div className="text-xs text-muted-foreground" data-id="17njauf4q">
-                                        Player: {team2.players_points[playerId]?.toFixed(1) || 'N/A'}
-                                      </div>
-                                  }
-                                  </div>
-                                </div>
-                              ) || <p className="text-muted-foreground text-sm" data-id="r5k4pne3n">No lineup data available</p>}
-                            </div>
-                          </CardContent>
-                        </Card>
+                        {/* Team 2 Starting Lineup */}
+                        <StartingLineup
+                          roster={team2.roster}
+                          allPlayers={allPlayers}
+                          teamName={team2.team?.team_name || team2.owner?.display_name || 'Team 2'}
+                          playerPoints={team2.players_points}
+                          startersPoints={team2.starters_points}
+                        />
                       </div>
 
                       {/* Matchup Stats */}
