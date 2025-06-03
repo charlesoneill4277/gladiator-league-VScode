@@ -1,126 +1,356 @@
-import React, { useState } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import React, { useState, useEffect } from 'react';
+import { Card, CardContent } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { useApp } from '@/contexts/AppContext';
-import { Swords, ChevronDown, Clock, Trophy, Users } from 'lucide-react';
+import { Swords, Clock, Users, RefreshCw, AlertCircle } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
+import MatchupCard from '@/components/matchups/MatchupCard';
+import SleeperMatchupService from '@/services/sleeperMatchupService';
 
-// Mock data for matchups - this will be replaced with real Sleeper API data
-const mockMatchupsData = {
-  currentWeek: 14,
-  weeks: Array.from({ length: 17 }, (_, i) => ({
-    week: i + 1,
-    status: i < 13 ? 'completed' : i === 13 ? 'current' : 'upcoming'
-  })),
-  matchups: [
-  {
-    id: '1',
-    week: 14,
-    conference: 'Legions of Mars',
-    homeTeam: {
-      id: '1',
-      name: 'Galactic Gladiators',
-      owner: 'John Doe',
-      score: 127.5,
-      projected: 118.2
-    },
-    awayTeam: {
-      id: '2',
-      name: 'Space Vikings',
-      owner: 'Jane Smith',
-      score: 112.8,
-      projected: 125.4
-    },
-    status: 'live', // live, completed, upcoming
-    lastUpdate: '2024-12-15T20:30:00Z'
-  },
-  {
-    id: '2',
-    week: 14,
-    conference: 'Guardians of Jupiter',
-    homeTeam: {
-      id: '3',
-      name: 'Meteor Crushers',
-      owner: 'Bob Johnson',
-      score: 98.3,
-      projected: 110.8
-    },
-    awayTeam: {
-      id: '4',
-      name: 'Asteroid Miners',
-      owner: 'Alice Brown',
-      score: 134.2,
-      projected: 115.6
-    },
-    status: 'live',
-    lastUpdate: '2024-12-15T20:30:00Z'
-  },
-  {
-    id: '3',
-    week: 14,
-    conference: "Vulcan's Oathsworn",
-    homeTeam: {
-      id: '5',
-      name: 'Solar Flares',
-      owner: 'Charlie Wilson',
-      score: 0,
-      projected: 108.4
-    },
-    awayTeam: {
-      id: '6',
-      name: 'Nebula Nomads',
-      owner: 'Diana Prince',
-      score: 0,
-      projected: 112.7
-    },
-    status: 'upcoming',
-    lastUpdate: null
-  }]
+interface DatabaseMatchup {
+  id: number;
+  conference_id: number;
+  week: number;
+  team_1_id: number;
+  team_2_id: number;
+  is_playoff: boolean;
+}
 
-};
+interface DatabaseTeam {
+  id: number;
+  team_name: string;
+  owner_name: string;
+  owner_id: string;
+  team_logo_url: string;
+  team_primary_color: string;
+  team_secondary_color: string;
+}
+
+interface DatabaseConference {
+  id: number;
+  conference_name: string;
+  league_id: string;
+  season_id: number;
+  status: string;
+  league_logo_url: string;
+}
+
+interface TeamJunction {
+  id: number;
+  team_id: number;
+  conference_id: number;
+  roster_id: string;
+  is_active: boolean;
+}
+
+interface ProcessedMatchup {
+  matchupId: number;
+  conference: string;
+  team1: {
+    id: number;
+    name: string;
+    owner: string;
+    roster_id: number;
+    points: number;
+    starters: string[];
+    players: string[];
+    players_points?: { [key: string]: number };
+  };
+  team2: {
+    id: number;
+    name: string;
+    owner: string;
+    roster_id: number;
+    points: number;
+    starters: string[];
+    players: string[];
+    players_points?: { [key: string]: number };
+  };
+  week: number;
+  status: 'live' | 'completed' | 'upcoming';
+  isPlayoff: boolean;
+}
 
 const MatchupsPage: React.FC = () => {
   const { selectedSeason, selectedConference, currentSeasonConfig } = useApp();
-  const [selectedWeek, setSelectedWeek] = useState<number>(mockMatchupsData.currentWeek);
-  const [expandedMatchups, setExpandedMatchups] = useState<Set<string>>(new Set());
+  const { toast } = useToast();
+  const [selectedWeek, setSelectedWeek] = useState<number>(1);
+  const [currentWeek, setCurrentWeek] = useState<number>(1);
+  const [matchups, setMatchups] = useState<ProcessedMatchup[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [conferences, setConferences] = useState<DatabaseConference[]>([]);
+  const [teams, setTeams] = useState<DatabaseTeam[]>([]);
+  const [teamJunctions, setTeamJunctions] = useState<TeamJunction[]>([]);
 
-  // Filter matchups based on selected conference and week
-  const filteredMatchups = mockMatchupsData.matchups.filter((matchup) => {
-    const weekMatch = matchup.week === selectedWeek;
-    if (!selectedConference) return weekMatch;
+  const sleeperService = SleeperMatchupService.getInstance();
 
-    const conference = currentSeasonConfig.conferences.find((c) => c.id === selectedConference);
-    return weekMatch && matchup.conference === conference?.name;
-  });
+  // Initialize current week
+  useEffect(() => {
+    const initializeCurrentWeek = async () => {
+      try {
+        const week = await sleeperService.getCurrentNFLWeek();
+        setCurrentWeek(week);
+        setSelectedWeek(week);
+      } catch (error) {
+        console.error('Error getting current week:', error);
+        setCurrentWeek(1);
+        setSelectedWeek(1);
+      }
+    };
+    
+    initializeCurrentWeek();
+  }, []);
 
-  const toggleMatchupExpansion = (matchupId: string) => {
-    const newExpanded = new Set(expandedMatchups);
-    if (newExpanded.has(matchupId)) {
-      newExpanded.delete(matchupId);
-    } else {
-      newExpanded.add(matchupId);
+  // Load base data
+  useEffect(() => {
+    loadBaseData();
+  }, [selectedSeason]);
+
+  // Load matchups when filters change
+  useEffect(() => {
+    if (conferences.length > 0 && teams.length > 0 && teamJunctions.length > 0) {
+      loadMatchups();
     }
-    setExpandedMatchups(newExpanded);
+  }, [selectedWeek, selectedConference, conferences, teams, teamJunctions]);
+
+  const loadBaseData = async () => {
+    try {
+      setLoading(true);
+
+      // Load conferences for selected season
+      const conferencesResponse = await window.ezsite.apis.tablePage('12820', {
+        PageNo: 1,
+        PageSize: 100,
+        Filters: [
+          {
+            name: 'season_id',
+            op: 'Equal',
+            value: selectedSeason
+          }
+        ]
+      });
+
+      if (conferencesResponse.error) {
+        throw new Error(conferencesResponse.error);
+      }
+
+      const conferenceData = conferencesResponse.data?.List || [];
+      setConferences(conferenceData);
+
+      // Load all teams
+      const teamsResponse = await window.ezsite.apis.tablePage('12852', {
+        PageNo: 1,
+        PageSize: 100
+      });
+
+      if (teamsResponse.error) {
+        throw new Error(teamsResponse.error);
+      }
+
+      const teamData = teamsResponse.data?.List || [];
+      setTeams(teamData);
+
+      // Load team-conference junctions
+      const junctionsResponse = await window.ezsite.apis.tablePage('12853', {
+        PageNo: 1,
+        PageSize: 1000,
+        Filters: [
+          {
+            name: 'is_active',
+            op: 'Equal',
+            value: true
+          }
+        ]
+      });
+
+      if (junctionsResponse.error) {
+        throw new Error(junctionsResponse.error);
+      }
+
+      const junctionData = junctionsResponse.data?.List || [];
+      setTeamJunctions(junctionData);
+
+    } catch (error) {
+      console.error('Error loading base data:', error);
+      toast({
+        title: 'Error Loading Data',
+        description: 'Failed to load teams and conferences. Please try again.',
+        variant: 'destructive',
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case 'live':
-        return <Badge className="bg-green-500 hover:bg-green-600">Live</Badge>;
-      case 'completed':
-        return <Badge variant="secondary">Final</Badge>;
-      case 'upcoming':
-        return <Badge variant="outline">Upcoming</Badge>;
-      default:
-        return <Badge variant="secondary">{status}</Badge>;
+  const loadMatchups = async () => {
+    try {
+      setLoading(true);
+
+      // Get matchups from database for selected week and conference
+      const filters = [
+        {
+          name: 'week',
+          op: 'Equal',
+          value: selectedWeek
+        }
+      ];
+
+      if (selectedConference) {
+        const selectedConf = conferences.find(c => c.conference_name === selectedConference);
+        if (selectedConf) {
+          filters.push({
+            name: 'conference_id',
+            op: 'Equal',
+            value: selectedConf.id
+          });
+        }
+      }
+
+      const matchupsResponse = await window.ezsite.apis.tablePage('13329', {
+        PageNo: 1,
+        PageSize: 100,
+        Filters: filters
+      });
+
+      if (matchupsResponse.error) {
+        throw new Error(matchupsResponse.error);
+      }
+
+      const dbMatchups: DatabaseMatchup[] = matchupsResponse.data?.List || [];
+      
+      // Process each matchup
+      const processedMatchups: ProcessedMatchup[] = [];
+
+      for (const dbMatchup of dbMatchups) {
+        try {
+          const processedMatchup = await processMatchup(dbMatchup);
+          if (processedMatchup) {
+            processedMatchups.push(processedMatchup);
+          }
+        } catch (error) {
+          console.error(`Error processing matchup ${dbMatchup.id}:`, error);
+        }
+      }
+
+      setMatchups(processedMatchups);
+
+    } catch (error) {
+      console.error('Error loading matchups:', error);
+      toast({
+        title: 'Error Loading Matchups',
+        description: 'Failed to load matchup data. Please try again.',
+        variant: 'destructive',
+      });
+    } finally {
+      setLoading(false);
     }
   };
 
-  const getWeekStatus = (weekNum: number) => {
-    const weekData = mockMatchupsData.weeks.find((w) => w.week === weekNum);
-    return weekData?.status || 'upcoming';
+  const processMatchup = async (dbMatchup: DatabaseMatchup): Promise<ProcessedMatchup | null> => {
+    try {
+      // Get conference info
+      const conference = conferences.find(c => c.id === dbMatchup.conference_id);
+      if (!conference) {
+        console.error(`Conference not found for ID ${dbMatchup.conference_id}`);
+        return null;
+      }
+
+      // Get team info
+      const team1 = teams.find(t => t.id === dbMatchup.team_1_id);
+      const team2 = teams.find(t => t.id === dbMatchup.team_2_id);
+      
+      if (!team1 || !team2) {
+        console.error(`Teams not found: ${dbMatchup.team_1_id}, ${dbMatchup.team_2_id}`);
+        return null;
+      }
+
+      // Get roster IDs from junctions
+      const team1Junction = teamJunctions.find(tj => 
+        tj.team_id === team1.id && tj.conference_id === conference.id && tj.is_active
+      );
+      const team2Junction = teamJunctions.find(tj => 
+        tj.team_id === team2.id && tj.conference_id === conference.id && tj.is_active
+      );
+
+      if (!team1Junction || !team2Junction) {
+        console.error(`Team junctions not found for teams ${team1.id}, ${team2.id} in conference ${conference.id}`);
+        return null;
+      }
+
+      // Get Sleeper matchup data
+      const sleeperMatchups = await sleeperService.getMatchupData(conference.league_id, selectedWeek);
+      
+      const team1SleeperData = sleeperMatchups.find(sm => sm.roster_id.toString() === team1Junction.roster_id);
+      const team2SleeperData = sleeperMatchups.find(sm => sm.roster_id.toString() === team2Junction.roster_id);
+
+      // Determine status
+      let status: 'live' | 'completed' | 'upcoming' = 'upcoming';
+      if (selectedWeek < currentWeek) {
+        status = 'completed';
+      } else if (selectedWeek === currentWeek) {
+        status = 'live';
+      }
+
+      const processedMatchup: ProcessedMatchup = {
+        matchupId: dbMatchup.id,
+        conference: conference.conference_name,
+        team1: {
+          id: team1.id,
+          name: team1.team_name,
+          owner: team1.owner_name,
+          roster_id: parseInt(team1Junction.roster_id),
+          points: team1SleeperData?.points || 0,
+          starters: team1SleeperData?.starters || [],
+          players: team1SleeperData?.players || [],
+          players_points: team1SleeperData?.players_points
+        },
+        team2: {
+          id: team2.id,
+          name: team2.team_name,
+          owner: team2.owner_name,
+          roster_id: parseInt(team2Junction.roster_id),
+          points: team2SleeperData?.points || 0,
+          starters: team2SleeperData?.starters || [],
+          players: team2SleeperData?.players || [],
+          players_points: team2SleeperData?.players_points
+        },
+        week: dbMatchup.week,
+        status,
+        isPlayoff: dbMatchup.is_playoff
+      };
+
+      return processedMatchup;
+    } catch (error) {
+      console.error('Error processing matchup:', error);
+      return null;
+    }
+  };
+
+  const refreshMatchups = () => {
+    loadMatchups();
+    toast({
+      title: 'Refreshing Matchups',
+      description: 'Loading latest matchup data...',
+    });
+  };
+
+  const getWeekOptions = () => {
+    const weeks = [];
+    for (let i = 1; i <= 18; i++) {
+      weeks.push({
+        week: i,
+        status: i < currentWeek ? 'completed' : i === currentWeek ? 'current' : 'upcoming'
+      });
+    }
+    return weeks;
+  };
+
+  const getSelectedConferenceName = () => {
+    if (!selectedConference) return 'All Conferences';
+    const conf = currentSeasonConfig.conferences.find(c => c.id === selectedConference);
+    return conf?.name || 'All Conferences';
   };
 
   return (
@@ -132,14 +362,11 @@ const MatchupsPage: React.FC = () => {
           <h1 className="text-3xl font-bold">Matchups</h1>
         </div>
         <p className="text-muted-foreground">
-          {selectedSeason} Season • Week {selectedWeek} • {selectedConference ?
-          currentSeasonConfig.conferences.find((c) => c.id === selectedConference)?.name :
-          'All Conferences'
-          }
+          {selectedSeason} Season • Week {selectedWeek} • {getSelectedConferenceName()}
         </p>
       </div>
 
-      {/* Week Selector and Summary */}
+      {/* Controls */}
       <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
         <div className="flex items-center space-x-4">
           <Select value={selectedWeek.toString()} onValueChange={(value) => setSelectedWeek(parseInt(value))}>
@@ -147,170 +374,82 @@ const MatchupsPage: React.FC = () => {
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              {mockMatchupsData.weeks.map((week) =>
-              <SelectItem key={week.week} value={week.week.toString()}>
+              {getWeekOptions().map((week) => (
+                <SelectItem key={week.week} value={week.week.toString()}>
                   <div className="flex items-center space-x-2">
                     <span>Week {week.week}</span>
                     {week.status === 'current' && <Badge variant="outline" className="text-xs">Current</Badge>}
                   </div>
                 </SelectItem>
-              )}
+              ))}
             </SelectContent>
           </Select>
 
-          {getWeekStatus(selectedWeek) === 'current' &&
-          <div className="flex items-center space-x-2 text-sm text-muted-foreground">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={refreshMatchups}
+            disabled={loading}
+          >
+            <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+            Refresh
+          </Button>
+
+          {selectedWeek === currentWeek && (
+            <div className="flex items-center space-x-2 text-sm text-muted-foreground">
               <Clock className="h-4 w-4" />
-              <span>Games in progress</span>
+              <span>Live Week</span>
             </div>
-          }
+          )}
         </div>
 
         <div className="flex items-center space-x-4 text-sm text-muted-foreground">
           <div className="flex items-center space-x-1">
             <Users className="h-4 w-4" />
-            <span>{filteredMatchups.length} matchups</span>
+            <span>{matchups.length} matchups</span>
           </div>
         </div>
       </div>
 
+      {/* Loading State */}
+      {loading && (
+        <div className="flex items-center justify-center py-8">
+          <RefreshCw className="h-8 w-8 animate-spin text-primary" />
+          <span className="ml-2 text-muted-foreground">Loading matchups...</span>
+        </div>
+      )}
+
       {/* Matchups Grid */}
-      <div className="grid gap-4">
-        {filteredMatchups.map((matchup) =>
-        <Card key={matchup.id} className="hover:shadow-md transition-shadow">
-            <Collapsible>
-              <CollapsibleTrigger
-              className="w-full"
-              onClick={() => toggleMatchupExpansion(matchup.id)}>
+      {!loading && (
+        <div className="grid gap-4">
+          {matchups.map((matchup) => (
+            <MatchupCard
+              key={`${matchup.matchupId}-${matchup.week}`}
+              matchupId={matchup.matchupId}
+              conference={matchup.conference}
+              team1={matchup.team1}
+              team2={matchup.team2}
+              week={matchup.week}
+              status={matchup.status}
+              isPlayoff={matchup.isPlayoff}
+            />
+          ))}
 
-                <CardHeader className="pb-4">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-2">
-                      <CardTitle className="text-lg">
-                        {matchup.conference}
-                      </CardTitle>
-                      {getStatusBadge(matchup.status)}
-                    </div>
-                    <ChevronDown className={`h-4 w-4 transition-transform ${
-                  expandedMatchups.has(matchup.id) ? 'rotate-180' : ''}`
-                  } />
-                  </div>
-                </CardHeader>
-              </CollapsibleTrigger>
-
-              <CardContent className="pt-0">
-                {/* Matchup Summary */}
-                <div className="grid grid-cols-3 gap-4 items-center">
-                  {/* Home Team */}
-                  <div className="text-right space-y-1">
-                    <div className="font-semibold">{matchup.homeTeam.name}</div>
-                    <div className="text-sm text-muted-foreground">{matchup.homeTeam.owner}</div>
-                    <div className="text-2xl font-bold">
-                      {matchup.status === 'upcoming' ? '--' : matchup.homeTeam.score.toFixed(1)}
-                    </div>
-                    {matchup.status !== 'upcoming' &&
-                  <div className="text-xs text-muted-foreground">
-                        Proj: {matchup.homeTeam.projected.toFixed(1)}
-                      </div>
-                  }
-                  </div>
-
-                  {/* VS Divider */}
-                  <div className="text-center">
-                    <div className="text-lg font-semibold text-muted-foreground">VS</div>
-                    {matchup.status === 'completed' &&
-                  <Trophy className="h-6 w-6 mx-auto mt-2 text-yellow-500" />
-                  }
-                  </div>
-
-                  {/* Away Team */}
-                  <div className="text-left space-y-1">
-                    <div className="font-semibold">{matchup.awayTeam.name}</div>
-                    <div className="text-sm text-muted-foreground">{matchup.awayTeam.owner}</div>
-                    <div className="text-2xl font-bold">
-                      {matchup.status === 'upcoming' ? '--' : matchup.awayTeam.score.toFixed(1)}
-                    </div>
-                    {matchup.status !== 'upcoming' &&
-                  <div className="text-xs text-muted-foreground">
-                        Proj: {matchup.awayTeam.projected.toFixed(1)}
-                      </div>
-                  }
-                  </div>
-                </div>
-
-                {/* Expanded Content */}
-                <CollapsibleContent className="mt-6">
-                  <div className="border-t pt-4 space-y-4">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      {/* Home Team Roster Placeholder */}
-                      <Card>
-                        <CardHeader className="pb-2">
-                          <CardTitle className="text-sm">{matchup.homeTeam.name} Roster</CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                          <p className="text-sm text-muted-foreground">
-                            Detailed roster and player scores will be displayed here when connected to Sleeper API.
-                          </p>
-                        </CardContent>
-                      </Card>
-
-                      {/* Away Team Roster Placeholder */}
-                      <Card>
-                        <CardHeader className="pb-2">
-                          <CardTitle className="text-sm">{matchup.awayTeam.name} Roster</CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                          <p className="text-sm text-muted-foreground">
-                            Detailed roster and player scores will be displayed here when connected to Sleeper API.
-                          </p>
-                        </CardContent>
-                      </Card>
-                    </div>
-
-                    {/* Matchup Stats */}
-                    {matchup.status !== 'upcoming' &&
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
-                        <div>
-                          <div className="text-sm text-muted-foreground">Total Points</div>
-                          <div className="font-semibold">
-                            {(matchup.homeTeam.score + matchup.awayTeam.score).toFixed(1)}
-                          </div>
-                        </div>
-                        <div>
-                          <div className="text-sm text-muted-foreground">Point Spread</div>
-                          <div className="font-semibold">
-                            {Math.abs(matchup.homeTeam.score - matchup.awayTeam.score).toFixed(1)}
-                          </div>
-                        </div>
-                        <div>
-                          <div className="text-sm text-muted-foreground">Last Updated</div>
-                          <div className="text-xs">
-                            {matchup.lastUpdate ? new Date(matchup.lastUpdate).toLocaleTimeString() : 'N/A'}
-                          </div>
-                        </div>
-                        <div>
-                          <div className="text-sm text-muted-foreground">Status</div>
-                          <div className="text-xs">{matchup.status}</div>
-                        </div>
-                      </div>
-                  }
-                  </div>
-                </CollapsibleContent>
+          {matchups.length === 0 && !loading && (
+            <Card>
+              <CardContent className="py-8 text-center">
+                <AlertCircle className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
+                <p className="text-muted-foreground">No matchups found for the selected filters.</p>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Try selecting a different week or conference.
+                </p>
               </CardContent>
-            </Collapsible>
-          </Card>
-        )}
-
-        {filteredMatchups.length === 0 &&
-        <Card>
-            <CardContent className="py-8 text-center">
-              <p className="text-muted-foreground">No matchups found for the selected filters.</p>
-            </CardContent>
-          </Card>
-        }
-      </div>
-    </div>);
-
+            </Card>
+          )}
+        </div>
+      )}
+    </div>
+  );
 };
 
 export default MatchupsPage;
