@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -30,19 +30,12 @@ import {
   Calendar,
   Users,
   AlertTriangle,
+  Save,
   RotateCcw,
   Edit,
   GripVertical,
   Trophy,
-  Loader2,
-  CheckCircle,
-  XCircle,
-  Eye,
-  Shield,
-  Database,
-  Clock,
-  FileCheck,
-  Save } from
+  Loader2 } from
 'lucide-react';
 
 interface Season {
@@ -90,42 +83,6 @@ interface MatchupWithConference extends Matchup {
   conference_name?: string;
 }
 
-interface ValidationError {
-  field: string;
-  message: string;
-  severity: 'error' | 'warning';
-}
-
-interface MatchupValidationResult {
-  isValid: boolean;
-  errors: ValidationError[];
-  warnings: ValidationError[];
-}
-
-interface SaveOperation {
-  matchupId: number;
-  status: 'pending' | 'success' | 'failed';
-  error?: string;
-  originalData?: MatchupWithConference;
-  newData?: MatchupWithConference;
-}
-
-interface ChangePreview {
-  matchupId: number;
-  conference: string;
-  field: string;
-  oldValue: any;
-  newValue: any;
-  type: 'team_assignment' | 'override' | 'status';
-}
-
-interface SaveSnapshot {
-  timestamp: string;
-  matchups: MatchupWithConference[];
-  operations: SaveOperation[];
-  totalChanges: number;
-}
-
 interface SortableTeamProps {
   team: TeamWithDetails | null;
   matchupId: number;
@@ -139,6 +96,7 @@ interface SortableMatchupCardProps {
   teams: TeamWithDetails[];
   conferences: Conference[];
   onToggleOverride: (matchupId: number) => void;
+  onUpdateScores: (matchupId: number, team1Score: number, team2Score: number) => void;
 }
 
 const SortableTeam: React.FC<SortableTeamProps> = ({
@@ -207,15 +165,25 @@ const SortableMatchupCard: React.FC<SortableMatchupCardProps> = ({
   matchup,
   teams,
   conferences,
-  onToggleOverride
+  onToggleOverride,
+  onUpdateScores
 }) => {
 
   const team1 = teams.find((t) => t.id === matchup.team_1_id);
   const team2 = teams.find((t) => t.id === matchup.team_2_id);
   const conference = conferences.find((c) => c.id === matchup.conference_id);
 
+  const [editingScores, setEditingScores] = useState(false);
+  const [team1Score, setTeam1Score] = useState(matchup.team_1_score);
+  const [team2Score, setTeam2Score] = useState(matchup.team_2_score);
+
   const isTeam1Winner = matchup.winner_id === matchup.team_1_id;
   const isTeam2Winner = matchup.winner_id === matchup.team_2_id;
+
+  const handleSaveScores = () => {
+    onUpdateScores(matchup.id, team1Score, team2Score);
+    setEditingScores(false);
+  };
 
   return (
     <Card className={`mb-4 transition-all duration-200 hover:shadow-md ${
@@ -235,7 +203,7 @@ const SortableMatchupCard: React.FC<SortableMatchupCardProps> = ({
             </div>
             {matchup.is_manual_override &&
             <Badge variant="outline" className="text-orange-600 border-orange-300">
-                Team Assignment Override
+                Manual Override
               </Badge>
             }
             {matchup.is_playoff &&
@@ -250,7 +218,7 @@ const SortableMatchupCard: React.FC<SortableMatchupCardProps> = ({
               size="sm"
               onClick={() => onToggleOverride(matchup.id)}>
               <Edit className="h-3 w-3 mr-1" />
-              {matchup.is_manual_override ? 'Remove Team Override' : 'Team Override'}
+              {matchup.is_manual_override ? 'Remove Override' : 'Override'}
             </Button>
           </div>
         </div>
@@ -281,14 +249,42 @@ const SortableMatchupCard: React.FC<SortableMatchupCardProps> = ({
             </div>
           </div>
 
-          {/* Score Display Section - Read Only */}
+          {/* Score Editing Section */}
           <div className="flex items-center justify-center py-4 border-t">
-            <div className="flex items-center gap-2 px-3 py-1 rounded bg-gray-50">
-              <span className="text-xl font-bold">{matchup.team_1_score}</span>
-              <span className="text-gray-400">vs</span>
-              <span className="text-xl font-bold">{matchup.team_2_score}</span>
-              <span className="text-xs text-gray-500 ml-2">(from Sleeper API)</span>
-            </div>
+            {editingScores ?
+            <div className="flex items-center gap-2">
+                <input
+                type="number"
+                value={team1Score}
+                onChange={(e) => setTeam1Score(parseFloat(e.target.value) || 0)}
+                className="w-16 px-2 py-1 text-center border rounded"
+                step="0.1" />
+                <span className="text-gray-400">vs</span>
+                <input
+                type="number"
+                value={team2Score}
+                onChange={(e) => setTeam2Score(parseFloat(e.target.value) || 0)}
+                className="w-16 px-2 py-1 text-center border rounded"
+                step="0.1" />
+                <Button size="sm" onClick={handleSaveScores}>
+                  <Save className="h-3 w-3" />
+                </Button>
+                <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setEditingScores(false)}>
+                  Cancel
+                </Button>
+              </div> :
+            <div
+              className="flex items-center gap-2 cursor-pointer hover:bg-gray-50 px-3 py-1 rounded"
+              onClick={() => setEditingScores(true)}>
+                <span className="text-xl font-bold">{matchup.team_1_score}</span>
+                <span className="text-gray-400">vs</span>
+                <span className="text-xl font-bold">{matchup.team_2_score}</span>
+                <Edit className="h-3 w-3 text-gray-400 ml-1" />
+              </div>
+            }
           </div>
 
           {matchup.notes &&
@@ -314,19 +310,12 @@ const MatchupsManagement: React.FC = () => {
   const [conferences, setConferences] = useState<Conference[]>([]);
   const [teams, setTeams] = useState<TeamWithDetails[]>([]);
   const [matchups, setMatchups] = useState<MatchupWithConference[]>([]);
-  const [originalMatchups, setOriginalMatchups] = useState<MatchupWithConference[]>([]);
   const [selectedSeason, setSelectedSeason] = useState<string>('');
   const [selectedWeek, setSelectedWeek] = useState<string>('');
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [validating, setValidating] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
   const [activeId, setActiveId] = useState<string | null>(null);
-  const [showPreview, setShowPreview] = useState(false);
-  const [validationResults, setValidationResults] = useState<Record<number, MatchupValidationResult>>({});
-  const [saveOperations, setSaveOperations] = useState<SaveOperation[]>([]);
-  const [saveHistory, setSaveHistory] = useState<SaveSnapshot[]>([]);
-  const [previewChanges, setPreviewChanges] = useState<ChangePreview[]>([]);
   const { toast } = useToast();
 
   const sensors = useSensors(
@@ -335,175 +324,6 @@ const MatchupsManagement: React.FC = () => {
       coordinateGetter: sortableKeyboardCoordinates
     })
   );
-
-  // Enhanced validation system
-  const validateMatchup = useCallback((matchup: MatchupWithConference): MatchupValidationResult => {
-    const errors: ValidationError[] = [];
-    const warnings: ValidationError[] = [];
-
-    // Critical validations (errors)
-    if (!matchup.id || typeof matchup.id !== 'number' || matchup.id <= 0) {
-      errors.push({ field: 'id', message: 'Invalid matchup ID', severity: 'error' });
-    }
-    if (!matchup.conference_id || matchup.conference_id <= 0) {
-      errors.push({ field: 'conference_id', message: 'Invalid conference ID', severity: 'error' });
-    }
-    if (!matchup.week || matchup.week <= 0 || matchup.week > 18) {
-      errors.push({ field: 'week', message: 'Week must be between 1 and 18', severity: 'error' });
-    }
-    if (!matchup.team_1_id || matchup.team_1_id <= 0) {
-      errors.push({ field: 'team_1_id', message: 'Invalid Team 1 ID', severity: 'error' });
-    }
-    if (!matchup.team_2_id || matchup.team_2_id <= 0) {
-      errors.push({ field: 'team_2_id', message: 'Invalid Team 2 ID', severity: 'error' });
-    }
-    if (matchup.team_1_id === matchup.team_2_id) {
-      errors.push({ field: 'teams', message: 'Teams cannot play themselves', severity: 'error' });
-    }
-
-    // Data consistency checks
-    const team1Exists = teams.find((t) => t.id === matchup.team_1_id);
-    const team2Exists = teams.find((t) => t.id === matchup.team_2_id);
-    const conferenceExists = conferences.find((c) => c.id === matchup.conference_id);
-
-    if (!team1Exists) {
-      errors.push({ field: 'team_1_id', message: 'Team 1 does not exist', severity: 'error' });
-    }
-    if (!team2Exists) {
-      errors.push({ field: 'team_2_id', message: 'Team 2 does not exist', severity: 'error' });
-    }
-    if (!conferenceExists) {
-      errors.push({ field: 'conference_id', message: 'Conference does not exist', severity: 'error' });
-    }
-
-    // Note: Score validation removed as scores come from Sleeper API
-
-    // Winner validation
-    if (matchup.team_1_score !== matchup.team_2_score) {
-      const expectedWinner = matchup.team_1_score > matchup.team_2_score ? matchup.team_1_id : matchup.team_2_id;
-      if (matchup.winner_id !== expectedWinner) {
-        warnings.push({ field: 'winner_id', message: 'Winner does not match scores', severity: 'warning' });
-      }
-    } else if (matchup.winner_id !== 0) {
-      warnings.push({ field: 'winner_id', message: 'No winner should be set for tied scores', severity: 'warning' });
-    }
-
-    // Status consistency checks
-    if (matchup.is_manual_override && matchup.status === 'pending') {
-      warnings.push({ field: 'status', message: 'Manual override should typically be complete', severity: 'warning' });
-    }
-
-    // Note: Score warnings removed as scores come from Sleeper API
-
-    return {
-      isValid: errors.length === 0,
-      errors,
-      warnings
-    };
-  }, [teams, conferences]);
-
-  // Generate change preview
-  const generateChangePreview = useCallback((): ChangePreview[] => {
-    const changes: ChangePreview[] = [];
-
-    matchups.forEach((current) => {
-      const original = originalMatchups.find((o) => o.id === current.id);
-      if (!original) return;
-
-      const conference = conferences.find((c) => c.id === current.conference_id)?.conference_name || 'Unknown';
-
-      // Team assignment changes
-      if (original.team_1_id !== current.team_1_id) {
-        const oldTeam = teams.find((t) => t.id === original.team_1_id)?.team_name || `Team ${original.team_1_id}`;
-        const newTeam = teams.find((t) => t.id === current.team_1_id)?.team_name || `Team ${current.team_1_id}`;
-        changes.push({
-          matchupId: current.id,
-          conference,
-          field: 'Team 1',
-          oldValue: oldTeam,
-          newValue: newTeam,
-          type: 'team_assignment'
-        });
-      }
-
-      if (original.team_2_id !== current.team_2_id) {
-        const oldTeam = teams.find((t) => t.id === original.team_2_id)?.team_name || `Team ${original.team_2_id}`;
-        const newTeam = teams.find((t) => t.id === current.team_2_id)?.team_name || `Team ${current.team_2_id}`;
-        changes.push({
-          matchupId: current.id,
-          conference,
-          field: 'Team 2',
-          oldValue: oldTeam,
-          newValue: newTeam,
-          type: 'team_assignment'
-        });
-      }
-
-      // Note: Score changes are not tracked as scores come from Sleeper API
-
-      // Override changes
-      if (original.is_manual_override !== current.is_manual_override) {
-        changes.push({
-          matchupId: current.id,
-          conference,
-          field: 'Manual Override',
-          oldValue: original.is_manual_override ? 'Yes' : 'No',
-          newValue: current.is_manual_override ? 'Yes' : 'No',
-          type: 'override'
-        });
-      }
-
-      // Status changes
-      if (original.status !== current.status) {
-        changes.push({
-          matchupId: current.id,
-          conference,
-          field: 'Status',
-          oldValue: original.status,
-          newValue: current.status,
-          type: 'status'
-        });
-      }
-    });
-
-    return changes;
-  }, [matchups, originalMatchups, teams, conferences]);
-
-  // Real-time validation with debouncing
-  useEffect(() => {
-    if (matchups.length === 0) {
-      setValidationResults({});
-      setPreviewChanges([]);
-      return;
-    }
-
-    const timer = setTimeout(() => {
-      setValidating(true);
-
-      const results: Record<number, MatchupValidationResult> = {};
-      matchups.forEach((matchup) => {
-        results[matchup.id] = validateMatchup(matchup);
-      });
-
-      setValidationResults(results);
-      setPreviewChanges(generateChangePreview());
-      setValidating(false);
-    }, 300);
-
-    return () => clearTimeout(timer);
-  }, [matchups, validateMatchup, generateChangePreview]);
-
-  // Validation summary
-  const validationSummary = useMemo(() => {
-    const results = Object.values(validationResults);
-    return {
-      totalMatchups: results.length,
-      validMatchups: results.filter((r) => r.isValid).length,
-      totalErrors: results.reduce((sum, r) => sum + r.errors.length, 0),
-      totalWarnings: results.reduce((sum, r) => sum + r.warnings.length, 0),
-      criticalIssues: results.filter((r) => !r.isValid).length
-    };
-  }, [validationResults]);
 
   // Load initial data
   useEffect(() => {
@@ -645,6 +465,7 @@ const MatchupsManagement: React.FC = () => {
         const matchupsWithConference = (data.List || []).map((matchup: Matchup) => {
           console.log(`Loaded matchup ${matchup.id}:`, {
             teams: `${matchup.team_1_id} vs ${matchup.team_2_id}`,
+            scores: `${matchup.team_1_score} - ${matchup.team_2_score}`,
             status: matchup.status,
             manual_override: matchup.is_manual_override
           });
@@ -674,8 +495,6 @@ const MatchupsManagement: React.FC = () => {
       });
 
       setMatchups(allMatchups);
-      setOriginalMatchups([...allMatchups]); // Create snapshot for change tracking
-      setHasChanges(false); // Reset changes when loading fresh data
     } catch (error) {
       console.error('Error loading matchups:', error);
       toast({
@@ -738,10 +557,16 @@ const MatchupsManagement: React.FC = () => {
           overMatchup.team_2_id = activeTeamId;
         }
 
-        // Mark as team assignment override - scores will come from Sleeper API
+        // Reset scores and winner for both matchups since teams changed
+        activeMatchup.team_1_score = 0;
+        activeMatchup.team_2_score = 0;
+        activeMatchup.winner_id = 0;
         activeMatchup.is_manual_override = true;
         activeMatchup.status = 'pending'; // Reset status when teams are swapped
 
+        overMatchup.team_1_score = 0;
+        overMatchup.team_2_score = 0;
+        overMatchup.winner_id = 0;
         overMatchup.is_manual_override = true;
         overMatchup.status = 'pending'; // Reset status when teams are swapped
 
@@ -755,7 +580,7 @@ const MatchupsManagement: React.FC = () => {
       setHasChanges(true);
       toast({
         title: 'Teams Swapped',
-        description: 'Team assignments have been updated. Remember to save your changes.',
+        description: 'Team matchups have been updated. Remember to save your changes.',
         duration: 3000
       });
     }
@@ -782,38 +607,40 @@ const MatchupsManagement: React.FC = () => {
     setHasChanges(true);
 
     toast({
-      title: 'Team Assignment Override Toggled',
-      description: `Team assignment override ${matchups.find((m) => m.id === matchupId)?.is_manual_override ? 'removed' : 'enabled'} for matchup ${matchupId}.`,
+      title: 'Override Toggled',
+      description: `Manual override ${matchups.find((m) => m.id === matchupId)?.is_manual_override ? 'removed' : 'enabled'} for matchup ${matchupId}`,
       duration: 2000
     });
   };
 
+  const handleUpdateScores = (matchupId: number, team1Score: number, team2Score: number) => {
+    console.log(`Updating scores for matchup ${matchupId}: Team 1 = ${team1Score}, Team 2 = ${team2Score}`);
 
+    setMatchups((prev) => prev.map((matchup) =>
+    matchup.id === matchupId ?
+    {
+      ...matchup,
+      team_1_score: team1Score,
+      team_2_score: team2Score,
+      winner_id: team1Score > team2Score ? matchup.team_1_id :
+      team2Score > team1Score ? matchup.team_2_id : 0,
+      is_manual_override: true,
+      status: 'complete' // Set status to complete when manually setting scores
+    } :
+    matchup
+    ));
+    setHasChanges(true);
 
-  // Helper function for batch updates (future enhancement)
-  const prepareBatchUpdateData = (matchupsToUpdate: MatchupWithConference[]) => {
-    return matchupsToUpdate.map((matchup) => ({
-      id: matchup.id,
-      conference_id: matchup.conference_id,
-      week: matchup.week,
-      team_1_id: matchup.team_1_id,
-      team_2_id: matchup.team_2_id,
-      is_playoff: matchup.is_playoff,
-      sleeper_matchup_id: matchup.sleeper_matchup_id || '',
-      team_1_score: matchup.team_1_score,
-      team_2_score: matchup.team_2_score,
-      winner_id: matchup.winner_id,
-      is_manual_override: matchup.is_manual_override,
-      status: matchup.is_manual_override ? 'complete' : matchup.status || 'pending',
-      matchup_date: matchup.matchup_date || '',
-      notes: matchup.notes || ''
-    }));
+    toast({
+      title: 'Scores Updated',
+      description: `Matchup ${matchupId} scores updated. Remember to save changes.`,
+      duration: 2000
+    });
   };
 
   const handleSaveChanges = async () => {
     setSaving(true);
     console.log('Starting save operation for', matchups.length, 'matchups');
-    console.log('Note: Currently using individual updates. Batch update available for future enhancement.');
 
     let successCount = 0;
     let failureCount = 0;
@@ -827,43 +654,19 @@ const MatchupsManagement: React.FC = () => {
           week: matchup.week,
           team_1_id: matchup.team_1_id,
           team_2_id: matchup.team_2_id,
+          team_1_score: matchup.team_1_score,
+          team_2_score: matchup.team_2_score,
+          winner_id: matchup.winner_id,
           is_manual_override: matchup.is_manual_override,
-          status: matchup.status
+          status: matchup.is_manual_override ? 'complete' : matchup.status
         });
 
-        // Enhanced validation for matchup data
-        const validationErrors = [];
-
-        if (!matchup.id || typeof matchup.id !== 'number' || matchup.id <= 0) {
-          validationErrors.push(`Invalid matchup ID: ${matchup.id}`);
-        }
-        if (!matchup.conference_id || matchup.conference_id <= 0) {
-          validationErrors.push(`Invalid conference_id: ${matchup.conference_id}`);
-        }
-        if (!matchup.week || matchup.week <= 0 || matchup.week > 18) {
-          validationErrors.push(`Invalid week: ${matchup.week}`);
-        }
-        if (!matchup.team_1_id || matchup.team_1_id <= 0) {
-          validationErrors.push(`Invalid team_1_id: ${matchup.team_1_id}`);
-        }
-        if (!matchup.team_2_id || matchup.team_2_id <= 0) {
-          validationErrors.push(`Invalid team_2_id: ${matchup.team_2_id}`);
-        }
-        if (matchup.team_1_id === matchup.team_2_id) {
-          validationErrors.push(`Teams cannot play themselves: ${matchup.team_1_id}`);
-        }
-
-        if (validationErrors.length > 0) {
-          console.error(`Validation failed for matchup ${matchup.id}:`, {
-            matchupId: matchup.id,
-            errors: validationErrors,
-            data: {
-              id: matchup.id,
-              conference_id: matchup.conference_id,
-              week: matchup.week,
-              team_1_id: matchup.team_1_id,
-              team_2_id: matchup.team_2_id
-            }
+        // Validate required fields before attempting update
+        if (!matchup.id || matchup.conference_id <= 0 || matchup.week <= 0) {
+          console.error(`Invalid matchup data for ID ${matchup.id}:`, {
+            id: matchup.id,
+            conference_id: matchup.conference_id,
+            week: matchup.week
           });
           failureCount++;
           failedMatchups.push(matchup.id);
@@ -871,21 +674,19 @@ const MatchupsManagement: React.FC = () => {
         }
 
         // Prepare update data with all required fields
-        // NOTE: Only updating team assignments - scores and winners come from Sleeper API
         const updateData = {
-          id: matchup.id,
+          ID: matchup.id,
           conference_id: matchup.conference_id,
           week: matchup.week,
           team_1_id: matchup.team_1_id,
           team_2_id: matchup.team_2_id,
           is_playoff: matchup.is_playoff,
           sleeper_matchup_id: matchup.sleeper_matchup_id || '',
-          // Note: Scores and winner_id are managed by Sleeper API integration
           team_1_score: matchup.team_1_score,
           team_2_score: matchup.team_2_score,
           winner_id: matchup.winner_id,
           is_manual_override: matchup.is_manual_override,
-          status: matchup.status || 'pending',
+          status: matchup.is_manual_override ? 'complete' : matchup.status || 'pending',
           matchup_date: matchup.matchup_date || '',
           notes: matchup.notes || ''
         };
@@ -895,66 +696,30 @@ const MatchupsManagement: React.FC = () => {
         const { error } = await window.ezsite.apis.tableUpdate(13329, updateData);
 
         if (error) {
-          console.error(`Failed to update matchup ${matchup.id}:`, {
-            error,
-            matchupData: updateData,
-            validationStatus: 'passed',
-            apiResponse: { error }
-          });
+          console.error(`Failed to update matchup ${matchup.id}:`, error);
           failureCount++;
           failedMatchups.push(matchup.id);
         } else {
-          console.log(`Successfully updated matchup ${matchup.id}:`, {
-            matchupId: matchup.id,
-            teams: `${matchup.team_1_id} vs ${matchup.team_2_id}`,
-            manual_override: matchup.is_manual_override,
-            status: updateData.status
-          });
+          console.log(`Successfully updated matchup ${matchup.id}`);
           successCount++;
         }
       }
 
-      // Enhanced reporting with detailed feedback
-      const totalMatchups = matchups.length;
-      console.log(`Save operation completed:`, {
-        totalMatchups,
-        successCount,
-        failureCount,
-        successRate: `${(successCount / totalMatchups * 100).toFixed(1)}%`,
-        failedMatchupIds: failedMatchups
-      });
+      // Report results
+      console.log(`Save operation completed: ${successCount} successes, ${failureCount} failures`);
 
       if (failureCount > 0) {
-        console.error('Detailed failure analysis:', {
-          failedMatchupIds: failedMatchups,
-          totalFailures: failureCount,
-          successfulUpdates: successCount,
-          affectedConferences: conferences.filter((c) =>
-          matchups.some((m) => failedMatchups.includes(m.id) && m.conference_id === c.id)
-          ).map((c) => c.conference_name)
-        });
-
+        console.error('Failed matchup IDs:', failedMatchups);
         toast({
           title: 'Partial Success',
-          description: `${successCount}/${totalMatchups} matchups updated successfully. ${failureCount} failed (IDs: ${failedMatchups.join(', ')}). Check console for details.`,
-          variant: 'destructive',
-          duration: 8000
+          description: `${successCount} matchups updated successfully, ${failureCount} failed. Check console for details.`,
+          variant: 'destructive'
         });
       } else {
         setHasChanges(false);
-        console.log('All matchups updated successfully:', {
-          updatedMatchups: matchups.map((m) => ({
-            id: m.id,
-            conference: conferences.find((c) => c.id === m.conference_id)?.conference_name,
-            teams: `${m.team_1_id} vs ${m.team_2_id}`,
-            manual_override: m.is_manual_override
-          }))
-        });
-
         toast({
-          title: 'Complete Success',
-          description: `All ${successCount} matchups updated successfully! Changes have been saved to the database.`,
-          duration: 5000
+          title: 'Success',
+          description: `All ${successCount} matchups updated successfully`
         });
       }
 
@@ -991,7 +756,7 @@ const MatchupsManagement: React.FC = () => {
             Matchups Management
           </CardTitle>
           <CardDescription>
-            Manage weekly matchup team assignments across all conferences. Drag and drop individual teams to swap opponents between matchups. Showing up to 18 matchups per week (6 per conference).
+            Manage weekly matchups, scores, and overrides across all conferences. Drag and drop individual teams to swap opponents between matchups. Showing up to 18 matchups per week (6 per conference).
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -1115,7 +880,7 @@ const MatchupsManagement: React.FC = () => {
                 <div className="text-2xl font-bold text-orange-600">
                   {matchups.filter((m) => m.is_manual_override).length}
                 </div>
-                <div className="text-sm text-gray-600">Team Assignment Overrides</div>
+                <div className="text-sm text-gray-600">Manual Overrides</div>
               </div>
               <div className="space-y-1">
                 <div className="text-2xl font-bold text-purple-600">
@@ -1160,7 +925,8 @@ const MatchupsManagement: React.FC = () => {
                         matchup={matchup}
                         teams={teams}
                         conferences={conferences}
-                        onToggleOverride={handleToggleOverride} />
+                        onToggleOverride={handleToggleOverride}
+                        onUpdateScores={handleUpdateScores} />
                       )}
                     </div>
                   </div>);
