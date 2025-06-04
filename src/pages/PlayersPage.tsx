@@ -75,21 +75,21 @@ const PlayersPage: React.FC = () => {
   const [conferences, setConferences] = useState<Conference[]>([]);
   const [teamConferenceJunctions, setTeamConferenceJunctions] = useState<TeamConferenceJunction[]>([]);
   const [loading, setLoading] = useState(true);
-  
+
   // Filter states
   const [searchTerm, setSearchTerm] = useState('');
   const [nflTeamFilter, setNflTeamFilter] = useState<string>('all');
   const [weekFilter, setWeekFilter] = useState<string>('14'); // Default to current week
   const [freeAgentFilter, setFreeAgentFilter] = useState(false);
   const [rookieFilter, setRookieFilter] = useState(false);
-  
+
   // Modal states
   const [selectedPlayer, setSelectedPlayer] = useState<Player | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  
+
   // Performance monitoring state
   const [showMetrics, setShowMetrics] = useState(false);
-  
+
   // Enhanced roster caching with React Query
   const {
     data: rosterData,
@@ -106,7 +106,7 @@ const PlayersPage: React.FC = () => {
     staleTime: 2 * 60 * 1000, // 2 minutes
     retry: 3
   });
-  
+
   // Cache metrics for debugging
   const { metrics: detailedMetrics, clearAllCaches } = useRosterCacheMetrics();
 
@@ -414,12 +414,12 @@ const PlayersPage: React.FC = () => {
             <User className="h-6 w-6 text-primary animate-pulse" />
             <h1 className="text-3xl font-bold">Loading Players...</h1>
           </div>
-          {isRosterFetching && (
-            <div className="flex items-center space-x-2 text-blue-600">
+          {isRosterFetching &&
+          <div className="flex items-center space-x-2 text-blue-600">
               <RefreshCw className="h-4 w-4 animate-spin" />
               <span className="text-sm">Syncing roster data...</span>
             </div>
-          )}
+          }
         </div>
         
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
@@ -433,8 +433,8 @@ const PlayersPage: React.FC = () => {
             </Card>
           )}
         </div>
-      </div>
-    );
+      </div>);
+
   }
 
   return (
@@ -449,11 +449,11 @@ const PlayersPage: React.FC = () => {
           <p className="text-muted-foreground">
             {selectedSeason} Season • Week {weekFilter} • {filteredPlayers.length} players
             {isRosterFetching && <span className="ml-2 text-blue-600">• Updating roster data...</span>}
-            {rosterData && (
-              <span className="ml-2 text-green-600">
+            {rosterData &&
+            <span className="ml-2 text-green-600">
                 • {Object.keys(rosterData).length} players tracked
               </span>
-            )}
+            }
           </p>
           
           {/* Performance Controls */}
@@ -463,8 +463,8 @@ const PlayersPage: React.FC = () => {
               size="sm"
               onClick={handleRefresh}
               disabled={isRosterFetching}
-              className="flex items-center gap-1"
-            >
+              className="flex items-center gap-1">
+
               <RefreshCw className={`h-3 w-3 ${isRosterFetching ? 'animate-spin' : ''}`} />
               Refresh
             </Button>
@@ -473,8 +473,8 @@ const PlayersPage: React.FC = () => {
               variant="ghost"
               size="sm"
               onClick={() => setShowMetrics(!showMetrics)}
-              className="flex items-center gap-1"
-            >
+              className="flex items-center gap-1">
+
               <Zap className="h-3 w-3" />
               Metrics
             </Button>
@@ -482,17 +482,17 @@ const PlayersPage: React.FC = () => {
         </div>
         
         {/* Performance Metrics Panel */}
-        {showMetrics && (
-          <div className="mt-4 p-4 bg-muted/50 rounded-lg">
+        {showMetrics &&
+        <div className="mt-4 p-4 bg-muted/50 rounded-lg">
             <h3 className="text-sm font-semibold mb-2">Performance Metrics</h3>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-xs">
               <div>
                 <span className="text-muted-foreground">Cache Hit Rate:</span>
                 <div className="font-mono">
-                  {rosterMetrics.cacheHits + rosterMetrics.cacheMisses > 0
-                    ? `${((rosterMetrics.cacheHits / (rosterMetrics.cacheHits + rosterMetrics.cacheMisses)) * 100).toFixed(1)}%`
-                    : '0%'
-                  }
+                  {rosterMetrics.cacheHits + rosterMetrics.cacheMisses > 0 ?
+                `${(rosterMetrics.cacheHits / (rosterMetrics.cacheHits + rosterMetrics.cacheMisses) * 100).toFixed(1)}%` :
+                '0%'
+                }
                 </div>
               </div>
               <div>
@@ -510,16 +510,16 @@ const PlayersPage: React.FC = () => {
             </div>
             <div className="mt-2">
               <Button
-                variant="outline"
-                size="sm"
-                onClick={handleClearCache}
-                className="text-xs"
-              >
+              variant="outline"
+              size="sm"
+              onClick={handleClearCache}
+              className="text-xs">
+
                 Clear Cache
               </Button>
             </div>
           </div>
-        )}
+        }
       </div>
 
       {/* Filters */}

@@ -41,9 +41,9 @@ interface UsePlayerRosterCacheResult {
  * React Query hook for managing player roster cache with advanced performance optimizations
  */
 export const usePlayerRosterCache = (
-  conferences: Conference[],
-  options: UsePlayerRosterCacheOptions = {}
-): UsePlayerRosterCacheResult => {
+conferences: Conference[],
+options: UsePlayerRosterCacheOptions = {})
+: UsePlayerRosterCacheResult => {
   const queryClient = useQueryClient();
   const backgroundSyncRef = useRef<boolean>(false);
 
@@ -58,23 +58,23 @@ export const usePlayerRosterCache = (
   } = options;
 
   // Generate stable query key
-  const queryKey = ['player-rosters', conferences.map(c => c.league_id).sort()];
+  const queryKey = ['player-rosters', conferences.map((c) => c.league_id).sort()];
 
   const query = useQuery({
     queryKey,
     queryFn: async (): Promise<RosterStatusMap> => {
       console.log('🔄 React Query: Fetching roster data for', conferences.length, 'conferences');
       const startTime = Date.now();
-      
+
       try {
         const result = await PlayerRosterService.fetchAllRosterData(conferences);
         const duration = Date.now() - startTime;
-        
+
         console.log('✅ React Query: Roster data fetched successfully', {
           duration: `${duration}ms`,
           entries: Object.keys(result).length
         });
-        
+
         return result;
       } catch (error) {
         console.error('❌ React Query: Failed to fetch roster data:', error);
@@ -131,7 +131,7 @@ export const usePlayerRosterCache = (
       // Optionally invalidate React Query cache when conferences change
       queryClient.invalidateQueries({ queryKey: ['player-rosters'] });
     }
-  }, [conferences.map(c => c.league_id).join(','), queryClient]);
+  }, [conferences.map((c) => c.league_id).join(','), queryClient]);
 
   // Enhanced refetch function with loading state management
   const refetch = async () => {
@@ -155,7 +155,7 @@ export const usePlayerRosterCache = (
     if (!query.data) {
       return { isRostered: false };
     }
-    
+
     return query.data[playerId] || { isRostered: false };
   };
 
@@ -183,9 +183,9 @@ export const usePlayerRosterCache = (
  * Hook for individual player roster status with optimized caching
  */
 export const usePlayerRosterStatus = (
-  playerId: string,
-  conferences: Conference[]
-): RosterStatusInfo & { isLoading: boolean; isError: boolean } => {
+playerId: string,
+conferences: Conference[])
+: RosterStatusInfo & {isLoading: boolean;isError: boolean;} => {
   const { data, isLoading, isError, getRosterStatus } = usePlayerRosterCache(conferences);
 
   const rosterStatus = getRosterStatus(playerId);
@@ -201,9 +201,9 @@ export const usePlayerRosterStatus = (
  * Hook for batch player roster status queries
  */
 export const useBatchPlayerRosterStatus = (
-  playerIds: string[],
-  conferences: Conference[]
-): {
+playerIds: string[],
+conferences: Conference[])
+: {
   data: Record<string, RosterStatusInfo>;
   isLoading: boolean;
   isError: boolean;
@@ -216,10 +216,10 @@ export const useBatchPlayerRosterStatus = (
   const freeAgents: string[] = [];
   const rosteredPlayers: string[] = [];
 
-  playerIds.forEach(playerId => {
+  playerIds.forEach((playerId) => {
     const status = getRosterStatus(playerId);
     batchData[playerId] = status;
-    
+
     if (status.isRostered) {
       rosteredPlayers.push(playerId);
     } else {
@@ -241,16 +241,16 @@ export const useBatchPlayerRosterStatus = (
  */
 export const useRosterCacheMetrics = () => {
   const queryClient = useQueryClient();
-  
+
   const getDetailedMetrics = () => {
     const baseMetrics = PlayerRosterService.getPerformanceMetrics();
     const queryCache = queryClient.getQueryCache();
     const rosterQueries = queryCache.findAll({ queryKey: ['player-rosters'] });
-    
+
     return {
       ...baseMetrics,
       reactQueryCacheSize: rosterQueries.length,
-      reactQueryStates: rosterQueries.map(query => ({
+      reactQueryStates: rosterQueries.map((query) => ({
         key: JSON.stringify(query.queryKey),
         state: query.state.status,
         dataUpdatedAt: query.state.dataUpdatedAt,

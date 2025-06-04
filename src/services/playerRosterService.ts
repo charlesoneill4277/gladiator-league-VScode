@@ -86,14 +86,14 @@ export class PlayerRosterService {
       if (!stored) return;
 
       const { data, timestamp, version, conferences }: RosterCacheEntry = JSON.parse(stored);
-      
+
       // Check version compatibility and age
       if (version === this.CACHE_VERSION && Date.now() - timestamp < this.CACHE_DURATION) {
         const cacheKey = conferences.sort().join(',');
         this.rosterCache.set(cacheKey, { data, timestamp, version, conferences });
-        console.log('🔄 Loaded roster cache from localStorage', { 
-          entries: Object.keys(data).length, 
-          age: Date.now() - timestamp 
+        console.log('🔄 Loaded roster cache from localStorage', {
+          entries: Object.keys(data).length,
+          age: Date.now() - timestamp
         });
       } else {
         // Clear outdated cache
@@ -120,7 +120,7 @@ export class PlayerRosterService {
    * Generate cache key from conference league IDs
    */
   private static getCacheKey(conferences: Conference[]): string {
-    return conferences.map(c => c.league_id).sort().join(',');
+    return conferences.map((c) => c.league_id).sort().join(',');
   }
 
   /**
@@ -143,7 +143,7 @@ export class PlayerRosterService {
    */
   static async fetchAllRosterData(conferences: Conference[]): Promise<RosterStatusMap> {
     const startTime = Date.now();
-    
+
     try {
       const cacheKey = this.getCacheKey(conferences);
       const cachedEntry = this.rosterCache.get(cacheKey);
@@ -151,9 +151,9 @@ export class PlayerRosterService {
       // Return fresh cache immediately
       if (cachedEntry && this.isCacheFresh(cachedEntry)) {
         this.performanceMetrics.cacheHits++;
-        console.log('✅ Cache hit - returning fresh data', { 
+        console.log('✅ Cache hit - returning fresh data', {
           age: Date.now() - cachedEntry.timestamp,
-          entries: Object.keys(cachedEntry.data).length 
+          entries: Object.keys(cachedEntry.data).length
         });
         return cachedEntry.data;
       }
@@ -161,15 +161,15 @@ export class PlayerRosterService {
       // Return stale cache while fetching fresh data in background
       if (cachedEntry && this.isCacheStale(cachedEntry)) {
         this.performanceMetrics.cacheHits++;
-        console.log('🔄 Cache stale - returning stale data and fetching fresh', { 
-          age: Date.now() - cachedEntry.timestamp 
+        console.log('🔄 Cache stale - returning stale data and fetching fresh', {
+          age: Date.now() - cachedEntry.timestamp
         });
-        
+
         // Start background fetch without waiting
-        this.fetchFreshRosterData(conferences, cacheKey).catch(error => {
+        this.fetchFreshRosterData(conferences, cacheKey).catch((error) => {
           console.error('❌ Background fetch failed:', error);
         });
-        
+
         return cachedEntry.data;
       }
 
@@ -180,7 +180,7 @@ export class PlayerRosterService {
 
     } catch (error) {
       console.error('❌ Error in fetchAllRosterData:', error);
-      
+
       // Fallback to any available cache data
       const cacheKey = this.getCacheKey(conferences);
       const cachedEntry = this.rosterCache.get(cacheKey);
@@ -188,7 +188,7 @@ export class PlayerRosterService {
         console.log('🔄 Using expired cache as fallback');
         return cachedEntry.data;
       }
-      
+
       throw error;
     } finally {
       const responseTime = Date.now() - startTime;
@@ -201,7 +201,7 @@ export class PlayerRosterService {
    */
   private static async fetchFreshRosterData(conferences: Conference[], cacheKey: string): Promise<RosterStatusMap> {
     console.log('🔄 Fetching fresh roster data for', conferences.length, 'conferences');
-    
+
     // Cancel any existing request
     if (this.abortController) {
       this.abortController.abort();
@@ -211,9 +211,9 @@ export class PlayerRosterService {
     try {
       // Fetch additional data needed for processing
       const [teams, teamConferenceJunctions] = await Promise.all([
-        this.fetchTeams(),
-        this.fetchTeamConferenceJunctions()
-      ]);
+      this.fetchTeams(),
+      this.fetchTeamConferenceJunctions()]
+      );
 
       const rosterStatusMap: RosterStatusMap = {};
       this.performanceMetrics.apiCalls += conferences.length;
@@ -229,7 +229,7 @@ export class PlayerRosterService {
 
             const response = await fetch(
               `https://api.sleeper.app/v1/league/${conference.league_id}/rosters`,
-              { 
+              {
                 signal: this.abortController?.signal,
                 headers: {
                   'Accept': 'application/json',
@@ -272,7 +272,7 @@ export class PlayerRosterService {
           } catch (error) {
             lastError = error as Error;
             console.warn(`⚠️ Attempt ${attempt}/${maxRetries} failed for ${conference.conference_name}:`, error);
-            
+
             if (attempt === maxRetries) {
               console.error(`❌ All attempts failed for ${conference.conference_name}:`, lastError);
             }
@@ -287,15 +287,15 @@ export class PlayerRosterService {
         data: rosterStatusMap,
         timestamp: Date.now(),
         version: this.CACHE_VERSION,
-        conferences: conferences.map(c => c.league_id)
+        conferences: conferences.map((c) => c.league_id)
       };
 
       this.rosterCache.set(cacheKey, cacheEntry);
       this.saveToLocalStorage(cacheEntry);
 
-      console.log('✅ Roster data cached successfully', { 
+      console.log('✅ Roster data cached successfully', {
         entries: Object.keys(rosterStatusMap).length,
-        conferences: conferences.length 
+        conferences: conferences.length
       });
 
       return rosterStatusMap;
@@ -372,7 +372,7 @@ export class PlayerRosterService {
   /**
    * Get performance metrics
    */
-  static getPerformanceMetrics(): PerformanceMetrics & { cacheSize: number } {
+  static getPerformanceMetrics(): PerformanceMetrics & {cacheSize: number;} {
     return {
       ...this.performanceMetrics,
       cacheSize: this.rosterCache.size
@@ -387,7 +387,7 @@ export class PlayerRosterService {
     setInterval(() => {
       const metrics = this.getPerformanceMetrics();
       const hitRate = metrics.cacheHits / (metrics.cacheHits + metrics.cacheMisses) * 100;
-      
+
       console.log('📊 Roster Service Performance:', {
         cacheHitRate: `${hitRate.toFixed(1)}%`,
         apiCalls: metrics.apiCalls,
@@ -402,15 +402,15 @@ export class PlayerRosterService {
    */
   private static updatePerformanceMetrics(responseTime: number): void {
     this.performanceMetrics.lastApiCallTime = Date.now();
-    this.performanceMetrics.averageResponseTime = 
-      (this.performanceMetrics.averageResponseTime + responseTime) / 2;
+    this.performanceMetrics.averageResponseTime =
+    (this.performanceMetrics.averageResponseTime + responseTime) / 2;
   }
 
   /**
    * Utility function for delays
    */
   private static delay(ms: number): Promise<void> {
-    return new Promise(resolve => setTimeout(resolve, ms));
+    return new Promise((resolve) => setTimeout(resolve, ms));
   }
 
   /**
