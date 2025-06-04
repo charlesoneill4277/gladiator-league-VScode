@@ -33,6 +33,10 @@ interface StartingLineupProps {
   rosterId?: string;
   week?: number;
   matchupId?: string;
+  // Inter-conference matchup support
+  teamConference?: string;
+  opponentConference?: string;
+  isInterConference?: boolean;
 }
 
 interface LineupPosition {
@@ -264,7 +268,10 @@ const StartingLineup: React.FC<StartingLineupProps> = ({
   teamId,
   rosterId,
   week,
-  matchupId
+  matchupId,
+  teamConference,
+  opponentConference,
+  isInterConference
 }) => {
   const [showDebugInfo, setShowDebugInfo] = React.useState(false);
   const [showDataLineage, setShowDataLineage] = React.useState(false);
@@ -495,7 +502,15 @@ const StartingLineup: React.FC<StartingLineupProps> = ({
     <Card>
       <CardHeader className="pb-3">
         <CardTitle className="text-sm flex items-center justify-between">
-          <span>{teamName} Starting Lineup</span>
+          <div className="flex items-center space-x-2">
+            <span>{teamName} Starting Lineup</span>
+            {/* Inter-conference matchup indicator */}
+            {isInterConference && teamConference && (
+              <Badge variant="outline" className="text-xs bg-purple-50 text-purple-700 border-purple-200">
+                🏠 {teamConference}
+              </Badge>
+            )}
+          </div>
           <div className="flex items-center space-x-2">
             <Badge variant="outline" className="text-xs">
               {starters.length}/{LINEUP_POSITIONS.length} positions
@@ -516,6 +531,12 @@ const StartingLineup: React.FC<StartingLineupProps> = ({
             </Badge>
           </div>
         </CardTitle>
+        {/* Inter-conference matchup details */}
+        {isInterConference && teamConference && opponentConference && (
+          <div className="text-xs text-purple-600 bg-purple-50 p-2 rounded border border-purple-200">
+            ⚔️ Inter-Conference Matchup: {teamConference} vs {opponentConference}
+          </div>
+        )}
       </CardHeader>
       <CardContent>
         {/* Data Quality Alerts */}

@@ -1246,9 +1246,9 @@ class MatchupService {
       // Debug: Log data transformation and validation
       if (this.debugMode) {
         matchupDataFlowDebugger.logDataTransformation(traceId, 'database', 'hybrid_service', null, filteredMatchups);
-        matchupDataFlowDebugger.performConsistencyCheck(traceId, 'data_integrity', 
-          { expectedFilteredCount: conferenceIds.length * 6, totalAvailable: dbMatchups.length }, 
-          { actualFilteredCount: filteredMatchups.length, leagueWideCount: dbMatchups.length }
+        matchupDataFlowDebugger.performConsistencyCheck(traceId, 'data_integrity',
+        { expectedFilteredCount: conferenceIds.length * 6, totalAvailable: dbMatchups.length },
+        { actualFilteredCount: filteredMatchups.length, leagueWideCount: dbMatchups.length }
         );
         matchupDataFlowDebugger.completeStep(traceId, stepId);
         matchupDataFlowDebugger.completeTrace(traceId);
@@ -1277,19 +1277,19 @@ class MatchupService {
     const stepId = this.debugMode ? matchupDataFlowDebugger.logStep(traceId, 'database', 'build_team_map', { conferenceIds, mode: 'league_wide' }).id : '';
 
     try {
-      console.log('🔗 Building comprehensive team-conference mapping (league-wide mode)...', { 
+      console.log('🔗 Building comprehensive team-conference mapping (league-wide mode)...', {
         requestedConferences: conferenceIds.length,
         mode: conferenceIds.length > 0 ? 'filtered' : 'all_active'
       });
 
       // Fetch ALL active team-conference mappings to support league-wide operations
       const filters = [
-        {
-          name: 'is_active',
-          op: 'Equal',
-          value: true
-        }
-      ];
+      {
+        name: 'is_active',
+        op: 'Equal',
+        value: true
+      }];
+
 
       // Only add conference filtering if specific conferences are requested
       // This allows us to build comprehensive mappings while still supporting targeted queries
@@ -1318,11 +1318,11 @@ class MatchupService {
 
       // Build mappings for requested conferences OR all active conferences
       const conferenceTeamCounts: Record<number, number> = {};
-      
+
       junctions.forEach((junction) => {
         // Include if no specific conferences requested OR if junction matches requested conferences
         const shouldInclude = conferenceIds.length === 0 || conferenceIds.includes(junction.conference_id);
-        
+
         if (shouldInclude && junction.is_active) {
           // Map both ways: rosterId -> teamId and teamId -> rosterId
           map.set(`roster_${junction.roster_id}`, {
@@ -1333,14 +1333,14 @@ class MatchupService {
             teamId: junction.team_id,
             rosterId: junction.roster_id
           });
-          
+
           // Track conference team counts for validation
           conferenceTeamCounts[junction.conference_id] = (conferenceTeamCounts[junction.conference_id] || 0) + 1;
         }
       });
 
       this.teamConferenceMap = map;
-      
+
       console.log(`✅ Built comprehensive team-conference mapping:`, {
         totalMappings: map.size,
         uniqueTeams: map.size / 2, // Each team has 2 mappings (roster_ and team_)
@@ -1352,17 +1352,17 @@ class MatchupService {
       if (this.debugMode) {
         const mapArray = Array.from(map.entries());
         matchupDataFlowDebugger.logDataTransformation(traceId, 'database', 'hybrid_service', junctions, mapArray);
-        matchupDataFlowDebugger.performConsistencyCheck(traceId, 'roster_mapping', 
-          { expectedMappings: junctions.length * 2, requestedConferences: conferenceIds.length }, 
-          { actualMappings: map.size, activeConferences: Object.keys(conferenceTeamCounts).length }
+        matchupDataFlowDebugger.performConsistencyCheck(traceId, 'roster_mapping',
+        { expectedMappings: junctions.length * 2, requestedConferences: conferenceIds.length },
+        { actualMappings: map.size, activeConferences: Object.keys(conferenceTeamCounts).length }
         );
-        
+
         // Additional league-wide validation
         matchupDataFlowDebugger.performConsistencyCheck(traceId, 'league_wide_coverage',
-          { allActiveJunctions: junctions.length },
-          { mappedJunctions: junctions.filter(j => j.is_active).length, conferenceTeamCounts }
+        { allActiveJunctions: junctions.length },
+        { mappedJunctions: junctions.filter((j) => j.is_active).length, conferenceTeamCounts }
         );
-        
+
         matchupDataFlowDebugger.completeStep(traceId, stepId);
         matchupDataFlowDebugger.completeTrace(traceId);
       }
@@ -1851,7 +1851,7 @@ class MatchupService {
       // No longer filter by specific conferences to support inter-conference matchups
       const [databaseMatchups, teamMap] = await Promise.all([
       this.fetchDatabaseMatchups([], week), // Fetch ALL week matchups
-      this.buildTeamConferenceMap([])        // Build ALL active team mappings
+      this.buildTeamConferenceMap([]) // Build ALL active team mappings
       ]);
 
       console.log(`📊 League-wide database matchups: ${databaseMatchups.length}`);
@@ -1859,8 +1859,8 @@ class MatchupService {
 
       // Filter to requested conferences only after fetching all data
       const relevantMatchups = conferenceIds.length > 0 ?
-        databaseMatchups.filter((m) => conferenceIds.includes(m.conference_id)) :
-        databaseMatchups;
+      databaseMatchups.filter((m) => conferenceIds.includes(m.conference_id)) :
+      databaseMatchups;
 
       console.log(`🎯 Relevant matchups for processing: ${relevantMatchups.length}`);
 
@@ -1872,8 +1872,8 @@ class MatchupService {
       for (const dbMatchup of relevantMatchups) {
         try {
           // Determine the conference for this specific matchup
-          const matchupConference = conferences.find(c => c.id === dbMatchup.conference_id);
-          
+          const matchupConference = conferences.find((c) => c.id === dbMatchup.conference_id);
+
           if (!matchupConference) {
             console.warn(`⚠️ Conference not found for matchup ${dbMatchup.id} (conference_id: ${dbMatchup.conference_id})`);
             continue;
@@ -1897,7 +1897,7 @@ class MatchupService {
           // Validate for inter-conference matchup scenarios
           if (team1Conference !== team2Conference) {
             console.log(`🔄 Inter-conference matchup detected: Team ${dbMatchup.team_1_id} (${team1Conference}) vs Team ${dbMatchup.team_2_id} (${team2Conference})`);
-            
+
             // Additional validation for inter-conference matchups
             const isValidInterConference = await this.validateInterConferenceMatchup(dbMatchup, team1Conference, team2Conference);
             if (!isValidInterConference) {
@@ -1914,13 +1914,13 @@ class MatchupService {
           if (!processedConferences.has(matchupConference.id)) {
             try {
               [sleeperMatchupsData, rostersData, usersData] = await Promise.all([
-                SleeperApiService.fetchMatchups(matchupConference.league_id, week),
-                SleeperApiService.fetchLeagueRosters(matchupConference.league_id),
-                SleeperApiService.fetchLeagueUsers(matchupConference.league_id)
-              ]);
+              SleeperApiService.fetchMatchups(matchupConference.league_id, week),
+              SleeperApiService.fetchLeagueRosters(matchupConference.league_id),
+              SleeperApiService.fetchLeagueUsers(matchupConference.league_id)]
+              );
 
               processedConferences.add(matchupConference.id);
-              
+
               console.log(`📈 Sleeper API data for ${matchupConference.conference_name}:`, {
                 matchups: sleeperMatchupsData.length,
                 rosters: rostersData.length,
@@ -1970,11 +1970,11 @@ class MatchupService {
 
       // Step 4: Handle conferences with no database matchups (fallback to Sleeper API)
       for (const conference of conferences) {
-        const hasDbMatchups = relevantMatchups.some(m => m.conference_id === conference.id);
-        
+        const hasDbMatchups = relevantMatchups.some((m) => m.conference_id === conference.id);
+
         if (!hasDbMatchups) {
           console.log(`⚠️ No database matchups for ${conference.conference_name}, falling back to Sleeper API`);
-          
+
           try {
             const sleeperMatchups = await this.getSleeperMatchups(
               conference,
@@ -1984,7 +1984,7 @@ class MatchupService {
               selectedSeason,
               allPlayers
             );
-            
+
             hybridMatchups.push(...sleeperMatchups);
           } catch (error) {
             console.error(`❌ Sleeper fallback failed for ${conference.conference_name}:`, error);
@@ -2002,10 +2002,10 @@ class MatchupService {
           hybrid: hybridMatchups.filter((m) => m.dataSource === 'hybrid').length
         };
 
-        const interConferenceCount = hybridMatchups.filter(m => 
-          m.teams[0]?.database_team_id && m.teams[1]?.database_team_id &&
-          this.getTeamConferenceFromMap(m.teams[0].database_team_id, teamMap) !== 
-          this.getTeamConferenceFromMap(m.teams[1].database_team_id, teamMap)
+        const interConferenceCount = hybridMatchups.filter((m) =>
+        m.teams[0]?.database_team_id && m.teams[1]?.database_team_id &&
+        this.getTeamConferenceFromMap(m.teams[0].database_team_id, teamMap) !==
+        this.getTeamConferenceFromMap(m.teams[1].database_team_id, teamMap)
         ).length;
 
         matchupDataFlowDebugger.logDataTransformation(traceId, 'hybrid_service', 'ui_component', databaseMatchups, hybridMatchups);
@@ -2028,8 +2028,8 @@ class MatchupService {
 
         // Additional league-wide validation
         matchupDataFlowDebugger.performConsistencyCheck(traceId, 'league_wide_validation',
-          { totalConferences: conferences.length, totalTeams: teams.length },
-          { processedConferences: processedConferences.size, interConferenceMatchups: interConferenceCount }
+        { totalConferences: conferences.length, totalTeams: teams.length },
+        { processedConferences: processedConferences.size, interConferenceMatchups: interConferenceCount }
         );
 
         matchupDataFlowDebugger.completeStep(traceId, stepId);
@@ -2068,9 +2068,9 @@ class MatchupService {
         OrderByField: 'id',
         IsAsc: true,
         Filters: [
-          { name: 'team_id', op: 'Equal', value: teamId },
-          { name: 'is_active', op: 'Equal', value: true }
-        ]
+        { name: 'team_id', op: 'Equal', value: teamId },
+        { name: 'is_active', op: 'Equal', value: true }]
+
       });
 
       if (response.error) {
@@ -2098,16 +2098,16 @@ class MatchupService {
    * Validate that an inter-conference matchup is legitimate
    */
   private async validateInterConferenceMatchup(
-    dbMatchup: DatabaseMatchup, 
-    team1Conference: number | null, 
-    team2Conference: number | null
-  ): Promise<boolean> {
+  dbMatchup: DatabaseMatchup,
+  team1Conference: number | null,
+  team2Conference: number | null)
+  : Promise<boolean> {
     try {
       // Inter-conference matchups are valid if:
       // 1. Both teams have valid conference assignments
       // 2. The matchup is explicitly marked as inter-conference in the database
       // 3. The week allows for inter-conference play (e.g., every third week per rules)
-      
+
       if (!team1Conference || !team2Conference) {
         console.warn(`⚠️ Invalid conference assignments for inter-conference matchup ${dbMatchup.id}`);
         return false;
@@ -2120,7 +2120,7 @@ class MatchupService {
 
       // Validate against league rules - inter-conference matchups every third week
       const isInterConferenceWeek = dbMatchup.week % 3 === 0;
-      
+
       if (!isInterConferenceWeek) {
         console.warn(`⚠️ Inter-conference matchup ${dbMatchup.id} on non-inter-conference week ${dbMatchup.week}`);
         // Still allow it but log the warning
@@ -2138,13 +2138,13 @@ class MatchupService {
    * Fetch Sleeper data for teams that may be in different conferences
    */
   private async fetchCrossConferenceSleeperData(
-    dbMatchup: DatabaseMatchup,
-    team1Conference: number | null,
-    team2Conference: number | null, 
-    primaryConference: Conference,
-    week: number,
-    teamMap: Map<string, {teamId: number;rosterId: string;}>
-  ): Promise<[{matchups: SleeperMatchup[]; rosters: SleeperRoster[]; users: SleeperUser[];} | null, {matchups: SleeperMatchup[]; rosters: SleeperRoster[]; users: SleeperUser[];} | null]> {
+  dbMatchup: DatabaseMatchup,
+  team1Conference: number | null,
+  team2Conference: number | null,
+  primaryConference: Conference,
+  week: number,
+  teamMap: Map<string, {teamId: number;rosterId: string;}>)
+  : Promise<[{matchups: SleeperMatchup[];rosters: SleeperRoster[];users: SleeperUser[];} | null, {matchups: SleeperMatchup[];rosters: SleeperRoster[];users: SleeperUser[];} | null]> {
     try {
       // If teams are in the same conference or one conference is unknown, use primary conference data
       if (!team1Conference || !team2Conference || team1Conference === team2Conference) {
@@ -2155,9 +2155,9 @@ class MatchupService {
 
       // Get conference details for both teams
       const [team1ConferenceData, team2ConferenceData] = await Promise.all([
-        this.fetchConferences([team1Conference]),
-        this.fetchConferences([team2Conference])
-      ]);
+      this.fetchConferences([team1Conference]),
+      this.fetchConferences([team2Conference])]
+      );
 
       if (team1ConferenceData.length === 0 || team2ConferenceData.length === 0) {
         console.warn(`⚠️ Could not fetch conference data for cross-conference matchup`);
@@ -2169,9 +2169,9 @@ class MatchupService {
 
       // Fetch Sleeper data from both conferences
       const [team1Data, team2Data] = await Promise.all([
-        this.fetchConferenceSleeperData(team1Conf, week),
-        this.fetchConferenceSleeperData(team2Conf, week)
-      ]);
+      this.fetchConferenceSleeperData(team1Conf, week),
+      this.fetchConferenceSleeperData(team2Conf, week)]
+      );
 
       return [team1Data, team2Data];
     } catch (error) {
@@ -2184,15 +2184,15 @@ class MatchupService {
    * Fetch Sleeper data for a specific conference
    */
   private async fetchConferenceSleeperData(
-    conference: Conference,
-    week: number
-  ): Promise<{matchups: SleeperMatchup[]; rosters: SleeperRoster[]; users: SleeperUser[]}> {
+  conference: Conference,
+  week: number)
+  : Promise<{matchups: SleeperMatchup[];rosters: SleeperRoster[];users: SleeperUser[];}> {
     try {
       const [matchups, rosters, users] = await Promise.all([
-        SleeperApiService.fetchMatchups(conference.league_id, week),
-        SleeperApiService.fetchLeagueRosters(conference.league_id),
-        SleeperApiService.fetchLeagueUsers(conference.league_id)
-      ]);
+      SleeperApiService.fetchMatchups(conference.league_id, week),
+      SleeperApiService.fetchLeagueRosters(conference.league_id),
+      SleeperApiService.fetchLeagueUsers(conference.league_id)]
+      );
 
       return { matchups, rosters, users };
     } catch (error) {
@@ -2206,7 +2206,7 @@ class MatchupService {
    */
   private async getLeagueIdForTeamConference(conferenceId: number | null): Promise<string | null> {
     if (!conferenceId) return null;
-    
+
     try {
       const conferences = await this.fetchConferences([conferenceId]);
       return conferences.length > 0 ? conferences[0].league_id : null;
@@ -2220,26 +2220,26 @@ class MatchupService {
    * Fetch team data from a specific conference
    */
   private async fetchTeamDataFromConference(
-    rosterId: number, 
-    conferenceId: number | null, 
-    week: number, 
-    allPlayers: Record<string, SleeperPlayer>
-  ): Promise<{matchup?: SleeperMatchup; roster?: SleeperRoster} | null> {
+  rosterId: number,
+  conferenceId: number | null,
+  week: number,
+  allPlayers: Record<string, SleeperPlayer>)
+  : Promise<{matchup?: SleeperMatchup;roster?: SleeperRoster;} | null> {
     if (!conferenceId) return null;
-    
+
     try {
       const conferences = await this.fetchConferences([conferenceId]);
       if (conferences.length === 0) return null;
-      
+
       const conference = conferences[0];
       const [matchups, rosters] = await Promise.all([
-        SleeperApiService.fetchMatchups(conference.league_id, week),
-        SleeperApiService.fetchLeagueRosters(conference.league_id)
-      ]);
-      
-      const matchup = matchups.find(m => m.roster_id === rosterId);
-      const roster = rosters.find(r => r.roster_id === rosterId);
-      
+      SleeperApiService.fetchMatchups(conference.league_id, week),
+      SleeperApiService.fetchLeagueRosters(conference.league_id)]
+      );
+
+      const matchup = matchups.find((m) => m.roster_id === rosterId);
+      const roster = rosters.find((r) => r.roster_id === rosterId);
+
       return { matchup, roster };
     } catch (error) {
       console.error(`❌ Error fetching team data for roster ${rosterId} in conference ${conferenceId}:`, error);
@@ -2251,17 +2251,17 @@ class MatchupService {
    * Validate league-wide matchup data for both intra and inter-conference scenarios
    */
   private validateLeagueWideMatchupData(
-    data: {
-      team1SleeperData?: SleeperMatchup;
-      team2SleeperData?: SleeperMatchup;
-      team1Roster?: SleeperRoster;
-      team2Roster?: SleeperRoster;
-    },
-    matchupName: string,
-    isIntraConference: boolean
-  ): {isValid: boolean; issues: string[]} {
+  data: {
+    team1SleeperData?: SleeperMatchup;
+    team2SleeperData?: SleeperMatchup;
+    team1Roster?: SleeperRoster;
+    team2Roster?: SleeperRoster;
+  },
+  matchupName: string,
+  isIntraConference: boolean)
+  : {isValid: boolean;issues: string[];} {
     const issues: string[] = [];
-    
+
     // Basic data checks
     if (!data.team1SleeperData) {
       issues.push('Missing team 1 Sleeper matchup data');
@@ -2275,7 +2275,7 @@ class MatchupService {
     if (!data.team2Roster) {
       issues.push('Missing team 2 roster data');
     }
-    
+
     // Inter-conference specific validation
     if (!isIntraConference) {
       // For inter-conference matchups, ensure we have data from both leagues
@@ -2284,7 +2284,7 @@ class MatchupService {
         console.log(`🌐 Inter-conference matchup validated: ${matchupName}`);
       }
     }
-    
+
     // Data completeness checks
     if (data.team1SleeperData && (!data.team1SleeperData.players_points || Object.keys(data.team1SleeperData.players_points).length === 0)) {
       issues.push('Team 1 missing player points data');
@@ -2292,13 +2292,13 @@ class MatchupService {
     if (data.team2SleeperData && (!data.team2SleeperData.players_points || Object.keys(data.team2SleeperData.players_points).length === 0)) {
       issues.push('Team 2 missing player points data');
     }
-    
+
     const isValid = issues.length === 0;
-    
+
     if (!isValid) {
       console.warn(`⚠️ League-wide data validation issues for ${matchupName}:`, issues);
     }
-    
+
     return { isValid, issues };
   }
 

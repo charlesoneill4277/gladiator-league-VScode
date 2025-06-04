@@ -32,6 +32,7 @@ const MatchupsPage: React.FC = () => {
   const [teams, setTeams] = useState<Team[]>([]);
   const [matchups, setMatchups] = useState<HybridMatchup[]>([]);
   const [allPlayers, setAllPlayers] = useState<Record<string, SleeperPlayer>>({});
+  const [teamConferenceMap, setTeamConferenceMap] = useState<Map<number, Conference>>(new Map());
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [debugMode, setDebugMode] = useState(false);
@@ -46,6 +47,47 @@ const MatchupsPage: React.FC = () => {
   }>({ database: 0, sleeper: 0, hybrid: 0 });
 
   // Data fetching methods have been moved to MatchupService
+
+  // Fetch team-conference mappings to support inter-conference matchup detection
+  const fetchTeamConferenceMappings = async (conferenceData: Conference[]) => {
+    try {
+      console.log('Fetching team-conference mappings for inter-conference detection...');
+      
+      const mappingResponse = await window.ezsite.apis.tablePage('12853', {
+        PageNo: 1,
+        PageSize: 500,
+        OrderByField: 'id',
+        IsAsc: true,
+        Filters: [
+          {
+            name: 'is_active',
+            op: 'Equal',
+            value: true
+          }
+        ]
+      });
+
+      if (mappingResponse.error) {
+        throw new Error(mappingResponse.error);
+      }
+
+      const mappings = mappingResponse.data.List;
+      const newTeamConferenceMap = new Map<number, Conference>();
+
+      mappings.forEach((mapping: any) => {
+        const conference = conferenceData.find(c => c.id === mapping.conference_id);
+        if (conference) {
+          newTeamConferenceMap.set(mapping.team_id, conference);
+        }
+      });
+
+      setTeamConferenceMap(newTeamConferenceMap);
+      console.log(`✅ Built team-conference mapping for ${newTeamConferenceMap.size} teams`);
+    } catch (error) {
+      console.error('❌ Error fetching team-conference mappings:', error);
+      // Don't throw - inter-conference detection will just be unavailable
+    }
+  };
 
   // Fetch conferences and teams from database
   const fetchDatabaseData = async () => {
@@ -138,6 +180,9 @@ const MatchupsPage: React.FC = () => {
       const teamData = teamsResponse.data.List;
       setTeams(teamData);
       console.log(`Loaded ${teamData.length} teams`);
+
+      // Fetch team-conference mappings to support inter-conference detection
+      await fetchTeamConferenceMappings(conferenceData);
 
       return { conferences: conferenceData, teams: teamData };
     } catch (error) {
@@ -361,6 +406,11 @@ const MatchupsPage: React.FC = () => {
     return team1.points > team2.points ? team1 : team2;
   };
 
+  // Helper function to find team's conference data
+  const findTeamConferenceData = (teamId: number, allConferences: Conference[]): Conference | null => {
+    return teamConferenceMap.get(teamId) || null;
+  };
+
   if (loading) {
     return (
       <div className="space-y-6">
@@ -386,15 +436,26 @@ const MatchupsPage: React.FC = () => {
           <Swords className="h-6 w-6 text-primary" />
           <h1 className="text-3xl font-bold">Matchups</h1>
         </div>
-        <p className="text-muted-foreground">
-          {selectedSeason} Season • Week {selectedWeek} • {
-          selectedConference ?
-          currentSeasonConfig.conferences.find((c) => c.id === selectedConference)?.name || 'Selected Conference' :
-
-          conferences.length > 0 ? `${conferences.length} Conference${conferences.length !== 1 ? 's' : ''}` : 'All Conferences'
-
-          }
-        </p>
+        <div className="space-y-1">
+          <p className="text-muted-foreground">
+            {selectedSeason} Season • Week {selectedWeek} • {
+            selectedConference ?
+            currentSeasonConfig.conferences.find((c) => c.id === selectedConference)?.name || 'Selected Conference' :
+            conferences.length > 0 ? `${conferences.length} Conference${conferences.length !== 1 ? 's' : ''}` : 'All Conferences'
+            }
+          </p>
+          {/* Inter-conference week indicator */}
+          {selectedWeek % 3 === 0 && (
+            <div className="flex items-center space-x-2 text-sm">
+              <Badge className="bg-purple-600 hover:bg-purple-700 text-white text-xs">
+                ⚔️ Inter-Conference Week
+              </Badge>
+              <span className="text-purple-600 text-xs">
+                Teams from different conferences may face each other this week
+              </span>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Controls */}
@@ -583,14 +644,70 @@ const MatchupsPage: React.FC = () => {
         </Card>
       }
 
+      {/* Inter-Conference Matchups Summary */}
+      {(() => {
+        const interConferenceCount = matchups.filter(matchup => {
+          const [team1, team2] = matchup.teams;
+          const team1Conference = team1.database_team_id ? findTeamConferenceData(team1.database_team_id, conferences) : null;
+          const team2Conference = team2.database_team_id ? findTeamConferenceData(team2.database_team_id, conferences) : null;
+          return team1Conference && team2Conference && team1Conference.id !== team2Conference.id;
+        }).length;
+        
+        if (interConferenceCount > 0) {
+          return (
+            <Card className="border-l-4 border-l-purple-500 bg-gradient-to-r from-purple-50 to-blue-50">
+              <CardContent className="py-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-3">
+                    <div className="p-2 bg-purple-100 rounded-full">
+                      <span className="text-lg">⚔️</span>
+                    </div>
+                    <div>
+                      <div className="font-medium text-purple-800">
+                        {interConferenceCount} Inter-Conference Matchup{interConferenceCount !== 1 ? 's' : ''}
+                      </div>
+                      <div className="text-sm text-purple-600">
+                        Teams from different conferences competing this week
+                      </div>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <Badge className="bg-purple-600 hover:bg-purple-700 text-white">
+                      Week {selectedWeek}
+                    </Badge>
+                    {selectedWeek % 3 === 0 && (
+                      <div className="text-xs text-purple-600 mt-1">
+                        Scheduled Inter-Conference Week
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          );
+        }
+        return null;
+      })()}
+
       {/* Matchups Grid */}
       <div className="grid gap-4">
         {matchups.map((matchup) => {
           const [team1, team2] = matchup.teams;
           const winningTeam = getWinningTeam(matchup);
+          
+          // Determine if this is an inter-conference matchup
+          const team1Conference = team1.database_team_id ? findTeamConferenceData(team1.database_team_id, conferences) : null;
+          const team2Conference = team2.database_team_id ? findTeamConferenceData(team2.database_team_id, conferences) : null;
+          const isInterConference = team1Conference && team2Conference && team1Conference.id !== team2Conference.id;
+          
+          // Determine if it's a special inter-conference week (every 3rd week according to rules)
+          const isInterConferenceWeek = selectedWeek % 3 === 0;
 
           return (
-            <Card key={`${matchup.conference.id}-${matchup.matchup_id}`} className="hover:shadow-md transition-shadow">
+            <Card key={`${matchup.conference.id}-${matchup.matchup_id}`} 
+                  className={`hover:shadow-md transition-shadow ${
+                    isInterConference ? 'border-l-4 border-l-purple-500 bg-gradient-to-r from-purple-50 via-white to-blue-50' : ''
+                  }`}>
               <Collapsible>
                 <CollapsibleTrigger
                   className="w-full"
@@ -598,22 +715,51 @@ const MatchupsPage: React.FC = () => {
 
                   <CardHeader className="pb-4">
                     <div className="flex items-center justify-between">
-                      <div className="flex items-center space-x-2">
-                        <CardTitle className="text-lg">
-                          {matchup.conference.conference_name}
-                        </CardTitle>
-                        {getStatusBadge(matchup.status)}
-                        {matchup.isManualOverride &&
-                        <Badge variant="outline" className="text-xs bg-orange-50 text-orange-700 border-orange-200">
-                            <Database className="h-3 w-3 mr-1" />
-                            Score Override
-                          </Badge>
-                        }
-                        {debugMode &&
-                        <Badge variant="outline" className="text-xs">
-                            {matchup.dataSource}
-                          </Badge>
-                        }
+                      <div className="flex items-center space-x-2 flex-wrap">
+                        <div className="flex items-center space-x-2">
+                          <CardTitle className="text-lg">
+                            {isInterConference ? 'Inter-Conference Matchup' : matchup.conference.conference_name}
+                          </CardTitle>
+                          {isInterConference && isInterConferenceWeek &&
+                            <Badge className="text-xs bg-purple-600 hover:bg-purple-700 text-white">
+                              <span className="animate-pulse">⚔️</span>
+                              <span className="ml-1">Week {selectedWeek}</span>
+                            </Badge>
+                          }
+                          {isInterConference && !isInterConferenceWeek &&
+                            <Badge variant="outline" className="text-xs bg-yellow-50 text-yellow-700 border-yellow-200">
+                              ⚠️ Special Matchup
+                            </Badge>
+                          }
+                        </div>
+                        
+                        {/* Conference badges for inter-conference matchups */}
+                        {isInterConference && (
+                          <div className="flex items-center space-x-1">
+                            <Badge variant="secondary" className="text-xs">
+                              {team1Conference?.conference_name || 'Unknown'}
+                            </Badge>
+                            <span className="text-xs text-muted-foreground">vs</span>
+                            <Badge variant="secondary" className="text-xs">
+                              {team2Conference?.conference_name || 'Unknown'}
+                            </Badge>
+                          </div>
+                        )}
+                        
+                        <div className="flex items-center space-x-2">
+                          {getStatusBadge(matchup.status)}
+                          {matchup.isManualOverride &&
+                          <Badge variant="outline" className="text-xs bg-orange-50 text-orange-700 border-orange-200">
+                              <Database className="h-3 w-3 mr-1" />
+                              Score Override
+                            </Badge>
+                          }
+                          {debugMode &&
+                          <Badge variant="outline" className="text-xs">
+                              {matchup.dataSource}
+                            </Badge>
+                          }
+                        </div>
                       </div>
                       <ChevronDown className={`h-4 w-4 transition-transform ${
                       expandedMatchups.has(`${matchup.conference.id}-${matchup.matchup_id}`) ? 'rotate-180' : ''}`
@@ -627,11 +773,21 @@ const MatchupsPage: React.FC = () => {
                   <div className="grid grid-cols-3 gap-4 items-center">
                     {/* Team 1 */}
                     <div className="text-right space-y-1">
-                      <div className="font-semibold">
-                        {team1.team?.team_name || team1.owner?.display_name || team1.owner?.username || 'Unknown Team'}
-                      </div>
-                      <div className="text-sm text-muted-foreground">
-                        {team1.team?.owner_name || team1.owner?.display_name || 'Unknown Owner'}
+                      <div className="space-y-1">
+                        <div className="font-semibold">
+                          {team1.team?.team_name || team1.owner?.display_name || team1.owner?.username || 'Unknown Team'}
+                        </div>
+                        <div className="text-sm text-muted-foreground">
+                          {team1.team?.owner_name || team1.owner?.display_name || 'Unknown Owner'}
+                        </div>
+                        {/* Show team's conference badge for inter-conference matchups */}
+                        {isInterConference && team1Conference && (
+                          <div className="flex justify-end">
+                            <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-200">
+                              🏠 {team1Conference.conference_name}
+                            </Badge>
+                          </div>
+                        )}
                       </div>
                       <div className={`text-2xl font-bold ${winningTeam?.roster_id === team1.roster_id ? 'text-green-600' : ''}`}>
                         {matchup.status === 'upcoming' && selectedSeason >= new Date().getFullYear() ? '--' : (team1.points ?? 0).toFixed(1)}
@@ -645,7 +801,16 @@ const MatchupsPage: React.FC = () => {
 
                     {/* VS Divider */}
                     <div className="text-center">
-                      <div className="text-lg font-semibold text-muted-foreground">VS</div>
+                      <div className={`text-lg font-semibold ${
+                        isInterConference ? 'text-purple-600' : 'text-muted-foreground'
+                      }`}>
+                        {isInterConference ? '⚔️' : 'VS'}
+                      </div>
+                      {isInterConference && (
+                        <div className="text-xs text-purple-600 mt-1">
+                          Cross-Conference
+                        </div>
+                      )}
                       {matchup.status === 'completed' && winningTeam &&
                       <Trophy className="h-6 w-6 mx-auto mt-2 text-yellow-500" />
                       }
@@ -653,11 +818,21 @@ const MatchupsPage: React.FC = () => {
 
                     {/* Team 2 */}
                     <div className="text-left space-y-1">
-                      <div className="font-semibold">
-                        {team2.team?.team_name || team2.owner?.display_name || team2.owner?.username || 'Unknown Team'}
-                      </div>
-                      <div className="text-sm text-muted-foreground">
-                        {team2.team?.owner_name || team2.owner?.display_name || 'Unknown Owner'}
+                      <div className="space-y-1">
+                        <div className="font-semibold">
+                          {team2.team?.team_name || team2.owner?.display_name || team2.owner?.username || 'Unknown Team'}
+                        </div>
+                        <div className="text-sm text-muted-foreground">
+                          {team2.team?.owner_name || team2.owner?.display_name || 'Unknown Owner'}
+                        </div>
+                        {/* Show team's conference badge for inter-conference matchups */}
+                        {isInterConference && team2Conference && (
+                          <div className="flex justify-start">
+                            <Badge variant="outline" className="text-xs bg-green-50 text-green-700 border-green-200">
+                              🏠 {team2Conference.conference_name}
+                            </Badge>
+                          </div>
+                        )}
                       </div>
                       <div className={`text-2xl font-bold ${winningTeam?.roster_id === team2.roster_id ? 'text-green-600' : ''}`}>
                         {matchup.status === 'upcoming' && selectedSeason >= new Date().getFullYear() ? '--' : (team2.points ?? 0).toFixed(1)}
@@ -672,7 +847,36 @@ const MatchupsPage: React.FC = () => {
 
                   {/* Expanded Content */}
                   <CollapsibleContent className="mt-6">
-                    <div className="border-t pt-4 space-y-4">
+                    <div className={`border-t pt-4 space-y-4 ${
+                      isInterConference ? 'bg-gradient-to-r from-purple-25 via-white to-blue-25' : ''
+                    }`}>
+                      {/* Inter-conference matchup detailed info */}
+                      {isInterConference && (
+                        <div className="mb-4 p-4 bg-gradient-to-r from-purple-100 to-blue-100 rounded-lg border border-purple-200">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <div className="font-medium text-purple-800 flex items-center space-x-2">
+                                <span className="text-lg">⚔️</span>
+                                <span>Inter-Conference Battle</span>
+                              </div>
+                              <div className="text-sm text-purple-700 mt-1">
+                                {team1Conference?.conference_name || 'Unknown'} vs {team2Conference?.conference_name || 'Unknown'}
+                              </div>
+                            </div>
+                            <div className="text-right">
+                              {isInterConferenceWeek ? (
+                                <Badge className="bg-purple-600 hover:bg-purple-700 text-white">
+                                  Scheduled Week {selectedWeek}
+                                </Badge>
+                              ) : (
+                                <Badge variant="outline" className="bg-yellow-50 text-yellow-700 border-yellow-200">
+                                  ⚠️ Special Matchup
+                                </Badge>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      )}
                       {/* Team Starting Lineups */}
                       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                         {/* Team 1 Starting Lineup */}
@@ -682,8 +886,15 @@ const MatchupsPage: React.FC = () => {
                           teamName={team1.team?.team_name || team1.owner?.display_name || 'Team 1'}
                           playerPoints={team1.players_points}
                           startersPoints={team1.starters_points}
-                          matchupStarters={team1.matchup_starters} />
-
+                          matchupStarters={team1.matchup_starters}
+                          teamConference={team1Conference?.conference_name}
+                          opponentConference={team2Conference?.conference_name}
+                          isInterConference={isInterConference}
+                          teamId={team1.database_team_id}
+                          rosterId={team1.roster_id?.toString()}
+                          ownerId={team1.owner?.user_id}
+                          week={selectedWeek}
+                          matchupId={`${matchup.conference.id}-${matchup.matchup_id}`} />
 
                         {/* Team 2 Starting Lineup */}
                         <StartingLineup
@@ -692,7 +903,15 @@ const MatchupsPage: React.FC = () => {
                           teamName={team2.team?.team_name || team2.owner?.display_name || 'Team 2'}
                           playerPoints={team2.players_points}
                           startersPoints={team2.starters_points}
-                          matchupStarters={team2.matchup_starters} />
+                          matchupStarters={team2.matchup_starters}
+                          teamConference={team2Conference?.conference_name}
+                          opponentConference={team1Conference?.conference_name}
+                          isInterConference={isInterConference}
+                          teamId={team2.database_team_id}
+                          rosterId={team2.roster_id?.toString()}
+                          ownerId={team2.owner?.user_id}
+                          week={selectedWeek}
+                          matchupId={`${matchup.conference.id}-${matchup.matchup_id}`} />
 
                       </div>
 
