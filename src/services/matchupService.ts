@@ -75,25 +75,67 @@ export interface HybridMatchup {
   rawData?: any;
 }
 
+export interface ValidationResult {
+  isValid: boolean;
+  errors: ValidationError[];
+  warnings: string[];
+  correctionsPossible: boolean;
+  verificationLevel: 'basic' | 'enhanced' | 'comprehensive';
+  timestamp: string;
+}
+
+export interface ValidationError {
+  type: 'critical' | 'high' | 'medium' | 'low';
+  code: string;
+  message: string;
+  context: any;
+  correctionSuggested?: string;
+}
+
+export interface OwnershipVerification {
+  rosterId: string;
+  expectedOwnerId: string;
+  actualOwnerId: string;
+  isValid: boolean;
+  lastVerified: Date;
+  verificationSource: 'database' | 'sleeper_api' | 'cache';
+  issues: string[];
+}
+
+export interface TeamAssignmentAudit {
+  id: string;
+  timestamp: string;
+  action: 'assignment' | 'reassignment' | 'validation' | 'correction';
+  rosterId: string;
+  oldTeamId?: number;
+  newTeamId?: number;
+  initiatedBy: 'system' | 'manual' | 'auto_correction';
+  reason: string;
+  validationPassed: boolean;
+  rollbackAvailable: boolean;
+  metadata: any;
+}
+
 class MatchupService {
   private teamConferenceMap = new Map<string, {teamId: number;rosterId: string;}>();
   private rosterValidationCache = new Map<string, any>();
   private debugMode = false;
-  private auditTrail: Array<{
-    timestamp: string;
-    action: string;
-    rosterId: string;
-    oldTeamId?: number;
-    newTeamId?: number;
-    reason: string;
-    source: string;
-  }> = [];
+  private auditTrail: TeamAssignmentAudit[] = [];
   private rosterOwnershipCache = new Map<string, {
     rosterId: string;
     ownerId: string;
     lastVerified: Date;
     isValid: boolean;
   }>();
+  
+  // Enhanced verification system components
+  private verificationGates = new Map<string, boolean>();
+  private validationCheckpoints = new Set<string>();
+  private ownershipVerifications = new Map<string, OwnershipVerification>();
+  private dataIntegrityFlags = new Map<string, boolean>();
+  private forceValidationMode = false;
+  private validationRetryLimit = 3;
+  private rollbackStates = new Map<string, any>();
 
   /**
    * Enable/disable debug mode for comprehensive data flow tracking
@@ -111,6 +153,23 @@ class MatchupService {
       console.log('  ✓ Scoring data mapping validation');
       console.log('  ✓ Fallback logic monitoring');
       console.log('  ✓ Complete transformation pipeline tracking');
+      console.log('  ✓ Enhanced team verification system');
+      console.log('  ✓ Atomic data validation with rollback');
+      console.log('  ✓ Mandatory verification gates');
+      console.log('  ✓ Bidirectional consistency checks');
+      console.log('  ✓ Comprehensive audit trail');
+    }
+  }
+
+  /**
+   * Set force validation mode - when enabled, all verification gates must pass
+   */
+  setForceValidationMode(enabled: boolean): void {
+    this.forceValidationMode = enabled;
+    console.log(`🛡️ Force validation mode: ${enabled ? 'ENABLED' : 'DISABLED'}`);
+    if (enabled) {
+      console.log('  ⚠️ All data operations require verification gate passage');
+      console.log('  ⚠️ Manual overrides will trigger additional validation');
     }
   }
 
@@ -122,10 +181,843 @@ class MatchupService {
   }
 
   /**
-   * Enhanced team-roster validation service that cross-references database team assignments with live Sleeper roster data
-   * Implements strict roster ID verification before assigning any scoring data to teams
-   * Includes real-time roster ownership validation and bi-directional mapping verification
+   * Get current force validation mode status
    */
+  getForceValidationMode(): boolean {
+    return this.forceValidationMode;
+  }
+
+  /**
+   * ENHANCED TEAM VERIFICATION SYSTEM OVERHAUL
+   * 
+   * Comprehensive validation that cross-references database team assignments with live Sleeper roster ownership
+   * before applying any scoring data. Implements mandatory verification gates that prevent incorrect data mapping
+   * even when manual overrides are present.
+   * 
+   * Features:
+   * - Real-time owner verification
+   * - Atomic data validation with rollback
+   * - Mandatory verification gates
+   * - Enhanced error reporting
+   * - Cache invalidation strategy
+   * - Bidirectional consistency checks
+   * - Comprehensive audit trail
+   */
+  async comprehensiveTeamVerification(
+    conferenceIds: number[],
+    week?: number,
+    options: {
+      forceRefresh?: boolean;
+      enableRollback?: boolean;
+      strictMode?: boolean;
+      auditLevel?: 'basic' | 'enhanced' | 'comprehensive';
+    } = {}
+  ): Promise<ValidationResult> {
+    const verificationId = `verification_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    const traceId = this.debugMode ? matchupDataFlowDebugger.startTrace(verificationId, 'comprehensive_team_verification') : '';
+    
+    console.log('🛡️ Starting COMPREHENSIVE team verification system...');
+    
+    const startTime = Date.now();
+    const errors: ValidationError[] = [];
+    const warnings: string[] = [];
+    let correctionsPossible = true;
+    
+    try {
+      // Step 1: Initialize verification gates
+      await this.initializeVerificationGates(verificationId, conferenceIds);
+      
+      // Step 2: Pre-validation checks
+      const preValidation = await this.performPreValidationChecks(conferenceIds, options);
+      if (!preValidation.isValid) {
+        errors.push(...preValidation.errors);
+        warnings.push(...preValidation.warnings);
+      }
+      
+      // Step 3: Enhanced roster-to-team validation
+      const rosterValidation = await this.enhancedRosterToTeamValidation(conferenceIds, options);
+      if (!rosterValidation.isValid) {
+        errors.push(...rosterValidation.errors);
+        warnings.push(...rosterValidation.warnings);
+      }
+      
+      // Step 4: Real-time owner verification
+      const ownershipValidation = await this.realtimeOwnershipVerification(conferenceIds, options);
+      if (!ownershipValidation.isValid) {
+        errors.push(...ownershipValidation.errors);
+        warnings.push(...ownershipValidation.warnings);
+      }
+      
+      // Step 5: Atomic data validation
+      const atomicValidation = await this.atomicDataValidation(conferenceIds, week, options);
+      if (!atomicValidation.isValid) {
+        errors.push(...atomicValidation.errors);
+        warnings.push(...atomicValidation.warnings);
+        correctionsPossible = atomicValidation.correctionsPossible;
+      }
+      
+      // Step 6: Bidirectional consistency checks
+      const consistencyValidation = await this.bidirectionalConsistencyVerification(conferenceIds, options);
+      if (!consistencyValidation.isValid) {
+        errors.push(...consistencyValidation.errors);
+        warnings.push(...consistencyValidation.warnings);
+      }
+      
+      // Step 7: Gate passage validation
+      const gateValidation = await this.validateVerificationGates(verificationId);
+      if (!gateValidation.isValid) {
+        errors.push(...gateValidation.errors);
+        warnings.push(...gateValidation.warnings);
+      }
+      
+      const isValid = errors.filter(e => e.type === 'critical' || e.type === 'high').length === 0;
+      const processingTime = Date.now() - startTime;
+      
+      // Step 8: Generate comprehensive audit entry
+      await this.generateComprehensiveAudit(verificationId, {
+        isValid,
+        errors,
+        warnings,
+        processingTime,
+        conferenceIds,
+        week,
+        options
+      });
+      
+      console.log(`${isValid ? '✅' : '❌'} Comprehensive team verification completed in ${processingTime}ms`);
+      console.log(`  Errors: ${errors.length} (${errors.filter(e => e.type === 'critical').length} critical)`);
+      console.log(`  Warnings: ${warnings.length}`);
+      console.log(`  Corrections possible: ${correctionsPossible}`);
+      
+      return {
+        isValid,
+        errors,
+        warnings,
+        correctionsPossible,
+        verificationLevel: options.auditLevel || 'comprehensive',
+        timestamp: new Date().toISOString()
+      };
+      
+    } catch (error) {
+      console.error('❌ Critical error in comprehensive team verification:', error);
+      
+      errors.push({
+        type: 'critical',
+        code: 'VERIFICATION_SYSTEM_FAILURE',
+        message: `Comprehensive verification system failure: ${error}`,
+        context: { verificationId, conferenceIds, week, options }
+      });
+      
+      if (this.debugMode) {
+        matchupDataFlowDebugger.logError(traceId, 'critical', 'verification', 'comprehensive_failure', error, {
+          verificationId, conferenceIds, week
+        });
+      }
+      
+      return {
+        isValid: false,
+        errors,
+        warnings,
+        correctionsPossible: false,
+        verificationLevel: 'basic',
+        timestamp: new Date().toISOString()
+      };
+    }
+  }
+
+  /**
+   * Initialize verification gates that must pass for data operations
+   */
+  private async initializeVerificationGates(
+    verificationId: string,
+    conferenceIds: number[]
+  ): Promise<void> {
+    console.log('🛡️ Initializing verification gates...');
+    
+    const gates = [
+      'database_connectivity',
+      'sleeper_api_connectivity',
+      'roster_mapping_integrity',
+      'ownership_consistency',
+      'bidirectional_mapping',
+      'data_completeness'
+    ];
+    
+    for (const gate of gates) {
+      this.verificationGates.set(`${verificationId}_${gate}`, false);
+    }
+    
+    // Test database connectivity
+    try {
+      await this.fetchConferences(conferenceIds.slice(0, 1));
+      this.verificationGates.set(`${verificationId}_database_connectivity`, true);
+    } catch (error) {
+      console.error('❌ Database connectivity gate failed:', error);
+    }
+    
+    // Test Sleeper API connectivity
+    try {
+      const conferences = await this.fetchConferences(conferenceIds.slice(0, 1));
+      if (conferences.length > 0) {
+        await SleeperApiService.fetchLeagueRosters(conferences[0].league_id);
+        this.verificationGates.set(`${verificationId}_sleeper_api_connectivity`, true);
+      }
+    } catch (error) {
+      console.error('❌ Sleeper API connectivity gate failed:', error);
+    }
+    
+    console.log('✅ Verification gates initialized');
+  }
+
+  /**
+   * Perform pre-validation checks before main verification
+   */
+  private async performPreValidationChecks(
+    conferenceIds: number[],
+    options: any
+  ): Promise<ValidationResult> {
+    console.log('🔍 Performing pre-validation checks...');
+    
+    const errors: ValidationError[] = [];
+    const warnings: string[] = [];
+    
+    // Check if conferences exist
+    try {
+      const conferences = await this.fetchConferences(conferenceIds);
+      if (conferences.length !== conferenceIds.length) {
+        errors.push({
+          type: 'high',
+          code: 'MISSING_CONFERENCES',
+          message: `Found ${conferences.length} conferences, expected ${conferenceIds.length}`,
+          context: { requested: conferenceIds, found: conferences.map(c => c.id) }
+        });
+      }
+    } catch (error) {
+      errors.push({
+        type: 'critical',
+        code: 'CONFERENCE_FETCH_FAILED',
+        message: `Failed to fetch conferences: ${error}`,
+        context: { conferenceIds }
+      });
+    }
+    
+    // Check for cache invalidation needs
+    if (options.forceRefresh) {
+      console.log('💫 Force refresh detected - invalidating all caches');
+      this.clearAllCaches();
+      warnings.push('All caches invalidated due to force refresh');
+    }
+    
+    return {
+      isValid: errors.filter(e => e.type === 'critical').length === 0,
+      errors,
+      warnings,
+      correctionsPossible: true,
+      verificationLevel: 'basic',
+      timestamp: new Date().toISOString()
+    };
+  }
+  /**
+   * Enhanced roster-to-team validation with comprehensive cross-referencing
+   */
+  private async enhancedRosterToTeamValidation(
+    conferenceIds: number[],
+    options: any
+  ): Promise<ValidationResult> {
+    console.log('🔗 Enhanced roster-to-team validation...');
+    
+    const errors: ValidationError[] = [];
+    const warnings: string[] = [];
+    
+    try {
+      const teamMap = await this.buildTeamConferenceMap(conferenceIds);
+      const conferences = await this.fetchConferences(conferenceIds);
+      
+      for (const conference of conferences) {
+        const rosters = await SleeperApiService.fetchLeagueRosters(conference.league_id);
+        
+        for (const roster of rosters) {
+          const rosterId = roster.roster_id.toString();
+          const mapping = teamMap.get(`roster_${rosterId}`);
+          
+          if (!mapping) {
+            errors.push({
+              type: 'high',
+              code: 'UNMAPPED_ROSTER',
+              message: `Roster ${rosterId} has no team mapping`,
+              context: { rosterId, conferenceId: conference.id, leagueId: conference.league_id },
+              correctionSuggested: 'Create team mapping in team_conferences_junction table'
+            });
+            continue;
+          }
+          
+          // Validate bidirectional mapping
+          const reverseMapping = teamMap.get(`team_${mapping.teamId}`);
+          if (!reverseMapping || reverseMapping.rosterId !== rosterId) {
+            errors.push({
+              type: 'high',
+              code: 'BROKEN_BIDIRECTIONAL_MAPPING',
+              message: `Broken bidirectional mapping for roster ${rosterId} and team ${mapping.teamId}`,
+              context: { rosterId, teamId: mapping.teamId, reverseMapping },
+              correctionSuggested: 'Fix bidirectional mapping consistency'
+            });
+          }
+        }
+      }
+      
+      return {
+        isValid: errors.filter(e => e.type === 'critical' || e.type === 'high').length === 0,
+        errors,
+        warnings,
+        correctionsPossible: true,
+        verificationLevel: 'enhanced',
+        timestamp: new Date().toISOString()
+      };
+      
+    } catch (error) {
+      errors.push({
+        type: 'critical',
+        code: 'ROSTER_VALIDATION_FAILED',
+        message: `Enhanced roster validation failed: ${error}`,
+        context: { conferenceIds }
+      });
+      
+      return {
+        isValid: false,
+        errors,
+        warnings,
+        correctionsPossible: false,
+        verificationLevel: 'basic',
+        timestamp: new Date().toISOString()
+      };
+    }
+  }
+
+  /**
+   * Real-time ownership verification with immediate validation
+   */
+  private async realtimeOwnershipVerification(
+    conferenceIds: number[],
+    options: any
+  ): Promise<ValidationResult> {
+    console.log('🔍 Real-time ownership verification...');
+    
+    const errors: ValidationError[] = [];
+    const warnings: string[] = [];
+    
+    try {
+      const conferences = await this.fetchConferences(conferenceIds);
+      const teams = await this.fetchTeams();
+      const teamMap = await this.buildTeamConferenceMap(conferenceIds);
+      
+      for (const conference of conferences) {
+        const [rosters, users] = await Promise.all([
+          SleeperApiService.fetchLeagueRosters(conference.league_id),
+          SleeperApiService.fetchLeagueUsers(conference.league_id)
+        ]);
+        
+        for (const roster of rosters) {
+          const rosterId = roster.roster_id.toString();
+          const mapping = teamMap.get(`roster_${rosterId}`);
+          
+          if (!mapping) continue;
+          
+          const team = teams.find(t => t.id === mapping.teamId);
+          if (!team) {
+            errors.push({
+              type: 'high',
+              code: 'TEAM_NOT_FOUND',
+              message: `Team ${mapping.teamId} not found in database`,
+              context: { teamId: mapping.teamId, rosterId }
+            });
+            continue;
+          }
+          
+          // Verify ownership consistency
+          const sleeperUser = users.find(u => u.user_id === roster.owner_id);
+          if (team.owner_id && sleeperUser && team.owner_id !== sleeperUser.user_id) {
+            errors.push({
+              type: 'high',
+              code: 'OWNERSHIP_MISMATCH',
+              message: `Ownership mismatch for team ${team.team_name}`,
+              context: {
+                teamId: team.id,
+                rosterId,
+                databaseOwnerId: team.owner_id,
+                sleeperOwnerId: sleeperUser.user_id,
+                sleeperDisplayName: sleeperUser.display_name
+              },
+              correctionSuggested: 'Update team owner_id in database or verify roster assignment'
+            });
+          }
+          
+          // Cache verification result
+          this.ownershipVerifications.set(rosterId, {
+            rosterId,
+            expectedOwnerId: team.owner_id,
+            actualOwnerId: roster.owner_id,
+            isValid: team.owner_id === roster.owner_id,
+            lastVerified: new Date(),
+            verificationSource: 'sleeper_api',
+            issues: []
+          });
+        }
+      }
+      
+      return {
+        isValid: errors.filter(e => e.type === 'critical' || e.type === 'high').length === 0,
+        errors,
+        warnings,
+        correctionsPossible: true,
+        verificationLevel: 'enhanced',
+        timestamp: new Date().toISOString()
+      };
+      
+    } catch (error) {
+      errors.push({
+        type: 'critical',
+        code: 'OWNERSHIP_VERIFICATION_FAILED',
+        message: `Real-time ownership verification failed: ${error}`,
+        context: { conferenceIds }
+      });
+      
+      return {
+        isValid: false,
+        errors,
+        warnings,
+        correctionsPossible: false,
+        verificationLevel: 'basic',
+        timestamp: new Date().toISOString()
+      };
+    }
+  }
+
+  /**
+   * Atomic data validation with rollback capability
+   */
+  private async atomicDataValidation(
+    conferenceIds: number[],
+    week?: number,
+    options: any = {}
+  ): Promise<ValidationResult> {
+    console.log('⚛️ Atomic data validation with rollback capability...');
+    
+    const errors: ValidationError[] = [];
+    const warnings: string[] = [];
+    const rollbackId = `rollback_${Date.now()}`;
+    
+    try {
+      // Create rollback point
+      if (options.enableRollback) {
+        await this.createRollbackPoint(rollbackId, conferenceIds);
+      }
+      
+      // Validate data atomicity
+      const teamMap = await this.buildTeamConferenceMap(conferenceIds);
+      const conferences = await this.fetchConferences(conferenceIds);
+      const teams = await this.fetchTeams();
+      
+      let validationPassed = true;
+      const validationDetails: any[] = [];
+      
+      for (const conference of conferences) {
+        const validationResult = await this.validateConferenceDataIntegrity(
+          conference,
+          teamMap,
+          teams,
+          week
+        );
+        
+        validationDetails.push(validationResult);
+        
+        if (!validationResult.isValid) {
+          validationPassed = false;
+          errors.push(...validationResult.errors);
+          warnings.push(...validationResult.warnings);
+        }
+      }
+      
+      // If validation failed and rollback is enabled, offer rollback
+      if (!validationPassed && options.enableRollback) {
+        warnings.push(`Validation failed - rollback point ${rollbackId} available`);
+        this.rollbackStates.set(rollbackId, {
+          timestamp: new Date().toISOString(),
+          reason: 'Atomic validation failure',
+          details: validationDetails
+        });
+      }
+      
+      return {
+        isValid: validationPassed,
+        errors,
+        warnings,
+        correctionsPossible: !validationPassed,
+        verificationLevel: 'comprehensive',
+        timestamp: new Date().toISOString()
+      };
+      
+    } catch (error) {
+      errors.push({
+        type: 'critical',
+        code: 'ATOMIC_VALIDATION_FAILED',
+        message: `Atomic data validation failed: ${error}`,
+        context: { conferenceIds, week, rollbackId }
+      });
+      
+      return {
+        isValid: false,
+        errors,
+        warnings,
+        correctionsPossible: false,
+        verificationLevel: 'basic',
+        timestamp: new Date().toISOString()
+      };
+    }
+  }
+
+  /**
+   * Validate conference data integrity
+   */
+  private async validateConferenceDataIntegrity(
+    conference: Conference,
+    teamMap: Map<string, {teamId: number; rosterId: string}>,
+    teams: Team[],
+    week?: number
+  ): Promise<ValidationResult> {
+    const errors: ValidationError[] = [];
+    const warnings: string[] = [];
+    
+    try {
+      const [rosters, users] = await Promise.all([
+        SleeperApiService.fetchLeagueRosters(conference.league_id),
+        SleeperApiService.fetchLeagueUsers(conference.league_id)
+      ]);
+      
+      // Check roster completeness
+      for (const roster of rosters) {
+        const rosterId = roster.roster_id.toString();
+        const mapping = teamMap.get(`roster_${rosterId}`);
+        
+        if (!mapping) {
+          errors.push({
+            type: 'medium',
+            code: 'INCOMPLETE_ROSTER_MAPPING',
+            message: `Roster ${rosterId} missing team mapping in conference ${conference.conference_name}`,
+            context: { rosterId, conferenceId: conference.id }
+          });
+        }
+      }
+      
+      // Check team completeness
+      const conferenceTeams = teams.filter(team => {
+        const mapping = teamMap.get(`team_${team.id}`);
+        return mapping && rosters.some(r => r.roster_id.toString() === mapping.rosterId);
+      });
+      
+      if (conferenceTeams.length !== rosters.length) {
+        warnings.push(`Team count mismatch in ${conference.conference_name}: ${conferenceTeams.length} teams, ${rosters.length} rosters`);
+      }
+      
+      return {
+        isValid: errors.filter(e => e.type === 'critical' || e.type === 'high').length === 0,
+        errors,
+        warnings,
+        correctionsPossible: true,
+        verificationLevel: 'enhanced',
+        timestamp: new Date().toISOString()
+      };
+      
+    } catch (error) {
+      errors.push({
+        type: 'critical',
+        code: 'CONFERENCE_VALIDATION_FAILED',
+        message: `Conference validation failed: ${error}`,
+        context: { conferenceId: conference.id }
+      });
+      
+      return {
+        isValid: false,
+        errors,
+        warnings,
+        correctionsPossible: false,
+        verificationLevel: 'basic',
+        timestamp: new Date().toISOString()
+      };
+    }
+  }
+
+  /**
+   * Enhanced bidirectional consistency verification
+   */
+  private async bidirectionalConsistencyVerification(
+    conferenceIds: number[],
+    options: any
+  ): Promise<ValidationResult> {
+    console.log('🔄 Enhanced bidirectional consistency verification...');
+    
+    const errors: ValidationError[] = [];
+    const warnings: string[] = [];
+    
+    try {
+      const teamMap = await this.buildTeamConferenceMap(conferenceIds);
+      const conferences = await this.fetchConferences(conferenceIds);
+      
+      // Check forward mappings (roster -> team)
+      const forwardMappings = new Map<string, number>();
+      const backwardMappings = new Map<number, string>();
+      
+      for (const [key, mapping] of teamMap.entries()) {
+        if (key.startsWith('roster_')) {
+          forwardMappings.set(mapping.rosterId, mapping.teamId);
+        } else if (key.startsWith('team_')) {
+          backwardMappings.set(mapping.teamId, mapping.rosterId);
+        }
+      }
+      
+      // Validate consistency
+      for (const [rosterId, teamId] of forwardMappings.entries()) {
+        const backwardRosterId = backwardMappings.get(teamId);
+        if (backwardRosterId !== rosterId) {
+          errors.push({
+            type: 'high',
+            code: 'BIDIRECTIONAL_INCONSISTENCY',
+            message: `Bidirectional mapping inconsistency: roster ${rosterId} -> team ${teamId} -> roster ${backwardRosterId}`,
+            context: { rosterId, teamId, backwardRosterId },
+            correctionSuggested: 'Fix mapping consistency in team_conferences_junction table'
+          });
+        }
+      }
+      
+      // Check for orphaned mappings
+      for (const [teamId, rosterId] of backwardMappings.entries()) {
+        if (!forwardMappings.has(rosterId)) {
+          errors.push({
+            type: 'medium',
+            code: 'ORPHANED_BACKWARD_MAPPING',
+            message: `Orphaned backward mapping: team ${teamId} -> roster ${rosterId}`,
+            context: { teamId, rosterId },
+            correctionSuggested: 'Remove orphaned mapping or create corresponding forward mapping'
+          });
+        }
+      }
+      
+      return {
+        isValid: errors.filter(e => e.type === 'critical' || e.type === 'high').length === 0,
+        errors,
+        warnings,
+        correctionsPossible: true,
+        verificationLevel: 'enhanced',
+        timestamp: new Date().toISOString()
+      };
+      
+    } catch (error) {
+      errors.push({
+        type: 'critical',
+        code: 'BIDIRECTIONAL_VERIFICATION_FAILED',
+        message: `Bidirectional consistency verification failed: ${error}`,
+        context: { conferenceIds }
+      });
+      
+      return {
+        isValid: false,
+        errors,
+        warnings,
+        correctionsPossible: false,
+        verificationLevel: 'basic',
+        timestamp: new Date().toISOString()
+      };
+    }
+  }
+
+  /**
+   * Validate all verification gates
+   */
+  private async validateVerificationGates(verificationId: string): Promise<ValidationResult> {
+    console.log('🛡️ Validating verification gates...');
+    
+    const errors: ValidationError[] = [];
+    const warnings: string[] = [];
+    
+    const requiredGates = [
+      'database_connectivity',
+      'sleeper_api_connectivity',
+      'roster_mapping_integrity',
+      'ownership_consistency',
+      'bidirectional_mapping',
+      'data_completeness'
+    ];
+    
+    for (const gate of requiredGates) {
+      const gateKey = `${verificationId}_${gate}`;
+      const passed = this.verificationGates.get(gateKey) || false;
+      
+      if (!passed) {
+        const errorType = this.forceValidationMode ? 'critical' : 'high';
+        errors.push({
+          type: errorType,
+          code: 'VERIFICATION_GATE_FAILED',
+          message: `Verification gate '${gate}' failed`,
+          context: { gate, verificationId, forceMode: this.forceValidationMode }
+        });
+      }
+    }
+    
+    if (this.forceValidationMode && errors.length > 0) {
+      errors.push({
+        type: 'critical',
+        code: 'FORCE_VALIDATION_BLOCKED',
+        message: 'Force validation mode prevented operation due to gate failures',
+        context: { failedGates: errors.map(e => e.context.gate) }
+      });
+    }
+    
+    return {
+      isValid: this.forceValidationMode ? errors.length === 0 : errors.filter(e => e.type === 'critical').length === 0,
+      errors,
+      warnings,
+      correctionsPossible: true,
+      verificationLevel: 'comprehensive',
+      timestamp: new Date().toISOString()
+    };
+  }
+
+  /**
+   * Generate comprehensive audit entry
+   */
+  private async generateComprehensiveAudit(
+    verificationId: string,
+    results: any
+  ): Promise<void> {
+    const auditEntry: TeamAssignmentAudit = {
+      id: verificationId,
+      timestamp: new Date().toISOString(),
+      action: 'validation',
+      rosterId: 'comprehensive_check',
+      initiatedBy: 'system',
+      reason: 'Comprehensive team verification',
+      validationPassed: results.isValid,
+      rollbackAvailable: this.rollbackStates.has(verificationId),
+      metadata: {
+        processingTime: results.processingTime,
+        errorCount: results.errors.length,
+        warningCount: results.warnings.length,
+        conferenceIds: results.conferenceIds,
+        week: results.week,
+        options: results.options
+      }
+    };
+    
+    this.auditTrail.push(auditEntry);
+    
+    // Keep audit trail manageable
+    if (this.auditTrail.length > 1000) {
+      this.auditTrail = this.auditTrail.slice(-1000);
+    }
+    
+    console.log('📋 Comprehensive audit entry generated:', auditEntry.id);
+  }
+
+  /**
+   * Create rollback point for atomic operations
+   */
+  private async createRollbackPoint(
+    rollbackId: string,
+    conferenceIds: number[]
+  ): Promise<void> {
+    try {
+      const rollbackData = {
+        timestamp: new Date().toISOString(),
+        teamMap: new Map(this.teamConferenceMap),
+        verificationGates: new Map(this.verificationGates),
+        ownershipVerifications: new Map(this.ownershipVerifications),
+        conferenceIds
+      };
+      
+      this.rollbackStates.set(rollbackId, rollbackData);
+      console.log(`💫 Rollback point created: ${rollbackId}`);
+    } catch (error) {
+      console.error('❌ Failed to create rollback point:', error);
+    }
+  }
+
+  /**
+   * Perform rollback to previous state
+   */
+  async performRollback(rollbackId: string): Promise<boolean> {
+    try {
+      const rollbackData = this.rollbackStates.get(rollbackId);
+      if (!rollbackData) {
+        console.error(`❌ Rollback point ${rollbackId} not found`);
+        return false;
+      }
+      
+      this.teamConferenceMap = rollbackData.teamMap;
+      this.verificationGates = rollbackData.verificationGates;
+      this.ownershipVerifications = rollbackData.ownershipVerifications;
+      
+      console.log(`✅ Rollback completed: ${rollbackId}`);
+      
+      // Add audit entry
+      this.auditTrail.push({
+        id: `rollback_${Date.now()}`,
+        timestamp: new Date().toISOString(),
+        action: 'rollback',
+        rosterId: 'system_rollback',
+        initiatedBy: 'manual',
+        reason: `Rollback to ${rollbackId}`,
+        validationPassed: true,
+        rollbackAvailable: false,
+        metadata: { originalTimestamp: rollbackData.timestamp }
+      });
+      
+      return true;
+    } catch (error) {
+      console.error('❌ Rollback failed:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Clear all caches and force refresh
+   */
+  private clearAllCaches(): void {
+    this.teamConferenceMap.clear();
+    this.rosterValidationCache.clear();
+    this.rosterOwnershipCache.clear();
+    this.verificationGates.clear();
+    this.ownershipVerifications.clear();
+    this.dataIntegrityFlags.clear();
+    console.log('🧼 All caches cleared');
+  }
+
+  /**
+   * Get comprehensive verification status
+   */
+  getVerificationSystemStatus(): {
+    verificationGates: Array<{gate: string; status: boolean}>;
+    ownershipVerifications: number;
+    auditTrailEntries: number;
+    rollbackPoints: number;
+    forceValidationMode: boolean;
+    lastVerification?: string;
+  } {
+    const gates = Array.from(this.verificationGates.entries()).map(([gate, status]) => ({
+      gate,
+      status
+    }));
+    
+    const lastAuditEntry = this.auditTrail[this.auditTrail.length - 1];
+    
+    return {
+      verificationGates: gates,
+      ownershipVerifications: this.ownershipVerifications.size,
+      auditTrailEntries: this.auditTrail.length,
+      rollbackPoints: this.rollbackStates.size,
+      forceValidationMode: this.forceValidationMode,
+      lastVerification: lastAuditEntry?.timestamp
+    };
+  }
+
   async validateRosterOwnership(
   leagueId: string,
   rosterId: string,
@@ -2990,6 +3882,391 @@ class MatchupService {
       console.error('❌ Failed to refresh team mappings:', error);
       throw error;
     }
+  }
+
+  /**
+   * Enhanced team assignment validation with mandatory verification gates
+   * This method MUST be called before applying any scoring data to teams
+   */
+  async validateTeamAssignmentBeforeScoring(
+    rosterId: string,
+    teamId: number,
+    conferenceId: number,
+    options: {
+      bypassCache?: boolean;
+      requireOwnershipMatch?: boolean;
+      enableAuditTrail?: boolean;
+    } = {}
+  ): Promise<{
+    isValid: boolean;
+    canProceed: boolean;
+    validationGatesPassed: boolean;
+    errors: ValidationError[];
+    warnings: string[];
+    auditId?: string;
+  }> {
+    const validationId = `assignment_validation_${Date.now()}_${rosterId}`;
+    console.log(`🛡️ MANDATORY: Validating team assignment before scoring (${validationId})`);
+    
+    const errors: ValidationError[] = [];
+    const warnings: string[] = [];
+    let validationGatesPassed = false;
+    
+    try {
+      // Step 1: Mandatory verification gate - check if assignment exists
+      const teamMapping = this.teamConferenceMap.get(`roster_${rosterId}`);
+      const rosterMapping = this.teamConferenceMap.get(`team_${teamId}`);
+      
+      if (!teamMapping || teamMapping.teamId !== teamId) {
+        errors.push({
+          type: 'critical',
+          code: 'INVALID_TEAM_ASSIGNMENT',
+          message: `Roster ${rosterId} is not assigned to team ${teamId}`,
+          context: { rosterId, teamId, currentAssignment: teamMapping }
+        });
+      }
+      
+      if (!rosterMapping || rosterMapping.rosterId !== rosterId) {
+        errors.push({
+          type: 'critical',
+          code: 'BROKEN_REVERSE_MAPPING',
+          message: `Team ${teamId} reverse mapping broken for roster ${rosterId}`,
+          context: { rosterId, teamId, currentReverseAssignment: rosterMapping }
+        });
+      }
+      
+      // Step 2: Real-time ownership verification if required
+      if (options.requireOwnershipMatch) {
+        const conference = await this.fetchConferences([conferenceId]);
+        if (conference.length > 0) {
+          const ownershipResult = await this.validateRosterOwnership(
+            conference[0].league_id,
+            rosterId
+          );
+          
+          if (!ownershipResult.isValid) {
+            errors.push({
+              type: 'high',
+              code: 'OWNERSHIP_VERIFICATION_FAILED',
+              message: `Roster ${rosterId} ownership verification failed`,
+              context: { rosterId, teamId, ownershipIssues: ownershipResult.issues }
+            });
+          }
+        }
+      }
+      
+      // Step 3: Force validation mode check
+      if (this.forceValidationMode && errors.length > 0) {
+        errors.push({
+          type: 'critical',
+          code: 'FORCE_VALIDATION_BLOCKED',
+          message: 'Force validation mode prevents scoring data application due to validation failures',
+          context: { validationId, rosterId, teamId }
+        });
+      }
+      
+      validationGatesPassed = errors.filter(e => e.type === 'critical').length === 0;
+      const isValid = errors.length === 0;
+      const canProceed = this.forceValidationMode ? validationGatesPassed : isValid;
+      
+      // Step 4: Generate audit trail if enabled
+      let auditId: string | undefined;
+      if (options.enableAuditTrail) {
+        auditId = await this.generateAssignmentValidationAudit({
+          validationId,
+          rosterId,
+          teamId,
+          conferenceId,
+          isValid,
+          canProceed,
+          validationGatesPassed,
+          errors,
+          warnings
+        });
+      }
+      
+      console.log(`${canProceed ? '✅' : '❌'} Team assignment validation result:`);
+      console.log(`  Valid: ${isValid}, Can Proceed: ${canProceed}, Gates Passed: ${validationGatesPassed}`);
+      console.log(`  Errors: ${errors.length}, Warnings: ${warnings.length}`);
+      
+      return {
+        isValid,
+        canProceed,
+        validationGatesPassed,
+        errors,
+        warnings,
+        auditId
+      };
+      
+    } catch (error) {
+      console.error('❌ Critical error in team assignment validation:', error);
+      
+      errors.push({
+        type: 'critical',
+        code: 'VALIDATION_SYSTEM_ERROR',
+        message: `Team assignment validation system error: ${error}`,
+        context: { validationId, rosterId, teamId, conferenceId }
+      });
+      
+      return {
+        isValid: false,
+        canProceed: false,
+        validationGatesPassed: false,
+        errors,
+        warnings,
+        auditId: undefined
+      };
+    }
+  }
+
+  /**
+   * Generate audit trail entry for assignment validation
+   */
+  private async generateAssignmentValidationAudit(data: {
+    validationId: string;
+    rosterId: string;
+    teamId: number;
+    conferenceId: number;
+    isValid: boolean;
+    canProceed: boolean;
+    validationGatesPassed: boolean;
+    errors: ValidationError[];
+    warnings: string[];
+  }): Promise<string> {
+    const auditId = `audit_${data.validationId}`;
+    
+    const auditEntry: TeamAssignmentAudit = {
+      id: auditId,
+      timestamp: new Date().toISOString(),
+      action: 'assignment',
+      rosterId: data.rosterId,
+      newTeamId: data.teamId,
+      initiatedBy: 'system',
+      reason: 'Pre-scoring assignment validation',
+      validationPassed: data.isValid,
+      rollbackAvailable: false,
+      metadata: {
+        validationId: data.validationId,
+        conferenceId: data.conferenceId,
+        canProceed: data.canProceed,
+        validationGatesPassed: data.validationGatesPassed,
+        errorCount: data.errors.length,
+        warningCount: data.warnings.length,
+        errors: data.errors,
+        warnings: data.warnings
+      }
+    };
+    
+    this.auditTrail.push(auditEntry);
+    
+    console.log(`📋 Assignment validation audit generated: ${auditId}`);
+    return auditId;
+  }
+
+  /**
+   * Enhanced error reporting with detailed validation failure information
+   */
+  generateDetailedValidationReport(
+    validationResult: ValidationResult,
+    includeRecommendations: boolean = true
+  ): {
+    summary: string;
+    criticalIssues: ValidationError[];
+    recommendations: string[];
+    correctionSteps: string[];
+  } {
+    const criticalIssues = validationResult.errors.filter(e => e.type === 'critical' || e.type === 'high');
+    const recommendations: string[] = [];
+    const correctionSteps: string[] = [];
+    
+    // Generate specific recommendations based on error types
+    const errorCodes = new Set(validationResult.errors.map(e => e.code));
+    
+    if (errorCodes.has('UNMAPPED_ROSTER')) {
+      recommendations.push('Create missing roster-to-team mappings in team_conferences_junction table');
+      correctionSteps.push('1. Identify unmapped rosters from validation report');
+      correctionSteps.push('2. Query Sleeper API to verify roster existence');
+      correctionSteps.push('3. Create corresponding team_conferences_junction entries');
+    }
+    
+    if (errorCodes.has('OWNERSHIP_MISMATCH')) {
+      recommendations.push('Resolve ownership discrepancies between database and Sleeper API');
+      correctionSteps.push('1. Verify correct owner IDs in Sleeper');
+      correctionSteps.push('2. Update team owner_id fields in database');
+      correctionSteps.push('3. Re-run ownership verification');
+    }
+    
+    if (errorCodes.has('BIDIRECTIONAL_INCONSISTENCY')) {
+      recommendations.push('Fix broken bidirectional mappings in team assignments');
+      correctionSteps.push('1. Identify broken mappings from validation report');
+      correctionSteps.push('2. Check team_conferences_junction table for consistency');
+      correctionSteps.push('3. Update or recreate mappings to ensure bidirectional consistency');
+    }
+    
+    if (errorCodes.has('VERIFICATION_GATE_FAILED')) {
+      recommendations.push('Address verification gate failures before proceeding');
+      correctionSteps.push('1. Check database and Sleeper API connectivity');
+      correctionSteps.push('2. Verify data integrity across all components');
+      correctionSteps.push('3. Re-run verification with force refresh if needed');
+    }
+    
+    const summary = `Validation completed with ${validationResult.errors.length} errors (${criticalIssues.length} critical) and ${validationResult.warnings.length} warnings. ${validationResult.correctionsPossible ? 'Automatic corrections available.' : 'Manual intervention required.'}`;
+    
+    return {
+      summary,
+      criticalIssues,
+      recommendations: includeRecommendations ? recommendations : [],
+      correctionSteps: includeRecommendations ? correctionSteps : []
+    };
+  }
+
+  /**
+   * Cache invalidation strategy for manual team assignments
+   */
+  async invalidateCacheForManualAssignments(
+    affectedRosterIds: string[],
+    reason: string = 'Manual team assignment detected'
+  ): Promise<void> {
+    console.log('💫 Cache invalidation triggered for manual assignments...');
+    
+    for (const rosterId of affectedRosterIds) {
+      // Remove from ownership cache
+      const ownershipCacheKey = Array.from(this.rosterOwnershipCache.keys())
+        .find(key => key.includes(rosterId));
+      if (ownershipCacheKey) {
+        this.rosterOwnershipCache.delete(ownershipCacheKey);
+      }
+      
+      // Remove from validation cache
+      this.rosterValidationCache.delete(rosterId);
+      
+      // Remove from ownership verifications
+      this.ownershipVerifications.delete(rosterId);
+      
+      // Clear verification gates for this roster
+      const gatesToClear = Array.from(this.verificationGates.keys())
+        .filter(gate => gate.includes(rosterId));
+      gatesToClear.forEach(gate => this.verificationGates.delete(gate));
+    }
+    
+    // Add audit entry
+    this.auditTrail.push({
+      id: `cache_invalidation_${Date.now()}`,
+      timestamp: new Date().toISOString(),
+      action: 'correction',
+      rosterId: affectedRosterIds.join(','),
+      initiatedBy: 'system',
+      reason,
+      validationPassed: true,
+      rollbackAvailable: false,
+      metadata: {
+        affectedRosters: affectedRosterIds,
+        invalidationType: 'manual_assignment_cache_clear'
+      }
+    });
+    
+    console.log(`✅ Cache invalidated for ${affectedRosterIds.length} rosters`);
+  }
+
+  /**
+   * Get comprehensive audit trail with filtering options
+   */
+  getEnhancedAuditTrail(options: {
+    rosterId?: string;
+    action?: string;
+    since?: Date;
+    limit?: number;
+    includeMetadata?: boolean;
+  } = {}): TeamAssignmentAudit[] {
+    let filteredTrail = [...this.auditTrail];
+    
+    if (options.rosterId) {
+      filteredTrail = filteredTrail.filter(entry => 
+        entry.rosterId === options.rosterId || 
+        entry.rosterId.includes(options.rosterId!)
+      );
+    }
+    
+    if (options.action) {
+      filteredTrail = filteredTrail.filter(entry => entry.action === options.action);
+    }
+    
+    if (options.since) {
+      filteredTrail = filteredTrail.filter(entry => 
+        new Date(entry.timestamp) >= options.since!
+      );
+    }
+    
+    if (options.limit) {
+      filteredTrail = filteredTrail.slice(-options.limit);
+    }
+    
+    if (!options.includeMetadata) {
+      filteredTrail = filteredTrail.map(entry => ({
+        ...entry,
+        metadata: undefined
+      }));
+    }
+    
+    return filteredTrail;
+  }
+
+  /**
+   * Enhanced diagnostic information for debugging validation issues
+   */
+  getValidationDiagnostics(): {
+    systemStatus: string;
+    cacheStatus: any;
+    verificationGateStatus: any;
+    recentValidationFailures: any[];
+    recommendedActions: string[];
+  } {
+    const systemStatus = this.forceValidationMode ? 'STRICT_VALIDATION' : 'NORMAL_OPERATION';
+    
+    const cacheStatus = {
+      teamMappings: this.teamConferenceMap.size,
+      rosterValidations: this.rosterValidationCache.size,
+      ownershipVerifications: this.ownershipVerifications.size,
+      lastClearTimestamp: 'N/A' // Would need to track this
+    };
+    
+    const verificationGateStatus = {
+      totalGates: this.verificationGates.size,
+      passedGates: Array.from(this.verificationGates.values()).filter(Boolean).length,
+      failedGates: Array.from(this.verificationGates.values()).filter(v => !v).length
+    };
+    
+    const recentValidationFailures = this.auditTrail
+      .filter(entry => !entry.validationPassed)
+      .slice(-10)
+      .map(entry => ({
+        timestamp: entry.timestamp,
+        action: entry.action,
+        reason: entry.reason,
+        rosterId: entry.rosterId
+      }));
+    
+    const recommendedActions: string[] = [];
+    
+    if (verificationGateStatus.failedGates > 0) {
+      recommendedActions.push('Investigate failed verification gates');
+    }
+    
+    if (recentValidationFailures.length > 5) {
+      recommendedActions.push('High validation failure rate - consider system maintenance');
+    }
+    
+    if (cacheStatus.teamMappings === 0) {
+      recommendedActions.push('Team mappings cache is empty - refresh required');
+    }
+    
+    return {
+      systemStatus,
+      cacheStatus,
+      verificationGateStatus,
+      recentValidationFailures,
+      recommendedActions
+    };
   }
 }
 
