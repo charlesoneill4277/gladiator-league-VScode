@@ -62,38 +62,38 @@ interface DataLineage {
 }
 
 const LINEUP_POSITIONS: LineupPosition[] = [
-  { label: 'Quarterback', abbreviation: 'QB', eligiblePositions: ['QB'], description: 'Starting Quarterback' },
-  { label: 'Running Back', abbreviation: 'RB', eligiblePositions: ['RB'], description: 'Starting Running Back #1' },
-  { label: 'Running Back', abbreviation: 'RB', eligiblePositions: ['RB'], description: 'Starting Running Back #2' },
-  { label: 'Wide Receiver', abbreviation: 'WR', eligiblePositions: ['WR'], description: 'Starting Wide Receiver #1' },
-  { label: 'Wide Receiver', abbreviation: 'WR', eligiblePositions: ['WR'], description: 'Starting Wide Receiver #2' },
-  { label: 'Wide Receiver', abbreviation: 'WR', eligiblePositions: ['WR'], description: 'Starting Wide Receiver #3' },
-  { label: 'Tight End', abbreviation: 'TE', eligiblePositions: ['TE'], description: 'Starting Tight End' },
-  { label: 'Flex', abbreviation: 'WRT', eligiblePositions: ['RB', 'WR', 'TE'], description: 'Flex Position (RB/WR/TE)' },
-  { label: 'SuperFlex', abbreviation: 'WRTQ', eligiblePositions: ['QB', 'RB', 'WR', 'TE'], description: 'SuperFlex Position (QB/RB/WR/TE)' }
-];
+{ label: 'Quarterback', abbreviation: 'QB', eligiblePositions: ['QB'], description: 'Starting Quarterback' },
+{ label: 'Running Back', abbreviation: 'RB', eligiblePositions: ['RB'], description: 'Starting Running Back #1' },
+{ label: 'Running Back', abbreviation: 'RB', eligiblePositions: ['RB'], description: 'Starting Running Back #2' },
+{ label: 'Wide Receiver', abbreviation: 'WR', eligiblePositions: ['WR'], description: 'Starting Wide Receiver #1' },
+{ label: 'Wide Receiver', abbreviation: 'WR', eligiblePositions: ['WR'], description: 'Starting Wide Receiver #2' },
+{ label: 'Wide Receiver', abbreviation: 'WR', eligiblePositions: ['WR'], description: 'Starting Wide Receiver #3' },
+{ label: 'Tight End', abbreviation: 'TE', eligiblePositions: ['TE'], description: 'Starting Tight End' },
+{ label: 'Flex', abbreviation: 'WRT', eligiblePositions: ['RB', 'WR', 'TE'], description: 'Flex Position (RB/WR/TE)' },
+{ label: 'SuperFlex', abbreviation: 'WRTQ', eligiblePositions: ['QB', 'RB', 'WR', 'TE'], description: 'SuperFlex Position (QB/RB/WR/TE)' }];
+
 
 const getPositionBadgeColor = (position: string): string => {
   switch (position) {
-    case 'QB': return 'bg-purple-500 hover:bg-purple-600';
-    case 'RB': return 'bg-green-500 hover:bg-green-600';
-    case 'WR': return 'bg-blue-500 hover:bg-blue-600';
-    case 'TE': return 'bg-orange-500 hover:bg-orange-600';
-    case 'K': return 'bg-yellow-500 hover:bg-yellow-600';
-    case 'DEF': return 'bg-gray-500 hover:bg-gray-600';
-    default: return 'bg-gray-400 hover:bg-gray-500';
+    case 'QB':return 'bg-purple-500 hover:bg-purple-600';
+    case 'RB':return 'bg-green-500 hover:bg-green-600';
+    case 'WR':return 'bg-blue-500 hover:bg-blue-600';
+    case 'TE':return 'bg-orange-500 hover:bg-orange-600';
+    case 'K':return 'bg-yellow-500 hover:bg-yellow-600';
+    case 'DEF':return 'bg-gray-500 hover:bg-gray-600';
+    default:return 'bg-gray-400 hover:bg-gray-500';
   }
 };
 
 const getInjuryStatusColor = (status: string): string => {
   switch (status?.toLowerCase()) {
-    case 'out': return 'text-red-600';
-    case 'doubtful': return 'text-red-500';
-    case 'questionable': return 'text-yellow-600';
-    case 'probable': return 'text-yellow-500';
+    case 'out':return 'text-red-600';
+    case 'doubtful':return 'text-red-500';
+    case 'questionable':return 'text-yellow-600';
+    case 'probable':return 'text-yellow-500';
     case 'healthy':
     case 'active':
-    default: return 'text-green-600';
+    default:return 'text-green-600';
   }
 };
 
@@ -143,7 +143,7 @@ const validateLineupConfiguration = (starters: string[], allPlayers: Record<stri
 } => {
   const violations: string[] = [];
   const suggestions: string[] = [];
-  
+
   if (starters.length !== LINEUP_POSITIONS.length) {
     violations.push(`Incorrect lineup size: expected ${LINEUP_POSITIONS.length}, got ${starters.length}`);
   }
@@ -180,12 +180,12 @@ const validateLineupConfiguration = (starters: string[], allPlayers: Record<stri
 };
 
 const calculateDataQualityMetrics = (
-  starters: string[],
-  allPlayers: Record<string, SleeperPlayer>,
-  playerPoints: Record<string, number>,
-  startersPoints: number[],
-  dataLineage: DataLineage
-): DataQualityMetrics => {
+starters: string[],
+allPlayers: Record<string, SleeperPlayer>,
+playerPoints: Record<string, number>,
+startersPoints: number[],
+dataLineage: DataLineage)
+: DataQualityMetrics => {
   let completeness = 0;
   let consistency = 0;
   let accuracy = 0;
@@ -195,28 +195,28 @@ const calculateDataQualityMetrics = (
   const recommendations: string[] = [];
 
   // Calculate completeness
-  const nonEmptyStarters = starters.filter(id => id && id.trim() !== '').length;
-  const playersWithData = starters.filter(id => id && allPlayers[id]).length;
-  const playersWithPoints = starters.filter(id => id && playerPoints[id] !== undefined).length;
-  
+  const nonEmptyStarters = starters.filter((id) => id && id.trim() !== '').length;
+  const playersWithData = starters.filter((id) => id && allPlayers[id]).length;
+  const playersWithPoints = starters.filter((id) => id && playerPoints[id] !== undefined).length;
+
   completeness = Math.round((
-    (nonEmptyStarters / LINEUP_POSITIONS.length) * 0.4 +
-    (playersWithData / starters.length) * 0.3 +
-    (playersWithPoints / starters.length) * 0.3
-  ) * 100);
+  nonEmptyStarters / LINEUP_POSITIONS.length * 0.4 +
+  playersWithData / starters.length * 0.3 +
+  playersWithPoints / starters.length * 0.3) *
+  100);
 
   // Calculate consistency
   const startersPointsMatch = starters.length === startersPoints.length;
-  const validPlayerIds = starters.filter(id => id && typeof id === 'string' && id.length > 0).length;
-  
+  const validPlayerIds = starters.filter((id) => id && typeof id === 'string' && id.length > 0).length;
+
   consistency = Math.round((
-    (startersPointsMatch ? 1 : 0) * 0.5 +
-    (validPlayerIds / starters.length) * 0.5
-  ) * 100);
+  (startersPointsMatch ? 1 : 0) * 0.5 +
+  validPlayerIds / starters.length * 0.5) *
+  100);
 
   // Calculate accuracy based on position validation
   const lineupValidation = validateLineupConfiguration(starters, allPlayers);
-  accuracy = Math.round(Math.max(0, 100 - (lineupValidation.violations.length * 10)));
+  accuracy = Math.round(Math.max(0, 100 - lineupValidation.violations.length * 10));
 
   // Identify issues and recommendations
   if (completeness < 90) {
@@ -239,7 +239,7 @@ const calculateDataQualityMetrics = (
     recommendations.push('Consider refreshing data from primary source');
   }
 
-  const overall = Math.round((completeness * 0.3 + consistency * 0.3 + accuracy * 0.25 + timeliness * 0.15));
+  const overall = Math.round(completeness * 0.3 + consistency * 0.3 + accuracy * 0.25 + timeliness * 0.15);
 
   return {
     completeness,
@@ -307,11 +307,11 @@ const StartingLineup: React.FC<StartingLineupProps> = ({
   const dataLineage: DataLineage = React.useMemo(() => {
     const hasMatchupStarters = Array.isArray(matchupStarters) && matchupStarters.length > 0;
     const hasRosterStarters = roster?.starters && Array.isArray(roster.starters) && roster.starters.length > 0;
-    
+
     let source: DataLineage['source'] = 'none';
     let confidence: DataLineage['confidence'] = 'low';
     const dataPath: string[] = [];
-    
+
     if (hasMatchupStarters) {
       source = 'matchup-specific';
       confidence = 'high';
@@ -325,10 +325,10 @@ const StartingLineup: React.FC<StartingLineupProps> = ({
     }
 
     const validationChecks = {
-      hasPlayerData: starters.every(id => id && allPlayers[id]),
-      hasPointsData: starters.some(id => id && playerPoints[id] !== undefined),
+      hasPlayerData: starters.every((id) => id && allPlayers[id]),
+      hasPointsData: starters.some((id) => id && playerPoints[id] !== undefined),
       correctLineupSize: starters.length === LINEUP_POSITIONS.length,
-      allPositionsFilled: starters.every(id => id && id.trim() !== ''),
+      allPositionsFilled: starters.every((id) => id && id.trim() !== ''),
       ownershipVerified: !!(ownerId && teamId),
       weekSpecific: !!week
     };
@@ -363,15 +363,15 @@ const StartingLineup: React.FC<StartingLineupProps> = ({
       finalStartersLength: starters.length,
       startersPointsLength: startersPoints.length,
       playerPointsKeys: Object.keys(playerPoints).length,
-      
+
       // Data relationships
       dataConsistency: {
         startersMatchPoints: starters.length === startersPoints.length,
         playersHavePoints: starters.filter((playerId) => playerPoints[playerId] !== undefined).length,
         expectedLineupSize: LINEUP_POSITIONS.length,
-        allPlayersExist: starters.filter(id => id && allPlayers[id]).length
+        allPlayersExist: starters.filter((id) => id && allPlayers[id]).length
       },
-      
+
       // Metadata
       dataSource: dataLineage.source,
       confidence: dataLineage.confidence,
@@ -382,7 +382,7 @@ const StartingLineup: React.FC<StartingLineupProps> = ({
         week,
         matchupId
       },
-      
+
       // Quality metrics
       qualityMetrics: dataQualityMetrics,
       lineupValidation
@@ -394,37 +394,37 @@ const StartingLineup: React.FC<StartingLineupProps> = ({
   // Comprehensive logging
   React.useEffect(() => {
     console.group(`🏈 Enhanced StartingLineup Analysis: ${teamName}`);
-    
+
     console.log('📊 Data Quality Metrics:', dataQualityMetrics);
     console.log('🔍 Data Lineage:', dataLineage);
     console.log('✅ Lineup Validation:', lineupValidation);
     console.log('🧮 Debug Information:', debugInfo);
-    
+
     // Log warnings for data inconsistencies
     if (debugInfo.finalStartersLength > 0) {
       const warnings: string[] = [];
-      
+
       if (!debugInfo.dataConsistency.startersMatchPoints) {
         warnings.push(`Starters count (${debugInfo.finalStartersLength}) doesn't match points count (${debugInfo.startersPointsLength})`);
       }
-      
+
       if (debugInfo.dataConsistency.playersHavePoints < debugInfo.finalStartersLength) {
         warnings.push(`Only ${debugInfo.dataConsistency.playersHavePoints}/${debugInfo.finalStartersLength} starters have player points data`);
       }
-      
+
       if (debugInfo.finalStartersLength !== debugInfo.dataConsistency.expectedLineupSize) {
         warnings.push(`Lineup size (${debugInfo.finalStartersLength}) doesn't match expected size (${debugInfo.dataConsistency.expectedLineupSize})`);
       }
-      
+
       if (debugInfo.dataConsistency.allPlayersExist < debugInfo.finalStartersLength) {
         warnings.push(`${debugInfo.finalStartersLength - debugInfo.dataConsistency.allPlayersExist} player(s) missing from player database`);
       }
-      
+
       if (warnings.length > 0) {
         console.warn('⚠️ Data Quality Warnings:', warnings);
       }
     }
-    
+
     console.groupEnd();
   }, [teamName, debugInfo, dataQualityMetrics, dataLineage, lineupValidation]);
 
@@ -475,8 +475,8 @@ const StartingLineup: React.FC<StartingLineupProps> = ({
             </CollapsibleContent>
           </Collapsible>
         </CardContent>
-      </Card>
-    );
+      </Card>);
+
   }
 
   const getDataQualityColor = (score: number): string => {
@@ -500,17 +500,17 @@ const StartingLineup: React.FC<StartingLineupProps> = ({
             <Badge variant="outline" className="text-xs">
               {starters.length}/{LINEUP_POSITIONS.length} positions
             </Badge>
-            <Badge 
-              variant={dataLineage.source === 'matchup-specific' ? 'default' : 'secondary'} 
-              className="text-xs"
-            >
+            <Badge
+              variant={dataLineage.source === 'matchup-specific' ? 'default' : 'secondary'}
+              className="text-xs">
+
               <Database className="w-3 h-3 mr-1" />
               {dataLineage.source}
             </Badge>
-            <Badge 
-              variant="outline" 
-              className={`text-xs ${getDataQualityColor(dataQualityMetrics.overall)}`}
-            >
+            <Badge
+              variant="outline"
+              className={`text-xs ${getDataQualityColor(dataQualityMetrics.overall)}`}>
+
               {getDataQualityIcon(dataQualityMetrics.overall)}
               <span className="ml-1">{dataQualityMetrics.overall}%</span>
             </Badge>
@@ -519,30 +519,30 @@ const StartingLineup: React.FC<StartingLineupProps> = ({
       </CardHeader>
       <CardContent>
         {/* Data Quality Alerts */}
-        {(dataQualityMetrics.issues.length > 0 || dataQualityMetrics.warnings.length > 0 || !lineupValidation.isValid) && (
-          <div className="mb-4 space-y-2">
-            {dataQualityMetrics.issues.map((issue, index) => (
-              <Alert key={index} variant="destructive">
+        {(dataQualityMetrics.issues.length > 0 || dataQualityMetrics.warnings.length > 0 || !lineupValidation.isValid) &&
+        <div className="mb-4 space-y-2">
+            {dataQualityMetrics.issues.map((issue, index) =>
+          <Alert key={index} variant="destructive">
                 <AlertTriangle className="h-4 w-4" />
                 <AlertDescription className="text-xs">{issue}</AlertDescription>
               </Alert>
-            ))}
-            {dataQualityMetrics.warnings.map((warning, index) => (
-              <Alert key={index}>
+          )}
+            {dataQualityMetrics.warnings.map((warning, index) =>
+          <Alert key={index}>
                 <Info className="h-4 w-4" />
                 <AlertDescription className="text-xs">{warning}</AlertDescription>
               </Alert>
-            ))}
-            {!lineupValidation.isValid && (
-              <Alert variant="destructive">
+          )}
+            {!lineupValidation.isValid &&
+          <Alert variant="destructive">
                 <AlertTriangle className="h-4 w-4" />
                 <AlertDescription className="text-xs">
                   Lineup configuration issues detected: {lineupValidation.violations.length} violations found
                 </AlertDescription>
               </Alert>
-            )}
+          }
           </div>
-        )}
+        }
 
         {/* Roster Verification Display */}
         <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
@@ -561,25 +561,25 @@ const StartingLineup: React.FC<StartingLineupProps> = ({
             const playerInfo = playerId ? getPlayerInfo(playerId, allPlayers) : null;
             const points = startersPoints[index];
             const playerPoints_individual = playerId ? playerPoints[playerId] : undefined;
-            const hasDataInconsistency = playerInfo?.name === 'Unknown Player' || 
-              (playerPoints_individual !== undefined && points !== undefined && Math.abs(playerPoints_individual - points) > 0.1);
+            const hasDataInconsistency = playerInfo?.name === 'Unknown Player' ||
+            playerPoints_individual !== undefined && points !== undefined && Math.abs(playerPoints_individual - points) > 0.1;
 
             return (
               <div
                 key={`${position.abbreviation}-${index}`}
                 className={`flex items-center justify-between p-3 rounded-lg transition-colors ${
-                  hasDataInconsistency ? 'bg-yellow-50 border border-yellow-200' : 'bg-gray-50 hover:bg-gray-100'
-                }`}>
+                hasDataInconsistency ? 'bg-yellow-50 border border-yellow-200' : 'bg-gray-50 hover:bg-gray-100'}`
+                }>
 
                 <div className="flex items-center space-x-3 flex-1">
                   {/* Position Badge */}
                   <div className="flex flex-col items-center min-w-[60px]">
                     <Badge
                       className={`text-xs font-bold ${
-                        position.abbreviation === 'WRT' || position.abbreviation === 'WRTQ' 
-                          ? 'bg-indigo-500 hover:bg-indigo-600' 
-                          : getPositionBadgeColor(position.abbreviation)
-                      }`}>
+                      position.abbreviation === 'WRT' || position.abbreviation === 'WRTQ' ?
+                      'bg-indigo-500 hover:bg-indigo-600' :
+                      getPositionBadgeColor(position.abbreviation)}`
+                      }>
                       {position.abbreviation}
                     </Badge>
                     <span className="text-xs text-muted-foreground mt-1 text-center leading-tight">
@@ -589,40 +589,40 @@ const StartingLineup: React.FC<StartingLineupProps> = ({
 
                   {/* Player Info */}
                   <div className="flex-1">
-                    {playerInfo ? (
-                      <div className="space-y-1">
+                    {playerInfo ?
+                    <div className="space-y-1">
                         <div className="flex items-center space-x-2">
                           <span className="font-medium text-sm">{playerInfo.name}</span>
-                          {hasDataInconsistency && (
-                            <Badge variant="destructive" className="text-xs">
+                          {hasDataInconsistency &&
+                        <Badge variant="destructive" className="text-xs">
                               <AlertTriangle className="w-3 h-3 mr-1" />
                               Data Issue
                             </Badge>
-                          )}
-                          {playerInfo.injuryStatus !== 'Healthy' && playerInfo.injuryStatus !== 'Active' && (
-                            <Badge
-                              variant="outline"
-                              className={`text-xs ${getInjuryStatusColor(playerInfo.injuryStatus)}`}>
+                        }
+                          {playerInfo.injuryStatus !== 'Healthy' && playerInfo.injuryStatus !== 'Active' &&
+                        <Badge
+                          variant="outline"
+                          className={`text-xs ${getInjuryStatusColor(playerInfo.injuryStatus)}`}>
                               {playerInfo.injuryStatus}
                             </Badge>
-                          )}
+                        }
                         </div>
                         <div className="flex items-center space-x-3 text-xs text-muted-foreground">
                           <span className="flex items-center space-x-1">
                             <Badge
-                              variant="outline"
-                              className={`text-xs ${getPositionBadgeColor(playerInfo.position)}`}>
+                            variant="outline"
+                            className={`text-xs ${getPositionBadgeColor(playerInfo.position)}`}>
                               {playerInfo.position}
                             </Badge>
                           </span>
                           <span className="font-medium">{playerInfo.nflTeam}</span>
-                          {playerInfo.jerseyNumber && (
-                            <span>#{playerInfo.jerseyNumber}</span>
-                          )}
+                          {playerInfo.jerseyNumber &&
+                        <span>#{playerInfo.jerseyNumber}</span>
+                        }
                         </div>
-                      </div>
-                    ) : (
-                      <div className="space-y-1">
+                      </div> :
+
+                    <div className="space-y-1">
                         <div className="flex items-center space-x-2">
                           <span className="font-medium text-sm text-muted-foreground">Empty Slot</span>
                           <Badge variant="destructive" className="text-xs">
@@ -634,7 +634,7 @@ const StartingLineup: React.FC<StartingLineupProps> = ({
                           No player assigned
                         </div>
                       </div>
-                    )}
+                    }
                   </div>
                 </div>
 
@@ -643,14 +643,14 @@ const StartingLineup: React.FC<StartingLineupProps> = ({
                   <div className="font-bold text-sm">
                     {points !== undefined ? points.toFixed(1) : '0.0'}
                   </div>
-                  {playerPoints_individual !== undefined && points !== playerPoints_individual && (
-                    <div className="text-xs text-muted-foreground">
+                  {playerPoints_individual !== undefined && points !== playerPoints_individual &&
+                  <div className="text-xs text-muted-foreground">
                       ({playerPoints_individual.toFixed(1)})
                     </div>
-                  )}
+                  }
                 </div>
-              </div>
-            );
+              </div>);
+
           })}
         </div>
 
@@ -734,9 +734,9 @@ const StartingLineup: React.FC<StartingLineupProps> = ({
                     <div><strong>Confidence:</strong> {dataLineage.confidence}</div>
                     <div><strong>Timestamp:</strong> {new Date(dataLineage.timestamp).toLocaleString()}</div>
                     <div><strong>Data Path:</strong></div>
-                    {dataLineage.dataPath.map((path, index) => (
-                      <div key={index} className="ml-4">→ {path}</div>
-                    ))}
+                    {dataLineage.dataPath.map((path, index) =>
+                    <div key={index} className="ml-4">→ {path}</div>
+                    )}
                   </div>
                 </div>
 
@@ -744,31 +744,31 @@ const StartingLineup: React.FC<StartingLineupProps> = ({
                 <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
                   <div className="text-xs font-medium text-green-800 mb-2">Validation Checks</div>
                   <div className="grid grid-cols-2 gap-1 text-xs">
-                    {Object.entries(dataLineage.validationChecks).map(([check, passed]) => (
-                      <div key={check} className={`flex items-center ${passed ? 'text-green-700' : 'text-red-700'}`}>
+                    {Object.entries(dataLineage.validationChecks).map(([check, passed]) =>
+                    <div key={check} className={`flex items-center ${passed ? 'text-green-700' : 'text-red-700'}`}>
                         {passed ? <CheckCircle className="w-3 h-3 mr-1" /> : <XCircle className="w-3 h-3 mr-1" />}
                         {check.replace(/([A-Z])/g, ' $1').toLowerCase()}
                       </div>
-                    ))}
+                    )}
                   </div>
                 </div>
 
                 {/* Recommendations */}
-                {dataQualityMetrics.recommendations.length > 0 && (
-                  <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                {dataQualityMetrics.recommendations.length > 0 &&
+                <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
                     <div className="text-xs font-medium text-yellow-800 mb-2">Recommendations</div>
-                    {dataQualityMetrics.recommendations.map((rec, index) => (
-                      <div key={index} className="text-xs text-yellow-700 mb-1">• {rec}</div>
-                    ))}
+                    {dataQualityMetrics.recommendations.map((rec, index) =>
+                  <div key={index} className="text-xs text-yellow-700 mb-1">• {rec}</div>
+                  )}
                   </div>
-                )}
+                }
               </div>
             </CollapsibleContent>
           </Collapsible>
         </div>
       </CardContent>
-    </Card>
-  );
+    </Card>);
+
 };
 
 export default StartingLineup;
