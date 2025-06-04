@@ -35,22 +35,22 @@ const PlayerDetailModal: React.FC<PlayerDetailModalProps> = ({ player, isOpen, o
 
   const getPositionColor = (position: string) => {
     switch (position) {
-      case 'QB': return 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200';
-      case 'RB': return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200';
-      case 'WR': return 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200';
-      case 'TE': return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200';
-      default: return 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200';
+      case 'QB':return 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200';
+      case 'RB':return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200';
+      case 'WR':return 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200';
+      case 'TE':return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200';
+      default:return 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200';
     }
   };
 
   const getInjuryStatusColor = (status: string) => {
     switch (status) {
-      case 'Healthy': return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200';
-      case 'Questionable': return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200';
-      case 'Doubtful': return 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200';
-      case 'Out': return 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200';
-      case 'IR': return 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200';
-      default: return 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200';
+      case 'Healthy':return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200';
+      case 'Questionable':return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200';
+      case 'Doubtful':return 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200';
+      case 'Out':return 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200';
+      case 'IR':return 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200';
+      default:return 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200';
     }
   };
 
@@ -68,16 +68,16 @@ const PlayerDetailModal: React.FC<PlayerDetailModalProps> = ({ player, isOpen, o
               <Badge className={getPositionColor(player.position)}>
                 {player.position}
               </Badge>
-              {isRookie && (
-                <Badge variant="outline" className="bg-purple-100 text-purple-800">
+              {isRookie &&
+              <Badge variant="outline" className="bg-purple-100 text-purple-800">
                   ROOKIE
                 </Badge>
-              )}
-              {isFreeAgent && (
-                <Badge variant="outline" className="bg-gray-100 text-gray-800">
+              }
+              {isFreeAgent &&
+              <Badge variant="outline" className="bg-gray-100 text-gray-800">
                   FREE AGENT
                 </Badge>
-              )}
+              }
             </div>
           </DialogTitle>
         </DialogHeader>
@@ -258,42 +258,42 @@ const PlayerDetailModal: React.FC<PlayerDetailModalProps> = ({ player, isOpen, o
                     <span>NFL Experience</span>
                     <span>{player.years_experience} / 15+ years</span>
                   </div>
-                  <Progress 
-                    value={Math.min((player.years_experience / 15) * 100, 100)} 
-                    className="w-full" 
-                  />
+                  <Progress
+                    value={Math.min(player.years_experience / 15 * 100, 100)}
+                    className="w-full" />
+
                 </div>
 
                 {/* Special Badges */}
                 <div className="flex flex-wrap gap-2 pt-4">
-                  {isRookie && (
-                    <Badge variant="outline" className="bg-purple-100 text-purple-800">
+                  {isRookie &&
+                  <Badge variant="outline" className="bg-purple-100 text-purple-800">
                       🏅 Rookie
                     </Badge>
-                  )}
-                  {isFreeAgent && (
-                    <Badge variant="outline" className="bg-green-100 text-green-800">
+                  }
+                  {isFreeAgent &&
+                  <Badge variant="outline" className="bg-green-100 text-green-800">
                       🆓 Free Agent
                     </Badge>
-                  )}
-                  {player.years_experience >= 10 && (
-                    <Badge variant="outline" className="bg-gold-100 text-gold-800">
+                  }
+                  {player.years_experience >= 10 &&
+                  <Badge variant="outline" className="bg-gold-100 text-gold-800">
                       🏆 Veteran
                     </Badge>
-                  )}
-                  {player.depth_chart_position === 1 && (
-                    <Badge variant="outline" className="bg-blue-100 text-blue-800">
+                  }
+                  {player.depth_chart_position === 1 &&
+                  <Badge variant="outline" className="bg-blue-100 text-blue-800">
                       ⭐ Starter
                     </Badge>
-                  )}
+                  }
                 </div>
               </CardContent>
             </Card>
           </TabsContent>
         </Tabs>
       </DialogContent>
-    </Dialog>
-  );
+    </Dialog>);
+
 };
 
 export default PlayerDetailModal;

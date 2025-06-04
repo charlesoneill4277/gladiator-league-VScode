@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
 import { useApp } from '@/contexts/AppContext';
-import { Search, Filter, User, Users, Heart, Activity, Clock } from 'lucide-react';
+import { Search, Filter, User, Users, Heart, Activity, Clock, Shield } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import PlayerDetailModal from '@/components/PlayerDetailModal';
 
@@ -28,11 +28,41 @@ interface Player {
   sleeper_player_id: string;
 }
 
+interface Team {
+  id: number;
+  team_name: string;
+  owner_name: string;
+  team_primary_color: string;
+  team_secondary_color: string;
+}
+
+interface Conference {
+  id: number;
+  conference_name: string;
+  league_id: string;
+}
+
+interface TeamConferenceJunction {
+  id: number;
+  team_id: number;
+  conference_id: number;
+  roster_id: string;
+  is_active: boolean;
+}
+
+interface PlayerTeamInfo {
+  team: Team;
+  conference: Conference;
+}
+
 const PlayersPage: React.FC = () => {
   const { selectedSeason, selectedConference } = useApp();
   const { toast } = useToast();
-  
+
   const [players, setPlayers] = useState<Player[]>([]);
+  const [teams, setTeams] = useState<Team[]>([]);
+  const [conferences, setConferences] = useState<Conference[]>([]);
+  const [teamConferenceJunctions, setTeamConferenceJunctions] = useState<TeamConferenceJunction[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [nflTeamFilter, setNflTeamFilter] = useState<string>('all');
@@ -44,55 +74,127 @@ const PlayersPage: React.FC = () => {
 
   // NFL teams for the filter dropdown
   const nflTeams = [
-    'ARI', 'ATL', 'BAL', 'BUF', 'CAR', 'CHI', 'CIN', 'CLE', 'DAL', 'DEN',
-    'DET', 'GB', 'HOU', 'IND', 'JAX', 'KC', 'LV', 'LAC', 'LAR', 'MIA',
-    'MIN', 'NE', 'NO', 'NYG', 'NYJ', 'PHI', 'PIT', 'SF', 'SEA', 'TB',
-    'TEN', 'WSH'
-  ];
+  'ARI', 'ATL', 'BAL', 'BUF', 'CAR', 'CHI', 'CIN', 'CLE', 'DAL', 'DEN',
+  'DET', 'GB', 'HOU', 'IND', 'JAX', 'KC', 'LV', 'LAC', 'LAR', 'MIA',
+  'MIN', 'NE', 'NO', 'NYG', 'NYJ', 'PHI', 'PIT', 'SF', 'SEA', 'TB',
+  'TEN', 'WSH'];
+
 
   // Weeks for the filter dropdown
   const weeks = Array.from({ length: 18 }, (_, i) => i + 1);
 
   useEffect(() => {
-    fetchPlayers();
+    fetchAllData();
   }, []);
 
-  const fetchPlayers = async () => {
+  const fetchAllData = async () => {
     try {
       setLoading(true);
-      const response = await window.ezsite.apis.tablePage(12870, {
-        PageNo: 1,
-        PageSize: 1000,
-        OrderByField: 'player_name',
-        IsAsc: true,
-        Filters: [
-          {
+      
+      // Fetch all data in parallel
+      const [playersResponse, teamsResponse, conferencesResponse, junctionsResponse] = await Promise.all([
+        // Fetch players
+        window.ezsite.apis.tablePage(12870, {
+          PageNo: 1,
+          PageSize: 1000,
+          OrderByField: 'player_name',
+          IsAsc: true,
+          Filters: [{
             name: 'status',
             op: 'Equal',
             value: 'Active'
-          }
-        ]
-      });
+          }]
+        }),
+        // Fetch teams
+        window.ezsite.apis.tablePage(12852, {
+          PageNo: 1,
+          PageSize: 1000,
+          OrderByField: 'team_name',
+          IsAsc: true,
+          Filters: []
+        }),
+        // Fetch conferences
+        window.ezsite.apis.tablePage(12820, {
+          PageNo: 1,
+          PageSize: 100,
+          OrderByField: 'conference_name',
+          IsAsc: true,
+          Filters: []
+        }),
+        // Fetch team-conference junctions
+        window.ezsite.apis.tablePage(12853, {
+          PageNo: 1,
+          PageSize: 1000,
+          OrderByField: 'id',
+          IsAsc: true,
+          Filters: [{
+            name: 'is_active',
+            op: 'Equal',
+            value: true
+          }]
+        })
+      ]);
 
-      if (response.error) {
-        throw response.error;
-      }
+      // Check for errors
+      if (playersResponse.error) throw playersResponse.error;
+      if (teamsResponse.error) throw teamsResponse.error;
+      if (conferencesResponse.error) throw conferencesResponse.error;
+      if (junctionsResponse.error) throw junctionsResponse.error;
 
       // Filter for offensive positions only (QB, RB, WR, TE)
-      const offensivePlayers = response.data.List.filter((player: Player) => 
+      const offensivePlayers = playersResponse.data.List.filter((player: Player) =>
         ['QB', 'RB', 'WR', 'TE'].includes(player.position)
       );
 
       setPlayers(offensivePlayers);
+      setTeams(teamsResponse.data.List);
+      setConferences(conferencesResponse.data.List);
+      setTeamConferenceJunctions(junctionsResponse.data.List);
+      
     } catch (error) {
-      console.error('Error fetching players:', error);
+      console.error('Error fetching data:', error);
       toast({
         title: 'Error',
-        description: 'Failed to load players. Please try again.',
-        variant: 'destructive',
+        description: 'Failed to load player data. Please try again.',
+        variant: 'destructive'
       });
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Function to get team and conference info for a player
+  const getPlayerTeamInfo = (playerId: number, teamId: number): PlayerTeamInfo[] => {
+    if (teamId === 0) return []; // Free agent
+    
+    const team = teams.find(t => t.id === teamId);
+    if (!team) return [];
+    
+    // Find all conferences this team is active in
+    const activeJunctions = teamConferenceJunctions.filter(
+      junction => junction.team_id === teamId && junction.is_active
+    );
+    
+    return activeJunctions.map(junction => {
+      const conference = conferences.find(c => c.id === junction.conference_id);
+      return {
+        team,
+        conference: conference!
+      };
+    }).filter(info => info.conference); // Filter out any undefined conferences
+  };
+
+  // Function to get conference color for badges
+  const getConferenceColor = (conferenceName: string) => {
+    switch (conferenceName) {
+      case 'The Legions of Mars':
+        return 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200';
+      case 'The Guardians of Jupiter':
+        return 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200';
+      case "Vulcan's Oathsworn":
+        return 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200';
+      default:
+        return 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200';
     }
   };
 
@@ -100,15 +202,15 @@ const PlayersPage: React.FC = () => {
     return players.filter((player) => {
       // Search filter
       const searchMatch = searchTerm === '' ||
-        player.player_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        player.nfl_team.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        player.college.toLowerCase().includes(searchTerm.toLowerCase());
+      player.player_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      player.nfl_team.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      player.college.toLowerCase().includes(searchTerm.toLowerCase());
 
       // NFL team filter
       const nflTeamMatch = nflTeamFilter === 'all' || player.nfl_team === nflTeamFilter;
 
       // Free agent filter
-      const freeAgentMatch = !freeAgentFilter || player.team_id === 0;
+      const freeAgentMatch = !freeAgentFilter || getPlayerTeamInfo(player.id, player.team_id).length === 0;
 
       // Rookie filter
       const rookieMatch = !rookieFilter || player.years_experience <= 1;
@@ -119,22 +221,22 @@ const PlayersPage: React.FC = () => {
 
   const getPositionColor = (position: string) => {
     switch (position) {
-      case 'QB': return 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200';
-      case 'RB': return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200';
-      case 'WR': return 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200';
-      case 'TE': return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200';
-      default: return 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200';
+      case 'QB':return 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200';
+      case 'RB':return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200';
+      case 'WR':return 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200';
+      case 'TE':return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200';
+      default:return 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200';
     }
   };
 
   const getInjuryStatusColor = (status: string) => {
     switch (status) {
-      case 'Healthy': return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200';
-      case 'Questionable': return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200';
-      case 'Doubtful': return 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200';
-      case 'Out': return 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200';
-      case 'IR': return 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200';
-      default: return 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200';
+      case 'Healthy':return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200';
+      case 'Questionable':return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200';
+      case 'Doubtful':return 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200';
+      case 'Out':return 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200';
+      case 'IR':return 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200';
+      default:return 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200';
     }
   };
 
@@ -151,9 +253,10 @@ const PlayersPage: React.FC = () => {
     setRookieFilter(false);
   };
 
-  const freeAgents = filteredPlayers.filter(p => p.team_id === 0);
-  const rookies = filteredPlayers.filter(p => p.years_experience <= 1);
-  const injuredPlayers = filteredPlayers.filter(p => p.injury_status !== 'Healthy');
+  const freeAgents = filteredPlayers.filter((p) => getPlayerTeamInfo(p.id, p.team_id).length === 0);
+  const rookies = filteredPlayers.filter((p) => p.years_experience <= 1);
+  const injuredPlayers = filteredPlayers.filter((p) => p.injury_status !== 'Healthy');
+  const rosteredPlayers = filteredPlayers.filter((p) => getPlayerTeamInfo(p.id, p.team_id).length > 0);
 
   if (loading) {
     return (
@@ -163,18 +266,18 @@ const PlayersPage: React.FC = () => {
           <h1 className="text-3xl font-bold">Loading Players...</h1>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-          {Array.from({ length: 12 }).map((_, i) => (
-            <Card key={i} className="animate-pulse">
+          {Array.from({ length: 12 }).map((_, i) =>
+          <Card key={i} className="animate-pulse">
               <CardContent className="p-4">
                 <div className="h-4 bg-gray-200 rounded mb-2"></div>
                 <div className="h-3 bg-gray-200 rounded mb-1"></div>
                 <div className="h-3 bg-gray-200 rounded w-2/3"></div>
               </CardContent>
             </Card>
-          ))}
+          )}
         </div>
-      </div>
-    );
+      </div>);
+
   }
 
   return (
@@ -201,8 +304,8 @@ const PlayersPage: React.FC = () => {
               placeholder="Search players, teams, college..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10"
-            />
+              className="pl-10" />
+
           </div>
 
           {/* NFL Team Filter */}
@@ -212,9 +315,9 @@ const PlayersPage: React.FC = () => {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All NFL Teams</SelectItem>
-              {nflTeams.map((team) => (
-                <SelectItem key={team} value={team}>{team}</SelectItem>
-              ))}
+              {nflTeams.map((team) =>
+              <SelectItem key={team} value={team}>{team}</SelectItem>
+              )}
             </SelectContent>
           </Select>
 
@@ -224,11 +327,11 @@ const PlayersPage: React.FC = () => {
               <SelectValue placeholder="Select Week" />
             </SelectTrigger>
             <SelectContent>
-              {weeks.map((week) => (
-                <SelectItem key={week} value={week.toString()}>
+              {weeks.map((week) =>
+              <SelectItem key={week} value={week.toString()}>
                   Week {week}
                 </SelectItem>
-              ))}
+              )}
             </SelectContent>
           </Select>
         </div>
@@ -239,8 +342,8 @@ const PlayersPage: React.FC = () => {
             <Checkbox
               id="freeAgent"
               checked={freeAgentFilter}
-              onCheckedChange={setFreeAgentFilter}
-            />
+              onCheckedChange={setFreeAgentFilter} />
+
             <label htmlFor="freeAgent" className="text-sm font-medium">
               Free Agents Only
             </label>
@@ -250,8 +353,8 @@ const PlayersPage: React.FC = () => {
             <Checkbox
               id="rookie"
               checked={rookieFilter}
-              onCheckedChange={setRookieFilter}
-            />
+              onCheckedChange={setRookieFilter} />
+
             <label htmlFor="rookie" className="text-sm font-medium">
               Rookies Only
             </label>
@@ -265,7 +368,7 @@ const PlayersPage: React.FC = () => {
       </div>
 
       {/* Summary Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
         <Card>
           <CardHeader className="pb-2">
             <CardDescription className="flex items-center space-x-1">
@@ -273,6 +376,16 @@ const PlayersPage: React.FC = () => {
               <span>Total Players</span>
             </CardDescription>
             <CardTitle className="text-2xl">{filteredPlayers.length}</CardTitle>
+          </CardHeader>
+        </Card>
+        
+        <Card>
+          <CardHeader className="pb-2">
+            <CardDescription className="flex items-center space-x-1">
+              <Shield className="h-4 w-4" />
+              <span>Rostered</span>
+            </CardDescription>
+            <CardTitle className="text-2xl">{rosteredPlayers.length}</CardTitle>
           </CardHeader>
         </Card>
         
@@ -308,14 +421,14 @@ const PlayersPage: React.FC = () => {
       </div>
 
       {/* Players Grid */}
-      {filteredPlayers.length > 0 ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-          {filteredPlayers.map((player) => (
-            <Card 
-              key={player.id} 
-              className="hover:shadow-md transition-shadow cursor-pointer group"
-              onClick={() => handlePlayerClick(player)}
-            >
+      {filteredPlayers.length > 0 ?
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+          {filteredPlayers.map((player) =>
+        <Card
+          key={player.id}
+          className="hover:shadow-md transition-shadow cursor-pointer group"
+          onClick={() => handlePlayerClick(player)}>
+
               <CardContent className="p-4">
                 <div className="space-y-3">
                   {/* Player Header */}
@@ -349,30 +462,66 @@ const PlayersPage: React.FC = () => {
                     </div>
                   </div>
 
+                  {/* Team Ownership Info */}
+                  <div className="space-y-2">
+                    {(() => {
+                      const teamInfo = getPlayerTeamInfo(player.id, player.team_id);
+                      if (teamInfo.length === 0) {
+                        return (
+                          <div className="flex items-center space-x-1">
+                            <Shield className="h-3 w-3 text-green-600" />
+                            <Badge variant="outline" size="sm" className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
+                              Free Agent
+                            </Badge>
+                          </div>
+                        );
+                      }
+                      
+                      return (
+                        <div className="space-y-1">
+                          <div className="flex items-center space-x-1 text-xs text-muted-foreground">
+                            <Shield className="h-3 w-3" />
+                            <span>Rostered by:</span>
+                          </div>
+                          {teamInfo.map((info, index) => (
+                            <div key={index} className="flex items-center justify-between">
+                              <span className="text-xs font-medium truncate" title={info.team.team_name}>
+                                {info.team.team_name}
+                              </span>
+                              <Badge 
+                                variant="outline" 
+                                size="sm" 
+                                className={getConferenceColor(info.conference.conference_name)}
+                                title={info.conference.conference_name}
+                              >
+                                {info.conference.conference_name.includes('Mars') ? 'MARS' :
+                                 info.conference.conference_name.includes('Jupiter') ? 'JUPITER' : 'VULCAN'}
+                              </Badge>
+                            </div>
+                          ))}
+                        </div>
+                      );
+                    })()}
+                  </div>
+
                   {/* Status Badges */}
                   <div className="flex flex-wrap gap-1">
-                    <Badge 
-                      className={getInjuryStatusColor(player.injury_status)} 
+                    <Badge
+                      className={getInjuryStatusColor(player.injury_status)}
                       variant="outline"
-                      size="sm"
-                    >
+                      size="sm">
                       {player.injury_status}
                     </Badge>
-                    {player.team_id === 0 && (
-                      <Badge variant="outline" size="sm" className="bg-green-100 text-green-800">
-                        FA
-                      </Badge>
-                    )}
-                    {player.years_experience <= 1 && (
+                    {player.years_experience <= 1 &&
                       <Badge variant="outline" size="sm" className="bg-purple-100 text-purple-800">
                         ROO
                       </Badge>
-                    )}
-                    {player.depth_chart_position === 1 && (
+                    }
+                    {player.depth_chart_position === 1 &&
                       <Badge variant="outline" size="sm" className="bg-blue-100 text-blue-800">
                         ST
                       </Badge>
-                    )}
+                    }
                   </div>
 
                   {/* Week Info */}
@@ -385,10 +534,10 @@ const PlayersPage: React.FC = () => {
                 </div>
               </CardContent>
             </Card>
-          ))}
-        </div>
-      ) : (
-        <div className="text-center py-12">
+        )}
+        </div> :
+
+      <div className="text-center py-12">
           <User className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
           <h3 className="text-lg font-semibold mb-2">No players found</h3>
           <p className="text-muted-foreground mb-4">
@@ -398,7 +547,7 @@ const PlayersPage: React.FC = () => {
             Clear all filters
           </Button>
         </div>
-      )}
+      }
 
       {/* Player Detail Modal */}
       <PlayerDetailModal
@@ -407,10 +556,10 @@ const PlayersPage: React.FC = () => {
         onClose={() => {
           setIsModalOpen(false);
           setSelectedPlayer(null);
-        }}
-      />
-    </div>
-  );
+        }} />
+
+    </div>);
+
 };
 
 export default PlayersPage;
