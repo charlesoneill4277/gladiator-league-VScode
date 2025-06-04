@@ -90,50 +90,50 @@ const PlayersPage: React.FC = () => {
   const fetchAllData = async () => {
     try {
       setLoading(true);
-      
+
       // Fetch all data in parallel
       const [playersResponse, teamsResponse, conferencesResponse, junctionsResponse] = await Promise.all([
-        // Fetch players
-        window.ezsite.apis.tablePage(12870, {
-          PageNo: 1,
-          PageSize: 1000,
-          OrderByField: 'player_name',
-          IsAsc: true,
-          Filters: [{
-            name: 'status',
-            op: 'Equal',
-            value: 'Active'
-          }]
-        }),
-        // Fetch teams
-        window.ezsite.apis.tablePage(12852, {
-          PageNo: 1,
-          PageSize: 1000,
-          OrderByField: 'team_name',
-          IsAsc: true,
-          Filters: []
-        }),
-        // Fetch conferences
-        window.ezsite.apis.tablePage(12820, {
-          PageNo: 1,
-          PageSize: 100,
-          OrderByField: 'conference_name',
-          IsAsc: true,
-          Filters: []
-        }),
-        // Fetch team-conference junctions
-        window.ezsite.apis.tablePage(12853, {
-          PageNo: 1,
-          PageSize: 1000,
-          OrderByField: 'id',
-          IsAsc: true,
-          Filters: [{
-            name: 'is_active',
-            op: 'Equal',
-            value: true
-          }]
-        })
-      ]);
+      // Fetch players
+      window.ezsite.apis.tablePage(12870, {
+        PageNo: 1,
+        PageSize: 1000,
+        OrderByField: 'player_name',
+        IsAsc: true,
+        Filters: [{
+          name: 'status',
+          op: 'Equal',
+          value: 'Active'
+        }]
+      }),
+      // Fetch teams
+      window.ezsite.apis.tablePage(12852, {
+        PageNo: 1,
+        PageSize: 1000,
+        OrderByField: 'team_name',
+        IsAsc: true,
+        Filters: []
+      }),
+      // Fetch conferences
+      window.ezsite.apis.tablePage(12820, {
+        PageNo: 1,
+        PageSize: 100,
+        OrderByField: 'conference_name',
+        IsAsc: true,
+        Filters: []
+      }),
+      // Fetch team-conference junctions
+      window.ezsite.apis.tablePage(12853, {
+        PageNo: 1,
+        PageSize: 1000,
+        OrderByField: 'id',
+        IsAsc: true,
+        Filters: [{
+          name: 'is_active',
+          op: 'Equal',
+          value: true
+        }]
+      })]
+      );
 
       // Check for errors
       if (playersResponse.error) throw playersResponse.error;
@@ -143,7 +143,7 @@ const PlayersPage: React.FC = () => {
 
       // Filter for offensive positions only (QB, RB, WR, TE)
       const offensivePlayers = playersResponse.data.List.filter((player: Player) =>
-        ['QB', 'RB', 'WR', 'TE'].includes(player.position)
+      ['QB', 'RB', 'WR', 'TE'].includes(player.position)
       );
 
       setPlayers(offensivePlayers);
@@ -151,6 +151,22 @@ const PlayersPage: React.FC = () => {
       setConferences(conferencesResponse.data.List);
       setTeamConferenceJunctions(junctionsResponse.data.List);
       
+      // Debug logging to help identify the issue
+      console.log('Loaded data summary:');
+      console.log(`- Players: ${offensivePlayers.length}`);
+      console.log(`- Teams: ${teamsResponse.data.List.length}`);
+      console.log(`- Conferences: ${conferencesResponse.data.List.length}`);
+      console.log(`- Team-Conference Junctions: ${junctionsResponse.data.List.length}`);
+      
+      // Sample data for debugging
+      console.log('Sample team data:', teamsResponse.data.List.slice(0, 3));
+      console.log('Sample conference data:', conferencesResponse.data.List);
+      console.log('Sample junction data:', junctionsResponse.data.List.slice(0, 5));
+      
+      // Check for players with team assignments
+      const rosteredPlayersCount = offensivePlayers.filter(p => p.team_id !== 0).length;
+      console.log(`Players with team assignments: ${rosteredPlayersCount}/${offensivePlayers.length}`);
+
     } catch (error) {
       console.error('Error fetching data:', error);
       toast({
@@ -165,23 +181,36 @@ const PlayersPage: React.FC = () => {
 
   // Function to get team and conference info for a player
   const getPlayerTeamInfo = (playerId: number, teamId: number): PlayerTeamInfo[] => {
-    if (teamId === 0) return []; // Free agent
+    // Handle free agents (team_id = 0 or no team found)
+    if (teamId === 0) return [];
     
-    const team = teams.find(t => t.id === teamId);
-    if (!team) return [];
-    
+    const team = teams.find((t) => t.id === teamId);
+    if (!team) {
+      console.log(`Warning: Player ${playerId} has team_id ${teamId} but no matching team found`);
+      return [];
+    }
+
     // Find all conferences this team is active in
     const activeJunctions = teamConferenceJunctions.filter(
-      junction => junction.team_id === teamId && junction.is_active
+      (junction) => junction.team_id === teamId && junction.is_active
     );
-    
-    return activeJunctions.map(junction => {
-      const conference = conferences.find(c => c.id === junction.conference_id);
+
+    if (activeJunctions.length === 0) {
+      console.log(`Warning: Team ${team.team_name} (ID: ${teamId}) is not active in any conferences`);
+      return [];
+    }
+
+    return activeJunctions.map((junction) => {
+      const conference = conferences.find((c) => c.id === junction.conference_id);
+      if (!conference) {
+        console.log(`Warning: Junction references conference ID ${junction.conference_id} but conference not found`);
+        return null;
+      }
       return {
         team,
-        conference: conference!
+        conference
       };
-    }).filter(info => info.conference); // Filter out any undefined conferences
+    }).filter((info): info is PlayerTeamInfo => info !== null);
   };
 
   // Function to get conference color for badges
@@ -465,63 +494,72 @@ const PlayersPage: React.FC = () => {
                   {/* Team Ownership Info */}
                   <div className="space-y-2">
                     {(() => {
-                      const teamInfo = getPlayerTeamInfo(player.id, player.team_id);
-                      if (teamInfo.length === 0) {
-                        return (
-                          <div className="flex items-center space-x-1">
+                  const teamInfo = getPlayerTeamInfo(player.id, player.team_id);
+                  
+                  // Debug logging for troubleshooting
+                  if (player.team_id !== 0 && teamInfo.length === 0) {
+                    console.log(`Player ${player.player_name} (ID: ${player.id}) has team_id ${player.team_id} but no team info found`);
+                  }
+                  
+                  if (teamInfo.length === 0) {
+                    return (
+                      <div className="flex items-center space-x-1">
                             <Shield className="h-3 w-3 text-green-600" />
                             <Badge variant="outline" size="sm" className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
-                              Free Agent
+                              {player.team_id === 0 ? 'Free Agent' : 'Unassigned'}
                             </Badge>
-                          </div>
-                        );
-                      }
-                      
-                      return (
-                        <div className="space-y-1">
+                            {player.team_id !== 0 && (
+                              <span className="text-xs text-muted-foreground">(Team ID: {player.team_id})</span>
+                            )}
+                          </div>);
+
+                  }
+
+                  return (
+                    <div className="space-y-1">
                           <div className="flex items-center space-x-1 text-xs text-muted-foreground">
                             <Shield className="h-3 w-3" />
                             <span>Rostered by:</span>
                           </div>
-                          {teamInfo.map((info, index) => (
-                            <div key={index} className="flex items-center justify-between">
+                          {teamInfo.map((info, index) =>
+                      <div key={index} className="flex items-center justify-between">
                               <span className="text-xs font-medium truncate" title={info.team.team_name}>
                                 {info.team.team_name}
                               </span>
-                              <Badge 
-                                variant="outline" 
-                                size="sm" 
-                                className={getConferenceColor(info.conference.conference_name)}
-                                title={info.conference.conference_name}
-                              >
+                              <Badge
+                          variant="outline"
+                          size="sm"
+                          className={getConferenceColor(info.conference.conference_name)}
+                          title={info.conference.conference_name}>
+
                                 {info.conference.conference_name.includes('Mars') ? 'MARS' :
-                                 info.conference.conference_name.includes('Jupiter') ? 'JUPITER' : 'VULCAN'}
+                          info.conference.conference_name.includes('Jupiter') ? 'JUPITER' : 'VULCAN'}
                               </Badge>
                             </div>
-                          ))}
-                        </div>
-                      );
-                    })()}
+                      )}
+                        </div>);
+
+                })()}
                   </div>
 
                   {/* Status Badges */}
                   <div className="flex flex-wrap gap-1">
                     <Badge
-                      className={getInjuryStatusColor(player.injury_status)}
-                      variant="outline"
-                      size="sm">
+                  className={getInjuryStatusColor(player.injury_status)}
+                  variant="outline"
+                  size="sm">
                       {player.injury_status}
                     </Badge>
                     {player.years_experience <= 1 &&
-                      <Badge variant="outline" size="sm" className="bg-purple-100 text-purple-800">
+                <Badge variant="outline" size="sm" className="bg-purple-100 text-purple-800">
                         ROO
                       </Badge>
-                    }
+                }
                     {player.depth_chart_position === 1 &&
-                      <Badge variant="outline" size="sm" className="bg-blue-100 text-blue-800">
+                <Badge variant="outline" size="sm" className="bg-blue-100 text-blue-800">
                         ST
                       </Badge>
-                    }
+                }
                   </div>
 
                   {/* Week Info */}
