@@ -486,23 +486,23 @@ export class SleeperApiService {
 
       // Fetch all necessary data in parallel with individual error handling
       const dataPromises = [
-        this.fetchMatchups(leagueId, week).catch(error => {
-          console.error(`Failed to fetch matchups:`, error);
-          return [];
-        }),
-        this.fetchLeagueRosters(leagueId).catch(error => {
-          console.error(`Failed to fetch rosters:`, error);
-          return [];
-        }),
-        this.fetchLeagueUsers(leagueId).catch(error => {
-          console.error(`Failed to fetch users:`, error);
-          return [];
-        }),
-        this.fetchAllPlayers().catch(error => {
-          console.error(`Failed to fetch players:`, error);
-          return {};
-        })
-      ];
+      this.fetchMatchups(leagueId, week).catch((error) => {
+        console.error(`Failed to fetch matchups:`, error);
+        return [];
+      }),
+      this.fetchLeagueRosters(leagueId).catch((error) => {
+        console.error(`Failed to fetch rosters:`, error);
+        return [];
+      }),
+      this.fetchLeagueUsers(leagueId).catch((error) => {
+        console.error(`Failed to fetch users:`, error);
+        return [];
+      }),
+      this.fetchAllPlayers().catch((error) => {
+        console.error(`Failed to fetch players:`, error);
+        return {};
+      })];
+
 
       const [matchups, rosters, users, allPlayers] = await Promise.all(dataPromises);
 
@@ -519,14 +519,14 @@ export class SleeperApiService {
         foundRosters: teamRosters.length,
         totalUsers: users.length,
         totalPlayers: Object.keys(allPlayers).length,
-        matchupsWithData: teamMatchups.filter(m => 
-          m.players_points && Object.keys(m.players_points).length > 0
+        matchupsWithData: teamMatchups.filter((m) =>
+        m.players_points && Object.keys(m.players_points).length > 0
         ).length,
-        matchupsWithStarters: teamMatchups.filter(m => 
-          m.starters && m.starters.length > 0
+        matchupsWithStarters: teamMatchups.filter((m) =>
+        m.starters && m.starters.length > 0
         ).length,
-        rostersWithStarters: teamRosters.filter(r => 
-          r.starters && r.starters.length > 0
+        rostersWithStarters: teamRosters.filter((r) =>
+        r.starters && r.starters.length > 0
         ).length
       };
 
@@ -534,15 +534,15 @@ export class SleeperApiService {
 
       // Warn about potential data issues
       if (validationResults.foundMatchups < validationResults.requestedRosters) {
-        const missingRosters = rosterIds.filter(id => 
-          !teamMatchups.some(m => m.roster_id === id)
+        const missingRosters = rosterIds.filter((id) =>
+        !teamMatchups.some((m) => m.roster_id === id)
         );
         console.warn(`⚠️ Missing matchup data for rosters:`, missingRosters);
       }
 
       if (validationResults.foundRosters < validationResults.requestedRosters) {
-        const missingRosters = rosterIds.filter(id => 
-          !teamRosters.some(r => r.roster_id === id)
+        const missingRosters = rosterIds.filter((id) =>
+        !teamRosters.some((r) => r.roster_id === id)
         );
         console.warn(`⚠️ Missing roster data for rosters:`, missingRosters);
       }

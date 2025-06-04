@@ -143,7 +143,7 @@ const StartingLineup: React.FC<StartingLineupProps> = ({
       playerPointsKeys: Object.keys(playerPoints).length,
       dataConsistency: {
         startersMatchPoints: starters.length === startersPoints.length,
-        playersHavePoints: starters.filter(playerId => playerPoints[playerId] !== undefined).length,
+        playersHavePoints: starters.filter((playerId) => playerPoints[playerId] !== undefined).length,
         expectedLineupSize: 9 // Based on league rules
       },
       dataSource: matchupStarters ? 'matchup-specific' : roster?.starters ? 'roster-fallback' : 'none'
@@ -160,7 +160,7 @@ const StartingLineup: React.FC<StartingLineupProps> = ({
       if (!debugInfo.dataConsistency.startersMatchPoints) {
         console.warn(`⚠️ ${teamName}: Starters count (${debugInfo.finalStartersLength}) doesn't match points count (${debugInfo.startersPointsLength})`);
       }
-      
+
       if (debugInfo.dataConsistency.playersHavePoints < debugInfo.finalStartersLength) {
         console.warn(`⚠️ ${teamName}: Only ${debugInfo.dataConsistency.playersHavePoints}/${debugInfo.finalStartersLength} starters have player points data`);
       }
@@ -197,11 +197,11 @@ const StartingLineup: React.FC<StartingLineupProps> = ({
             <Badge variant="outline" className="text-xs">
               {starters.length}/9 positions
             </Badge>
-            {debugInfo.dataSource && (
-              <Badge variant="secondary" className="text-xs">
+            {debugInfo.dataSource &&
+            <Badge variant="secondary" className="text-xs">
                 {debugInfo.dataSource}
               </Badge>
-            )}
+            }
           </div>
         </CardTitle>
       </CardHeader>
@@ -313,20 +313,20 @@ const StartingLineup: React.FC<StartingLineupProps> = ({
           </div>
           
           {/* Data Quality Indicators */}
-          {(debugInfo.dataConsistency.playersHavePoints < debugInfo.finalStartersLength || 
-            !debugInfo.dataConsistency.startersMatchPoints) && (
-            <div className="mt-3 p-2 bg-yellow-50 border border-yellow-200 rounded-lg">
+          {(debugInfo.dataConsistency.playersHavePoints < debugInfo.finalStartersLength ||
+          !debugInfo.dataConsistency.startersMatchPoints) &&
+          <div className="mt-3 p-2 bg-yellow-50 border border-yellow-200 rounded-lg">
               <div className="text-xs text-yellow-800">
                 <strong>Data Notice:</strong>
-                {!debugInfo.dataConsistency.startersMatchPoints && 
-                  ` Lineup size mismatch (${debugInfo.finalStartersLength} starters, ${debugInfo.startersPointsLength} points).`
-                }
-                {debugInfo.dataConsistency.playersHavePoints < debugInfo.finalStartersLength && 
-                  ` Some players missing points data (${debugInfo.dataConsistency.playersHavePoints}/${debugInfo.finalStartersLength}).`
-                }
+                {!debugInfo.dataConsistency.startersMatchPoints &&
+              ` Lineup size mismatch (${debugInfo.finalStartersLength} starters, ${debugInfo.startersPointsLength} points).`
+              }
+                {debugInfo.dataConsistency.playersHavePoints < debugInfo.finalStartersLength &&
+              ` Some players missing points data (${debugInfo.dataConsistency.playersHavePoints}/${debugInfo.finalStartersLength}).`
+              }
               </div>
             </div>
-          )}
+          }
         </div>
       </CardContent>
     </Card>);

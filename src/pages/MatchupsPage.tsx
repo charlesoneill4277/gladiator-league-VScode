@@ -10,6 +10,8 @@ import { useToast } from '@/hooks/use-toast';
 import SleeperApiService, { SleeperPlayer } from '@/services/sleeperApi';
 import MatchupService, { HybridMatchup, Conference, Team } from '@/services/matchupService';
 import StartingLineup from '@/components/StartingLineup';
+import MatchupDebugDashboard from '@/components/MatchupDebugDashboard';
+import { matchupDataFlowDebugger } from '@/services/matchupDataFlowDebugger';
 
 // Types are now imported from matchupService
 
@@ -33,6 +35,7 @@ const MatchupsPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [debugMode, setDebugMode] = useState(false);
+  const [showDebugDashboard, setShowDebugDashboard] = useState(false);
   const [weekStatus, setWeekStatus] = useState<WeekStatus | null>(null);
   const [apiErrors, setApiErrors] = useState<string[]>([]);
   const [rawApiData, setRawApiData] = useState<any>(null);
@@ -189,7 +192,7 @@ const MatchupsPage: React.FC = () => {
     }
   };
 
-  // Enhanced fetchMatchupData with hybrid service integration
+  // Enhanced fetchMatchupData with hybrid service integration and debugging
   const fetchMatchupData = async (conferenceData: Conference[], teamData: Team[]) => {
     try {
       console.log('🚀 Starting hybrid matchup data fetch...');
@@ -197,6 +200,9 @@ const MatchupsPage: React.FC = () => {
       console.log(`👥 Team count: ${teamData.length}`);
       console.log(`📅 Selected week: ${selectedWeek}`);
       console.log(`📅 Current week: ${currentWeek}`);
+      
+      // Enable debug mode in MatchupService if debug mode is active
+      MatchupService.setDebugMode(debugMode);
 
       setApiErrors([]);
       const errors: string[] = [];
