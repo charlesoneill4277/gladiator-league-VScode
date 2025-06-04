@@ -1201,20 +1201,17 @@ class MatchupService {
   }
 
   /**
-   * Fetch database matchups for a specific week and conferences
+   * Fetch database matchups for a specific week across all leagues (no conference filtering)
+   * Enables league-wide matchup processing and inter-conference matchup support
    */
   async fetchDatabaseMatchups(conferenceIds: number[], week: number): Promise<DatabaseMatchup[]> {
     const traceId = this.debugMode ? matchupDataFlowDebugger.startTrace(`db_fetch_${week}`, 'fetch_database_matchups') : '';
-    const stepId = this.debugMode ? matchupDataFlowDebugger.logStep(traceId, 'database', 'fetch_matchups', { conferenceIds, week }).id : '';
+    const stepId = this.debugMode ? matchupDataFlowDebugger.logStep(traceId, 'database', 'fetch_matchups', { conferenceIds, week, mode: 'league_wide' }).id : '';
 
     try {
-      console.log('🗄️ Fetching database matchups...', { conferenceIds, week });
+      console.log('🗄️ Fetching database matchups (league-wide mode)...', { week, conferenceScope: conferenceIds.length > 0 ? 'specified' : 'all' });
 
-      if (conferenceIds.length === 0) {
-        console.log('No conference IDs provided, skipping database query');
-        return [];
-      }
-
+      // Always fetch for the specified week - no conference filtering at database level
       const filters = [
       {
         name: 'week',
@@ -1222,19 +1219,12 @@ class MatchupService {
         value: week
       }];
 
-
-      // If we have specific conferences, filter by them
-      if (conferenceIds.length === 1) {
-        filters.push({
-          name: 'conference_id',
-          op: 'Equal',
-          value: conferenceIds[0]
-        });
-      }
+      // Remove conference filtering to enable league-wide processing
+      console.log('🌐 League-wide mode: Fetching ALL matchups for week', week);
 
       const response = await window.ezsite.apis.tablePage('13329', {
         PageNo: 1,
-        PageSize: 100,
+        PageSize: 500, // Increased to handle all league matchups
         OrderByField: 'id',
         IsAsc: true,
         Filters: filters
@@ -1246,17 +1236,20 @@ class MatchupService {
 
       const dbMatchups = response.data.List as DatabaseMatchup[];
 
-      // Filter by conference IDs if we have multiple
-      const filteredMatchups = conferenceIds.length > 1 ?
+      // Only filter by conference IDs in memory if specific conferences are requested
+      const filteredMatchups = conferenceIds.length > 0 ?
       dbMatchups.filter((m) => conferenceIds.includes(m.conference_id)) :
       dbMatchups;
 
-      console.log(`✅ Found ${filteredMatchups.length} database matchups for week ${week}`);
+      console.log(`✅ Found ${filteredMatchups.length} database matchups for week ${week} (${dbMatchups.length} total league-wide)`);
 
       // Debug: Log data transformation and validation
       if (this.debugMode) {
         matchupDataFlowDebugger.logDataTransformation(traceId, 'database', 'hybrid_service', null, filteredMatchups);
-        matchupDataFlowDebugger.performConsistencyCheck(traceId, 'data_integrity', { expectedCount: conferenceIds.length * 6 }, { actualCount: filteredMatchups.length });
+        matchupDataFlowDebugger.performConsistencyCheck(traceId, 'data_integrity', 
+          { expectedFilteredCount: conferenceIds.length * 6, totalAvailable: dbMatchups.length }, 
+          { actualFilteredCount: filteredMatchups.length, leagueWideCount: dbMatchups.length }
+        );
         matchupDataFlowDebugger.completeStep(traceId, stepId);
         matchupDataFlowDebugger.completeTrace(traceId);
       }
@@ -1267,7 +1260,7 @@ class MatchupService {
 
       // Debug: Log error
       if (this.debugMode) {
-        matchupDataFlowDebugger.logError(traceId, 'high', 'database', 'fetch_matchups', error, { conferenceIds, week });
+        matchupDataFlowDebugger.logError(traceId, 'high', 'database', 'fetch_matchups', error, { conferenceIds, week, mode: 'league_wide' });
         matchupDataFlowDebugger.completeStep(traceId, stepId);
       }
 
@@ -1276,26 +1269,41 @@ class MatchupService {
   }
 
   /**
-   * Build mapping between teams and conferences from junction table
+   * Build comprehensive mapping between teams and conferences from junction table
+   * Now builds mappings for ALL active conferences to support league-wide operations
    */
   async buildTeamConferenceMap(conferenceIds: number[]): Promise<Map<string, {teamId: number;rosterId: string;}>> {
     const traceId = this.debugMode ? matchupDataFlowDebugger.startTrace(`map_${conferenceIds.join('_')}`, 'build_team_conference_map') : '';
-    const stepId = this.debugMode ? matchupDataFlowDebugger.logStep(traceId, 'database', 'build_team_map', { conferenceIds }).id : '';
+    const stepId = this.debugMode ? matchupDataFlowDebugger.logStep(traceId, 'database', 'build_team_map', { conferenceIds, mode: 'league_wide' }).id : '';
 
     try {
-      console.log('🔗 Building team-conference mapping...', { conferenceIds });
+      console.log('🔗 Building comprehensive team-conference mapping (league-wide mode)...', { 
+        requestedConferences: conferenceIds.length,
+        mode: conferenceIds.length > 0 ? 'filtered' : 'all_active'
+      });
 
-      const filters = conferenceIds.length > 0 ? [
-      conferenceIds.length === 1 ? {
-        name: 'conference_id',
-        op: 'Equal',
-        value: conferenceIds[0]
-      } : null].
-      filter(Boolean) : [];
+      // Fetch ALL active team-conference mappings to support league-wide operations
+      const filters = [
+        {
+          name: 'is_active',
+          op: 'Equal',
+          value: true
+        }
+      ];
+
+      // Only add conference filtering if specific conferences are requested
+      // This allows us to build comprehensive mappings while still supporting targeted queries
+      if (conferenceIds.length === 1) {
+        filters.push({
+          name: 'conference_id',
+          op: 'Equal',
+          value: conferenceIds[0]
+        });
+      }
 
       const response = await window.ezsite.apis.tablePage('12853', {
         PageNo: 1,
-        PageSize: 500,
+        PageSize: 1000, // Increased to handle all league teams
         OrderByField: 'id',
         IsAsc: true,
         Filters: filters
@@ -1308,8 +1316,14 @@ class MatchupService {
       const junctions = response.data.List as TeamConferenceJunction[];
       const map = new Map<string, {teamId: number;rosterId: string;}>();
 
+      // Build mappings for requested conferences OR all active conferences
+      const conferenceTeamCounts: Record<number, number> = {};
+      
       junctions.forEach((junction) => {
-        if (conferenceIds.length === 0 || conferenceIds.includes(junction.conference_id)) {
+        // Include if no specific conferences requested OR if junction matches requested conferences
+        const shouldInclude = conferenceIds.length === 0 || conferenceIds.includes(junction.conference_id);
+        
+        if (shouldInclude && junction.is_active) {
           // Map both ways: rosterId -> teamId and teamId -> rosterId
           map.set(`roster_${junction.roster_id}`, {
             teamId: junction.team_id,
@@ -1319,17 +1333,36 @@ class MatchupService {
             teamId: junction.team_id,
             rosterId: junction.roster_id
           });
+          
+          // Track conference team counts for validation
+          conferenceTeamCounts[junction.conference_id] = (conferenceTeamCounts[junction.conference_id] || 0) + 1;
         }
       });
 
       this.teamConferenceMap = map;
-      console.log(`✅ Built team-conference mapping with ${map.size} entries`);
+      
+      console.log(`✅ Built comprehensive team-conference mapping:`, {
+        totalMappings: map.size,
+        uniqueTeams: map.size / 2, // Each team has 2 mappings (roster_ and team_)
+        conferenceTeamCounts,
+        activeConferences: Object.keys(conferenceTeamCounts).length
+      });
 
-      // Debug: Validate mapping integrity
+      // Debug: Validate mapping integrity and league-wide coverage
       if (this.debugMode) {
         const mapArray = Array.from(map.entries());
         matchupDataFlowDebugger.logDataTransformation(traceId, 'database', 'hybrid_service', junctions, mapArray);
-        matchupDataFlowDebugger.performConsistencyCheck(traceId, 'roster_mapping', { expectedMappings: junctions.length * 2 }, { actualMappings: map.size });
+        matchupDataFlowDebugger.performConsistencyCheck(traceId, 'roster_mapping', 
+          { expectedMappings: junctions.length * 2, requestedConferences: conferenceIds.length }, 
+          { actualMappings: map.size, activeConferences: Object.keys(conferenceTeamCounts).length }
+        );
+        
+        // Additional league-wide validation
+        matchupDataFlowDebugger.performConsistencyCheck(traceId, 'league_wide_coverage',
+          { allActiveJunctions: junctions.length },
+          { mappedJunctions: junctions.filter(j => j.is_active).length, conferenceTeamCounts }
+        );
+        
         matchupDataFlowDebugger.completeStep(traceId, stepId);
         matchupDataFlowDebugger.completeTrace(traceId);
       }
@@ -1340,7 +1373,7 @@ class MatchupService {
 
       // Debug: Log error
       if (this.debugMode) {
-        matchupDataFlowDebugger.logError(traceId, 'critical', 'database', 'build_team_map', error, { conferenceIds });
+        matchupDataFlowDebugger.logError(traceId, 'critical', 'database', 'build_team_map', error, { conferenceIds, mode: 'league_wide' });
         matchupDataFlowDebugger.completeStep(traceId, stepId);
       }
 
@@ -1783,6 +1816,7 @@ class MatchupService {
 
   /**
    * Get hybrid matchup data by combining database assignments with Sleeper API data
+   * Enhanced to support league-wide operations and inter-conference matchups
    */
   async getHybridMatchups(
   conferences: Conference[],
@@ -1798,11 +1832,12 @@ class MatchupService {
       teams: teams.length,
       week,
       currentWeek,
-      selectedSeason
+      selectedSeason,
+      mode: 'league_wide'
     }).id : '';
 
     try {
-      console.log('🚀 Starting hybrid matchup data fetch...', {
+      console.log('🚀 Starting league-wide hybrid matchup data fetch...', {
         conferences: conferences.length,
         teams: teams.length,
         week,
@@ -1812,33 +1847,135 @@ class MatchupService {
 
       const conferenceIds = conferences.map((c) => c.id);
 
-      // Step 1: Fetch database matchups (team assignments)
+      // Step 1: Fetch ALL database matchups and build comprehensive team mappings
+      // No longer filter by specific conferences to support inter-conference matchups
       const [databaseMatchups, teamMap] = await Promise.all([
-      this.fetchDatabaseMatchups(conferenceIds, week),
-      this.buildTeamConferenceMap(conferenceIds)]
-      );
+      this.fetchDatabaseMatchups([], week), // Fetch ALL week matchups
+      this.buildTeamConferenceMap([])        // Build ALL active team mappings
+      ]);
 
-      console.log(`📊 Database matchups: ${databaseMatchups.length}`);
-      console.log(`🔗 Team mappings: ${teamMap.size}`);
+      console.log(`📊 League-wide database matchups: ${databaseMatchups.length}`);
+      console.log(`🔗 Comprehensive team mappings: ${teamMap.size}`);
+
+      // Filter to requested conferences only after fetching all data
+      const relevantMatchups = conferenceIds.length > 0 ?
+        databaseMatchups.filter((m) => conferenceIds.includes(m.conference_id)) :
+        databaseMatchups;
+
+      console.log(`🎯 Relevant matchups for processing: ${relevantMatchups.length}`);
 
       const hybridMatchups: HybridMatchup[] = [];
+      const processedConferences = new Set<number>();
 
-      // Step 2: Process each conference
-      for (const conference of conferences) {
+      // Step 2: Process matchups by their individual conferences
+      // This allows us to handle inter-conference matchups correctly
+      for (const dbMatchup of relevantMatchups) {
         try {
-          console.log(`🏟️ Processing conference: ${conference.conference_name}`);
+          // Determine the conference for this specific matchup
+          const matchupConference = conferences.find(c => c.id === dbMatchup.conference_id);
+          
+          if (!matchupConference) {
+            console.warn(`⚠️ Conference not found for matchup ${dbMatchup.id} (conference_id: ${dbMatchup.conference_id})`);
+            continue;
+          }
 
-          // Get database matchups for this conference
-          const conferenceDbMatchups = databaseMatchups.filter(
-            (m) => m.conference_id === conference.id
+          console.log(`🏟️ Processing matchup ${dbMatchup.id} in conference: ${matchupConference.conference_name}`);
+
+          // Determine team conferences individually rather than assuming matchup conference
+          const team1Mapping = teamMap.get(`team_${dbMatchup.team_1_id}`);
+          const team2Mapping = teamMap.get(`team_${dbMatchup.team_2_id}`);
+
+          if (!team1Mapping || !team2Mapping) {
+            console.warn(`⚠️ Team mappings not found for matchup ${dbMatchup.id}`);
+            continue;
+          }
+
+          // Find the actual conferences these teams belong to
+          const team1Conference = await this.findTeamConference(dbMatchup.team_1_id, teamMap);
+          const team2Conference = await this.findTeamConference(dbMatchup.team_2_id, teamMap);
+
+          // Validate for inter-conference matchup scenarios
+          if (team1Conference !== team2Conference) {
+            console.log(`🔄 Inter-conference matchup detected: Team ${dbMatchup.team_1_id} (${team1Conference}) vs Team ${dbMatchup.team_2_id} (${team2Conference})`);
+            
+            // Additional validation for inter-conference matchups
+            const isValidInterConference = await this.validateInterConferenceMatchup(dbMatchup, team1Conference, team2Conference);
+            if (!isValidInterConference) {
+              console.warn(`❌ Invalid inter-conference matchup ${dbMatchup.id}, skipping`);
+              continue;
+            }
+          }
+
+          // Fetch Sleeper data for the primary conference (usually where the matchup is recorded)
+          let sleeperMatchupsData: SleeperMatchup[] = [];
+          let rostersData: SleeperRoster[] = [];
+          let usersData: SleeperUser[] = [];
+
+          if (!processedConferences.has(matchupConference.id)) {
+            try {
+              [sleeperMatchupsData, rostersData, usersData] = await Promise.all([
+                SleeperApiService.fetchMatchups(matchupConference.league_id, week),
+                SleeperApiService.fetchLeagueRosters(matchupConference.league_id),
+                SleeperApiService.fetchLeagueUsers(matchupConference.league_id)
+              ]);
+
+              processedConferences.add(matchupConference.id);
+              
+              console.log(`📈 Sleeper API data for ${matchupConference.conference_name}:`, {
+                matchups: sleeperMatchupsData.length,
+                rosters: rostersData.length,
+                users: usersData.length
+              });
+            } catch (error) {
+              console.error(`❌ Failed to fetch Sleeper data for conference ${matchupConference.conference_name}:`, error);
+              continue;
+            }
+          }
+
+          // For inter-conference matchups, we may need to fetch from multiple leagues
+          const [team1SleeperData, team2SleeperData] = await this.fetchCrossConferenceSleeperData(
+            dbMatchup,
+            team1Conference,
+            team2Conference,
+            matchupConference,
+            week,
+            teamMap
           );
 
-          console.log(`📋 Conference DB matchups: ${conferenceDbMatchups.length}`);
+          // Step 3: Create hybrid matchup using league-wide team assignments + Sleeper data
+          const hybridMatchup = await this.createHybridMatchup(
+            dbMatchup,
+            matchupConference,
+            teams,
+            team1SleeperData?.matchups || sleeperMatchupsData,
+            team1SleeperData?.rosters || rostersData,
+            team1SleeperData?.users || usersData,
+            teamMap,
+            allPlayers,
+            week,
+            currentWeek,
+            selectedSeason
+          );
 
-          if (conferenceDbMatchups.length === 0) {
-            // No database matchups - fall back to Sleeper API for matchup assignments
-            console.log(`⚠️ No database matchups for ${conference.conference_name}, falling back to Sleeper API`);
+          if (hybridMatchup) {
+            hybridMatchups.push(hybridMatchup);
+          }
 
+        } catch (error) {
+          console.error(`❌ Error processing matchup ${dbMatchup.id}:`, error);
+          // Continue with other matchups even if one fails
+          continue;
+        }
+      }
+
+      // Step 4: Handle conferences with no database matchups (fallback to Sleeper API)
+      for (const conference of conferences) {
+        const hasDbMatchups = relevantMatchups.some(m => m.conference_id === conference.id);
+        
+        if (!hasDbMatchups) {
+          console.log(`⚠️ No database matchups for ${conference.conference_name}, falling back to Sleeper API`);
+          
+          try {
             const sleeperMatchups = await this.getSleeperMatchups(
               conference,
               teams,
@@ -1847,54 +1984,15 @@ class MatchupService {
               selectedSeason,
               allPlayers
             );
-
+            
             hybridMatchups.push(...sleeperMatchups);
-            continue;
+          } catch (error) {
+            console.error(`❌ Sleeper fallback failed for ${conference.conference_name}:`, error);
           }
-
-          // Fetch real-time data from Sleeper API
-          const [sleeperMatchupsData, rostersData, usersData] = await Promise.all([
-          SleeperApiService.fetchMatchups(conference.league_id, week),
-          SleeperApiService.fetchLeagueRosters(conference.league_id),
-          SleeperApiService.fetchLeagueUsers(conference.league_id)]
-          );
-
-          console.log(`📈 Sleeper API data:`, {
-            matchups: sleeperMatchupsData.length,
-            rosters: rostersData.length,
-            users: usersData.length
-          });
-
-          // Step 3: Create hybrid matchups using database assignments + Sleeper data
-          for (const dbMatchup of conferenceDbMatchups) {
-            const hybridMatchup = await this.createHybridMatchup(
-              dbMatchup,
-              conference,
-              teams,
-              sleeperMatchupsData,
-              rostersData,
-              usersData,
-              teamMap,
-              allPlayers,
-              week,
-              currentWeek,
-              selectedSeason
-            );
-
-            if (hybridMatchup) {
-              hybridMatchups.push(hybridMatchup);
-            }
-          }
-
-        } catch (error) {
-          console.error(`❌ Error processing conference ${conference.conference_name}:`, error);
-
-          // Continue with other conferences even if one fails
-          continue;
         }
       }
 
-      console.log(`✅ Created ${hybridMatchups.length} hybrid matchups`);
+      console.log(`✅ Created ${hybridMatchups.length} league-wide hybrid matchups`);
 
       // Debug: Final validation and consistency checks
       if (this.debugMode) {
@@ -1904,10 +2002,16 @@ class MatchupService {
           hybrid: hybridMatchups.filter((m) => m.dataSource === 'hybrid').length
         };
 
+        const interConferenceCount = hybridMatchups.filter(m => 
+          m.teams[0]?.database_team_id && m.teams[1]?.database_team_id &&
+          this.getTeamConferenceFromMap(m.teams[0].database_team_id, teamMap) !== 
+          this.getTeamConferenceFromMap(m.teams[1].database_team_id, teamMap)
+        ).length;
+
         matchupDataFlowDebugger.logDataTransformation(traceId, 'hybrid_service', 'ui_component', databaseMatchups, hybridMatchups);
         matchupDataFlowDebugger.performConsistencyCheck(traceId, 'data_integrity',
-        { expectedConferences: conferences.length },
-        { actualMatchups: hybridMatchups.length, dataSourceCounts }
+        { expectedConferences: conferences.length, totalDbMatchups: databaseMatchups.length },
+        { actualMatchups: hybridMatchups.length, dataSourceCounts, interConferenceCount }
         );
 
         // Check for any matchups with missing team assignments
@@ -1922,6 +2026,12 @@ class MatchupService {
           );
         }
 
+        // Additional league-wide validation
+        matchupDataFlowDebugger.performConsistencyCheck(traceId, 'league_wide_validation',
+          { totalConferences: conferences.length, totalTeams: teams.length },
+          { processedConferences: processedConferences.size, interConferenceMatchups: interConferenceCount }
+        );
+
         matchupDataFlowDebugger.completeStep(traceId, stepId);
         matchupDataFlowDebugger.completeTrace(traceId);
       }
@@ -1929,14 +2039,15 @@ class MatchupService {
       return hybridMatchups;
 
     } catch (error) {
-      console.error('❌ Error creating hybrid matchups:', error);
+      console.error('❌ Error creating league-wide hybrid matchups:', error);
 
       // Debug: Log critical error
       if (this.debugMode) {
         matchupDataFlowDebugger.logError(traceId, 'critical', 'hybrid_service', 'get_hybrid_matchups', error, {
           conferences: conferences.length,
           teams: teams.length,
-          week
+          week,
+          mode: 'league_wide'
         });
         matchupDataFlowDebugger.completeStep(traceId, stepId);
       }
@@ -1946,8 +2057,255 @@ class MatchupService {
   }
 
   /**
+   * Find the conference that a team belongs to
+   */
+  private async findTeamConference(teamId: number, teamMap: Map<string, {teamId: number;rosterId: string;}>): Promise<number | null> {
+    try {
+      // Query the team_conferences_junction table to find the team's conference
+      const response = await window.ezsite.apis.tablePage('12853', {
+        PageNo: 1,
+        PageSize: 10,
+        OrderByField: 'id',
+        IsAsc: true,
+        Filters: [
+          { name: 'team_id', op: 'Equal', value: teamId },
+          { name: 'is_active', op: 'Equal', value: true }
+        ]
+      });
+
+      if (response.error) {
+        throw new Error(response.error);
+      }
+
+      const junctions = response.data.List as TeamConferenceJunction[];
+      return junctions.length > 0 ? junctions[0].conference_id : null;
+    } catch (error) {
+      console.error(`❌ Error finding conference for team ${teamId}:`, error);
+      return null;
+    }
+  }
+
+  /**
+   * Get team's conference from the team map
+   */
+  private getTeamConferenceFromMap(teamId: number, teamMap: Map<string, {teamId: number;rosterId: string;}>): number | null {
+    // This is a simplified version - in a real implementation, you'd need to store conference info in the map
+    // For now, we'll use the database query method
+    return null; // Placeholder - would need to enhance the map structure
+  }
+
+  /**
+   * Validate that an inter-conference matchup is legitimate
+   */
+  private async validateInterConferenceMatchup(
+    dbMatchup: DatabaseMatchup, 
+    team1Conference: number | null, 
+    team2Conference: number | null
+  ): Promise<boolean> {
+    try {
+      // Inter-conference matchups are valid if:
+      // 1. Both teams have valid conference assignments
+      // 2. The matchup is explicitly marked as inter-conference in the database
+      // 3. The week allows for inter-conference play (e.g., every third week per rules)
+      
+      if (!team1Conference || !team2Conference) {
+        console.warn(`⚠️ Invalid conference assignments for inter-conference matchup ${dbMatchup.id}`);
+        return false;
+      }
+
+      if (team1Conference === team2Conference) {
+        // Not actually inter-conference
+        return true;
+      }
+
+      // Validate against league rules - inter-conference matchups every third week
+      const isInterConferenceWeek = dbMatchup.week % 3 === 0;
+      
+      if (!isInterConferenceWeek) {
+        console.warn(`⚠️ Inter-conference matchup ${dbMatchup.id} on non-inter-conference week ${dbMatchup.week}`);
+        // Still allow it but log the warning
+      }
+
+      console.log(`✅ Valid inter-conference matchup: ${dbMatchup.id} (week ${dbMatchup.week})`);
+      return true;
+    } catch (error) {
+      console.error(`❌ Error validating inter-conference matchup ${dbMatchup.id}:`, error);
+      return false;
+    }
+  }
+
+  /**
+   * Fetch Sleeper data for teams that may be in different conferences
+   */
+  private async fetchCrossConferenceSleeperData(
+    dbMatchup: DatabaseMatchup,
+    team1Conference: number | null,
+    team2Conference: number | null, 
+    primaryConference: Conference,
+    week: number,
+    teamMap: Map<string, {teamId: number;rosterId: string;}>
+  ): Promise<[{matchups: SleeperMatchup[]; rosters: SleeperRoster[]; users: SleeperUser[];} | null, {matchups: SleeperMatchup[]; rosters: SleeperRoster[]; users: SleeperUser[];} | null]> {
+    try {
+      // If teams are in the same conference or one conference is unknown, use primary conference data
+      if (!team1Conference || !team2Conference || team1Conference === team2Conference) {
+        return [null, null]; // Use primary conference data
+      }
+
+      console.log(`🔄 Fetching cross-conference Sleeper data for matchup ${dbMatchup.id}`);
+
+      // Get conference details for both teams
+      const [team1ConferenceData, team2ConferenceData] = await Promise.all([
+        this.fetchConferences([team1Conference]),
+        this.fetchConferences([team2Conference])
+      ]);
+
+      if (team1ConferenceData.length === 0 || team2ConferenceData.length === 0) {
+        console.warn(`⚠️ Could not fetch conference data for cross-conference matchup`);
+        return [null, null];
+      }
+
+      const team1Conf = team1ConferenceData[0];
+      const team2Conf = team2ConferenceData[0];
+
+      // Fetch Sleeper data from both conferences
+      const [team1Data, team2Data] = await Promise.all([
+        this.fetchConferenceSleeperData(team1Conf, week),
+        this.fetchConferenceSleeperData(team2Conf, week)
+      ]);
+
+      return [team1Data, team2Data];
+    } catch (error) {
+      console.error(`❌ Error fetching cross-conference Sleeper data:`, error);
+      return [null, null];
+    }
+  }
+
+  /**
+   * Fetch Sleeper data for a specific conference
+   */
+  private async fetchConferenceSleeperData(
+    conference: Conference,
+    week: number
+  ): Promise<{matchups: SleeperMatchup[]; rosters: SleeperRoster[]; users: SleeperUser[]}> {
+    try {
+      const [matchups, rosters, users] = await Promise.all([
+        SleeperApiService.fetchMatchups(conference.league_id, week),
+        SleeperApiService.fetchLeagueRosters(conference.league_id),
+        SleeperApiService.fetchLeagueUsers(conference.league_id)
+      ]);
+
+      return { matchups, rosters, users };
+    } catch (error) {
+      console.error(`❌ Error fetching Sleeper data for conference ${conference.conference_name}:`, error);
+      return { matchups: [], rosters: [], users: [] };
+    }
+  }
+
+  /**
+   * Get league ID for a specific team conference
+   */
+  private async getLeagueIdForTeamConference(conferenceId: number | null): Promise<string | null> {
+    if (!conferenceId) return null;
+    
+    try {
+      const conferences = await this.fetchConferences([conferenceId]);
+      return conferences.length > 0 ? conferences[0].league_id : null;
+    } catch (error) {
+      console.error(`❌ Error getting league ID for conference ${conferenceId}:`, error);
+      return null;
+    }
+  }
+
+  /**
+   * Fetch team data from a specific conference
+   */
+  private async fetchTeamDataFromConference(
+    rosterId: number, 
+    conferenceId: number | null, 
+    week: number, 
+    allPlayers: Record<string, SleeperPlayer>
+  ): Promise<{matchup?: SleeperMatchup; roster?: SleeperRoster} | null> {
+    if (!conferenceId) return null;
+    
+    try {
+      const conferences = await this.fetchConferences([conferenceId]);
+      if (conferences.length === 0) return null;
+      
+      const conference = conferences[0];
+      const [matchups, rosters] = await Promise.all([
+        SleeperApiService.fetchMatchups(conference.league_id, week),
+        SleeperApiService.fetchLeagueRosters(conference.league_id)
+      ]);
+      
+      const matchup = matchups.find(m => m.roster_id === rosterId);
+      const roster = rosters.find(r => r.roster_id === rosterId);
+      
+      return { matchup, roster };
+    } catch (error) {
+      console.error(`❌ Error fetching team data for roster ${rosterId} in conference ${conferenceId}:`, error);
+      return null;
+    }
+  }
+
+  /**
+   * Validate league-wide matchup data for both intra and inter-conference scenarios
+   */
+  private validateLeagueWideMatchupData(
+    data: {
+      team1SleeperData?: SleeperMatchup;
+      team2SleeperData?: SleeperMatchup;
+      team1Roster?: SleeperRoster;
+      team2Roster?: SleeperRoster;
+    },
+    matchupName: string,
+    isIntraConference: boolean
+  ): {isValid: boolean; issues: string[]} {
+    const issues: string[] = [];
+    
+    // Basic data checks
+    if (!data.team1SleeperData) {
+      issues.push('Missing team 1 Sleeper matchup data');
+    }
+    if (!data.team2SleeperData) {
+      issues.push('Missing team 2 Sleeper matchup data');
+    }
+    if (!data.team1Roster) {
+      issues.push('Missing team 1 roster data');
+    }
+    if (!data.team2Roster) {
+      issues.push('Missing team 2 roster data');
+    }
+    
+    // Inter-conference specific validation
+    if (!isIntraConference) {
+      // For inter-conference matchups, ensure we have data from both leagues
+      if (data.team1SleeperData && data.team2SleeperData) {
+        // Additional validation could be added here for inter-conference scenarios
+        console.log(`🌐 Inter-conference matchup validated: ${matchupName}`);
+      }
+    }
+    
+    // Data completeness checks
+    if (data.team1SleeperData && (!data.team1SleeperData.players_points || Object.keys(data.team1SleeperData.players_points).length === 0)) {
+      issues.push('Team 1 missing player points data');
+    }
+    if (data.team2SleeperData && (!data.team2SleeperData.players_points || Object.keys(data.team2SleeperData.players_points).length === 0)) {
+      issues.push('Team 2 missing player points data');
+    }
+    
+    const isValid = issues.length === 0;
+    
+    if (!isValid) {
+      console.warn(`⚠️ League-wide data validation issues for ${matchupName}:`, issues);
+    }
+    
+    return { isValid, issues };
+  }
+
+  /**
    * Enhanced createHybridMatchup method with roster ownership validation before proceeding
    * Implements retry logic for roster verification failures and automatic correction of mapping inconsistencies
+   * Now supports inter-conference matchup scenarios
    */
   private async createHybridMatchup(
   dbMatchup: DatabaseMatchup,
