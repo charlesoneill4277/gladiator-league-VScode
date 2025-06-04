@@ -428,27 +428,27 @@ export class SleeperApiService {
    * This is used for manual override scenarios where we need team-specific data
    */
   static async fetchTeamMatchupData(
-    leagueId: string,
-    week: number,
-    rosterId: number
-  ): Promise<SleeperMatchup | null> {
+  leagueId: string,
+  week: number,
+  rosterId: number)
+  : Promise<SleeperMatchup | null> {
     try {
       console.log(`🎯 Fetching team-specific matchup data for roster ${rosterId}, league: ${leagueId}, week: ${week}`);
-      
+
       const matchups = await this.fetchMatchups(leagueId, week);
-      const teamMatchup = matchups.find(m => m.roster_id === rosterId);
-      
+      const teamMatchup = matchups.find((m) => m.roster_id === rosterId);
+
       if (!teamMatchup) {
         console.warn(`⚠️ No matchup data found for roster ${rosterId} in week ${week}`);
         return null;
       }
-      
+
       console.log(`✅ Found matchup data for roster ${rosterId}:`, {
         points: teamMatchup.points,
         starters: teamMatchup.starters?.length || 0,
         playersPoints: Object.keys(teamMatchup.players_points || {}).length
       });
-      
+
       return teamMatchup;
     } catch (error) {
       console.error(`❌ Error fetching team matchup data for roster ${rosterId}:`, error);
@@ -458,42 +458,110 @@ export class SleeperApiService {
 
   /**
    * Fetch roster and matchup data for multiple specific teams
-   * Used for manual override scenarios
+   * Used for manual override scenarios with enhanced error handling and validation
    */
   static async fetchTeamsMatchupData(
-    leagueId: string,
-    week: number,
-    rosterIds: number[]
-  ): Promise<{
+  leagueId: string,
+  week: number,
+  rosterIds: number[])
+  : Promise<{
     matchups: SleeperMatchup[];
     rosters: SleeperRoster[];
     users: SleeperUser[];
     allPlayers: Record<string, SleeperPlayer>;
   }> {
     try {
-      console.log(`🎯 Fetching team-based matchup data for rosters:`, rosterIds);
-      
-      // Fetch all necessary data in parallel
-      const [matchups, rosters, users, allPlayers] = await Promise.all([
-        this.fetchMatchups(leagueId, week),
-        this.fetchLeagueRosters(leagueId),
-        this.fetchLeagueUsers(leagueId),
-        this.fetchAllPlayers()
-      ]);
-      
+      console.log(`🎯 Enhanced team-specific data fetch for rosters:`, rosterIds);
+
+      // Validate input parameters
+      if (!leagueId || !leagueId.trim()) {
+        throw new Error('Invalid league ID provided');
+      }
+      if (!Array.isArray(rosterIds) || rosterIds.length === 0) {
+        throw new Error('Invalid or empty roster IDs array provided');
+      }
+      if (week < 1 || week > 18) {
+        console.warn(`⚠️ Week ${week} is outside normal range (1-18)`);
+      }
+
+      // Fetch all necessary data in parallel with individual error handling
+      const dataPromises = [
+        this.fetchMatchups(leagueId, week).catch(error => {
+          console.error(`Failed to fetch matchups:`, error);
+          return [];
+        }),
+        this.fetchLeagueRosters(leagueId).catch(error => {
+          console.error(`Failed to fetch rosters:`, error);
+          return [];
+        }),
+        this.fetchLeagueUsers(leagueId).catch(error => {
+          console.error(`Failed to fetch users:`, error);
+          return [];
+        }),
+        this.fetchAllPlayers().catch(error => {
+          console.error(`Failed to fetch players:`, error);
+          return {};
+        })
+      ];
+
+      const [matchups, rosters, users, allPlayers] = await Promise.all(dataPromises);
+
       // Filter matchups for the specific roster IDs
-      const teamMatchups = matchups.filter(m => rosterIds.includes(m.roster_id));
-      
+      const teamMatchups = matchups.filter((m) => rosterIds.includes(m.roster_id));
+
       // Filter rosters for the specific roster IDs
-      const teamRosters = rosters.filter(r => rosterIds.includes(r.roster_id));
-      
-      console.log(`✅ Fetched team-based data:`, {
+      const teamRosters = rosters.filter((r) => rosterIds.includes(r.roster_id));
+
+      // Enhanced validation and logging
+      const validationResults = {
         requestedRosters: rosterIds.length,
         foundMatchups: teamMatchups.length,
         foundRosters: teamRosters.length,
-        totalUsers: users.length
+        totalUsers: users.length,
+        totalPlayers: Object.keys(allPlayers).length,
+        matchupsWithData: teamMatchups.filter(m => 
+          m.players_points && Object.keys(m.players_points).length > 0
+        ).length,
+        matchupsWithStarters: teamMatchups.filter(m => 
+          m.starters && m.starters.length > 0
+        ).length,
+        rostersWithStarters: teamRosters.filter(r => 
+          r.starters && r.starters.length > 0
+        ).length
+      };
+
+      console.log(`✅ Enhanced team data fetch results:`, validationResults);
+
+      // Warn about potential data issues
+      if (validationResults.foundMatchups < validationResults.requestedRosters) {
+        const missingRosters = rosterIds.filter(id => 
+          !teamMatchups.some(m => m.roster_id === id)
+        );
+        console.warn(`⚠️ Missing matchup data for rosters:`, missingRosters);
+      }
+
+      if (validationResults.foundRosters < validationResults.requestedRosters) {
+        const missingRosters = rosterIds.filter(id => 
+          !teamRosters.some(r => r.roster_id === id)
+        );
+        console.warn(`⚠️ Missing roster data for rosters:`, missingRosters);
+      }
+
+      if (validationResults.matchupsWithData === 0 && teamMatchups.length > 0) {
+        console.warn(`⚠️ No player points data available for any matchups in week ${week}`);
+      }
+
+      // Log detailed matchup data for debugging
+      teamMatchups.forEach((matchup, index) => {
+        console.log(`📈 Matchup ${index + 1} data quality:`, {
+          rosterId: matchup.roster_id,
+          points: matchup.points ?? 'null',
+          playersPointsCount: Object.keys(matchup.players_points || {}).length,
+          startersPointsCount: (matchup.starters_points || []).length,
+          startersCount: (matchup.starters || []).length
+        });
       });
-      
+
       return {
         matchups: teamMatchups,
         rosters: teamRosters,
@@ -501,8 +569,8 @@ export class SleeperApiService {
         allPlayers
       };
     } catch (error) {
-      console.error(`❌ Error fetching teams matchup data:`, error);
-      throw error;
+      console.error(`❌ Error in enhanced teams matchup data fetch:`, error);
+      throw new Error(`Failed to fetch team matchup data: ${error}`);
     }
   }
 
@@ -510,10 +578,10 @@ export class SleeperApiService {
    * Get roster data for a specific team (enhanced version)
    */
   static async getTeamRosterWithMatchupData(
-    leagueId: string,
-    rosterId: number,
-    week: number
-  ): Promise<{
+  leagueId: string,
+  rosterId: number,
+  week: number)
+  : Promise<{
     roster: SleeperRoster;
     matchupData: SleeperMatchup | null;
     organizedRoster: OrganizedRoster;
@@ -521,13 +589,13 @@ export class SleeperApiService {
   }> {
     try {
       console.log(`🎯 Fetching enhanced roster data for roster ${rosterId}, week ${week}`);
-      
+
       // Fetch both roster and matchup data
       const [rosterData, matchupData] = await Promise.all([
-        this.getTeamRosterData(leagueId, rosterId),
-        this.fetchTeamMatchupData(leagueId, week, rosterId)
-      ]);
-      
+      this.getTeamRosterData(leagueId, rosterId),
+      this.fetchTeamMatchupData(leagueId, week, rosterId)]
+      );
+
       return {
         roster: rosterData.roster,
         matchupData,

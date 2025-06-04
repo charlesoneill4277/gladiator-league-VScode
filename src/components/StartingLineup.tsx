@@ -115,20 +115,61 @@ const StartingLineup: React.FC<StartingLineupProps> = ({
   startersPoints = [],
   matchupStarters
 }) => {
-  // Use matchup starters if available, otherwise fall back to roster starters
-  const starters = matchupStarters || roster?.starters || [];
+  // Enhanced starters selection with better fallback logic
+  const starters = React.useMemo(() => {
+    // Prefer matchup starters (specific to this matchup/week)
+    if (Array.isArray(matchupStarters) && matchupStarters.length > 0) {
+      return matchupStarters;
+    }
 
-  // Debug logging to help identify the issue
-  console.log(`🔧 StartingLineup Debug for ${teamName}:`, {
-    hasMatchupStarters: !!matchupStarters,
-    matchupStartersLength: matchupStarters?.length || 0,
-    hasRosterStarters: !!roster?.starters,
-    rosterStartersLength: roster?.starters?.length || 0,
-    finalStartersLength: starters.length,
-    finalStarters: starters.slice(0, 3), // Show first 3 player IDs
-    startersPointsLength: startersPoints.length,
-    playerPointsKeys: Object.keys(playerPoints).length
-  });
+    // Fallback to roster starters (general roster configuration)
+    if (roster?.starters && Array.isArray(roster.starters) && roster.starters.length > 0) {
+      return roster.starters;
+    }
+
+    // Last resort: empty array
+    return [];
+  }, [matchupStarters, roster?.starters]);
+
+  // Enhanced debug logging with data quality assessment
+  const debugInfo = React.useMemo(() => {
+    const info = {
+      hasMatchupStarters: !!matchupStarters && Array.isArray(matchupStarters),
+      matchupStartersLength: matchupStarters?.length || 0,
+      hasRosterStarters: !!roster?.starters && Array.isArray(roster?.starters),
+      rosterStartersLength: roster?.starters?.length || 0,
+      finalStartersLength: starters.length,
+      startersPointsLength: startersPoints.length,
+      playerPointsKeys: Object.keys(playerPoints).length,
+      dataConsistency: {
+        startersMatchPoints: starters.length === startersPoints.length,
+        playersHavePoints: starters.filter(playerId => playerPoints[playerId] !== undefined).length,
+        expectedLineupSize: 9 // Based on league rules
+      },
+      dataSource: matchupStarters ? 'matchup-specific' : roster?.starters ? 'roster-fallback' : 'none'
+    };
+
+    return info;
+  }, [matchupStarters, roster?.starters, starters, startersPoints, playerPoints]);
+
+  console.log(`🔧 Enhanced StartingLineup Debug for ${teamName}:`, debugInfo);
+
+  // Warn about data inconsistencies that might affect display
+  React.useEffect(() => {
+    if (debugInfo.finalStartersLength > 0) {
+      if (!debugInfo.dataConsistency.startersMatchPoints) {
+        console.warn(`⚠️ ${teamName}: Starters count (${debugInfo.finalStartersLength}) doesn't match points count (${debugInfo.startersPointsLength})`);
+      }
+      
+      if (debugInfo.dataConsistency.playersHavePoints < debugInfo.finalStartersLength) {
+        console.warn(`⚠️ ${teamName}: Only ${debugInfo.dataConsistency.playersHavePoints}/${debugInfo.finalStartersLength} starters have player points data`);
+      }
+
+      if (debugInfo.finalStartersLength !== debugInfo.dataConsistency.expectedLineupSize) {
+        console.warn(`⚠️ ${teamName}: Lineup size (${debugInfo.finalStartersLength}) doesn't match expected size (${debugInfo.dataConsistency.expectedLineupSize})`);
+      }
+    }
+  }, [teamName, debugInfo]);
 
   if (starters.length === 0) {
     return (
@@ -139,6 +180,9 @@ const StartingLineup: React.FC<StartingLineupProps> = ({
         <CardContent>
           <div className="text-center py-4">
             <p className="text-muted-foreground text-sm">No lineup data available</p>
+            <p className="text-xs text-muted-foreground mt-2">
+              Data source: {debugInfo.dataSource}
+            </p>
           </div>
         </CardContent>
       </Card>);
@@ -149,9 +193,16 @@ const StartingLineup: React.FC<StartingLineupProps> = ({
       <CardHeader className="pb-3">
         <CardTitle className="text-sm flex items-center justify-between">
           <span>{teamName} Starting Lineup</span>
-          <Badge variant="outline" className="text-xs">
-            {starters.length}/9 positions
-          </Badge>
+          <div className="flex items-center space-x-2">
+            <Badge variant="outline" className="text-xs">
+              {starters.length}/9 positions
+            </Badge>
+            {debugInfo.dataSource && (
+              <Badge variant="secondary" className="text-xs">
+                {debugInfo.dataSource}
+              </Badge>
+            )}
+          </div>
         </CardTitle>
       </CardHeader>
       <CardContent>
@@ -260,6 +311,22 @@ const StartingLineup: React.FC<StartingLineupProps> = ({
               </div>
             </div>
           </div>
+          
+          {/* Data Quality Indicators */}
+          {(debugInfo.dataConsistency.playersHavePoints < debugInfo.finalStartersLength || 
+            !debugInfo.dataConsistency.startersMatchPoints) && (
+            <div className="mt-3 p-2 bg-yellow-50 border border-yellow-200 rounded-lg">
+              <div className="text-xs text-yellow-800">
+                <strong>Data Notice:</strong>
+                {!debugInfo.dataConsistency.startersMatchPoints && 
+                  ` Lineup size mismatch (${debugInfo.finalStartersLength} starters, ${debugInfo.startersPointsLength} points).`
+                }
+                {debugInfo.dataConsistency.playersHavePoints < debugInfo.finalStartersLength && 
+                  ` Some players missing points data (${debugInfo.dataConsistency.playersHavePoints}/${debugInfo.finalStartersLength}).`
+                }
+              </div>
+            </div>
+          )}
         </div>
       </CardContent>
     </Card>);

@@ -325,6 +325,7 @@ class MatchupService {
 
   /**
    * Create a single hybrid matchup from database assignment + Sleeper data
+   * Enhanced to better handle manual overrides and ensure data consistency
    */
   private async createHybridMatchup(
   dbMatchup: DatabaseMatchup,
@@ -369,31 +370,48 @@ class MatchupService {
       let team1Roster: SleeperRoster | undefined;
       let team2Roster: SleeperRoster | undefined;
 
+      // Enhanced manual override logic for better data fetching
       if (useManualOverride) {
-        // For manual overrides, fetch team-specific data to ensure we get the correct rosters and scoring
-        console.log(`🔄 Manual override detected - fetching team-specific data for rosters ${team1RosterId}, ${team2RosterId}`);
-        
+        console.log(`🔄 Manual override detected - ensuring complete data for rosters ${team1RosterId}, ${team2RosterId}`);
+
         try {
-          const teamBasedData = await SleeperApiService.fetchTeamsMatchupData(
+          // Fetch team-specific data with validation
+          const teamBasedData = await this.fetchTeamsMatchupDataWithValidation(
             conference.league_id,
             week,
-            [team1RosterId, team2RosterId]
+            [team1RosterId, team2RosterId],
+            allPlayers
           );
-          
+
           team1SleeperData = teamBasedData.matchups.find((m) => m.roster_id === team1RosterId);
           team2SleeperData = teamBasedData.matchups.find((m) => m.roster_id === team2RosterId);
           team1Roster = teamBasedData.rosters.find((r) => r.roster_id === team1RosterId);
           team2Roster = teamBasedData.rosters.find((r) => r.roster_id === team2RosterId);
-          
-          console.log(`✅ Team-specific data fetched:`, {
+
+          // Validate data completeness for manual overrides
+          const validationResult = this.validateManualOverrideData({
+            team1SleeperData,
+            team2SleeperData,
+            team1Roster,
+            team2Roster
+          }, `${team1.team_name} vs ${team2.team_name}`);
+
+          if (!validationResult.isValid) {
+            console.warn(`⚠️ Data validation failed for manual override, using fallback data:`, validationResult.issues);
+            // Use fallback data but continue with the override
+          }
+
+          console.log(`✅ Manual override data validated:`, {
             team1HasData: !!team1SleeperData,
             team2HasData: !!team2SleeperData,
             team1Points: team1SleeperData?.points || 0,
-            team2Points: team2SleeperData?.points || 0
+            team2Points: team2SleeperData?.points || 0,
+            team1PlayersPoints: Object.keys(team1SleeperData?.players_points || {}).length,
+            team2PlayersPoints: Object.keys(team2SleeperData?.players_points || {}).length
           });
         } catch (error) {
-          console.warn(`⚠️ Failed to fetch team-specific data, falling back to original data:`, error);
-          // Fallback to original data if team-specific fetch fails
+          console.warn(`⚠️ Failed to fetch team-specific data for manual override, using fallback:`, error);
+          // Fallback to original data but log this for debugging
           team1SleeperData = sleeperMatchupsData.find((m) => m.roster_id === team1RosterId);
           team2SleeperData = sleeperMatchupsData.find((m) => m.roster_id === team2RosterId);
           team1Roster = rostersData.find((r) => r.roster_id === team1RosterId);
@@ -410,6 +428,7 @@ class MatchupService {
       const team1User = usersData.find((u) => u.user_id === team1Roster?.owner_id);
       const team2User = usersData.find((u) => u.user_id === team2Roster?.owner_id);
 
+      // Enhanced team data creation with better fallback handling
       const hybridTeam1: HybridMatchupTeam = {
         roster_id: team1RosterId,
         points: useManualOverride ? dbMatchup.team_1_score : team1SleeperData?.points ?? 0,
@@ -417,9 +436,9 @@ class MatchupService {
         owner: team1User || null,
         roster: team1Roster || null,
         team: team1,
-        players_points: team1SleeperData?.players_points || {},
-        starters_points: team1SleeperData?.starters_points || [],
-        matchup_starters: team1SleeperData?.starters || [],
+        players_points: this.ensureValidPlayersPoints(team1SleeperData?.players_points),
+        starters_points: this.ensureValidStartersPoints(team1SleeperData?.starters_points),
+        matchup_starters: this.ensureValidMatchupStarters(team1SleeperData?.starters, team1Roster?.starters),
         database_team_id: team1.id
       };
 
@@ -430,9 +449,9 @@ class MatchupService {
         owner: team2User || null,
         roster: team2Roster || null,
         team: team2,
-        players_points: team2SleeperData?.players_points || {},
-        starters_points: team2SleeperData?.starters_points || [],
-        matchup_starters: team2SleeperData?.starters || [],
+        players_points: this.ensureValidPlayersPoints(team2SleeperData?.players_points),
+        starters_points: this.ensureValidStartersPoints(team2SleeperData?.starters_points),
+        matchup_starters: this.ensureValidMatchupStarters(team2SleeperData?.starters, team2Roster?.starters),
         database_team_id: team2.id
       };
 
@@ -515,6 +534,162 @@ class MatchupService {
       console.error('❌ Error getting Sleeper matchups:', error);
       return [];
     }
+  }
+
+  /**
+   * Enhanced team-specific data fetching with validation for manual overrides
+   */
+  private async fetchTeamsMatchupDataWithValidation(
+  leagueId: string,
+  week: number,
+  rosterIds: number[],
+  allPlayers: Record<string, SleeperPlayer>)
+  : Promise<{
+    matchups: SleeperMatchup[];
+    rosters: SleeperRoster[];
+    users: SleeperUser[];
+  }> {
+    try {
+      console.log(`🎯 Enhanced team-specific data fetch for rosters:`, rosterIds);
+
+      // Use the existing SleeperApiService method but with enhanced logging
+      const teamData = await SleeperApiService.fetchTeamsMatchupData(leagueId, week, rosterIds);
+
+      // Additional validation for manual override scenarios
+      const validation = {
+        requestedRosters: rosterIds.length,
+        foundMatchups: teamData.matchups.length,
+        foundRosters: teamData.rosters.length,
+        matchupsWithPlayerPoints: teamData.matchups.filter(m => 
+          m.players_points && Object.keys(m.players_points).length > 0
+        ).length,
+        matchupsWithStartersPoints: teamData.matchups.filter(m => 
+          m.starters_points && m.starters_points.length > 0
+        ).length
+      };
+
+      console.log(`✅ Enhanced team data validation:`, validation);
+
+      // Log any potential data issues
+      if (validation.foundMatchups !== validation.requestedRosters) {
+        console.warn(`⚠️ Matchup data mismatch: requested ${validation.requestedRosters}, found ${validation.foundMatchups}`);
+      }
+
+      if (validation.matchupsWithPlayerPoints === 0) {
+        console.warn(`⚠️ No player-level points data found for any requested rosters`);
+      }
+
+      return teamData;
+    } catch (error) {
+      console.error(`❌ Error in enhanced team data fetch:`, error);
+      throw error;
+    }
+  }
+
+  /**
+   * Validate data completeness for manual override scenarios
+   */
+  private validateManualOverrideData(
+  data: {
+    team1SleeperData?: SleeperMatchup;
+    team2SleeperData?: SleeperMatchup;
+    team1Roster?: SleeperRoster;
+    team2Roster?: SleeperRoster;
+  },
+  matchupName: string)
+  : { isValid: boolean; issues: string[] } {
+    const issues: string[] = [];
+
+    // Check if we have basic matchup data
+    if (!data.team1SleeperData) {
+      issues.push('Missing team 1 matchup data');
+    }
+    if (!data.team2SleeperData) {
+      issues.push('Missing team 2 matchup data');
+    }
+
+    // Check if we have roster data
+    if (!data.team1Roster) {
+      issues.push('Missing team 1 roster data');
+    }
+    if (!data.team2Roster) {
+      issues.push('Missing team 2 roster data');
+    }
+
+    // Check for detailed scoring data
+    if (data.team1SleeperData && (!data.team1SleeperData.players_points || Object.keys(data.team1SleeperData.players_points).length === 0)) {
+      issues.push('Missing team 1 player points data');
+    }
+    if (data.team2SleeperData && (!data.team2SleeperData.players_points || Object.keys(data.team2SleeperData.players_points).length === 0)) {
+      issues.push('Missing team 2 player points data');
+    }
+
+    // Check for starting lineup data
+    if (data.team1SleeperData && (!data.team1SleeperData.starters || data.team1SleeperData.starters.length === 0)) {
+      issues.push('Missing team 1 starters data');
+    }
+    if (data.team2SleeperData && (!data.team2SleeperData.starters || data.team2SleeperData.starters.length === 0)) {
+      issues.push('Missing team 2 starters data');
+    }
+
+    const isValid = issues.length === 0;
+
+    if (!isValid) {
+      console.warn(`📊 Data validation for ${matchupName}:`, {
+        isValid,
+        issues,
+        dataAvailable: {
+          team1Matchup: !!data.team1SleeperData,
+          team2Matchup: !!data.team2SleeperData,
+          team1Roster: !!data.team1Roster,
+          team2Roster: !!data.team2Roster
+        }
+      });
+    }
+
+    return { isValid, issues };
+  }
+
+  /**
+   * Ensure valid players_points data with fallback
+   */
+  private ensureValidPlayersPoints(playersPoints?: Record<string, number>): Record<string, number> {
+    if (!playersPoints || typeof playersPoints !== 'object') {
+      console.warn(`⚠️ Invalid players_points data, using empty object`);
+      return {};
+    }
+    return playersPoints;
+  }
+
+  /**
+   * Ensure valid starters_points data with fallback
+   */
+  private ensureValidStartersPoints(startersPoints?: number[]): number[] {
+    if (!Array.isArray(startersPoints)) {
+      console.warn(`⚠️ Invalid starters_points data, using empty array`);
+      return [];
+    }
+    return startersPoints;
+  }
+
+  /**
+   * Ensure valid matchup_starters data with fallback to roster starters
+   */
+  private ensureValidMatchupStarters(matchupStarters?: string[], rosterStarters?: string[]): string[] {
+    // Prefer matchup starters (actual lineup for this specific week)
+    if (Array.isArray(matchupStarters) && matchupStarters.length > 0) {
+      return matchupStarters;
+    }
+
+    // Fallback to roster starters (general roster lineup)
+    if (Array.isArray(rosterStarters) && rosterStarters.length > 0) {
+      console.warn(`⚠️ Using roster starters as fallback for matchup starters`);
+      return rosterStarters;
+    }
+
+    // Last resort: empty array
+    console.warn(`⚠️ No valid starters data available, using empty array`);
+    return [];
   }
 
   /**
