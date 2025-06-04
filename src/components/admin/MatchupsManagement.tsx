@@ -41,7 +41,8 @@ import {
   Shield,
   Database,
   Clock,
-  FileCheck } from
+  FileCheck,
+  Save } from
 'lucide-react';
 
 interface Season {
@@ -115,7 +116,7 @@ interface ChangePreview {
   field: string;
   oldValue: any;
   newValue: any;
-  type: 'team_assignment' | 'score' | 'override' | 'status';
+  type: 'team_assignment' | 'override' | 'status';
 }
 
 interface SaveSnapshot {
@@ -375,13 +376,7 @@ const MatchupsManagement: React.FC = () => {
       errors.push({ field: 'conference_id', message: 'Conference does not exist', severity: 'error' });
     }
 
-    // Score validation
-    if (typeof matchup.team_1_score !== 'number' || matchup.team_1_score < 0) {
-      errors.push({ field: 'team_1_score', message: 'Team 1 score must be a positive number', severity: 'error' });
-    }
-    if (typeof matchup.team_2_score !== 'number' || matchup.team_2_score < 0) {
-      errors.push({ field: 'team_2_score', message: 'Team 2 score must be a positive number', severity: 'error' });
-    }
+    // Note: Score validation removed as scores come from Sleeper API
 
     // Winner validation
     if (matchup.team_1_score !== matchup.team_2_score) {
@@ -398,10 +393,7 @@ const MatchupsManagement: React.FC = () => {
       warnings.push({ field: 'status', message: 'Manual override should typically be complete', severity: 'warning' });
     }
 
-    // Logical warnings
-    if (matchup.team_1_score > 200 || matchup.team_2_score > 200) {
-      warnings.push({ field: 'scores', message: 'Unusually high score detected', severity: 'warning' });
-    }
+    // Note: Score warnings removed as scores come from Sleeper API
 
     return {
       isValid: errors.length === 0,
@@ -447,28 +439,7 @@ const MatchupsManagement: React.FC = () => {
         });
       }
 
-      // Score changes
-      if (original.team_1_score !== current.team_1_score) {
-        changes.push({
-          matchupId: current.id,
-          conference,
-          field: 'Team 1 Score',
-          oldValue: original.team_1_score,
-          newValue: current.team_1_score,
-          type: 'score'
-        });
-      }
-
-      if (original.team_2_score !== current.team_2_score) {
-        changes.push({
-          matchupId: current.id,
-          conference,
-          field: 'Team 2 Score',
-          oldValue: original.team_2_score,
-          newValue: current.team_2_score,
-          type: 'score'
-        });
-      }
+      // Note: Score changes are not tracked as scores come from Sleeper API
 
       // Override changes
       if (original.is_manual_override !== current.is_manual_override) {
@@ -674,7 +645,6 @@ const MatchupsManagement: React.FC = () => {
         const matchupsWithConference = (data.List || []).map((matchup: Matchup) => {
           console.log(`Loaded matchup ${matchup.id}:`, {
             teams: `${matchup.team_1_id} vs ${matchup.team_2_id}`,
-            scores: `${matchup.team_1_score} - ${matchup.team_2_score}`,
             status: matchup.status,
             manual_override: matchup.is_manual_override
           });
@@ -785,7 +755,7 @@ const MatchupsManagement: React.FC = () => {
       setHasChanges(true);
       toast({
         title: 'Teams Swapped',
-        description: 'Team assignments have been updated. Scores will come from Sleeper API. Remember to save your changes.',
+        description: 'Team assignments have been updated. Remember to save your changes.',
         duration: 3000
       });
     }
@@ -813,7 +783,7 @@ const MatchupsManagement: React.FC = () => {
 
     toast({
       title: 'Team Assignment Override Toggled',
-      description: `Team assignment override ${matchups.find((m) => m.id === matchupId)?.is_manual_override ? 'removed' : 'enabled'} for matchup ${matchupId}. Scores always come from Sleeper API.`,
+      description: `Team assignment override ${matchups.find((m) => m.id === matchupId)?.is_manual_override ? 'removed' : 'enabled'} for matchup ${matchupId}.`,
       duration: 2000
     });
   };
@@ -857,11 +827,8 @@ const MatchupsManagement: React.FC = () => {
           week: matchup.week,
           team_1_id: matchup.team_1_id,
           team_2_id: matchup.team_2_id,
-          team_1_score: matchup.team_1_score,
-          team_2_score: matchup.team_2_score,
-          winner_id: matchup.winner_id,
           is_manual_override: matchup.is_manual_override,
-          status: matchup.is_manual_override ? 'complete' : matchup.status
+          status: matchup.status
         });
 
         // Enhanced validation for matchup data
@@ -903,8 +870,8 @@ const MatchupsManagement: React.FC = () => {
           continue;
         }
 
-        // Prepare update data with all required fields (CRITICAL FIX: use lowercase 'id')
-        // NOTE: Only updating team assignments - scores come from Sleeper API
+        // Prepare update data with all required fields
+        // NOTE: Only updating team assignments - scores and winners come from Sleeper API
         const updateData = {
           id: matchup.id,
           conference_id: matchup.conference_id,
@@ -913,7 +880,7 @@ const MatchupsManagement: React.FC = () => {
           team_2_id: matchup.team_2_id,
           is_playoff: matchup.is_playoff,
           sleeper_matchup_id: matchup.sleeper_matchup_id || '',
-          // Keep existing scores - they should come from Sleeper API
+          // Note: Scores and winner_id are managed by Sleeper API integration
           team_1_score: matchup.team_1_score,
           team_2_score: matchup.team_2_score,
           winner_id: matchup.winner_id,
@@ -940,7 +907,6 @@ const MatchupsManagement: React.FC = () => {
           console.log(`Successfully updated matchup ${matchup.id}:`, {
             matchupId: matchup.id,
             teams: `${matchup.team_1_id} vs ${matchup.team_2_id}`,
-            scores: `${matchup.team_1_score} - ${matchup.team_2_score}`,
             manual_override: matchup.is_manual_override,
             status: updateData.status
           });
@@ -981,7 +947,6 @@ const MatchupsManagement: React.FC = () => {
             id: m.id,
             conference: conferences.find((c) => c.id === m.conference_id)?.conference_name,
             teams: `${m.team_1_id} vs ${m.team_2_id}`,
-            scores: `${m.team_1_score} - ${m.team_2_score}`,
             manual_override: m.is_manual_override
           }))
         });
@@ -1026,7 +991,7 @@ const MatchupsManagement: React.FC = () => {
             Matchups Management
           </CardTitle>
           <CardDescription>
-            Manage weekly matchup team assignments across all conferences. Drag and drop individual teams to swap opponents between matchups. All scores come from Sleeper API. Showing up to 18 matchups per week (6 per conference).
+            Manage weekly matchup team assignments across all conferences. Drag and drop individual teams to swap opponents between matchups. Showing up to 18 matchups per week (6 per conference).
           </CardDescription>
         </CardHeader>
         <CardContent>

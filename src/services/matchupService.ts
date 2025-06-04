@@ -1015,8 +1015,8 @@ class MatchupService {
 
       // Filter by conference IDs if we have multiple (after season filtering)
       const finalConferences = conferenceIds.length > 1 ?
-        conferences.filter((c) => conferenceIds.includes(c.id)) :
-        conferences;
+      conferences.filter((c) => conferenceIds.includes(c.id)) :
+      conferences;
 
       console.log(`✅ Season-specific conference fetch: Found ${finalConferences.length} conferences for season ${seasonYear || 'any'}`);
       return finalConferences;
@@ -1327,22 +1327,22 @@ class MatchupService {
 
       // FIX 1: If seasonYear provided, only get conferences for that season
       let targetConferenceIds = conferenceIds;
-      
+
       if (seasonYear && conferenceIds.length === 0) {
         console.log(`🗓️ Fetching conferences for season ${seasonYear}`);
         const seasonConferences = await this.fetchConferences([], seasonYear);
-        targetConferenceIds = seasonConferences.map(c => c.id);
+        targetConferenceIds = seasonConferences.map((c) => c.id);
         console.log(`📋 Found ${targetConferenceIds.length} conferences for season ${seasonYear}:`, targetConferenceIds);
       }
 
       // Build filters for team-conference junction
       const filters = [
-        {
-          name: 'is_active',
-          op: 'Equal',
-          value: true
-        }
-      ];
+      {
+        name: 'is_active',
+        op: 'Equal',
+        value: true
+      }];
+
 
       // FIX 3: For cross-conference support, we need broader mapping
       // But still filter by season if specified to prevent duplicates
@@ -1910,10 +1910,10 @@ class MatchupService {
       // Step 1: FIX 1 - Use season-specific filtering to prevent duplicate roster findings
       // Only query conferences that belong to the specific season year
       console.log(`🗓️ Filtering data for season ${selectedSeason} to prevent duplicates`);
-      
+
       const [databaseMatchups, teamMap] = await Promise.all([
-        this.fetchDatabaseMatchups(conferenceIds, week), // Use season-specific conferences
-        this.buildTeamConferenceMapForSeason(conferenceIds, selectedSeason) // Season-aware mapping
+      this.fetchDatabaseMatchups(conferenceIds, week), // Use season-specific conferences
+      this.buildTeamConferenceMapForSeason(conferenceIds, selectedSeason) // Season-aware mapping
       ]);
 
       console.log(`📊 League-wide database matchups: ${databaseMatchups.length}`);
@@ -2554,9 +2554,8 @@ class MatchupService {
             team1DataFound: !!team1SleeperData,
             team2DataFound: !!team2SleeperData
           },
-          // FIX 2: Manual override detection based ONLY on team assignments, not scores
-          isTeamAssignmentOverride: this.detectTeamAssignmentOverride(dbMatchup, teamMap),
-          isManualScoreOverride: false // Explicitly ignore score overrides per requirement
+          // Manual override detection based ONLY on team assignments
+          isTeamAssignmentOverride: this.detectTeamAssignmentOverride(dbMatchup, teamMap)
         }
       };
 
@@ -2944,27 +2943,26 @@ class MatchupService {
   }
 
   /**
-   * FIX 2: Detect team assignment overrides based ONLY on team assignments, not scores
+   * Detect team assignment overrides based ONLY on team assignments
    * Manual override should be true when team assignments have been modified from their original state
    */
   private detectTeamAssignmentOverride(
-    dbMatchup: DatabaseMatchup,
-    teamMap: Map<string, {teamId: number;rosterId: string;}>
-  ): boolean {
+  dbMatchup: DatabaseMatchup,
+  teamMap: Map<string, {teamId: number;rosterId: string;}>)
+  : boolean {
     try {
       console.log(`🔍 Detecting team assignment override for matchup ${dbMatchup.id}...`);
-      
-      // FIX 2: Check if the database indicates manual override
+
+      // Check if the database indicates manual override
       // This should be set to true ONLY when team assignments are manually changed
-      // Ignore score overrides as per requirement
       const isManualTeamAssignment = dbMatchup.is_manual_override;
-      
+
       if (isManualTeamAssignment) {
         console.log(`🔧 Team assignment override detected for matchup ${dbMatchup.id}`);
         console.log(`  Original assignment may have been modified from default conference matchups`);
-        console.log(`  ⚠️ Note: Score overrides are ignored per requirement`);
+        // Team assignment override detected
       }
-      
+
       return isManualTeamAssignment;
     } catch (error) {
       console.error(`❌ Error detecting team assignment override for matchup ${dbMatchup.id}:`, error);
