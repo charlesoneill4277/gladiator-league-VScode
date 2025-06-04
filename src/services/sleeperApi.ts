@@ -126,26 +126,295 @@ const STARTING_POSITIONS = [
 'DEF' // Defense
 ];
 
+// Team data quality metrics interface
+export interface TeamDataQuality {
+  rosterId: number;
+  hasRosterData: boolean;
+  hasMatchupData: boolean;
+  hasPlayerPoints: boolean;
+  hasStarterPoints: boolean;
+  validPlayersCount: number;
+  validStartersCount: number;
+  dataCompleteness: number; // 0-100 percentage
+  issues: string[];
+}
+
+// Enhanced team roster with validation
+export interface ValidatedTeamRoster {
+  roster: SleeperRoster;
+  matchupData: SleeperMatchup | null;
+  organizedRoster: OrganizedRoster;
+  dataQuality: TeamDataQuality;
+  validationErrors: string[];
+}
+
+// Retry configuration interface
+export interface RetryConfig {
+  maxRetries: number;
+  baseDelay: number;
+  maxDelay: number;
+  exponential: boolean;
+}
+
 export class SleeperApiService {
   private static baseUrl = 'https://api.sleeper.app/v1';
+  private static defaultRetryConfig: RetryConfig = {
+    maxRetries: 3,
+    baseDelay: 1000,
+    maxDelay: 10000,
+    exponential: true
+  };
+
+  /**
+   * Sleep utility for retry mechanism
+   */
+  private static async sleep(ms: number): Promise<void> {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+  }
+
+  /**
+   * Enhanced fetch with retry mechanism
+   */
+  private static async fetchWithRetry(
+  url: string,
+  config: RetryConfig = this.defaultRetryConfig)
+  : Promise<Response> {
+    let lastError: Error;
+
+    for (let attempt = 0; attempt <= config.maxRetries; attempt++) {
+      try {
+        console.log(`🔄 Fetching ${url} (attempt ${attempt + 1}/${config.maxRetries + 1})`);
+        const response = await fetch(url);
+
+        if (response.ok) {
+          console.log(`✅ Successfully fetched ${url} on attempt ${attempt + 1}`);
+          return response;
+        }
+
+        // Handle rate limiting
+        if (response.status === 429) {
+          const retryAfter = response.headers.get('Retry-After');
+          const delay = retryAfter ? parseInt(retryAfter) * 1000 : config.baseDelay;
+          console.log(`⏳ Rate limited, waiting ${delay}ms before retry`);
+          await this.sleep(delay);
+          continue;
+        }
+
+        // Handle server errors
+        if (response.status >= 500) {
+          lastError = new Error(`Server error: ${response.status} ${response.statusText}`);
+        } else {
+          // Client errors - don't retry
+          throw new Error(`Client error: ${response.status} ${response.statusText}`);
+        }
+
+      } catch (error) {
+        lastError = error as Error;
+        console.warn(`⚠️ Attempt ${attempt + 1} failed for ${url}:`, error);
+      }
+
+      // Calculate delay for next attempt
+      if (attempt < config.maxRetries) {
+        const delay = config.exponential ?
+        Math.min(config.baseDelay * Math.pow(2, attempt), config.maxDelay) :
+        config.baseDelay;
+        console.log(`⏳ Waiting ${delay}ms before next attempt`);
+        await this.sleep(delay);
+      }
+    }
+
+    console.error(`❌ All retry attempts failed for ${url}`);
+    throw lastError!;
+  }
+
+  /**
+   * Validate team data quality
+   */
+  static validateTeamData(
+  rosterId: number,
+  roster: SleeperRoster | null,
+  matchupData: SleeperMatchup | null,
+  allPlayers: Record<string, SleeperPlayer>)
+  : TeamDataQuality {
+    const issues: string[] = [];
+    let dataCompleteness = 0;
+    let validPlayersCount = 0;
+    let validStartersCount = 0;
+
+    // Check roster data
+    const hasRosterData = roster !== null;
+    if (!hasRosterData) {
+      issues.push('Missing roster data');
+    } else {
+      // Validate players exist in player database
+      if (roster.players) {
+        validPlayersCount = roster.players.filter((playerId) =>
+        allPlayers[playerId] !== undefined
+        ).length;
+
+        if (validPlayersCount < roster.players.length) {
+          issues.push(`${roster.players.length - validPlayersCount} players not found in player database`);
+        }
+      }
+
+      // Validate starters
+      if (roster.starters) {
+        validStartersCount = roster.starters.filter((playerId) =>
+        allPlayers[playerId] !== undefined
+        ).length;
+
+        if (validStartersCount < roster.starters.length) {
+          issues.push(`${roster.starters.length - validStartersCount} starters not found in player database`);
+        }
+      }
+
+      dataCompleteness += 40; // Base roster data
+    }
+
+    // Check matchup data
+    const hasMatchupData = matchupData !== null;
+    if (!hasMatchupData) {
+      issues.push('Missing matchup data');
+    } else {
+      dataCompleteness += 30; // Matchup data present
+    }
+
+    // Check player points
+    const hasPlayerPoints = matchupData?.players_points &&
+    Object.keys(matchupData.players_points).length > 0;
+    if (!hasPlayerPoints) {
+      issues.push('Missing player points data');
+    } else {
+      dataCompleteness += 20; // Player points available
+    }
+
+    // Check starter points
+    const hasStarterPoints = matchupData?.starters_points &&
+    matchupData.starters_points.length > 0;
+    if (!hasStarterPoints) {
+      issues.push('Missing starter points data');
+    } else {
+      dataCompleteness += 10; // Starter points available
+    }
+
+    return {
+      rosterId,
+      hasRosterData,
+      hasMatchupData,
+      hasPlayerPoints,
+      hasStarterPoints,
+      validPlayersCount,
+      validStartersCount,
+      dataCompleteness,
+      issues
+    };
+  }
+
+  /**
+   * Enhanced roster data fetching with comprehensive validation
+   */
+  static async fetchIndividualTeamRoster(
+  leagueId: string,
+  rosterId: number,
+  retryConfig?: RetryConfig)
+  : Promise<ValidatedTeamRoster> {
+    const config = { ...this.defaultRetryConfig, ...retryConfig };
+    const validationErrors: string[] = [];
+
+    try {
+      console.log(`🎯 Fetching individual team roster for roster ${rosterId}`);
+
+      // Fetch all required data
+      const [rosters, allPlayers] = await Promise.allSettled([
+      this.fetchLeagueRosters(leagueId),
+      this.fetchAllPlayers()]
+      );
+
+      // Handle roster fetch result
+      let rosterData: SleeperRoster | null = null;
+      if (rosters.status === 'fulfilled') {
+        rosterData = rosters.value.find((r) => r.roster_id === rosterId) || null;
+        if (!rosterData) {
+          validationErrors.push(`Roster ${rosterId} not found in league ${leagueId}`);
+        }
+      } else {
+        validationErrors.push(`Failed to fetch rosters: ${rosters.reason}`);
+      }
+
+      // Handle players fetch result
+      let playersData: Record<string, SleeperPlayer> = {};
+      if (allPlayers.status === 'fulfilled') {
+        playersData = allPlayers.value;
+      } else {
+        validationErrors.push(`Failed to fetch players: ${allPlayers.reason}`);
+      }
+
+      // Create organized roster even with partial data
+      const organizedRoster = rosterData ?
+      this.organizeRoster(rosterData, playersData) :
+      { starters: [], bench: [], ir: [] };
+
+      // Validate data quality
+      const dataQuality = this.validateTeamData(
+        rosterId,
+        rosterData,
+        null, // No matchup data in this method
+        playersData
+      );
+
+      console.log(`📊 Team ${rosterId} data quality:`, dataQuality);
+
+      return {
+        roster: rosterData!,
+        matchupData: null,
+        organizedRoster,
+        dataQuality,
+        validationErrors
+      };
+
+    } catch (error) {
+      console.error(`❌ Error fetching individual team roster for ${rosterId}:`, error);
+      validationErrors.push(`Unexpected error: ${error}`);
+
+      // Return minimal structure with error information
+      return {
+        roster: null as any,
+        matchupData: null,
+        organizedRoster: { starters: [], bench: [], ir: [] },
+        dataQuality: this.validateTeamData(rosterId, null, null, {}),
+        validationErrors
+      };
+    }
+  }
 
   /**
    * Fetch roster data for a specific league
    */
   static async fetchLeagueRosters(leagueId: string): Promise<SleeperRoster[]> {
     try {
-      console.log(`Fetching rosters for league: ${leagueId}`);
-      const response = await fetch(`${this.baseUrl}/league/${leagueId}/rosters`);
+      console.log(`📈 Fetching rosters for league: ${leagueId}`);
+      const response = await this.fetchWithRetry(`${this.baseUrl}/league/${leagueId}/rosters`);
+      const data = await response.json();
 
-      if (!response.ok) {
-        throw new Error(`Failed to fetch rosters: ${response.status} ${response.statusText}`);
+      // Enhanced validation and logging
+      const validationResults = {
+        totalRosters: data.length,
+        rostersWithPlayers: data.filter((r: SleeperRoster) => r.players && r.players.length > 0).length,
+        rostersWithStarters: data.filter((r: SleeperRoster) => r.starters && r.starters.length > 0).length,
+        rostersWithSettings: data.filter((r: SleeperRoster) => r.settings).length,
+        averagePlayerCount: data.reduce((sum: number, r: SleeperRoster) => sum + (r.players?.length || 0), 0) / data.length
+      };
+
+      console.log(`✅ Fetched ${data.length} rosters for league ${leagueId}:`, validationResults);
+
+      // Warn about potential data issues
+      if (validationResults.rostersWithPlayers < validationResults.totalRosters) {
+        console.warn(`⚠️ ${validationResults.totalRosters - validationResults.rostersWithPlayers} rosters have no players`);
       }
 
-      const data = await response.json();
-      console.log(`Fetched ${data.length} rosters for league ${leagueId}`);
       return data;
     } catch (error) {
-      console.error('Error fetching league rosters:', error);
+      console.error('❌ Error fetching league rosters:', error);
       throw error;
     }
   }
@@ -155,18 +424,40 @@ export class SleeperApiService {
    */
   static async fetchAllPlayers(): Promise<Record<string, SleeperPlayer>> {
     try {
-      console.log('Fetching all NFL players data...');
-      const response = await fetch(`${this.baseUrl}/players/nfl`);
-
-      if (!response.ok) {
-        throw new Error(`Failed to fetch players: ${response.status} ${response.statusText}`);
-      }
-
+      console.log('🏈 Fetching all NFL players data...');
+      const response = await this.fetchWithRetry(`${this.baseUrl}/players/nfl`);
       const data = await response.json();
-      console.log(`Fetched ${Object.keys(data).length} players from Sleeper API`);
+
+      // Enhanced validation and logging
+      const validationResults = {
+        totalPlayers: Object.keys(data).length,
+        playersByPosition: {} as Record<string, number>,
+        activePlayersCount: 0,
+        playersWithTeams: 0,
+        playersWithInjuryStatus: 0
+      };
+
+      // Analyze player data quality
+      Object.values(data).forEach((player: any) => {
+        // Count by position
+        const pos = player.position || 'UNKNOWN';
+        validationResults.playersByPosition[pos] = (validationResults.playersByPosition[pos] || 0) + 1;
+
+        // Count active players
+        if (player.status === 'Active') validationResults.activePlayersCount++;
+
+        // Count players with teams
+        if (player.team) validationResults.playersWithTeams++;
+
+        // Count players with injury status
+        if (player.injury_status) validationResults.playersWithInjuryStatus++;
+      });
+
+      console.log(`✅ Fetched ${Object.keys(data).length} players from Sleeper API:`, validationResults);
+
       return data;
     } catch (error) {
-      console.error('Error fetching players:', error);
+      console.error('❌ Error fetching players:', error);
       throw error;
     }
   }
@@ -262,12 +553,7 @@ export class SleeperApiService {
   static async fetchMatchups(leagueId: string, week: number): Promise<SleeperMatchup[]> {
     try {
       console.log(`🔗 Fetching matchups for league: ${leagueId}, week: ${week}`);
-      const response = await fetch(`${this.baseUrl}/league/${leagueId}/matchups/${week}`);
-
-      if (!response.ok) {
-        throw new Error(`Failed to fetch matchups: ${response.status} ${response.statusText}`);
-      }
-
+      const response = await this.fetchWithRetry(`${this.baseUrl}/league/${leagueId}/matchups/${week}`);
       const data = await response.json();
 
       // Enhanced logging for points debugging
@@ -325,18 +611,23 @@ export class SleeperApiService {
    */
   static async fetchLeague(leagueId: string): Promise<SleeperLeague> {
     try {
-      console.log(`Fetching league info: ${leagueId}`);
-      const response = await fetch(`${this.baseUrl}/league/${leagueId}`);
-
-      if (!response.ok) {
-        throw new Error(`Failed to fetch league: ${response.status} ${response.statusText}`);
-      }
-
+      console.log(`🏆 Fetching league info: ${leagueId}`);
+      const response = await this.fetchWithRetry(`${this.baseUrl}/league/${leagueId}`);
       const data = await response.json();
-      console.log(`Fetched league info for ${leagueId}`);
+
+      // Enhanced validation
+      const validationResults = {
+        hasSettings: !!data.settings,
+        hasRosterPositions: data.roster_positions && data.roster_positions.length > 0,
+        hasScoringSettings: data.scoring_settings && Object.keys(data.scoring_settings).length > 0,
+        totalRosters: data.total_rosters,
+        status: data.status
+      };
+
+      console.log(`✅ Fetched league info for ${leagueId}:`, validationResults);
       return data;
     } catch (error) {
-      console.error('Error fetching league:', error);
+      console.error('❌ Error fetching league:', error);
       throw error;
     }
   }
@@ -420,6 +711,191 @@ export class SleeperApiService {
     } catch (error) {
       console.error('Error fetching current NFL week:', error);
       return 14; // Default to week 14 as fallback
+    }
+  }
+
+  /**
+   * Fetch matchup data for a specific roster in a specific week
+   * This is used for manual override scenarios where we need team-specific data
+   */
+  static async fetchTeamMatchupData(
+  leagueId: string,
+  week: number,
+  rosterId: number)
+  : Promise<SleeperMatchup | null> {
+    try {
+      console.log(`🎯 Fetching team-specific matchup data for roster ${rosterId}, league: ${leagueId}, week: ${week}`);
+
+      const matchups = await this.fetchMatchups(leagueId, week);
+      const teamMatchup = matchups.find((m) => m.roster_id === rosterId);
+
+      if (!teamMatchup) {
+        console.warn(`⚠️ No matchup data found for roster ${rosterId} in week ${week}`);
+        return null;
+      }
+
+      console.log(`✅ Found matchup data for roster ${rosterId}:`, {
+        points: teamMatchup.points,
+        starters: teamMatchup.starters?.length || 0,
+        playersPoints: Object.keys(teamMatchup.players_points || {}).length
+      });
+
+      return teamMatchup;
+    } catch (error) {
+      console.error(`❌ Error fetching team matchup data for roster ${rosterId}:`, error);
+      return null;
+    }
+  }
+
+  /**
+   * Fetch roster and matchup data for multiple specific teams
+   * Used for manual override scenarios with enhanced error handling and validation
+   */
+  static async fetchTeamsMatchupData(
+  leagueId: string,
+  week: number,
+  rosterIds: number[])
+  : Promise<{
+    matchups: SleeperMatchup[];
+    rosters: SleeperRoster[];
+    users: SleeperUser[];
+    allPlayers: Record<string, SleeperPlayer>;
+  }> {
+    try {
+      console.log(`🎯 Enhanced team-specific data fetch for rosters:`, rosterIds);
+
+      // Validate input parameters
+      if (!leagueId || !leagueId.trim()) {
+        throw new Error('Invalid league ID provided');
+      }
+      if (!Array.isArray(rosterIds) || rosterIds.length === 0) {
+        throw new Error('Invalid or empty roster IDs array provided');
+      }
+      if (week < 1 || week > 18) {
+        console.warn(`⚠️ Week ${week} is outside normal range (1-18)`);
+      }
+
+      // Fetch all necessary data in parallel with individual error handling
+      const dataPromises = [
+      this.fetchMatchups(leagueId, week).catch((error) => {
+        console.error(`Failed to fetch matchups:`, error);
+        return [];
+      }),
+      this.fetchLeagueRosters(leagueId).catch((error) => {
+        console.error(`Failed to fetch rosters:`, error);
+        return [];
+      }),
+      this.fetchLeagueUsers(leagueId).catch((error) => {
+        console.error(`Failed to fetch users:`, error);
+        return [];
+      }),
+      this.fetchAllPlayers().catch((error) => {
+        console.error(`Failed to fetch players:`, error);
+        return {};
+      })];
+
+
+      const [matchups, rosters, users, allPlayers] = await Promise.all(dataPromises);
+
+      // Filter matchups for the specific roster IDs
+      const teamMatchups = matchups.filter((m) => rosterIds.includes(m.roster_id));
+
+      // Filter rosters for the specific roster IDs
+      const teamRosters = rosters.filter((r) => rosterIds.includes(r.roster_id));
+
+      // Enhanced validation and logging
+      const validationResults = {
+        requestedRosters: rosterIds.length,
+        foundMatchups: teamMatchups.length,
+        foundRosters: teamRosters.length,
+        totalUsers: users.length,
+        totalPlayers: Object.keys(allPlayers).length,
+        matchupsWithData: teamMatchups.filter((m) =>
+        m.players_points && Object.keys(m.players_points).length > 0
+        ).length,
+        matchupsWithStarters: teamMatchups.filter((m) =>
+        m.starters && m.starters.length > 0
+        ).length,
+        rostersWithStarters: teamRosters.filter((r) =>
+        r.starters && r.starters.length > 0
+        ).length
+      };
+
+      console.log(`✅ Enhanced team data fetch results:`, validationResults);
+
+      // Warn about potential data issues
+      if (validationResults.foundMatchups < validationResults.requestedRosters) {
+        const missingRosters = rosterIds.filter((id) =>
+        !teamMatchups.some((m) => m.roster_id === id)
+        );
+        console.warn(`⚠️ Missing matchup data for rosters:`, missingRosters);
+      }
+
+      if (validationResults.foundRosters < validationResults.requestedRosters) {
+        const missingRosters = rosterIds.filter((id) =>
+        !teamRosters.some((r) => r.roster_id === id)
+        );
+        console.warn(`⚠️ Missing roster data for rosters:`, missingRosters);
+      }
+
+      if (validationResults.matchupsWithData === 0 && teamMatchups.length > 0) {
+        console.warn(`⚠️ No player points data available for any matchups in week ${week}`);
+      }
+
+      // Log detailed matchup data for debugging
+      teamMatchups.forEach((matchup, index) => {
+        console.log(`📈 Matchup ${index + 1} data quality:`, {
+          rosterId: matchup.roster_id,
+          points: matchup.points ?? 'null',
+          playersPointsCount: Object.keys(matchup.players_points || {}).length,
+          startersPointsCount: (matchup.starters_points || []).length,
+          startersCount: (matchup.starters || []).length
+        });
+      });
+
+      return {
+        matchups: teamMatchups,
+        rosters: teamRosters,
+        users,
+        allPlayers
+      };
+    } catch (error) {
+      console.error(`❌ Error in enhanced teams matchup data fetch:`, error);
+      throw new Error(`Failed to fetch team matchup data: ${error}`);
+    }
+  }
+
+  /**
+   * Get roster data for a specific team (enhanced version)
+   */
+  static async getTeamRosterWithMatchupData(
+  leagueId: string,
+  rosterId: number,
+  week: number)
+  : Promise<{
+    roster: SleeperRoster;
+    matchupData: SleeperMatchup | null;
+    organizedRoster: OrganizedRoster;
+    allPlayers: Record<string, SleeperPlayer>;
+  }> {
+    try {
+      console.log(`🎯 Fetching enhanced roster data for roster ${rosterId}, week ${week}`);
+
+      // Fetch both roster and matchup data
+      const [rosterData, matchupData] = await Promise.all([
+      this.getTeamRosterData(leagueId, rosterId),
+      this.fetchTeamMatchupData(leagueId, week, rosterId)]
+      );
+
+      return {
+        roster: rosterData.roster,
+        matchupData,
+        organizedRoster: rosterData.organizedRoster,
+        allPlayers: rosterData.allPlayers
+      };
+    } catch (error) {
+      console.error(`❌ Error fetching enhanced roster data for roster ${rosterId}:`, error);
+      throw error;
     }
   }
 }
