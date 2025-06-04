@@ -7,69 +7,11 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { useApp } from '@/contexts/AppContext';
 import { Swords, ChevronDown, Clock, Trophy, Users, RefreshCw, AlertCircle, Bug, CheckCircle, Play, Pause, Database, Zap } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import SleeperApiService, { SleeperMatchup, SleeperRoster, SleeperUser, SleeperPlayer } from '@/services/sleeperApi';
+import SleeperApiService, { SleeperPlayer } from '@/services/sleeperApi';
+import MatchupService, { HybridMatchup, Conference, Team } from '@/services/matchupService';
 import StartingLineup from '@/components/StartingLineup';
 
-interface Conference {
-  id: number;
-  conference_name: string;
-  league_id: string;
-  season_id: number;
-  draft_id: string;
-  status: string;
-  league_logo_url: string;
-}
-
-interface Team {
-  id: number;
-  team_name: string;
-  owner_name: string;
-  owner_id: string;
-  co_owner_name: string;
-  co_owner_id: string;
-  team_logo_url: string;
-  team_primary_color: string;
-  team_secondary_color: string;
-}
-
-interface DatabaseMatchup {
-  id: number;
-  conference_id: number;
-  week: number;
-  team_1_id: number;
-  team_2_id: number;
-  is_playoff: boolean;
-  sleeper_matchup_id: string;
-  team_1_score: number;
-  team_2_score: number;
-  winner_id: number;
-  is_manual_override: boolean;
-  status: string;
-  matchup_date: string;
-  notes: string;
-}
-
-interface OrganizedMatchup {
-  matchup_id: number;
-  conference: Conference;
-  teams: Array<{
-    roster_id: number;
-    points: number;
-    projected_points?: number;
-    owner: SleeperUser | null;
-    roster: SleeperRoster | null;
-    team: Team | null;
-    players_points: Record<string, number>;
-    starters_points: number[];
-    matchup_starters: string[]; // The actual starters for this specific matchup/week
-  }>;
-  status: 'live' | 'completed' | 'upcoming';
-  isManualOverride?: boolean; // From database
-  databaseMatchupId?: number; // Database matchup ID if exists
-  overrideNotes?: string; // Notes from database override
-  dataSource: 'database' | 'sleeper' | 'hybrid'; // Track data source
-  rawData?: any; // For debug mode
-}
+// Types are now imported from matchupService
 
 type WeekStatus = {
   week: number;
@@ -86,7 +28,7 @@ const MatchupsPage: React.FC = () => {
   const [expandedMatchups, setExpandedMatchups] = useState<Set<string>>(new Set());
   const [conferences, setConferences] = useState<Conference[]>([]);
   const [teams, setTeams] = useState<Team[]>([]);
-  const [matchups, setMatchups] = useState<OrganizedMatchup[]>([]);
+  const [matchups, setMatchups] = useState<HybridMatchup[]>([]);
   const [allPlayers, setAllPlayers] = useState<Record<string, SleeperPlayer>>({});
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -94,134 +36,13 @@ const MatchupsPage: React.FC = () => {
   const [weekStatus, setWeekStatus] = useState<WeekStatus | null>(null);
   const [apiErrors, setApiErrors] = useState<string[]>([]);
   const [rawApiData, setRawApiData] = useState<any>(null);
-  const [teamConferenceMap, setTeamConferenceMap] = useState<Map<string, {teamId: number;rosterId: string;}>>(new Map());
   const [dataSourceStats, setDataSourceStats] = useState<{
     database: number;
     sleeper: number;
     hybrid: number;
   }>({ database: 0, sleeper: 0, hybrid: 0 });
 
-  // Fetch database matchups for the selected week and conferences
-  const fetchDatabaseMatchups = async (conferenceIds: number[]): Promise<DatabaseMatchup[]> => {
-    try {
-      console.log('🗄️ Fetching database matchups...', { conferenceIds, selectedWeek });
-
-      if (conferenceIds.length === 0) {
-        console.log('No conference IDs provided, skipping database query');
-        return [];
-      }
-
-      // Build filters for database query
-      const filters = [
-      {
-        name: 'week',
-        op: 'Equal',
-        value: selectedWeek
-      }];
-
-
-      // If we have specific conferences, filter by them
-      if (conferenceIds.length === 1) {
-        filters.push({
-          name: 'conference_id',
-          op: 'Equal',
-          value: conferenceIds[0]
-        });
-      }
-
-      const response = await window.ezsite.apis.tablePage('13329', {
-        PageNo: 1,
-        PageSize: 100,
-        OrderByField: 'id',
-        IsAsc: true,
-        Filters: filters
-      });
-
-      if (response.error) {
-        throw new Error(response.error);
-      }
-
-      const dbMatchups = response.data.List as DatabaseMatchup[];
-
-      // Filter by conference IDs if we have multiple
-      const filteredMatchups = conferenceIds.length > 1 ?
-      dbMatchups.filter((m) => conferenceIds.includes(m.conference_id)) :
-      dbMatchups;
-
-      console.log(`✅ Found ${filteredMatchups.length} database matchups for week ${selectedWeek}`);
-      console.log('Database matchups:', filteredMatchups.map((m) => ({
-        id: m.id,
-        conference_id: m.conference_id,
-        teams: `${m.team_1_id} vs ${m.team_2_id}`,
-        scores: `${m.team_1_score} - ${m.team_2_score}`,
-        is_manual_override: m.is_manual_override,
-        status: m.status
-      })));
-
-      return filteredMatchups;
-    } catch (error) {
-      console.error('❌ Error fetching database matchups:', error);
-      toast({
-        title: 'Database Error',
-        description: 'Failed to load matchup overrides from database.',
-        variant: 'destructive'
-      });
-      return [];
-    }
-  };
-
-  // Build team-conference mapping for ID translation
-  const buildTeamConferenceMap = async (conferenceIds: number[]) => {
-    try {
-      console.log('🔗 Building team-conference mapping...', { conferenceIds });
-
-      const filters = conferenceIds.length > 0 ? [
-      conferenceIds.length === 1 ? {
-        name: 'conference_id',
-        op: 'Equal',
-        value: conferenceIds[0]
-      } : null].
-      filter(Boolean) : [];
-
-      const response = await window.ezsite.apis.tablePage('12853', {
-        PageNo: 1,
-        PageSize: 500,
-        OrderByField: 'id',
-        IsAsc: true,
-        Filters: filters
-      });
-
-      if (response.error) {
-        throw new Error(response.error);
-      }
-
-      const junctions = response.data.List;
-      const map = new Map<string, {teamId: number;rosterId: string;}>();
-
-      junctions.forEach((junction: any) => {
-        if (conferenceIds.length === 0 || conferenceIds.includes(junction.conference_id)) {
-          // Map both ways: rosterId -> teamId and teamId -> rosterId
-          map.set(`roster_${junction.roster_id}`, {
-            teamId: junction.team_id,
-            rosterId: junction.roster_id
-          });
-          map.set(`team_${junction.team_id}`, {
-            teamId: junction.team_id,
-            rosterId: junction.roster_id
-          });
-        }
-      });
-
-      setTeamConferenceMap(map);
-      console.log(`✅ Built team-conference mapping with ${map.size} entries`);
-      console.log('Sample mappings:', Array.from(map.entries()).slice(0, 5));
-
-      return map;
-    } catch (error) {
-      console.error('❌ Error building team-conference map:', error);
-      return new Map();
-    }
-  };
+  // Data fetching methods have been moved to MatchupService
 
   // Fetch conferences and teams from database
   const fetchDatabaseData = async () => {
@@ -368,10 +189,10 @@ const MatchupsPage: React.FC = () => {
     }
   };
 
-  // Enhanced fetchMatchupData with database integration
+  // Enhanced fetchMatchupData with hybrid service integration
   const fetchMatchupData = async (conferenceData: Conference[], teamData: Team[]) => {
     try {
-      console.log('🚀 Starting fetchMatchupData with database integration...');
+      console.log('🚀 Starting hybrid matchup data fetch...');
       console.log(`📊 Conference count: ${conferenceData.length}`);
       console.log(`👥 Team count: ${teamData.length}`);
       console.log(`📅 Selected week: ${selectedWeek}`);
@@ -379,28 +200,14 @@ const MatchupsPage: React.FC = () => {
 
       setApiErrors([]);
       const errors: string[] = [];
-      const sourceStats = { database: 0, sleeper: 0, hybrid: 0 };
-
-      // Step 1: Fetch database matchups first
-      const conferenceIds = conferenceData.map((c) => c.id);
-      const [databaseMatchups, teamMap] = await Promise.all([
-      fetchDatabaseMatchups(conferenceIds),
-      buildTeamConferenceMap(conferenceIds)]
-      );
-
-      console.log(`🗃️ Database matchups found: ${databaseMatchups.length}`);
-      console.log(`🔗 Team mappings created: ${teamMap.size}`);
-
+      
       // Determine and set week status
       const status = determineWeekStatus(selectedWeek, currentWeek);
       setWeekStatus(status);
       console.log(`📋 Week status:`, status);
 
-      // Use all the filtered conferences from the database query
-      const targetConferences = conferenceData;
-
-      if (targetConferences.length === 0) {
-        console.warn('⚠️ No target conferences found');
+      if (conferenceData.length === 0) {
+        console.warn('⚠️ No conferences found');
         setMatchups([]);
         return;
       }
@@ -411,185 +218,61 @@ const MatchupsPage: React.FC = () => {
       setAllPlayers(playersData);
       console.log(`✅ Loaded ${Object.keys(playersData).length} players`);
 
-      const allMatchups: OrganizedMatchup[] = [];
-      const debugData: any = {
-        conferences: [],
-        totalMatchups: 0,
-        errors: [],
-        weekStatus: status,
-        databaseMatchups: databaseMatchups.length,
-        dataSourceStats: sourceStats
+      // Use hybrid service to get matchups
+      const hybridMatchups = await MatchupService.getHybridMatchups(
+        conferenceData,
+        teamData,
+        selectedWeek,
+        currentWeek,
+        selectedSeason,
+        playersData
+      );
+
+      // Calculate data source statistics
+      const sourceStats = {
+        database: hybridMatchups.filter(m => m.dataSource === 'database').length,
+        sleeper: hybridMatchups.filter(m => m.dataSource === 'sleeper').length,
+        hybrid: hybridMatchups.filter(m => m.dataSource === 'hybrid').length
       };
 
-      // Process each conference
-      for (const conference of targetConferences) {
-        try {
-          console.log(`🏟️ Processing conference: ${conference.conference_name} (${conference.league_id})`);
-          const conferenceDebugData: any = {
-            conference: conference.conference_name,
-            leagueId: conference.league_id,
-            matchupsData: null,
-            rostersData: null,
-            usersData: null,
-            organizedMatchups: null
-          };
-
-          console.log(`🔄 Fetching league data for ${conference.conference_name}...`);
-          // Fetch league data
-          const [matchupsData, rostersData, usersData] = await Promise.all([
-          SleeperApiService.fetchMatchups(conference.league_id, selectedWeek),
-          SleeperApiService.fetchLeagueRosters(conference.league_id),
-          SleeperApiService.fetchLeagueUsers(conference.league_id)]
-          );
-
-          console.log(`📈 Raw matchup data for ${conference.conference_name}:`, {
-            matchupsCount: matchupsData.length,
-            rostersCount: rostersData.length,
-            usersCount: usersData.length,
-            sampleMatchup: matchupsData[0] || null
-          });
-
-          // Store debug data
-          conferenceDebugData.matchupsData = matchupsData;
-          conferenceDebugData.rostersData = rostersData;
-          conferenceDebugData.usersData = usersData;
-
-          // Check for points data availability
-          const hasPointsData = matchupsData.some((m) => m.points > 0);
-          const hasPlayersPoints = matchupsData.some((m) => m.players_points && Object.keys(m.players_points).length > 0);
-          const hasStartersPoints = matchupsData.some((m) => m.starters_points && m.starters_points.length > 0);
-
-          console.log(`🎯 Points data analysis for ${conference.conference_name}:`, {
-            hasPointsData,
-            hasPlayersPoints,
-            hasStartersPoints,
-            pointsRange: matchupsData.map((m) => m.points),
-            playersPointsKeys: matchupsData.map((m) => Object.keys(m.players_points || {}).length),
-            startersPointsLengths: matchupsData.map((m) => (m.starters_points || []).length)
-          });
-
-          // Organize matchups
-          const organizedMatchups = SleeperApiService.organizeMatchups(
-            matchupsData,
-            rostersData,
-            usersData
-          );
-
-          conferenceDebugData.organizedMatchups = organizedMatchups;
-          console.log(`🎲 Organized ${organizedMatchups.length} matchups for ${conference.conference_name}`);
-
-          // Convert to our format and add team data
-          const conferenceMatchups: OrganizedMatchup[] = organizedMatchups.map((matchup) => {
-            const matchupWithData = {
-              matchup_id: matchup.matchup_id,
-              conference,
-              teams: matchup.teams.map((team) => {
-                // Find corresponding team from database
-                const dbTeam = teamData.find((t) =>
-                team.owner && t.owner_id === team.owner.user_id
-                );
-
-                const matchupTeam = matchupsData.find((m) => m.roster_id === team.roster_id);
-
-                console.log(`👤 Team data for roster ${team.roster_id}:`, {
-                  points: team.points,
-                  hasMatchupTeam: !!matchupTeam,
-                  playersPointsCount: Object.keys(matchupTeam?.players_points || {}).length,
-                  startersPointsCount: (matchupTeam?.starters_points || []).length,
-                  dbTeamFound: !!dbTeam
-                });
-
-                return {
-                  ...team,
-                  team: dbTeam || null,
-                  players_points: matchupTeam?.players_points || {},
-                  starters_points: matchupTeam?.starters_points || [],
-                  matchup_starters: matchupTeam?.starters || [], // Store the actual starters from matchup
-                  // Add fallback handling for zero points
-                  points: team.points ?? 0 // Use nullish coalescing to handle null/undefined
-                };
-              }),
-              status: determineMatchupStatus(selectedWeek, currentWeek, matchupsData),
-              rawData: debugMode ? {
-                matchupsData: matchupsData.filter((m) =>
-                matchup.teams.some((t) => t.roster_id === m.roster_id)
-                ),
-                status: status
-              } : undefined
-            };
-
-            return matchupWithData;
-          });
-
-          allMatchups.push(...conferenceMatchups);
-          debugData.conferences.push(conferenceDebugData);
-
-        } catch (error) {
-          const errorMsg = `Error processing conference ${conference.conference_name}: ${error}`;
-          console.error(`❌ ${errorMsg}`, error);
-          errors.push(errorMsg);
-          debugData.errors.push({
-            conference: conference.conference_name,
-            error: error instanceof Error ? error.message : String(error)
-          });
-
-          toast({
-            title: 'Conference Error',
-            description: `Failed to load data for ${conference.conference_name}`,
-            variant: 'destructive'
-          });
-        }
-      }
-
-      debugData.totalMatchups = allMatchups.length;
+      setDataSourceStats(sourceStats);
+      setMatchups(hybridMatchups);
+      
+      // Set debug data
+      const debugData = {
+        conferences: conferenceData.length,
+        totalMatchups: hybridMatchups.length,
+        errors: [],
+        weekStatus: status,
+        dataSourceStats: sourceStats,
+        hybridMatchups: hybridMatchups.map(m => ({
+          id: m.matchup_id,
+          conference: m.conference.conference_name,
+          teams: m.teams.map(t => t.team?.team_name || t.owner?.display_name || 'Unknown'),
+          dataSource: m.dataSource,
+          isManualOverride: m.isManualOverride
+        }))
+      };
+      
       setRawApiData(debugData);
-      setApiErrors(errors);
-      setMatchups(allMatchups);
 
-      console.log(`✅ Successfully loaded ${allMatchups.length} total matchups`);
-      console.log(`🐛 Debug data:`, debugData);
+      console.log(`✅ Successfully loaded ${hybridMatchups.length} hybrid matchups`);
+      console.log('📊 Data source stats:', sourceStats);
 
     } catch (error) {
-      const errorMsg = `Failed to fetch matchup data: ${error}`;
+      const errorMsg = `Failed to fetch hybrid matchup data: ${error}`;
       console.error('❌ Error fetching matchup data:', error);
       setApiErrors((prev) => [...prev, errorMsg]);
 
       toast({
-        title: 'API Error',
-        description: 'Failed to load matchup data from Sleeper API.',
+        title: 'Data Error',
+        description: 'Failed to load matchup data.',
         variant: 'destructive'
       });
     }
   };
 
-  // Helper method to determine matchup status with better logic
-  const determineMatchupStatus = (selectedWeek: number, currentWeek: number, matchupsData: SleeperMatchup[]): 'live' | 'completed' | 'upcoming' => {
-    // Get current year to determine if this is a historical season
-    const currentYear = new Date().getFullYear();
-    const isHistoricalSeason = selectedSeason < currentYear;
-
-    console.log(`🏈 Determining matchup status: week ${selectedWeek}, current week ${currentWeek}, historical: ${isHistoricalSeason}`);
-
-    // For historical seasons, all matchups should be treated as completed
-    if (isHistoricalSeason) {
-      return 'completed';
-    }
-
-    // For current season, use normal logic
-    if (selectedWeek > currentWeek) {
-      return 'upcoming';
-    }
-
-    // Check if any matchup has points > 0
-    const hasPoints = matchupsData.some((m) => m.points > 0);
-
-    if (selectedWeek < currentWeek) {
-      return hasPoints ? 'completed' : 'completed'; // Past weeks should always be completed
-    }
-
-    // Current week - check if scoring has started
-    return hasPoints ? 'live' : 'upcoming';
-  };
+  // Helper method has been moved to MatchupService
 
   // Load all data
   const loadData = async (isRefresh = false) => {
@@ -659,7 +342,7 @@ const MatchupsPage: React.FC = () => {
     return SleeperApiService.getPlayerName(player);
   };
 
-  const getWinningTeam = (matchup: OrganizedMatchup) => {
+  const getWinningTeam = (matchup: HybridMatchup) => {
     if (matchup.status !== 'completed') return null;
     const [team1, team2] = matchup.teams;
     return team1.points > team2.points ? team1 : team2;
@@ -788,6 +471,45 @@ const MatchupsPage: React.FC = () => {
         </Card>
       }
 
+      {/* Data Source Summary */}
+      {(dataSourceStats.database > 0 || dataSourceStats.sleeper > 0 || dataSourceStats.hybrid > 0) &&
+      <Card className="border-l-4 border-l-green-500">
+          <CardContent className="py-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-3">
+                <Zap className="h-5 w-5 text-green-500" />
+                <div>
+                  <div className="font-medium">Hybrid Data Flow Active</div>
+                  <div className="text-sm text-muted-foreground">
+                    Team assignments from database, real-time scoring from Sleeper API
+                  </div>
+                </div>
+              </div>
+              <div className="flex items-center space-x-4 text-sm">
+                {dataSourceStats.hybrid > 0 && (
+                  <div className="flex items-center space-x-1">
+                    <div className="w-3 h-3 rounded-full bg-green-500"></div>
+                    <span>{dataSourceStats.hybrid} Hybrid</span>
+                  </div>
+                )}
+                {dataSourceStats.database > 0 && (
+                  <div className="flex items-center space-x-1">
+                    <div className="w-3 h-3 rounded-full bg-orange-500"></div>
+                    <span>{dataSourceStats.database} Database</span>
+                  </div>
+                )}
+                {dataSourceStats.sleeper > 0 && (
+                  <div className="flex items-center space-x-1">
+                    <div className="w-3 h-3 rounded-full bg-blue-500"></div>
+                    <span>{dataSourceStats.sleeper} Sleeper</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      }
+
       {/* API Errors Display */}
       {apiErrors.length > 0 &&
       <Card className="border-l-4 border-l-red-500">
@@ -868,6 +590,17 @@ const MatchupsPage: React.FC = () => {
                           {matchup.conference.conference_name}
                         </CardTitle>
                         {getStatusBadge(matchup.status)}
+                        {matchup.isManualOverride && (
+                          <Badge variant="outline" className="text-xs bg-orange-50 text-orange-700 border-orange-200">
+                            <Database className="h-3 w-3 mr-1" />
+                            Manual Override
+                          </Badge>
+                        )}
+                        {debugMode && (
+                          <Badge variant="outline" className="text-xs">
+                            {matchup.dataSource}
+                          </Badge>
+                        )}
                       </div>
                       <ChevronDown className={`h-4 w-4 transition-transform ${
                       expandedMatchups.has(`${matchup.conference.id}-${matchup.matchup_id}`) ? 'rotate-180' : ''}`
@@ -972,16 +705,29 @@ const MatchupsPage: React.FC = () => {
                             </div>
                           </div>
                           <div>
-                            <div className="text-sm text-muted-foreground">Status</div>
-                            <div className="text-xs capitalize">{matchup.status}</div>
-                            {debugMode && matchup.rawData &&
-                          <div className="text-xs text-muted-foreground mt-1">
-                                Raw matchups: {matchup.rawData.matchupsData?.length || 0}
+                            <div className="text-sm text-muted-foreground">Data Source</div>
+                            <div className="text-xs capitalize">{matchup.dataSource}</div>
+                            {matchup.isManualOverride &&
+                          <div className="text-xs text-orange-600 mt-1">
+                                Manual Override
                               </div>
                           }
                           </div>
                         </div>
                       }
+                      
+                      {/* Manual Override Notes */}
+                      {matchup.overrideNotes && matchup.overrideNotes.trim() && (
+                        <div className="mt-4 p-3 bg-orange-50 border border-orange-200 rounded-lg">
+                          <div className="flex items-start space-x-2">
+                            <Database className="h-4 w-4 text-orange-600 mt-0.5" />
+                            <div>
+                              <div className="text-sm font-medium text-orange-800">Admin Notes</div>
+                              <div className="text-sm text-orange-700">{matchup.overrideNotes}</div>
+                            </div>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </CollapsibleContent>
                 </CardContent>
