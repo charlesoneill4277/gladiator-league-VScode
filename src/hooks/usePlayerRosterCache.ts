@@ -150,13 +150,31 @@ options: UsePlayerRosterCacheOptions = {})
     queryClient.invalidateQueries({ queryKey });
   };
 
-  // Get roster status for specific player with fallback
+  // Get roster status for specific player with fallback and legacy compatibility
   const getRosterStatus = (playerId: string): RosterStatusInfo => {
     if (!query.data) {
-      return { isRostered: false };
+      return { isRostered: false, teams: [] };
     }
 
-    return query.data[playerId] || { isRostered: false };
+    const status = query.data[playerId];
+    if (!status) {
+      return { isRostered: false, teams: [] };
+    }
+
+    // Ensure new data structure while maintaining backward compatibility
+    if (!status.teams) {
+      return {
+        ...status,
+        teams: status.team && status.conference ? [{
+          team: status.team,
+          conference: status.conference,
+          rosterId: status.rosterId || '',
+          lastUpdated: status.lastUpdated || Date.now()
+        }] : []
+      };
+    }
+
+    return status;
   };
 
   // Get performance metrics
@@ -198,7 +216,7 @@ conferences: Conference[])
 };
 
 /**
- * Hook for batch player roster status queries
+ * Hook for batch player roster status queries with multi-team support
  */
 export const useBatchPlayerRosterStatus = (
 playerIds: string[],
@@ -209,12 +227,16 @@ conferences: Conference[])
   isError: boolean;
   freeAgents: string[];
   rosteredPlayers: string[];
+  multiTeamPlayers: string[];
+  teamDistribution: Record<string, string[]>;
 } => {
   const { data, isLoading, isError, getRosterStatus } = usePlayerRosterCache(conferences);
 
   const batchData: Record<string, RosterStatusInfo> = {};
   const freeAgents: string[] = [];
   const rosteredPlayers: string[] = [];
+  const multiTeamPlayers: string[] = [];
+  const teamDistribution: Record<string, string[]> = {};
 
   playerIds.forEach((playerId) => {
     const status = getRosterStatus(playerId);
@@ -222,6 +244,20 @@ conferences: Conference[])
 
     if (status.isRostered) {
       rosteredPlayers.push(playerId);
+      
+      // Track multi-team players
+      if (status.teams && status.teams.length > 1) {
+        multiTeamPlayers.push(playerId);
+      }
+      
+      // Build team distribution
+      status.teams?.forEach(teamAssoc => {
+        const teamKey = `${teamAssoc.team.team_name} (${teamAssoc.conference.conference_name})`;
+        if (!teamDistribution[teamKey]) {
+          teamDistribution[teamKey] = [];
+        }
+        teamDistribution[teamKey].push(playerId);
+      });
     } else {
       freeAgents.push(playerId);
     }
@@ -232,7 +268,9 @@ conferences: Conference[])
     isLoading,
     isError,
     freeAgents,
-    rosteredPlayers
+    rosteredPlayers,
+    multiTeamPlayers,
+    teamDistribution
   };
 };
 

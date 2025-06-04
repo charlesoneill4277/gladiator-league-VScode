@@ -26,12 +26,21 @@ interface SleeperRoster {
   players: string[];
 }
 
+export interface TeamAssociation {
+  team: Team;
+  conference: Conference;
+  rosterId: string;
+  lastUpdated: number;
+}
+
 export interface RosterStatusInfo {
   isRostered: boolean;
+  teams: TeamAssociation[];
+  lastUpdated?: number;
+  // Legacy fields for backward compatibility
   team?: Team;
   conference?: Conference;
   rosterId?: string;
-  lastUpdated?: number;
 }
 
 export interface RosterStatusMap {
@@ -197,7 +206,7 @@ export class PlayerRosterService {
   }
 
   /**
-   * Fetch fresh roster data from Sleeper API
+   * Fetch fresh roster data from Sleeper API with comprehensive error handling
    */
   private static async fetchFreshRosterData(conferences: Conference[], cacheKey: string): Promise<RosterStatusMap> {
     console.log('🔄 Fetching fresh roster data for', conferences.length, 'conferences');
@@ -209,11 +218,32 @@ export class PlayerRosterService {
     this.abortController = new AbortController();
 
     try {
-      // Fetch additional data needed for processing
-      const [teams, teamConferenceJunctions] = await Promise.all([
-      this.fetchTeams(),
-      this.fetchTeamConferenceJunctions()]
-      );
+      // Validate input data
+      if (!conferences || conferences.length === 0) {
+        throw new Error('No conferences provided for roster data fetch');
+      }
+
+      // Fetch additional data needed for processing with error handling
+      const [teams, teamConferenceJunctions] = await Promise.allSettled([
+        this.fetchTeams(),
+        this.fetchTeamConferenceJunctions()
+      ]).then(results => {
+        const teams = results[0].status === 'fulfilled' ? results[0].value : [];
+        const junctions = results[1].status === 'fulfilled' ? results[1].value : [];
+        
+        if (results[0].status === 'rejected') {
+          console.error('❌ Failed to fetch teams:', results[0].reason);
+        }
+        if (results[1].status === 'rejected') {
+          console.error('❌ Failed to fetch team-conference junctions:', results[1].reason);
+        }
+        
+        return [teams, junctions] as [Team[], TeamConferenceJunction[]];
+      });
+
+      if (teams.length === 0 || teamConferenceJunctions.length === 0) {
+        console.warn('⚠️ Missing essential data - teams or junctions empty');
+      }
 
       const rosterStatusMap: RosterStatusMap = {};
       this.performanceMetrics.apiCalls += conferences.length;
@@ -245,7 +275,7 @@ export class PlayerRosterService {
             const rosters: SleeperRoster[] = await response.json();
             console.log(`✅ Fetched ${rosters.length} rosters for ${conference.conference_name}`);
 
-            // Process each roster
+            // Process each roster - accumulate team associations instead of overwriting
             rosters.forEach((roster) => {
               const junction = teamConferenceJunctions.find(
                 (j) => j.conference_id === conference.id && j.roster_id === roster.roster_id.toString()
@@ -255,13 +285,43 @@ export class PlayerRosterService {
                 const team = teams.find((t) => t.id === junction.team_id);
                 if (team) {
                   roster.players?.forEach((playerId) => {
-                    rosterStatusMap[playerId] = {
-                      isRostered: true,
+                    const currentTimestamp = Date.now();
+                    const newAssociation: TeamAssociation = {
                       team,
                       conference,
                       rosterId: roster.roster_id.toString(),
-                      lastUpdated: Date.now()
+                      lastUpdated: currentTimestamp
                     };
+
+                    // Initialize or update player roster status
+                    if (!rosterStatusMap[playerId]) {
+                      rosterStatusMap[playerId] = {
+                        isRostered: true,
+                        teams: [newAssociation],
+                        lastUpdated: currentTimestamp,
+                        // Legacy compatibility - use first team
+                        team,
+                        conference,
+                        rosterId: roster.roster_id.toString()
+                      };
+                    } else {
+                      // Check if this team association already exists
+                      const existingIndex = rosterStatusMap[playerId].teams.findIndex(
+                        (assoc) => assoc.team.id === team.id && assoc.conference.id === conference.id
+                      );
+
+                      if (existingIndex >= 0) {
+                        // Update existing association
+                        rosterStatusMap[playerId].teams[existingIndex] = newAssociation;
+                      } else {
+                        // Add new team association
+                        rosterStatusMap[playerId].teams.push(newAssociation);
+                      }
+
+                      // Update overall timestamp
+                      rosterStatusMap[playerId].lastUpdated = currentTimestamp;
+                      rosterStatusMap[playerId].isRostered = true;
+                    }
                   });
                 }
               }
@@ -280,23 +340,46 @@ export class PlayerRosterService {
         }
       });
 
-      await Promise.allSettled(rosterPromises);
+      const settledResults = await Promise.allSettled(rosterPromises);
+      
+      // Log any failed conference fetches
+      const failedCount = settledResults.filter(result => result.status === 'rejected').length;
+      if (failedCount > 0) {
+        console.warn(`⚠️ ${failedCount}/${conferences.length} conference roster fetches failed`);
+      }
 
-      // Cache the results
-      const cacheEntry: RosterCacheEntry = {
-        data: rosterStatusMap,
-        timestamp: Date.now(),
-        version: this.CACHE_VERSION,
-        conferences: conferences.map((c) => c.league_id)
-      };
-
-      this.rosterCache.set(cacheKey, cacheEntry);
-      this.saveToLocalStorage(cacheEntry);
-
-      console.log('✅ Roster data cached successfully', {
-        entries: Object.keys(rosterStatusMap).length,
-        conferences: conferences.length
+      // Validate and log final data structure
+      const totalPlayers = Object.keys(rosterStatusMap).length;
+      const playersWithMultipleTeams = Object.values(rosterStatusMap).filter(status => status.teams.length > 1).length;
+      
+      console.log('📊 Roster data processing complete:', {
+        totalPlayers,
+        playersWithMultipleTeams,
+        conferences: conferences.length,
+        failedFetches: failedCount
       });
+
+      // Cache the results with error handling
+      try {
+        const cacheEntry: RosterCacheEntry = {
+          data: rosterStatusMap,
+          timestamp: Date.now(),
+          version: this.CACHE_VERSION,
+          conferences: conferences.map((c) => c.league_id)
+        };
+
+        this.rosterCache.set(cacheKey, cacheEntry);
+        this.saveToLocalStorage(cacheEntry);
+
+        console.log('✅ Roster data cached successfully', {
+          entries: totalPlayers,
+          conferences: conferences.length,
+          multiTeamPlayers: playersWithMultipleTeams
+        });
+      } catch (cacheError) {
+        console.error('❌ Failed to cache roster data:', cacheError);
+        // Continue execution even if caching fails
+      }
 
       return rosterStatusMap;
 
@@ -315,10 +398,85 @@ export class PlayerRosterService {
   static async getPlayerRosterStatus(playerId: string, conferences: Conference[]): Promise<RosterStatusInfo> {
     try {
       const allRosterData = await this.fetchAllRosterData(conferences);
-      return allRosterData[playerId] || { isRostered: false };
+      return allRosterData[playerId] || { isRostered: false, teams: [] };
     } catch (error) {
       console.error('❌ Error getting player roster status:', error);
-      return { isRostered: false };
+      return { isRostered: false, teams: [] };
+    }
+  }
+
+  /**
+   * Get roster status for multiple players efficiently
+   */
+  static async getBatchPlayerRosterStatus(
+    playerIds: string[], 
+    conferences: Conference[]
+  ): Promise<Record<string, RosterStatusInfo>> {
+    try {
+      const allRosterData = await this.fetchAllRosterData(conferences);
+      const result: Record<string, RosterStatusInfo> = {};
+      
+      playerIds.forEach(playerId => {
+        result[playerId] = allRosterData[playerId] || { isRostered: false, teams: [] };
+      });
+      
+      return result;
+    } catch (error) {
+      console.error('❌ Error getting batch player roster status:', error);
+      // Return empty status for all requested players
+      const fallbackResult: Record<string, RosterStatusInfo> = {};
+      playerIds.forEach(playerId => {
+        fallbackResult[playerId] = { isRostered: false, teams: [] };
+      });
+      return fallbackResult;
+    }
+  }
+
+  /**
+   * Get players by team with proper multi-conference support
+   */
+  static async getPlayersByTeam(
+    teamId: number, 
+    conferences: Conference[]
+  ): Promise<string[]> {
+    try {
+      const allRosterData = await this.fetchAllRosterData(conferences);
+      const playerIds: string[] = [];
+      
+      Object.entries(allRosterData).forEach(([playerId, status]) => {
+        if (status.isRostered && status.teams.some(assoc => assoc.team.id === teamId)) {
+          playerIds.push(playerId);
+        }
+      });
+      
+      return playerIds;
+    } catch (error) {
+      console.error('❌ Error getting players by team:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Get players by conference with proper multi-team support
+   */
+  static async getPlayersByConference(
+    conferenceId: number, 
+    conferences: Conference[]
+  ): Promise<string[]> {
+    try {
+      const allRosterData = await this.fetchAllRosterData(conferences);
+      const playerIds: string[] = [];
+      
+      Object.entries(allRosterData).forEach(([playerId, status]) => {
+        if (status.isRostered && status.teams.some(assoc => assoc.conference.id === conferenceId)) {
+          playerIds.push(playerId);
+        }
+      });
+      
+      return playerIds;
+    } catch (error) {
+      console.error('❌ Error getting players by conference:', error);
+      return [];
     }
   }
 
@@ -355,17 +513,73 @@ export class PlayerRosterService {
   }
 
   /**
-   * Invalidate cache for specific conferences
+   * Invalidate cache for specific conferences with multi-conference support
    */
   static invalidateCache(conferences?: Conference[]): void {
-    if (conferences) {
-      const cacheKey = this.getCacheKey(conferences);
-      this.rosterCache.delete(cacheKey);
-      console.log('🔄 Cache invalidated for specific conferences');
-    } else {
+    try {
+      if (conferences) {
+        const cacheKey = this.getCacheKey(conferences);
+        this.rosterCache.delete(cacheKey);
+        
+        // Also check for overlapping cache entries that might contain these conferences
+        const conferencesToInvalidate = new Set(conferences.map(c => c.league_id));
+        const keysToDelete: string[] = [];
+        
+        this.rosterCache.forEach((entry, key) => {
+          const hasOverlap = entry.conferences.some(confId => conferencesToInvalidate.has(confId));
+          if (hasOverlap) {
+            keysToDelete.push(key);
+          }
+        });
+        
+        keysToDelete.forEach(key => this.rosterCache.delete(key));
+        
+        console.log('🔄 Cache invalidated for specific conferences', {
+          targetConferences: conferences.length,
+          deletedCacheKeys: keysToDelete.length
+        });
+      } else {
+        this.rosterCache.clear();
+        localStorage.removeItem(this.LOCAL_STORAGE_KEY);
+        console.log('🔄 All cache invalidated');
+      }
+    } catch (error) {
+      console.error('❌ Error invalidating cache:', error);
+      // Fallback to clearing all cache
       this.rosterCache.clear();
       localStorage.removeItem(this.LOCAL_STORAGE_KEY);
-      console.log('🔄 All cache invalidated');
+    }
+  }
+
+  /**
+   * Invalidate cache by team ID - useful when team data changes
+   */
+  static invalidateCacheByTeam(teamId: number): void {
+    try {
+      const keysToDelete: string[] = [];
+      
+      this.rosterCache.forEach((entry, key) => {
+        // Check if any players in this cache entry are associated with the team
+        const hasTeamData = Object.values(entry.data).some(status => 
+          status.isRostered && status.teams.some(assoc => assoc.team.id === teamId)
+        );
+        
+        if (hasTeamData) {
+          keysToDelete.push(key);
+        }
+      });
+      
+      keysToDelete.forEach(key => this.rosterCache.delete(key));
+      
+      console.log('🔄 Cache invalidated for team', {
+        teamId,
+        deletedCacheKeys: keysToDelete.length
+      });
+    } catch (error) {
+      console.error('❌ Error invalidating cache by team:', error);
+      // Fallback to clearing all cache
+      this.rosterCache.clear();
+      localStorage.removeItem(this.LOCAL_STORAGE_KEY);
     }
   }
 
@@ -414,39 +628,107 @@ export class PlayerRosterService {
   }
 
   /**
-   * Fetch teams from database
+   * Fetch teams from database with error handling
    */
   private static async fetchTeams(): Promise<Team[]> {
-    const response = await window.ezsite.apis.tablePage(12852, {
-      PageNo: 1,
-      PageSize: 1000,
-      OrderByField: 'team_name',
-      IsAsc: true,
-      Filters: []
-    });
+    try {
+      const response = await window.ezsite.apis.tablePage(12852, {
+        PageNo: 1,
+        PageSize: 1000,
+        OrderByField: 'team_name',
+        IsAsc: true,
+        Filters: []
+      });
 
-    if (response.error) throw new Error(response.error);
-    return response.data.List;
+      if (response.error) {
+        throw new Error(`Database error fetching teams: ${response.error}`);
+      }
+      
+      if (!response.data || !response.data.List) {
+        throw new Error('Invalid response format when fetching teams');
+      }
+
+      console.log(`✅ Fetched ${response.data.List.length} teams from database`);
+      return response.data.List;
+    } catch (error) {
+      console.error('❌ Error fetching teams:', error);
+      throw new Error(`Failed to fetch teams: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
   }
 
   /**
-   * Fetch team-conference junctions from database
+   * Fetch team-conference junctions from database with error handling
    */
   private static async fetchTeamConferenceJunctions(): Promise<TeamConferenceJunction[]> {
-    const response = await window.ezsite.apis.tablePage(12853, {
-      PageNo: 1,
-      PageSize: 1000,
-      OrderByField: 'id',
-      IsAsc: true,
-      Filters: [{
-        name: 'is_active',
-        op: 'Equal',
-        value: true
-      }]
-    });
+    try {
+      const response = await window.ezsite.apis.tablePage(12853, {
+        PageNo: 1,
+        PageSize: 1000,
+        OrderByField: 'id',
+        IsAsc: true,
+        Filters: [{
+          name: 'is_active',
+          op: 'Equal',
+          value: true
+        }]
+      });
 
-    if (response.error) throw new Error(response.error);
-    return response.data.List;
+      if (response.error) {
+        throw new Error(`Database error fetching junctions: ${response.error}`);
+      }
+      
+      if (!response.data || !response.data.List) {
+        throw new Error('Invalid response format when fetching team-conference junctions');
+      }
+
+      console.log(`✅ Fetched ${response.data.List.length} active team-conference junctions from database`);
+      return response.data.List;
+    } catch (error) {
+      console.error('❌ Error fetching team-conference junctions:', error);
+      throw new Error(`Failed to fetch team-conference junctions: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }
+
+  /**
+   * Get roster data summary for debugging
+   */
+  static getRosterDataSummary(conferences: Conference[]): Promise<{
+    totalPlayers: number;
+    multiTeamPlayers: number;
+    teamsPerConference: Record<string, number>;
+    lastUpdated: number | null;
+  }> {
+    return this.fetchAllRosterData(conferences).then(data => {
+      const totalPlayers = Object.keys(data).length;
+      const multiTeamPlayers = Object.values(data).filter(status => status.teams.length > 1).length;
+      const teamsPerConference: Record<string, number> = {};
+      let lastUpdated: number | null = null;
+
+      Object.values(data).forEach(status => {
+        if (status.lastUpdated && (!lastUpdated || status.lastUpdated > lastUpdated)) {
+          lastUpdated = status.lastUpdated;
+        }
+        status.teams.forEach(assoc => {
+          const confName = assoc.conference.conference_name;
+          teamsPerConference[confName] = (teamsPerConference[confName] || 0) + 1;
+        });
+      });
+
+      return {
+        totalPlayers,
+        multiTeamPlayers,
+        teamsPerConference,
+        lastUpdated
+      };
+    }).catch(error => {
+      console.error('❌ Error getting roster data summary:', error);
+      return {
+        totalPlayers: 0,
+        multiTeamPlayers: 0,
+        teamsPerConference: {},
+        lastUpdated: null
+      };
+    });
   }
 
   /**

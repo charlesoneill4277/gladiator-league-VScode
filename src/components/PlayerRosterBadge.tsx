@@ -16,7 +16,7 @@ interface PlayerRosterBadgeProps {
 }
 
 // Skeleton loading component
-const SkeletonBadge = React.memo(({ size = 'md' }: { size?: 'sm' | 'md' | 'lg' }) => {
+const SkeletonBadge = React.memo(({ size = 'md' }: {size?: 'sm' | 'md' | 'lg';}) => {
   const sizeClasses = {
     sm: 'h-5 w-16',
     md: 'h-6 w-20',
@@ -24,37 +24,37 @@ const SkeletonBadge = React.memo(({ size = 'md' }: { size?: 'sm' | 'md' | 'lg' }
   };
 
   return (
-    <Skeleton className={cn('rounded-full', sizeClasses[size])} />
-  );
+    <Skeleton className={cn('rounded-full', sizeClasses[size])} />);
+
 });
 
 SkeletonBadge.displayName = 'SkeletonBadge';
 
 // Status indicator dot component
-const StatusIndicator = React.memo(({ 
-  freshness, 
-  isStale 
-}: { 
-  freshness: 'live' | 'recent' | 'cached';
-  isStale: boolean;
-}) => {
+const StatusIndicator = React.memo(({
+  freshness,
+  isStale
+
+
+
+}: {freshness: 'live' | 'recent' | 'cached';isStale: boolean;}) => {
   const getIndicatorColor = () => {
     if (isStale) return 'bg-red-500';
     switch (freshness) {
-      case 'live': return 'bg-green-500';
-      case 'recent': return 'bg-yellow-500';
-      case 'cached': return 'bg-gray-400';
-      default: return 'bg-gray-400';
+      case 'live':return 'bg-green-500';
+      case 'recent':return 'bg-yellow-500';
+      case 'cached':return 'bg-gray-400';
+      default:return 'bg-gray-400';
     }
   };
 
   const getTooltipText = () => {
     if (isStale) return 'Data is stale and needs refresh';
     switch (freshness) {
-      case 'live': return 'Live data (updated within 2 minutes)';
-      case 'recent': return 'Recent data (updated 2-5 minutes ago)';
-      case 'cached': return 'Cached data (older than 5 minutes)';
-      default: return 'Data status unknown';
+      case 'live':return 'Live data (updated within 2 minutes)';
+      case 'recent':return 'Recent data (updated 2-5 minutes ago)';
+      case 'cached':return 'Cached data (older than 5 minutes)';
+      default:return 'Data status unknown';
     }
   };
 
@@ -62,39 +62,39 @@ const StatusIndicator = React.memo(({
     <TooltipProvider>
       <Tooltip>
         <TooltipTrigger asChild>
-          <div 
+          <div
             className={cn(
               'w-2 h-2 rounded-full transition-colors duration-200',
               getIndicatorColor(),
               isStale && 'animate-pulse'
             )}
-            aria-label={getTooltipText()}
-          />
+            aria-label={getTooltipText()} />
+
         </TooltipTrigger>
         <TooltipContent side="top">
           <p className="text-xs">{getTooltipText()}</p>
         </TooltipContent>
       </Tooltip>
-    </TooltipProvider>
-  );
+    </TooltipProvider>);
+
 });
 
 StatusIndicator.displayName = 'StatusIndicator';
 
 // Main roster status display component
-const RosterStatusDisplay = React.memo(({ 
-  status, 
-  showTeamName, 
-  showFreshnessIndicator, 
+const RosterStatusDisplay = React.memo(({
+  status,
+  showTeamName,
+  showFreshnessIndicator,
   size,
-  onClick 
-}: {
-  status: PlayerStatusData;
-  showTeamName?: boolean;
-  showFreshnessIndicator?: boolean;
-  size?: 'sm' | 'md' | 'lg';
-  onClick?: () => void;
-}) => {
+  onClick
+
+
+
+
+
+
+}: {status: PlayerStatusData;showTeamName?: boolean;showFreshnessIndicator?: boolean;size?: 'sm' | 'md' | 'lg';onClick?: () => void;}) => {
   const sizeClasses = {
     sm: 'text-xs px-2 py-1',
     md: 'text-sm px-3 py-1',
@@ -140,16 +140,16 @@ const RosterStatusDisplay = React.memo(({
               onClick && 'cursor-pointer hover:shadow-md',
               !status.isRostered && 'border-dashed'
             )}
-            onClick={onClick}
-          >
+            onClick={onClick}>
+
             {getIcon()}
             <span className="font-medium">{getBadgeText()}</span>
-            {showFreshnessIndicator && (
-              <StatusIndicator 
-                freshness={status.freshness} 
-                isStale={status.isStale} 
-              />
-            )}
+            {showFreshnessIndicator &&
+            <StatusIndicator
+              freshness={status.freshness}
+              isStale={status.isStale} />
+
+            }
           </Badge>
         </TooltipTrigger>
         <TooltipContent side="bottom" className="max-w-xs">
@@ -157,16 +157,16 @@ const RosterStatusDisplay = React.memo(({
             <p className="font-medium">
               {status.isRostered ? 'Rostered Player' : 'Available Player'}
             </p>
-            {status.teamName && (
-              <p className="text-xs text-muted-foreground">
+            {status.teamName &&
+            <p className="text-xs text-muted-foreground">
                 Team: {status.teamName}
               </p>
-            )}
-            {status.rosterPosition && (
-              <p className="text-xs text-muted-foreground">
+            }
+            {status.rosterPosition &&
+            <p className="text-xs text-muted-foreground">
                 Position: {status.rosterPosition}
               </p>
-            )}
+            }
             <div className="flex items-center gap-1 text-xs text-muted-foreground">
               <Clock className="w-3 h-3" />
               <span>Updated: {status.lastUpdated.toLocaleTimeString()}</span>
@@ -174,22 +174,22 @@ const RosterStatusDisplay = React.memo(({
           </div>
         </TooltipContent>
       </Tooltip>
-    </TooltipProvider>
-  );
+    </TooltipProvider>);
+
 });
 
 RosterStatusDisplay.displayName = 'RosterStatusDisplay';
 
 // Error state component
-const ErrorBadge = React.memo(({ 
-  error, 
-  onRetry, 
-  size = 'md' 
-}: { 
-  error: string;
-  onRetry?: () => void;
-  size?: 'sm' | 'md' | 'lg';
-}) => {
+const ErrorBadge = React.memo(({
+  error,
+  onRetry,
+  size = 'md'
+
+
+
+
+}: {error: string;onRetry?: () => void;size?: 'sm' | 'md' | 'lg';}) => {
   const sizeClasses = {
     sm: 'text-xs px-2 py-1',
     md: 'text-sm px-3 py-1',
@@ -213,8 +213,8 @@ const ErrorBadge = React.memo(({
               sizeClasses[size],
               onRetry && 'cursor-pointer hover:bg-destructive/90'
             )}
-            onClick={onRetry}
-          >
+            onClick={onRetry}>
+
             <AlertCircle className={iconSizes[size]} />
             <span>Error</span>
             {onRetry && <RefreshCw className={iconSizes[size]} />}
@@ -222,15 +222,15 @@ const ErrorBadge = React.memo(({
         </TooltipTrigger>
         <TooltipContent side="bottom">
           <p className="text-xs max-w-xs">{error}</p>
-          {onRetry && (
-            <p className="text-xs text-muted-foreground mt-1">
+          {onRetry &&
+          <p className="text-xs text-muted-foreground mt-1">
               Click to retry
             </p>
-          )}
+          }
         </TooltipContent>
       </Tooltip>
-    </TooltipProvider>
-  );
+    </TooltipProvider>);
+
 });
 
 ErrorBadge.displayName = 'ErrorBadge';
@@ -244,9 +244,9 @@ const PlayerRosterBadge = React.memo<PlayerRosterBadgeProps>(({
   size = 'md',
   onClick
 }) => {
-  const { 
-    data: rosterStatus, 
-    isLoading, 
+  const {
+    data: rosterStatus,
+    isLoading,
     error,
     refreshStatus
   } = usePlayerStatus(playerId, {
@@ -259,21 +259,21 @@ const PlayerRosterBadge = React.memo<PlayerRosterBadgeProps>(({
     return (
       <div className={cn('inline-flex', className)}>
         <SkeletonBadge size={size} />
-      </div>
-    );
+      </div>);
+
   }
 
   // Handle error state
   if (error) {
     return (
       <div className={cn('inline-flex', className)}>
-        <ErrorBadge 
+        <ErrorBadge
           error={typeof error === 'string' ? error : 'Failed to load player status'}
           onRetry={refreshStatus}
-          size={size}
-        />
-      </div>
-    );
+          size={size} />
+
+      </div>);
+
   }
 
   // Handle success state
@@ -285,10 +285,10 @@ const PlayerRosterBadge = React.memo<PlayerRosterBadgeProps>(({
           showTeamName={showTeamName}
           showFreshnessIndicator={showFreshnessIndicator}
           size={size}
-          onClick={onClick}
-        />
-      </div>
-    );
+          onClick={onClick} />
+
+      </div>);
+
   }
 
   // Fallback state
@@ -298,8 +298,8 @@ const PlayerRosterBadge = React.memo<PlayerRosterBadgeProps>(({
         <User className="w-4 h-4 mr-1" />
         Unknown
       </Badge>
-    </div>
-  );
+    </div>);
+
 });
 
 PlayerRosterBadge.displayName = 'PlayerRosterBadge';
@@ -315,16 +315,16 @@ export const PlayerRosterBadgeList = React.memo<{
 }>(({ playerIds, className, showTeamNames, onPlayerClick }) => {
   return (
     <div className={cn('flex flex-wrap gap-2', className)}>
-      {playerIds.map(playerId => (
-        <PlayerRosterBadge
-          key={playerId}
-          playerId={playerId}
-          showTeamName={showTeamNames}
-          onClick={() => onPlayerClick?.(playerId)}
-        />
-      ))}
-    </div>
-  );
+      {playerIds.map((playerId) =>
+      <PlayerRosterBadge
+        key={playerId}
+        playerId={playerId}
+        showTeamName={showTeamNames}
+        onClick={() => onPlayerClick?.(playerId)} />
+
+      )}
+    </div>);
+
 });
 
 PlayerRosterBadgeList.displayName = 'PlayerRosterBadgeList';

@@ -1,56 +1,71 @@
 import { useMemo, useCallback } from 'react';
-import { usePlayerRosterCache, usePlayerRosterStatus } from './usePlayerRosterCache';
+import { usePlayerRosterCache, usePlayerRosterStatus, useBatchPlayerRosterStatus } from './usePlayerRosterCache';
+import { TeamAssociation } from '@/services/playerRosterService';
 
 export interface PlayerStatusData {
   playerId: string;
   isRostered: boolean;
-  teamName?: string;
-  rosterPosition?: string;
+  teams: TeamAssociation[];
+  primaryTeam?: TeamAssociation;
+  isMultiTeam: boolean;
   lastUpdated: Date;
   isStale: boolean;
   freshness: 'live' | 'recent' | 'cached';
+  // Legacy fields for backward compatibility
+  teamName?: string;
+  rosterPosition?: string;
 }
 
 export interface UsePlayerStatusOptions {
   enableAutoRefresh?: boolean;
   staleTolerance?: number; // minutes
+  conferences: { id: number; conference_name: string; league_id: string; }[];
 }
 
 export const usePlayerStatus = (
-  playerId: string,
-  options: UsePlayerStatusOptions = {}
-) => {
+playerId: string,
+options: UsePlayerStatusOptions) =>
+{
   const {
     enableAutoRefresh = true,
-    staleTolerance = 5
+    staleTolerance = 5,
+    conferences
   } = options;
 
   // Use existing player roster cache functionality
-  const rosterQuery = usePlayerRosterStatus(playerId);
-  const { data: rosterData, isLoading, error, refetch } = rosterQuery;
+  const rosterStatus = usePlayerRosterStatus(playerId, conferences);
+  const { data: allRosterData, isLoading, isError, refetch } = usePlayerRosterCache(conferences);
 
-  // Calculate data freshness
+  // Calculate data freshness and process multi-team data
   const statusData = useMemo<PlayerStatusData | null>(() => {
-    if (!rosterData) return null;
+    if (!rosterStatus) return null;
 
     const now = new Date();
-    const lastUpdated = new Date(); // In real implementation, this would come from cache metadata
+    const lastUpdated = rosterStatus.lastUpdated ? new Date(rosterStatus.lastUpdated) : now;
     const ageInMinutes = Math.floor((now.getTime() - lastUpdated.getTime()) / (1000 * 60));
 
     let freshness: 'live' | 'recent' | 'cached' = 'live';
     if (ageInMinutes > 5) freshness = 'cached';
     else if (ageInMinutes > 2) freshness = 'recent';
 
+    const teams = rosterStatus.teams || [];
+    const primaryTeam = teams[0]; // Use first team as primary
+    const isMultiTeam = teams.length > 1;
+
     return {
       playerId,
-      isRostered: !!rosterData.teamId,
-      teamName: rosterData.teamName || undefined,
-      rosterPosition: rosterData.position || undefined,
+      isRostered: rosterStatus.isRostered,
+      teams,
+      primaryTeam,
+      isMultiTeam,
       lastUpdated,
       isStale: ageInMinutes > staleTolerance,
-      freshness
+      freshness,
+      // Legacy compatibility
+      teamName: primaryTeam?.team.team_name,
+      rosterPosition: undefined // This would need to come from additional data
     };
-  }, [rosterData, playerId, staleTolerance]);
+  }, [rosterStatus, playerId, staleTolerance]);
 
   // Optimized refresh function
   const refreshStatus = useCallback(async () => {
@@ -69,7 +84,7 @@ export const usePlayerStatus = (
   return {
     data: statusData,
     isLoading,
-    error,
+    isError,
     refreshStatus,
     shouldAutoRefresh,
     isStale: statusData?.isStale || false,
@@ -77,44 +92,89 @@ export const usePlayerStatus = (
   };
 };
 
-// Hook for batch player status queries
-export const useBatchPlayerStatus = (playerIds: string[]) => {
-  const individualQueries = playerIds.map(id => usePlayerStatus(id));
+// Hook for batch player status queries with multi-team support
+export const useBatchPlayerStatus = (
+  playerIds: string[], 
+  conferences: { id: number; conference_name: string; league_id: string; }[]
+) => {
+  const { 
+    data: batchData, 
+    isLoading, 
+    isError, 
+    freeAgents,
+    rosteredPlayers,
+    multiTeamPlayers,
+    teamDistribution 
+  } = useBatchPlayerRosterStatus(playerIds, conferences);
 
   const combinedData = useMemo(() => {
-    return individualQueries.map(query => query.data).filter(Boolean);
-  }, [individualQueries]);
+    return playerIds.map((playerId) => {
+      const rosterStatus = batchData[playerId];
+      if (!rosterStatus) return null;
 
-  const isLoading = individualQueries.some(query => query.isLoading);
-  const hasError = individualQueries.some(query => query.error);
+      const now = new Date();
+      const lastUpdated = rosterStatus.lastUpdated ? new Date(rosterStatus.lastUpdated) : now;
+      const ageInMinutes = Math.floor((now.getTime() - lastUpdated.getTime()) / (1000 * 60));
 
+      let freshness: 'live' | 'recent' | 'cached' = 'live';
+      if (ageInMinutes > 5) freshness = 'cached';
+      else if (ageInMinutes > 2) freshness = 'recent';
+
+      const teams = rosterStatus.teams || [];
+      const primaryTeam = teams[0];
+      const isMultiTeam = teams.length > 1;
+
+      return {
+        playerId,
+        isRostered: rosterStatus.isRostered,
+        teams,
+        primaryTeam,
+        isMultiTeam,
+        lastUpdated,
+        isStale: ageInMinutes > 5,
+        freshness,
+        teamName: primaryTeam?.team.team_name,
+        rosterPosition: undefined
+      } as PlayerStatusData;
+    }).filter(Boolean);
+  }, [batchData, playerIds]);
+
+  const { refetch } = usePlayerRosterCache(conferences);
+  
   const refreshAll = useCallback(async () => {
-    await Promise.all(
-      individualQueries.map(query => query.refreshStatus())
-    );
-  }, [individualQueries]);
+    try {
+      await refetch();
+    } catch (error) {
+      console.error('Failed to refresh batch player status:', error);
+    }
+  }, [refetch]);
 
   return {
     data: combinedData,
     isLoading,
-    hasError,
+    hasError: isError,
     refreshAll,
-    queries: individualQueries
+    freeAgents,
+    rosteredPlayers,
+    multiTeamPlayers,
+    teamDistribution
   };
 };
 
-// Performance monitoring hook
-export const usePlayerStatusMetrics = () => {
-  const cache = usePlayerRosterCache();
+// Performance monitoring hook with real metrics
+export const usePlayerStatusMetrics = (conferences: { id: number; conference_name: string; league_id: string; }[]) => {
+  const { metrics } = usePlayerRosterCache(conferences);
 
   return useMemo(() => {
-    // In a real implementation, this would calculate cache hit rates,
-    // average response times, etc.
+    const hitRate = metrics.cacheHits / (metrics.cacheHits + metrics.cacheMisses) * 100;
+    
     return {
-      cacheHitRate: 0.85,
-      averageResponseTime: 150,
-      totalQueries: 0,
-      lastUpdated: new Date()
+      cacheHitRate: isNaN(hitRate) ? 0 : hitRate / 100,
+      averageResponseTime: metrics.averageResponseTime,
+      totalQueries: metrics.apiCalls,
+      cacheSize: metrics.cacheSize,
+      lastUpdated: metrics.lastUpdated ? new Date(metrics.lastUpdated) : new Date(),
+      detailed: metrics
     };
-  }, [cache]);
+  }, [metrics]);
 };
