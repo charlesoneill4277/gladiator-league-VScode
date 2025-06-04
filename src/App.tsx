@@ -18,28 +18,7 @@ import ConferencesPage from './pages/ConferencesPage';
 import AdminPage from './pages/AdminPage';
 import NotFound from "./pages/NotFound";
 
-// Optimized QueryClient configuration for performance
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      // Global defaults for all queries
-      staleTime: 2 * 60 * 1000, // 2 minutes - data considered fresh
-      cacheTime: 10 * 60 * 1000, // 10 minutes - how long to keep in cache
-      retry: 3, // Retry failed requests 3 times
-      retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000), // Exponential backoff
-      refetchOnWindowFocus: true, // Refetch when window regains focus
-      refetchOnReconnect: true, // Refetch when network reconnects
-      // Keep previous data while fetching new data
-      keepPreviousData: true,
-      // Network mode for better offline handling
-      networkMode: 'online'
-    },
-    mutations: {
-      retry: 2,
-      networkMode: 'online'
-    }
-  }
-});
+const queryClient = new QueryClient();
 
 const App = () =>
 <QueryClientProvider client={queryClient}>

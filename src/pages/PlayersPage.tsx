@@ -1,320 +1,198 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Checkbox } from '@/components/ui/checkbox';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useApp } from '@/contexts/AppContext';
-import { Search, Filter, User, Users, Heart, Activity, Clock, Shield, RefreshCw, Zap } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
-import PlayerDetailModal from '@/components/PlayerDetailModal';
-import { usePlayerRosterCache, useRosterCacheMetrics } from '@/hooks/usePlayerRosterCache';
-import { RosterStatusInfo } from '@/services/playerRosterService';
+import { UserCheck, Search, ArrowUpDown, ExternalLink, Filter } from 'lucide-react';
 
-interface Player {
-  id: number;
-  player_name: string;
-  position: string;
-  nfl_team: string;
-  jersey_number: number;
-  status: string;
-  injury_status: string;
-  age: number;
-  height: string;
-  weight: number;
-  years_experience: number;
-  depth_chart_position: number;
-  college: string;
-  team_id: number;
-  sleeper_player_id: string;
+// Mock data for players - this will be replaced with real Sleeper API data
+const mockPlayersData = [
+{
+  id: 'player1',
+  name: 'Josh Allen',
+  position: 'QB',
+  nflTeam: 'BUF',
+  points: 287.5,
+  avgPoints: 22.1,
+  status: 'rostered',
+  rosteredBy: 'Galactic Gladiators',
+  rosteredByOwner: 'John Doe',
+  injuryStatus: null,
+  gamesPlayed: 13,
+  projectedPoints: 24.8
+},
+{
+  id: 'player2',
+  name: 'Christian McCaffrey',
+  position: 'RB',
+  nflTeam: 'SF',
+  points: 245.8,
+  avgPoints: 18.9,
+  status: 'rostered',
+  rosteredBy: 'Galactic Gladiators',
+  rosteredByOwner: 'John Doe',
+  injuryStatus: 'IR',
+  gamesPlayed: 13,
+  projectedPoints: 0
+},
+{
+  id: 'player3',
+  name: 'Tyreek Hill',
+  position: 'WR',
+  nflTeam: 'MIA',
+  points: 198.2,
+  avgPoints: 15.2,
+  status: 'rostered',
+  rosteredBy: 'Space Vikings',
+  rosteredByOwner: 'Jane Smith',
+  injuryStatus: null,
+  gamesPlayed: 13,
+  projectedPoints: 16.4
+},
+{
+  id: 'player4',
+  name: 'Saquon Barkley',
+  position: 'RB',
+  nflTeam: 'PHI',
+  points: 234.6,
+  avgPoints: 18.0,
+  status: 'free_agent',
+  rosteredBy: null,
+  rosteredByOwner: null,
+  injuryStatus: null,
+  gamesPlayed: 13,
+  projectedPoints: 18.5
+},
+{
+  id: 'player5',
+  name: 'Cooper Kupp',
+  position: 'WR',
+  nflTeam: 'LAR',
+  points: 156.8,
+  avgPoints: 14.2,
+  status: 'rostered',
+  rosteredBy: 'Meteor Crushers',
+  rosteredByOwner: 'Bob Johnson',
+  injuryStatus: 'Q',
+  gamesPlayed: 11,
+  projectedPoints: 15.8
+},
+{
+  id: 'player6',
+  name: 'Travis Kelce',
+  position: 'TE',
+  nflTeam: 'KC',
+  points: 189.4,
+  avgPoints: 14.6,
+  status: 'rostered',
+  rosteredBy: 'Nebula Warriors',
+  rosteredByOwner: 'Sarah Wilson',
+  injuryStatus: null,
+  gamesPlayed: 13,
+  projectedPoints: 15.2
+},
+{
+  id: 'player7',
+  name: 'Myles Garrett',
+  position: 'DL',
+  nflTeam: 'CLE',
+  points: 98.5,
+  avgPoints: 7.6,
+  status: 'rostered',
+  rosteredBy: 'Cosmic Defenders',
+  rosteredByOwner: 'Mike Davis',
+  injuryStatus: null,
+  gamesPlayed: 13,
+  projectedPoints: 8.1
+},
+{
+  id: 'player8',
+  name: 'Micah Parsons',
+  position: 'LB',
+  nflTeam: 'DAL',
+  points: 112.8,
+  avgPoints: 8.7,
+  status: 'rostered',
+  rosteredBy: 'Star Destroyers',
+  rosteredByOwner: 'Lisa Brown',
+  injuryStatus: null,
+  gamesPlayed: 13,
+  projectedPoints: 9.2
+},
+{
+  id: 'player9',
+  name: 'Trevon Diggs',
+  position: 'DB',
+  nflTeam: 'DAL',
+  points: 87.3,
+  avgPoints: 6.7,
+  status: 'free_agent',
+  rosteredBy: null,
+  rosteredByOwner: null,
+  injuryStatus: null,
+  gamesPlayed: 13,
+  projectedPoints: 7.1
 }
-
-interface Team {
-  id: number;
-  team_name: string;
-  owner_name: string;
-  team_primary_color: string;
-  team_secondary_color: string;
-}
-
-interface Conference {
-  id: number;
-  conference_name: string;
-  league_id: string;
-}
-
-interface TeamConferenceJunction {
-  id: number;
-  team_id: number;
-  conference_id: number;
-  roster_id: string;
-  is_active: boolean;
-}
-
-interface PlayerTeamInfo {
-  team: Team;
-  conference: Conference;
-}
-
-interface SleeperRoster {
-  owner_id: string;
-  roster_id: number;
-  players: string[];
-}
-
-// RosterStatusInfo is now imported from playerRosterService
+// Add more mock players...
+];
 
 const PlayersPage: React.FC = () => {
   const { selectedSeason, selectedConference } = useApp();
-  const { toast } = useToast();
-
-  // Core data states
-  const [players, setPlayers] = useState<Player[]>([]);
-  const [teams, setTeams] = useState<Team[]>([]);
-  const [conferences, setConferences] = useState<Conference[]>([]);
-  const [teamConferenceJunctions, setTeamConferenceJunctions] = useState<TeamConferenceJunction[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  // Filter states
   const [searchTerm, setSearchTerm] = useState('');
-  const [nflTeamFilter, setNflTeamFilter] = useState<string>('all');
-  const [weekFilter, setWeekFilter] = useState<string>('14'); // Default to current week
-  const [freeAgentFilter, setFreeAgentFilter] = useState(false);
-  const [rookieFilter, setRookieFilter] = useState(false);
+  const [positionFilter, setPositionFilter] = useState<string>('all');
+  const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [sortConfig, setSortConfig] = useState<{key: string;direction: 'asc' | 'desc';} | null>(null);
 
-  // Modal states
-  const [selectedPlayer, setSelectedPlayer] = useState<Player | null>(null);
-  const [isModalOpen, setIsModalOpen] = useState(false);
+  const positions = ['QB', 'RB', 'WR', 'TE', 'K', 'DEF', 'DL', 'LB', 'DB'];
+  const offensePositions = ['QB', 'RB', 'WR', 'TE'];
+  const defensePositions = ['DEF', 'DL', 'LB', 'DB'];
 
-  // Performance monitoring state
-  const [showMetrics, setShowMetrics] = useState(false);
+  // Filter players based on search term and filters
+  const filteredPlayers = mockPlayersData.filter((player) => {
+    const searchMatch = searchTerm === '' ||
+    player.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    player.nflTeam.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    player.rosteredBy && player.rosteredBy.toLowerCase().includes(searchTerm.toLowerCase());
 
-  // Enhanced roster caching with React Query
-  const {
-    data: rosterData,
-    isLoading: isRosterLoading,
-    isError: isRosterError,
-    isFetching: isRosterFetching,
-    refetch: refetchRoster,
-    invalidate: invalidateRoster,
-    getRosterStatus,
-    metrics: rosterMetrics
-  } = usePlayerRosterCache(conferences, {
-    enabled: conferences.length > 0,
-    refetchInterval: 5 * 60 * 1000, // 5 minutes
-    staleTime: 2 * 60 * 1000, // 2 minutes
-    retry: 3
+    const positionMatch = positionFilter === 'all' ||
+    player.position === positionFilter ||
+    positionFilter === 'offense' && offensePositions.includes(player.position) ||
+    positionFilter === 'defense' && defensePositions.includes(player.position);
+    const statusMatch = statusFilter === 'all' || player.status === statusFilter;
+
+    return searchMatch && positionMatch && statusMatch;
   });
 
-  // Cache metrics for debugging
-  const { metrics: detailedMetrics, clearAllCaches } = useRosterCacheMetrics();
+  const handleSort = (key: string) => {
+    let direction: 'asc' | 'desc' = 'desc';
+    if (sortConfig && sortConfig.key === key && sortConfig.direction === 'desc') {
+      direction = 'asc';
+    }
+    setSortConfig({ key, direction });
+  };
 
-  // NFL teams for the filter dropdown
-  const nflTeams = [
-  'ARI', 'ATL', 'BAL', 'BUF', 'CAR', 'CHI', 'CIN', 'CLE', 'DAL', 'DEN',
-  'DET', 'GB', 'HOU', 'IND', 'JAX', 'KC', 'LV', 'LAC', 'LAR', 'MIA',
-  'MIN', 'NE', 'NO', 'NYG', 'NYJ', 'PHI', 'PIT', 'SF', 'SEA', 'TB',
-  'TEN', 'WSH'];
+  const sortedPlayers = React.useMemo(() => {
+    let sortablePlayers = [...filteredPlayers];
+    if (sortConfig !== null) {
+      sortablePlayers.sort((a, b) => {
+        const aValue = (a as any)[sortConfig.key];
+        const bValue = (b as any)[sortConfig.key];
 
-
-  // Weeks for the filter dropdown
-  const weeks = Array.from({ length: 18 }, (_, i) => i + 1);
-
-  useEffect(() => {
-    fetchAllData();
-  }, []);
-
-  // Show toast notifications for roster data updates
-  useEffect(() => {
-    if (isRosterError) {
-      toast({
-        title: 'Roster Data Error',
-        description: 'Failed to load live roster data. Showing cached data if available.',
-        variant: 'destructive'
+        if (aValue < bValue) {
+          return sortConfig.direction === 'asc' ? -1 : 1;
+        }
+        if (aValue > bValue) {
+          return sortConfig.direction === 'asc' ? 1 : -1;
+        }
+        return 0;
       });
     }
-  }, [isRosterError, toast]);
-
-  // Show success toast when roster data is successfully loaded
-  useEffect(() => {
-    if (rosterData && !isRosterLoading && !isRosterFetching) {
-      const playerCount = Object.keys(rosterData).length;
-      if (playerCount > 0) {
-        console.log(`✅ Roster data loaded: ${playerCount} players tracked`);
-      }
-    }
-  }, [rosterData, isRosterLoading, isRosterFetching]);
-
-  const fetchAllData = async () => {
-    try {
-      setLoading(true);
-
-      // Fetch all data in parallel
-      const [playersResponse, teamsResponse, conferencesResponse, junctionsResponse] = await Promise.all([
-      // Fetch players
-      window.ezsite.apis.tablePage(12870, {
-        PageNo: 1,
-        PageSize: 1000,
-        OrderByField: 'player_name',
-        IsAsc: true,
-        Filters: [{
-          name: 'status',
-          op: 'Equal',
-          value: 'Active'
-        }]
-      }),
-      // Fetch teams
-      window.ezsite.apis.tablePage(12852, {
-        PageNo: 1,
-        PageSize: 1000,
-        OrderByField: 'team_name',
-        IsAsc: true,
-        Filters: []
-      }),
-      // Fetch conferences
-      window.ezsite.apis.tablePage(12820, {
-        PageNo: 1,
-        PageSize: 100,
-        OrderByField: 'conference_name',
-        IsAsc: true,
-        Filters: []
-      }),
-      // Fetch team-conference junctions
-      window.ezsite.apis.tablePage(12853, {
-        PageNo: 1,
-        PageSize: 1000,
-        OrderByField: 'id',
-        IsAsc: true,
-        Filters: [{
-          name: 'is_active',
-          op: 'Equal',
-          value: true
-        }]
-      })]
-      );
-
-      // Check for errors
-      if (playersResponse.error) throw playersResponse.error;
-      if (teamsResponse.error) throw teamsResponse.error;
-      if (conferencesResponse.error) throw conferencesResponse.error;
-      if (junctionsResponse.error) throw junctionsResponse.error;
-
-      // Filter for offensive positions only (QB, RB, WR, TE)
-      const offensivePlayers = playersResponse.data.List.filter((player: Player) =>
-      ['QB', 'RB', 'WR', 'TE'].includes(player.position)
-      );
-
-      setPlayers(offensivePlayers);
-      setTeams(teamsResponse.data.List);
-      setConferences(conferencesResponse.data.List);
-      setTeamConferenceJunctions(junctionsResponse.data.List);
-
-      // Debug logging to help identify the issue
-      console.log('Loaded data summary:');
-      console.log(`- Players: ${offensivePlayers.length}`);
-      console.log(`- Teams: ${teamsResponse.data.List.length}`);
-      console.log(`- Conferences: ${conferencesResponse.data.List.length}`);
-      console.log(`- Team-Conference Junctions: ${junctionsResponse.data.List.length}`);
-
-      // Sample data for debugging
-      console.log('Sample team data:', teamsResponse.data.List.slice(0, 3));
-      console.log('Sample conference data:', conferencesResponse.data.List);
-      console.log('Sample junction data:', junctionsResponse.data.List.slice(0, 5));
-
-      // Check for players with team assignments
-      const rosteredPlayersCount = offensivePlayers.filter((p) => p.team_id !== 0).length;
-      console.log(`Players with team assignments: ${rosteredPlayersCount}/${offensivePlayers.length}`);
-
-    } catch (error) {
-      console.error('Error fetching data:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to load player data. Please try again.',
-        variant: 'destructive'
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Removed old fetchSleeperRosterData - now handled by PlayerRosterService
-
-  // Enhanced roster status function with caching
-  const getSleeperRosterStatus = useCallback((sleeperPlayerId: string): RosterStatusInfo => {
-    return getRosterStatus(sleeperPlayerId);
-  }, [getRosterStatus]);
-
-  // Function to get team and conference info for a player
-  const getPlayerTeamInfo = (playerId: number, teamId: number): PlayerTeamInfo[] => {
-    // Handle free agents (team_id = 0 or no team found)
-    if (teamId === 0) return [];
-
-    const team = teams.find((t) => t.id === teamId);
-    if (!team) {
-      console.log(`Warning: Player ${playerId} has team_id ${teamId} but no matching team found`);
-      return [];
-    }
-
-    // Find all conferences this team is active in
-    const activeJunctions = teamConferenceJunctions.filter(
-      (junction) => junction.team_id === teamId && junction.is_active
-    );
-
-    if (activeJunctions.length === 0) {
-      console.log(`Warning: Team ${team.team_name} (ID: ${teamId}) is not active in any conferences`);
-      return [];
-    }
-
-    return activeJunctions.map((junction) => {
-      const conference = conferences.find((c) => c.id === junction.conference_id);
-      if (!conference) {
-        console.log(`Warning: Junction references conference ID ${junction.conference_id} but conference not found`);
-        return null;
-      }
-      return {
-        team,
-        conference
-      };
-    }).filter((info): info is PlayerTeamInfo => info !== null);
-  };
-
-  // Function to get conference color for badges
-  const getConferenceColor = (conferenceName: string) => {
-    switch (conferenceName) {
-      case 'The Legions of Mars':
-        return 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200';
-      case 'The Guardians of Jupiter':
-        return 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200';
-      case "Vulcan's Oathsworn":
-        return 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200';
-      default:
-        return 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200';
-    }
-  };
-
-  const filteredPlayers = useMemo(() => {
-    return players.filter((player) => {
-      // Search filter
-      const searchMatch = searchTerm === '' ||
-      player.player_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      player.nfl_team.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      player.college.toLowerCase().includes(searchTerm.toLowerCase());
-
-      // NFL team filter
-      const nflTeamMatch = nflTeamFilter === 'all' || player.nfl_team === nflTeamFilter;
-
-      // Free agent filter - check Sleeper data first, then fallback to database
-      const sleeperStatus = getSleeperRosterStatus(player.sleeper_player_id);
-      const isActuallyFreeAgent = !sleeperStatus.isRostered && getPlayerTeamInfo(player.id, player.team_id).length === 0;
-      const freeAgentMatch = !freeAgentFilter || isActuallyFreeAgent;
-
-      // Rookie filter
-      const rookieMatch = !rookieFilter || player.years_experience <= 1;
-
-      return searchMatch && nflTeamMatch && freeAgentMatch && rookieMatch;
-    });
-  }, [players, searchTerm, nflTeamFilter, freeAgentFilter, rookieFilter]);
+    return sortablePlayers;
+  }, [filteredPlayers, sortConfig]);
 
   const getPositionColor = (position: string) => {
     switch (position) {
@@ -322,504 +200,237 @@ const PlayersPage: React.FC = () => {
       case 'RB':return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200';
       case 'WR':return 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200';
       case 'TE':return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200';
+      case 'K':return 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200';
+      case 'DEF':return 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200';
+      case 'DL':return 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200';
+      case 'LB':return 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-200';
+      case 'DB':return 'bg-teal-100 text-teal-800 dark:bg-teal-900 dark:text-teal-200';
       default:return 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200';
     }
   };
 
-  const getInjuryStatusColor = (status: string) => {
-    switch (status) {
-      case 'Healthy':return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200';
-      case 'Questionable':return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200';
-      case 'Doubtful':return 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200';
-      case 'Out':return 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200';
-      case 'IR':return 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200';
-      default:return 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200';
+  const getStatusBadge = (status: string, injuryStatus: string | null) => {
+    if (injuryStatus) {
+      const variants: {[key: string]: string;} = {
+        'IR': 'destructive',
+        'O': 'destructive',
+        'D': 'destructive',
+        'Q': 'secondary',
+        'P': 'outline'
+      };
+      return <Badge variant={variants[injuryStatus] || 'outline'} className="text-xs">{injuryStatus}</Badge>;
     }
+
+    return status === 'free_agent' ?
+    <Badge variant="outline" className="text-xs">FA</Badge> :
+    <Badge variant="secondary" className="text-xs">Rostered</Badge>;
   };
-
-  // Moved to useCallback above
-
-  const clearFilters = useCallback(() => {
-    setSearchTerm('');
-    setNflTeamFilter('all');
-    setWeekFilter('14');
-    setFreeAgentFilter(false);
-    setRookieFilter(false);
-  }, []);
-
-  // Optimized handle player click with useCallback
-  const handlePlayerClick = useCallback((player: Player) => {
-    setSelectedPlayer(player);
-    setIsModalOpen(true);
-  }, []);
-
-  // Manual refresh function
-  const handleRefresh = useCallback(async () => {
-    try {
-      await refetchRoster();
-      toast({
-        title: 'Refreshed',
-        description: 'Roster data has been updated successfully.',
-        variant: 'default'
-      });
-    } catch (error) {
-      toast({
-        title: 'Refresh Failed',
-        description: 'Could not refresh roster data. Please try again.',
-        variant: 'destructive'
-      });
-    }
-  }, [refetchRoster, toast]);
-
-  // Cache clearing function
-  const handleClearCache = useCallback(() => {
-    clearAllCaches();
-    toast({
-      title: 'Cache Cleared',
-      description: 'All roster cache has been cleared and will be rebuilt.',
-      variant: 'default'
-    });
-  }, [clearAllCaches, toast]);
-
-  // Optimized stats calculation with memoization
-  const playerStats = useMemo(() => {
-    const freeAgents = filteredPlayers.filter((p) => {
-      const sleeperStatus = getSleeperRosterStatus(p.sleeper_player_id);
-      return !sleeperStatus.isRostered && getPlayerTeamInfo(p.id, p.team_id).length === 0;
-    });
-
-    const rookies = filteredPlayers.filter((p) => p.years_experience <= 1);
-    const injuredPlayers = filteredPlayers.filter((p) => p.injury_status !== 'Healthy');
-
-    const rosteredPlayers = filteredPlayers.filter((p) => {
-      const sleeperStatus = getSleeperRosterStatus(p.sleeper_player_id);
-      return sleeperStatus.isRostered || getPlayerTeamInfo(p.id, p.team_id).length > 0;
-    });
-
-    return {
-      freeAgents,
-      rookies,
-      injuredPlayers,
-      rosteredPlayers
-    };
-  }, [filteredPlayers, getSleeperRosterStatus, teams, teamConferenceJunctions, conferences]);
-
-  const { freeAgents, rookies, injuredPlayers, rosteredPlayers } = playerStats;
-
-  if (loading) {
-    return (
-      <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-2">
-            <User className="h-6 w-6 text-primary animate-pulse" />
-            <h1 className="text-3xl font-bold">Loading Players...</h1>
-          </div>
-          {isRosterFetching &&
-          <div className="flex items-center space-x-2 text-blue-600">
-              <RefreshCw className="h-4 w-4 animate-spin" />
-              <span className="text-sm">Syncing roster data...</span>
-            </div>
-          }
-        </div>
-        
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-          {Array.from({ length: 12 }).map((_, i) =>
-          <Card key={i} className="animate-pulse">
-              <CardContent className="p-4">
-                <div className="h-4 bg-gray-200 rounded mb-2"></div>
-                <div className="h-3 bg-gray-200 rounded mb-1"></div>
-                <div className="h-3 bg-gray-200 rounded w-2/3"></div>
-              </CardContent>
-            </Card>
-          )}
-        </div>
-      </div>);
-
-  }
 
   return (
     <div className="space-y-6">
       {/* Page Header */}
       <div className="flex flex-col space-y-2">
         <div className="flex items-center space-x-2">
-          <User className="h-6 w-6 text-primary" />
+          <UserCheck className="h-6 w-6 text-primary" />
           <h1 className="text-3xl font-bold">Players</h1>
         </div>
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
-          <p className="text-muted-foreground">
-            {selectedSeason} Season • Week {weekFilter} • {filteredPlayers.length} players
-            {isRosterFetching && <span className="ml-2 text-blue-600">• Updating roster data...</span>}
-            {rosterData &&
-            <span className="ml-2 text-green-600">
-                • {Object.keys(rosterData).length} players tracked
-              </span>
-            }
-          </p>
-          
-          {/* Performance Controls */}
-          <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleRefresh}
-              disabled={isRosterFetching}
-              className="flex items-center gap-1">
-
-              <RefreshCw className={`h-3 w-3 ${isRosterFetching ? 'animate-spin' : ''}`} />
-              Refresh
-            </Button>
-            
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setShowMetrics(!showMetrics)}
-              className="flex items-center gap-1">
-
-              <Zap className="h-3 w-3" />
-              Metrics
-            </Button>
-          </div>
-        </div>
-        
-        {/* Performance Metrics Panel */}
-        {showMetrics &&
-        <div className="mt-4 p-4 bg-muted/50 rounded-lg">
-            <h3 className="text-sm font-semibold mb-2">Performance Metrics</h3>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-xs">
-              <div>
-                <span className="text-muted-foreground">Cache Hit Rate:</span>
-                <div className="font-mono">
-                  {rosterMetrics.cacheHits + rosterMetrics.cacheMisses > 0 ?
-                `${(rosterMetrics.cacheHits / (rosterMetrics.cacheHits + rosterMetrics.cacheMisses) * 100).toFixed(1)}%` :
-                '0%'
-                }
-                </div>
-              </div>
-              <div>
-                <span className="text-muted-foreground">API Calls:</span>
-                <div className="font-mono">{rosterMetrics.apiCalls}</div>
-              </div>
-              <div>
-                <span className="text-muted-foreground">Avg Response:</span>
-                <div className="font-mono">{rosterMetrics.averageResponseTime.toFixed(0)}ms</div>
-              </div>
-              <div>
-                <span className="text-muted-foreground">Cache Size:</span>
-                <div className="font-mono">{rosterMetrics.cacheSize}</div>
-              </div>
-            </div>
-            <div className="mt-2">
-              <Button
-              variant="outline"
-              size="sm"
-              onClick={handleClearCache}
-              className="text-xs">
-
-                Clear Cache
-              </Button>
-            </div>
-          </div>
-        }
+        <p className="text-muted-foreground">
+          {selectedSeason} Season • {sortedPlayers.length} players
+        </p>
       </div>
 
       {/* Filters */}
-      <div className="space-y-4">
-        {/* Search and dropdowns */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {/* Search */}
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Search players, teams, college..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10" />
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* Search */}
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Search players, teams..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="pl-10" />
 
-          </div>
-
-          {/* NFL Team Filter */}
-          <Select value={nflTeamFilter} onValueChange={setNflTeamFilter}>
-            <SelectTrigger>
-              <SelectValue placeholder="All NFL Teams" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All NFL Teams</SelectItem>
-              {nflTeams.map((team) =>
-              <SelectItem key={team} value={team}>{team}</SelectItem>
-              )}
-            </SelectContent>
-          </Select>
-
-          {/* Week Filter */}
-          <Select value={weekFilter} onValueChange={setWeekFilter}>
-            <SelectTrigger>
-              <SelectValue placeholder="Select Week" />
-            </SelectTrigger>
-            <SelectContent>
-              {weeks.map((week) =>
-              <SelectItem key={week} value={week.toString()}>
-                  Week {week}
-                </SelectItem>
-              )}
-            </SelectContent>
-          </Select>
         </div>
 
-        {/* Checkboxes and Clear Button */}
-        <div className="flex flex-wrap items-center gap-4">
-          <div className="flex items-center space-x-2">
-            <Checkbox
-              id="freeAgent"
-              checked={freeAgentFilter}
-              onCheckedChange={setFreeAgentFilter} />
+        {/* Position Filter */}
+        <Select value={positionFilter} onValueChange={setPositionFilter}>
+          <SelectTrigger>
+            <SelectValue placeholder="All Positions" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Positions</SelectItem>
+            <SelectItem value="offense">All Offense (QB, RB, WR, TE)</SelectItem>
+            <SelectItem value="defense">All Defense (DEF, DL, LB, DB)</SelectItem>
+            {positions.map((pos) =>
+            <SelectItem key={pos} value={pos}>{pos}</SelectItem>
+            )}
+          </SelectContent>
+        </Select>
 
-            <label htmlFor="freeAgent" className="text-sm font-medium">
-              Free Agents Only
-            </label>
-          </div>
+        {/* Status Filter */}
+        <Select value={statusFilter} onValueChange={setStatusFilter}>
+          <SelectTrigger>
+            <SelectValue placeholder="All Status" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Status</SelectItem>
+            <SelectItem value="rostered">Rostered</SelectItem>
+            <SelectItem value="free_agent">Free Agent</SelectItem>
+          </SelectContent>
+        </Select>
 
-          <div className="flex items-center space-x-2">
-            <Checkbox
-              id="rookie"
-              checked={rookieFilter}
-              onCheckedChange={setRookieFilter} />
+        {/* Clear Filters */}
+        <Button
+          variant="outline"
+          onClick={() => {
+            setSearchTerm('');
+            setPositionFilter('all');
+            setStatusFilter('all');
+          }}
+          className="flex items-center space-x-2">
 
-            <label htmlFor="rookie" className="text-sm font-medium">
-              Rookies Only
-            </label>
-          </div>
-
-          <Button variant="outline" onClick={clearFilters} className="flex items-center space-x-2">
-            <Filter className="h-4 w-4" />
-            <span>Clear Filters</span>
-          </Button>
-        </div>
+          <Filter className="h-4 w-4" />
+          <span>Clear Filters</span>
+        </Button>
       </div>
 
       {/* Summary Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card>
           <CardHeader className="pb-2">
-            <CardDescription className="flex items-center space-x-1">
-              <Users className="h-4 w-4" />
-              <span>Total Players</span>
-            </CardDescription>
-            <CardTitle className="text-2xl">{filteredPlayers.length}</CardTitle>
+            <CardDescription>Total Players</CardDescription>
+            <CardTitle className="text-2xl">{sortedPlayers.length}</CardTitle>
           </CardHeader>
         </Card>
         
         <Card>
           <CardHeader className="pb-2">
-            <CardDescription className="flex items-center space-x-1">
-              <Shield className="h-4 w-4" />
-              <span>Rostered</span>
-            </CardDescription>
-            <CardTitle className="text-2xl">{rosteredPlayers.length}</CardTitle>
-          </CardHeader>
-        </Card>
-        
-        <Card>
-          <CardHeader className="pb-2">
-            <CardDescription className="flex items-center space-x-1">
-              <User className="h-4 w-4" />
-              <span>Free Agents</span>
-            </CardDescription>
-            <CardTitle className="text-2xl">{freeAgents.length}</CardTitle>
+            <CardDescription>Free Agents</CardDescription>
+            <CardTitle className="text-2xl">
+              {sortedPlayers.filter((p) => p.status === 'free_agent').length}
+            </CardTitle>
           </CardHeader>
         </Card>
 
         <Card>
           <CardHeader className="pb-2">
-            <CardDescription className="flex items-center space-x-1">
-              <Activity className="h-4 w-4" />
-              <span>Rookies</span>
-            </CardDescription>
-            <CardTitle className="text-2xl">{rookies.length}</CardTitle>
+            <CardDescription>Injured Players</CardDescription>
+            <CardTitle className="text-2xl">
+              {sortedPlayers.filter((p) => p.injuryStatus).length}
+            </CardTitle>
           </CardHeader>
         </Card>
 
         <Card>
           <CardHeader className="pb-2">
-            <CardDescription className="flex items-center space-x-1">
-              <Heart className="h-4 w-4" />
-              <span>Injured</span>
-            </CardDescription>
-            <CardTitle className="text-2xl">{injuredPlayers.length}</CardTitle>
+            <CardDescription>Avg Points/Game</CardDescription>
+            <CardTitle className="text-2xl">
+              {sortedPlayers.length > 0 ?
+              (sortedPlayers.reduce((sum, p) => sum + p.avgPoints, 0) / sortedPlayers.length).toFixed(1) :
+              '0.0'
+              }
+            </CardTitle>
           </CardHeader>
         </Card>
       </div>
 
-      {/* Players Grid */}
-      {filteredPlayers.length > 0 ?
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-          {filteredPlayers.map((player) =>
-        <Card
-          key={player.id}
-          className="hover:shadow-md transition-shadow cursor-pointer group"
-          onClick={() => handlePlayerClick(player)}>
-
-              <CardContent className="p-4">
-                <div className="space-y-3">
-                  {/* Player Header */}
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1 min-w-0">
-                      <h3 className="font-semibold text-sm truncate group-hover:text-primary transition-colors">
-                        {player.player_name}
-                      </h3>
-                      <p className="text-xs text-muted-foreground">
-                        {player.nfl_team} • #{player.jersey_number}
-                      </p>
-                    </div>
-                    <Badge className={getPositionColor(player.position)} variant="secondary">
-                      {player.position}
-                    </Badge>
-                  </div>
-
-                  {/* Player Details */}
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between text-xs">
-                      <span className="text-muted-foreground">Age:</span>
-                      <span>{player.age}</span>
-                    </div>
-                    <div className="flex items-center justify-between text-xs">
-                      <span className="text-muted-foreground">Experience:</span>
-                      <span>{player.years_experience} yr{player.years_experience !== 1 ? 's' : ''}</span>
-                    </div>
-                    <div className="flex items-center justify-between text-xs">
-                      <span className="text-muted-foreground">College:</span>
-                      <span className="truncate ml-2">{player.college}</span>
-                    </div>
-                  </div>
-
-                  {/* Roster Status Info */}
-                  <div className="space-y-2">
-                    {(() => {
-                  // Get Sleeper roster status first
-                  const sleeperStatus = getSleeperRosterStatus(player.sleeper_player_id);
-
-                  // If Sleeper data shows player is rostered, use that
-                  if (sleeperStatus.isRostered && sleeperStatus.team && sleeperStatus.conference) {
-                    return (
-                      <div className="space-y-1">
-                            <div className="flex items-center space-x-1 text-xs text-muted-foreground">
-                              <Shield className="h-3 w-3 text-blue-600" />
-                              <span>Rostered by:</span>
-                              {isRosterFetching && <span className="text-xs">(updating...)</span>}
-                            </div>
-                            <div className="flex items-center justify-between">
-                              <span className="text-xs font-medium truncate" title={sleeperStatus.team.team_name}>
-                                {sleeperStatus.team.team_name}
-                              </span>
-                              <Badge
-                            variant="outline"
-                            size="sm"
-                            className={getConferenceColor(sleeperStatus.conference.conference_name)}
-                            title={sleeperStatus.conference.conference_name}>
-
-                                {sleeperStatus.conference.conference_name.includes('Mars') ? 'MARS' :
-                            sleeperStatus.conference.conference_name.includes('Jupiter') ? 'JUPITER' : 'VULCAN'}
-                              </Badge>
-                            </div>
-                          </div>);
-
-                  }
-
-                  // Fallback to database info if Sleeper data not available
-                  const teamInfo = getPlayerTeamInfo(player.id, player.team_id);
-
-                  if (teamInfo.length === 0) {
-                    return (
-                      <div className="flex items-center space-x-1">
-                            <Shield className="h-3 w-3 text-green-600" />
-                            <Badge variant="outline" size="sm" className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
-                              Free Agent
-                            </Badge>
-                            {isRosterFetching && <span className="text-xs text-muted-foreground">(checking...)</span>}
-                          </div>);
-
-                  }
-
-                  return (
-                    <div className="space-y-1">
-                          <div className="flex items-center space-x-1 text-xs text-muted-foreground">
-                            <Shield className="h-3 w-3" />
-                            <span>Rostered by (DB):</span>
-                          </div>
-                          {teamInfo.map((info, index) =>
-                      <div key={index} className="flex items-center justify-between">
-                              <span className="text-xs font-medium truncate" title={info.team.team_name}>
-                                {info.team.team_name}
-                              </span>
-                              <Badge
-                          variant="outline"
-                          size="sm"
-                          className={getConferenceColor(info.conference.conference_name)}
-                          title={info.conference.conference_name}>
-
-                                {info.conference.conference_name.includes('Mars') ? 'MARS' :
-                          info.conference.conference_name.includes('Jupiter') ? 'JUPITER' : 'VULCAN'}
-                              </Badge>
-                            </div>
-                      )}
-                        </div>);
-
-                })()}
-                  </div>
-
-                  {/* Status Badges */}
-                  <div className="flex flex-wrap gap-1">
-                    <Badge
-                  className={getInjuryStatusColor(player.injury_status)}
-                  variant="outline"
-                  size="sm">
-                      {player.injury_status}
-                    </Badge>
-                    {player.years_experience <= 1 &&
-                <Badge variant="outline" size="sm" className="bg-purple-100 text-purple-800">
-                        ROO
+      {/* Players Table */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Player Database</CardTitle>
+          <CardDescription>
+            Click column headers to sort. Click player names for detailed stats.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="rounded-md border">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>
+                    <Button variant="ghost" size="sm" onClick={() => handleSort('name')}>
+                      Player <ArrowUpDown className="ml-1 h-3 w-3" />
+                    </Button>
+                  </TableHead>
+                  <TableHead>
+                    <Button variant="ghost" size="sm" onClick={() => handleSort('position')}>
+                      Pos <ArrowUpDown className="ml-1 h-3 w-3" />
+                    </Button>
+                  </TableHead>
+                  <TableHead className="hidden sm:table-cell">NFL Team</TableHead>
+                  <TableHead className="text-right">
+                    <Button variant="ghost" size="sm" onClick={() => handleSort('points')}>
+                      Points <ArrowUpDown className="ml-1 h-3 w-3" />
+                    </Button>
+                  </TableHead>
+                  <TableHead className="text-right hidden md:table-cell">
+                    <Button variant="ghost" size="sm" onClick={() => handleSort('avgPoints')}>
+                      Avg <ArrowUpDown className="ml-1 h-3 w-3" />
+                    </Button>
+                  </TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead className="hidden lg:table-cell">Rostered By</TableHead>
+                  <TableHead className="w-10"></TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {sortedPlayers.map((player) =>
+                <TableRow key={player.id} className="hover:bg-muted/50">
+                    <TableCell>
+                      <div className="font-medium">{player.name}</div>
+                      <div className="text-sm text-muted-foreground sm:hidden">
+                        {player.nflTeam}
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <Badge className={getPositionColor(player.position)}>
+                        {player.position}
                       </Badge>
-                }
-                    {player.depth_chart_position === 1 &&
-                <Badge variant="outline" size="sm" className="bg-blue-100 text-blue-800">
-                        ST
-                      </Badge>
-                }
-                  </div>
+                    </TableCell>
+                    <TableCell className="hidden sm:table-cell">{player.nflTeam}</TableCell>
+                    <TableCell className="text-right font-mono">
+                      {player.points.toFixed(1)}
+                    </TableCell>
+                    <TableCell className="text-right font-mono hidden md:table-cell">
+                      {player.avgPoints.toFixed(1)}
+                    </TableCell>
+                    <TableCell>
+                      {getStatusBadge(player.status, player.injuryStatus)}
+                    </TableCell>
+                    <TableCell className="hidden lg:table-cell">
+                      {player.rosteredBy ?
+                    <div>
+                          <div className="text-sm font-medium">{player.rosteredBy}</div>
+                          <div className="text-xs text-muted-foreground">{player.rosteredByOwner}</div>
+                        </div> :
 
-                  {/* Week Info */}
-                  <div className="pt-2 border-t border-muted/20">
-                    <div className="flex items-center space-x-1 text-xs text-muted-foreground">
-                      <Clock className="h-3 w-3" />
-                      <span>Week {weekFilter} vs Opponent</span>
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-        )}
-        </div> :
+                    <span className="text-muted-foreground text-sm">Free Agent</span>
+                    }
+                    </TableCell>
+                    <TableCell>
+                      <Link to={`/players/${player.id}`}>
+                        <Button variant="ghost" size="sm">
+                          <ExternalLink className="h-4 w-4" />
+                        </Button>
+                      </Link>
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </div>
 
-      <div className="text-center py-12">
-          <User className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-          <h3 className="text-lg font-semibold mb-2">No players found</h3>
-          <p className="text-muted-foreground mb-4">
-            No players match your current search criteria.
-          </p>
-          <Button onClick={clearFilters} variant="outline">
-            Clear all filters
-          </Button>
-        </div>
-      }
-
-      {/* Player Detail Modal */}
-      <PlayerDetailModal
-        player={selectedPlayer}
-        isOpen={isModalOpen}
-        onClose={() => {
-          setIsModalOpen(false);
-          setSelectedPlayer(null);
-        }} />
-
+          {sortedPlayers.length === 0 &&
+          <div className="text-center py-8">
+              <UserCheck className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+              <h3 className="text-lg font-semibold mb-2">No players found</h3>
+              <p className="text-muted-foreground">
+                No players match your current search criteria.
+              </p>
+            </div>
+          }
+        </CardContent>
+      </Card>
     </div>);
 
 };
