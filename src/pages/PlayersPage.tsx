@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -6,9 +6,11 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
 import { useApp } from '@/contexts/AppContext';
-import { Search, Filter, User, Users, Heart, Activity, Clock, Shield } from 'lucide-react';
+import { Search, Filter, User, Users, Heart, Activity, Clock, Shield, RefreshCw, Zap } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import PlayerDetailModal from '@/components/PlayerDetailModal';
+import { usePlayerRosterCache, useRosterCacheMetrics } from '@/hooks/usePlayerRosterCache';
+import { RosterStatusInfo } from '@/services/playerRosterService';
 
 interface Player {
   id: number;
@@ -61,31 +63,52 @@ interface SleeperRoster {
   players: string[];
 }
 
-interface RosterStatusInfo {
-  isRostered: boolean;
-  team?: Team;
-  conference?: Conference;
-  rosterId?: string;
-}
+// RosterStatusInfo is now imported from playerRosterService
 
 const PlayersPage: React.FC = () => {
   const { selectedSeason, selectedConference } = useApp();
   const { toast } = useToast();
 
+  // Core data states
   const [players, setPlayers] = useState<Player[]>([]);
   const [teams, setTeams] = useState<Team[]>([]);
   const [conferences, setConferences] = useState<Conference[]>([]);
   const [teamConferenceJunctions, setTeamConferenceJunctions] = useState<TeamConferenceJunction[]>([]);
   const [loading, setLoading] = useState(true);
+  
+  // Filter states
   const [searchTerm, setSearchTerm] = useState('');
   const [nflTeamFilter, setNflTeamFilter] = useState<string>('all');
   const [weekFilter, setWeekFilter] = useState<string>('14'); // Default to current week
   const [freeAgentFilter, setFreeAgentFilter] = useState(false);
   const [rookieFilter, setRookieFilter] = useState(false);
+  
+  // Modal states
   const [selectedPlayer, setSelectedPlayer] = useState<Player | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [sleeperRosterData, setSleeperRosterData] = useState<Map<string, RosterStatusInfo>>(new Map());
-  const [loadingRosterData, setLoadingRosterData] = useState(false);
+  
+  // Performance monitoring state
+  const [showMetrics, setShowMetrics] = useState(false);
+  
+  // Enhanced roster caching with React Query
+  const {
+    data: rosterData,
+    isLoading: isRosterLoading,
+    isError: isRosterError,
+    isFetching: isRosterFetching,
+    refetch: refetchRoster,
+    invalidate: invalidateRoster,
+    getRosterStatus,
+    metrics: rosterMetrics
+  } = usePlayerRosterCache(conferences, {
+    enabled: conferences.length > 0,
+    refetchInterval: 5 * 60 * 1000, // 5 minutes
+    staleTime: 2 * 60 * 1000, // 2 minutes
+    retry: 3
+  });
+  
+  // Cache metrics for debugging
+  const { metrics: detailedMetrics, clearAllCaches } = useRosterCacheMetrics();
 
   // NFL teams for the filter dropdown
   const nflTeams = [
@@ -102,12 +125,26 @@ const PlayersPage: React.FC = () => {
     fetchAllData();
   }, []);
 
+  // Show toast notifications for roster data updates
   useEffect(() => {
-    // Fetch Sleeper roster data after other data is loaded
-    if (conferences.length > 0 && teams.length > 0 && teamConferenceJunctions.length > 0) {
-      fetchSleeperRosterData();
+    if (isRosterError) {
+      toast({
+        title: 'Roster Data Error',
+        description: 'Failed to load live roster data. Showing cached data if available.',
+        variant: 'destructive'
+      });
     }
-  }, [conferences, teams, teamConferenceJunctions]);
+  }, [isRosterError, toast]);
+
+  // Show success toast when roster data is successfully loaded
+  useEffect(() => {
+    if (rosterData && !isRosterLoading && !isRosterFetching) {
+      const playerCount = Object.keys(rosterData).length;
+      if (playerCount > 0) {
+        console.log(`✅ Roster data loaded: ${playerCount} players tracked`);
+      }
+    }
+  }, [rosterData, isRosterLoading, isRosterFetching]);
 
   const fetchAllData = async () => {
     try {
@@ -201,83 +238,12 @@ const PlayersPage: React.FC = () => {
     }
   };
 
-  const fetchSleeperRosterData = async () => {
-    try {
-      setLoadingRosterData(true);
-      console.log('Fetching Sleeper roster data for', conferences.length, 'conferences');
-      
-      // Create a map to store player roster status
-      const rosterStatusMap = new Map<string, RosterStatusInfo>();
-      
-      // Fetch roster data for all conferences
-      const rosterPromises = conferences.map(async (conference) => {
-        try {
-          console.log(`Fetching rosters for conference: ${conference.conference_name} (${conference.league_id})`);
-          const response = await fetch(`https://api.sleeper.app/v1/league/${conference.league_id}/rosters`);
-          
-          if (!response.ok) {
-            console.error(`Failed to fetch rosters for conference ${conference.conference_name}:`, response.statusText);
-            return;
-          }
-          
-          const rosters: SleeperRoster[] = await response.json();
-          console.log(`Found ${rosters.length} rosters for ${conference.conference_name}`);
-          
-          // Process each roster
-          rosters.forEach((roster) => {
-            // Find the team associated with this roster
-            const junction = teamConferenceJunctions.find(
-              (j) => j.conference_id === conference.id && j.roster_id === roster.roster_id.toString()
-            );
-            
-            if (junction) {
-              const team = teams.find((t) => t.id === junction.team_id);
-              
-              if (team) {
-                // Mark all players in this roster as rostered
-                roster.players?.forEach((playerId) => {
-                  rosterStatusMap.set(playerId, {
-                    isRostered: true,
-                    team,
-                    conference,
-                    rosterId: roster.roster_id.toString()
-                  });
-                });
-              } else {
-                console.warn(`No team found for junction with team_id ${junction.team_id}`);
-              }
-            } else {
-              console.warn(`No junction found for roster_id ${roster.roster_id} in conference ${conference.conference_name}`);
-            }
-          });
-        } catch (error) {
-          console.error(`Error fetching rosters for conference ${conference.conference_name}:`, error);
-        }
-      });
-      
-      // Wait for all roster data to be fetched
-      await Promise.all(rosterPromises);
-      
-      console.log(`Roster status map populated with ${rosterStatusMap.size} player entries`);
-      setSleeperRosterData(rosterStatusMap);
-      
-    } catch (error) {
-      console.error('Error fetching Sleeper roster data:', error);
-      toast({
-        title: 'Warning',
-        description: 'Could not fetch live roster data from Sleeper. Showing database status only.',
-        variant: 'default'
-      });
-    } finally {
-      setLoadingRosterData(false);
-    }
-  };
+  // Removed old fetchSleeperRosterData - now handled by PlayerRosterService
 
-  // Function to get roster status from Sleeper API data
-  const getSleeperRosterStatus = (sleeperPlayerId: string): RosterStatusInfo => {
-    const rosterInfo = sleeperRosterData.get(sleeperPlayerId);
-    return rosterInfo || { isRostered: false };
-  };
+  // Enhanced roster status function with caching
+  const getSleeperRosterStatus = useCallback((sleeperPlayerId: string): RosterStatusInfo => {
+    return getRosterStatus(sleeperPlayerId);
+  }, [getRosterStatus]);
 
   // Function to get team and conference info for a player
   const getPlayerTeamInfo = (playerId: number, teamId: number): PlayerTeamInfo[] => {
@@ -371,40 +337,91 @@ const PlayersPage: React.FC = () => {
     }
   };
 
-  const handlePlayerClick = (player: Player) => {
-    setSelectedPlayer(player);
-    setIsModalOpen(true);
-  };
+  // Moved to useCallback above
 
-  const clearFilters = () => {
+  const clearFilters = useCallback(() => {
     setSearchTerm('');
     setNflTeamFilter('all');
     setWeekFilter('14');
     setFreeAgentFilter(false);
     setRookieFilter(false);
-  };
+  }, []);
 
-  // Updated stats to use Sleeper data when available
-  const freeAgents = filteredPlayers.filter((p) => {
-    const sleeperStatus = getSleeperRosterStatus(p.sleeper_player_id);
-    return !sleeperStatus.isRostered && getPlayerTeamInfo(p.id, p.team_id).length === 0;
-  });
-  
-  const rookies = filteredPlayers.filter((p) => p.years_experience <= 1);
-  const injuredPlayers = filteredPlayers.filter((p) => p.injury_status !== 'Healthy');
-  
-  const rosteredPlayers = filteredPlayers.filter((p) => {
-    const sleeperStatus = getSleeperRosterStatus(p.sleeper_player_id);
-    return sleeperStatus.isRostered || getPlayerTeamInfo(p.id, p.team_id).length > 0;
-  });
+  // Optimized handle player click with useCallback
+  const handlePlayerClick = useCallback((player: Player) => {
+    setSelectedPlayer(player);
+    setIsModalOpen(true);
+  }, []);
+
+  // Manual refresh function
+  const handleRefresh = useCallback(async () => {
+    try {
+      await refetchRoster();
+      toast({
+        title: 'Refreshed',
+        description: 'Roster data has been updated successfully.',
+        variant: 'default'
+      });
+    } catch (error) {
+      toast({
+        title: 'Refresh Failed',
+        description: 'Could not refresh roster data. Please try again.',
+        variant: 'destructive'
+      });
+    }
+  }, [refetchRoster, toast]);
+
+  // Cache clearing function
+  const handleClearCache = useCallback(() => {
+    clearAllCaches();
+    toast({
+      title: 'Cache Cleared',
+      description: 'All roster cache has been cleared and will be rebuilt.',
+      variant: 'default'
+    });
+  }, [clearAllCaches, toast]);
+
+  // Optimized stats calculation with memoization
+  const playerStats = useMemo(() => {
+    const freeAgents = filteredPlayers.filter((p) => {
+      const sleeperStatus = getSleeperRosterStatus(p.sleeper_player_id);
+      return !sleeperStatus.isRostered && getPlayerTeamInfo(p.id, p.team_id).length === 0;
+    });
+
+    const rookies = filteredPlayers.filter((p) => p.years_experience <= 1);
+    const injuredPlayers = filteredPlayers.filter((p) => p.injury_status !== 'Healthy');
+
+    const rosteredPlayers = filteredPlayers.filter((p) => {
+      const sleeperStatus = getSleeperRosterStatus(p.sleeper_player_id);
+      return sleeperStatus.isRostered || getPlayerTeamInfo(p.id, p.team_id).length > 0;
+    });
+
+    return {
+      freeAgents,
+      rookies,
+      injuredPlayers,
+      rosteredPlayers
+    };
+  }, [filteredPlayers, getSleeperRosterStatus, teams, teamConferenceJunctions, conferences]);
+
+  const { freeAgents, rookies, injuredPlayers, rosteredPlayers } = playerStats;
 
   if (loading) {
     return (
       <div className="space-y-6">
-        <div className="flex items-center space-x-2">
-          <User className="h-6 w-6 text-primary animate-pulse" />
-          <h1 className="text-3xl font-bold">Loading Players...</h1>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-2">
+            <User className="h-6 w-6 text-primary animate-pulse" />
+            <h1 className="text-3xl font-bold">Loading Players...</h1>
+          </div>
+          {isRosterFetching && (
+            <div className="flex items-center space-x-2 text-blue-600">
+              <RefreshCw className="h-4 w-4 animate-spin" />
+              <span className="text-sm">Syncing roster data...</span>
+            </div>
+          )}
         </div>
+        
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
           {Array.from({ length: 12 }).map((_, i) =>
           <Card key={i} className="animate-pulse">
@@ -416,8 +433,8 @@ const PlayersPage: React.FC = () => {
             </Card>
           )}
         </div>
-      </div>);
-
+      </div>
+    );
   }
 
   return (
@@ -428,10 +445,81 @@ const PlayersPage: React.FC = () => {
           <User className="h-6 w-6 text-primary" />
           <h1 className="text-3xl font-bold">Players</h1>
         </div>
-        <p className="text-muted-foreground">
-          {selectedSeason} Season • Week {weekFilter} • {filteredPlayers.length} players
-          {loadingRosterData && <span className="ml-2 text-blue-600">• Updating roster data...</span>}
-        </p>
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+          <p className="text-muted-foreground">
+            {selectedSeason} Season • Week {weekFilter} • {filteredPlayers.length} players
+            {isRosterFetching && <span className="ml-2 text-blue-600">• Updating roster data...</span>}
+            {rosterData && (
+              <span className="ml-2 text-green-600">
+                • {Object.keys(rosterData).length} players tracked
+              </span>
+            )}
+          </p>
+          
+          {/* Performance Controls */}
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleRefresh}
+              disabled={isRosterFetching}
+              className="flex items-center gap-1"
+            >
+              <RefreshCw className={`h-3 w-3 ${isRosterFetching ? 'animate-spin' : ''}`} />
+              Refresh
+            </Button>
+            
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setShowMetrics(!showMetrics)}
+              className="flex items-center gap-1"
+            >
+              <Zap className="h-3 w-3" />
+              Metrics
+            </Button>
+          </div>
+        </div>
+        
+        {/* Performance Metrics Panel */}
+        {showMetrics && (
+          <div className="mt-4 p-4 bg-muted/50 rounded-lg">
+            <h3 className="text-sm font-semibold mb-2">Performance Metrics</h3>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-xs">
+              <div>
+                <span className="text-muted-foreground">Cache Hit Rate:</span>
+                <div className="font-mono">
+                  {rosterMetrics.cacheHits + rosterMetrics.cacheMisses > 0
+                    ? `${((rosterMetrics.cacheHits / (rosterMetrics.cacheHits + rosterMetrics.cacheMisses)) * 100).toFixed(1)}%`
+                    : '0%'
+                  }
+                </div>
+              </div>
+              <div>
+                <span className="text-muted-foreground">API Calls:</span>
+                <div className="font-mono">{rosterMetrics.apiCalls}</div>
+              </div>
+              <div>
+                <span className="text-muted-foreground">Avg Response:</span>
+                <div className="font-mono">{rosterMetrics.averageResponseTime.toFixed(0)}ms</div>
+              </div>
+              <div>
+                <span className="text-muted-foreground">Cache Size:</span>
+                <div className="font-mono">{rosterMetrics.cacheSize}</div>
+              </div>
+            </div>
+            <div className="mt-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleClearCache}
+                className="text-xs"
+              >
+                Clear Cache
+              </Button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Filters */}
@@ -606,76 +694,76 @@ const PlayersPage: React.FC = () => {
                   {/* Roster Status Info */}
                   <div className="space-y-2">
                     {(() => {
-                      // Get Sleeper roster status first
-                      const sleeperStatus = getSleeperRosterStatus(player.sleeper_player_id);
-                      
-                      // If Sleeper data shows player is rostered, use that
-                      if (sleeperStatus.isRostered && sleeperStatus.team && sleeperStatus.conference) {
-                        return (
-                          <div className="space-y-1">
+                  // Get Sleeper roster status first
+                  const sleeperStatus = getSleeperRosterStatus(player.sleeper_player_id);
+
+                  // If Sleeper data shows player is rostered, use that
+                  if (sleeperStatus.isRostered && sleeperStatus.team && sleeperStatus.conference) {
+                    return (
+                      <div className="space-y-1">
                             <div className="flex items-center space-x-1 text-xs text-muted-foreground">
                               <Shield className="h-3 w-3 text-blue-600" />
                               <span>Rostered by:</span>
-                              {loadingRosterData && <span className="text-xs">(updating...)</span>}
+                              {isRosterFetching && <span className="text-xs">(updating...)</span>}
                             </div>
                             <div className="flex items-center justify-between">
                               <span className="text-xs font-medium truncate" title={sleeperStatus.team.team_name}>
                                 {sleeperStatus.team.team_name}
                               </span>
                               <Badge
-                                variant="outline"
-                                size="sm"
-                                className={getConferenceColor(sleeperStatus.conference.conference_name)}
-                                title={sleeperStatus.conference.conference_name}
-                              >
+                            variant="outline"
+                            size="sm"
+                            className={getConferenceColor(sleeperStatus.conference.conference_name)}
+                            title={sleeperStatus.conference.conference_name}>
+
                                 {sleeperStatus.conference.conference_name.includes('Mars') ? 'MARS' :
-                                 sleeperStatus.conference.conference_name.includes('Jupiter') ? 'JUPITER' : 'VULCAN'}
+                            sleeperStatus.conference.conference_name.includes('Jupiter') ? 'JUPITER' : 'VULCAN'}
                               </Badge>
                             </div>
-                          </div>
-                        );
-                      }
-                      
-                      // Fallback to database info if Sleeper data not available
-                      const teamInfo = getPlayerTeamInfo(player.id, player.team_id);
-                      
-                      if (teamInfo.length === 0) {
-                        return (
-                          <div className="flex items-center space-x-1">
+                          </div>);
+
+                  }
+
+                  // Fallback to database info if Sleeper data not available
+                  const teamInfo = getPlayerTeamInfo(player.id, player.team_id);
+
+                  if (teamInfo.length === 0) {
+                    return (
+                      <div className="flex items-center space-x-1">
                             <Shield className="h-3 w-3 text-green-600" />
                             <Badge variant="outline" size="sm" className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
                               Free Agent
                             </Badge>
-                            {loadingRosterData && <span className="text-xs text-muted-foreground">(checking...)</span>}
-                          </div>
-                        );
-                      }
-                      
-                      return (
-                        <div className="space-y-1">
+                            {isRosterFetching && <span className="text-xs text-muted-foreground">(checking...)</span>}
+                          </div>);
+
+                  }
+
+                  return (
+                    <div className="space-y-1">
                           <div className="flex items-center space-x-1 text-xs text-muted-foreground">
                             <Shield className="h-3 w-3" />
                             <span>Rostered by (DB):</span>
                           </div>
                           {teamInfo.map((info, index) =>
-                            <div key={index} className="flex items-center justify-between">
+                      <div key={index} className="flex items-center justify-between">
                               <span className="text-xs font-medium truncate" title={info.team.team_name}>
                                 {info.team.team_name}
                               </span>
                               <Badge
-                                variant="outline"
-                                size="sm"
-                                className={getConferenceColor(info.conference.conference_name)}
-                                title={info.conference.conference_name}
-                              >
+                          variant="outline"
+                          size="sm"
+                          className={getConferenceColor(info.conference.conference_name)}
+                          title={info.conference.conference_name}>
+
                                 {info.conference.conference_name.includes('Mars') ? 'MARS' :
-                                 info.conference.conference_name.includes('Jupiter') ? 'JUPITER' : 'VULCAN'}
+                          info.conference.conference_name.includes('Jupiter') ? 'JUPITER' : 'VULCAN'}
                               </Badge>
                             </div>
-                          )}
-                        </div>
-                      );
-                    })()}
+                      )}
+                        </div>);
+
+                })()}
                   </div>
 
                   {/* Status Badges */}
