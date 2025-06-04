@@ -640,7 +640,7 @@ const MatchupsManagement: React.FC = () => {
 
   // Helper function for batch updates (future enhancement)
   const prepareBatchUpdateData = (matchupsToUpdate: MatchupWithConference[]) => {
-    return matchupsToUpdate.map(matchup => ({
+    return matchupsToUpdate.map((matchup) => ({
       id: matchup.id,
       conference_id: matchup.conference_id,
       week: matchup.week,
@@ -684,7 +684,7 @@ const MatchupsManagement: React.FC = () => {
 
         // Enhanced validation for matchup data
         const validationErrors = [];
-        
+
         if (!matchup.id || typeof matchup.id !== 'number' || matchup.id <= 0) {
           validationErrors.push(`Invalid matchup ID: ${matchup.id}`);
         }
@@ -703,7 +703,7 @@ const MatchupsManagement: React.FC = () => {
         if (matchup.team_1_id === matchup.team_2_id) {
           validationErrors.push(`Teams cannot play themselves: ${matchup.team_1_id}`);
         }
-        
+
         if (validationErrors.length > 0) {
           console.error(`Validation failed for matchup ${matchup.id}:`, {
             matchupId: matchup.id,
@@ -770,7 +770,7 @@ const MatchupsManagement: React.FC = () => {
         totalMatchups,
         successCount,
         failureCount,
-        successRate: `${((successCount / totalMatchups) * 100).toFixed(1)}%`,
+        successRate: `${(successCount / totalMatchups * 100).toFixed(1)}%`,
         failedMatchupIds: failedMatchups
       });
 
@@ -779,11 +779,11 @@ const MatchupsManagement: React.FC = () => {
           failedMatchupIds: failedMatchups,
           totalFailures: failureCount,
           successfulUpdates: successCount,
-          affectedConferences: conferences.filter(c => 
-            matchups.some(m => failedMatchups.includes(m.id) && m.conference_id === c.id)
-          ).map(c => c.conference_name)
+          affectedConferences: conferences.filter((c) =>
+          matchups.some((m) => failedMatchups.includes(m.id) && m.conference_id === c.id)
+          ).map((c) => c.conference_name)
         });
-        
+
         toast({
           title: 'Partial Success',
           description: `${successCount}/${totalMatchups} matchups updated successfully. ${failureCount} failed (IDs: ${failedMatchups.join(', ')}). Check console for details.`,
@@ -793,15 +793,15 @@ const MatchupsManagement: React.FC = () => {
       } else {
         setHasChanges(false);
         console.log('All matchups updated successfully:', {
-          updatedMatchups: matchups.map(m => ({
+          updatedMatchups: matchups.map((m) => ({
             id: m.id,
-            conference: conferences.find(c => c.id === m.conference_id)?.conference_name,
+            conference: conferences.find((c) => c.id === m.conference_id)?.conference_name,
             teams: `${m.team_1_id} vs ${m.team_2_id}`,
             scores: `${m.team_1_score} - ${m.team_2_score}`,
             manual_override: m.is_manual_override
           }))
         });
-        
+
         toast({
           title: 'Complete Success',
           description: `All ${successCount} matchups updated successfully! Changes have been saved to the database.`,
