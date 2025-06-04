@@ -30,7 +30,6 @@ import {
   Calendar,
   Users,
   AlertTriangle,
-  Save,
   RotateCcw,
   Edit,
   GripVertical,
@@ -139,7 +138,6 @@ interface SortableMatchupCardProps {
   teams: TeamWithDetails[];
   conferences: Conference[];
   onToggleOverride: (matchupId: number) => void;
-  onUpdateScores: (matchupId: number, team1Score: number, team2Score: number) => void;
 }
 
 const SortableTeam: React.FC<SortableTeamProps> = ({
@@ -208,25 +206,15 @@ const SortableMatchupCard: React.FC<SortableMatchupCardProps> = ({
   matchup,
   teams,
   conferences,
-  onToggleOverride,
-  onUpdateScores
+  onToggleOverride
 }) => {
 
   const team1 = teams.find((t) => t.id === matchup.team_1_id);
   const team2 = teams.find((t) => t.id === matchup.team_2_id);
   const conference = conferences.find((c) => c.id === matchup.conference_id);
 
-  const [editingScores, setEditingScores] = useState(false);
-  const [team1Score, setTeam1Score] = useState(matchup.team_1_score);
-  const [team2Score, setTeam2Score] = useState(matchup.team_2_score);
-
   const isTeam1Winner = matchup.winner_id === matchup.team_1_id;
   const isTeam2Winner = matchup.winner_id === matchup.team_2_id;
-
-  const handleSaveScores = () => {
-    onUpdateScores(matchup.id, team1Score, team2Score);
-    setEditingScores(false);
-  };
 
   return (
     <Card className={`mb-4 transition-all duration-200 hover:shadow-md ${
@@ -246,7 +234,7 @@ const SortableMatchupCard: React.FC<SortableMatchupCardProps> = ({
             </div>
             {matchup.is_manual_override &&
             <Badge variant="outline" className="text-orange-600 border-orange-300">
-                Manual Override
+                Team Assignment Override
               </Badge>
             }
             {matchup.is_playoff &&
@@ -261,7 +249,7 @@ const SortableMatchupCard: React.FC<SortableMatchupCardProps> = ({
               size="sm"
               onClick={() => onToggleOverride(matchup.id)}>
               <Edit className="h-3 w-3 mr-1" />
-              {matchup.is_manual_override ? 'Remove Override' : 'Override'}
+              {matchup.is_manual_override ? 'Remove Team Override' : 'Team Override'}
             </Button>
           </div>
         </div>
@@ -292,42 +280,14 @@ const SortableMatchupCard: React.FC<SortableMatchupCardProps> = ({
             </div>
           </div>
 
-          {/* Score Editing Section */}
+          {/* Score Display Section - Read Only */}
           <div className="flex items-center justify-center py-4 border-t">
-            {editingScores ?
-            <div className="flex items-center gap-2">
-                <input
-                type="number"
-                value={team1Score}
-                onChange={(e) => setTeam1Score(parseFloat(e.target.value) || 0)}
-                className="w-16 px-2 py-1 text-center border rounded"
-                step="0.1" />
-                <span className="text-gray-400">vs</span>
-                <input
-                type="number"
-                value={team2Score}
-                onChange={(e) => setTeam2Score(parseFloat(e.target.value) || 0)}
-                className="w-16 px-2 py-1 text-center border rounded"
-                step="0.1" />
-                <Button size="sm" onClick={handleSaveScores}>
-                  <Save className="h-3 w-3" />
-                </Button>
-                <Button
-                size="sm"
-                variant="outline"
-                onClick={() => setEditingScores(false)}>
-                  Cancel
-                </Button>
-              </div> :
-            <div
-              className="flex items-center gap-2 cursor-pointer hover:bg-gray-50 px-3 py-1 rounded"
-              onClick={() => setEditingScores(true)}>
-                <span className="text-xl font-bold">{matchup.team_1_score}</span>
-                <span className="text-gray-400">vs</span>
-                <span className="text-xl font-bold">{matchup.team_2_score}</span>
-                <Edit className="h-3 w-3 text-gray-400 ml-1" />
-              </div>
-            }
+            <div className="flex items-center gap-2 px-3 py-1 rounded bg-gray-50">
+              <span className="text-xl font-bold">{matchup.team_1_score}</span>
+              <span className="text-gray-400">vs</span>
+              <span className="text-xl font-bold">{matchup.team_2_score}</span>
+              <span className="text-xs text-gray-500 ml-2">(from Sleeper API)</span>
+            </div>
           </div>
 
           {matchup.notes &&
@@ -808,16 +768,10 @@ const MatchupsManagement: React.FC = () => {
           overMatchup.team_2_id = activeTeamId;
         }
 
-        // Reset scores and winner for both matchups since teams changed
-        activeMatchup.team_1_score = 0;
-        activeMatchup.team_2_score = 0;
-        activeMatchup.winner_id = 0;
+        // Mark as team assignment override - scores will come from Sleeper API
         activeMatchup.is_manual_override = true;
         activeMatchup.status = 'pending'; // Reset status when teams are swapped
 
-        overMatchup.team_1_score = 0;
-        overMatchup.team_2_score = 0;
-        overMatchup.winner_id = 0;
         overMatchup.is_manual_override = true;
         overMatchup.status = 'pending'; // Reset status when teams are swapped
 
@@ -831,7 +785,7 @@ const MatchupsManagement: React.FC = () => {
       setHasChanges(true);
       toast({
         title: 'Teams Swapped',
-        description: 'Team matchups have been updated. Remember to save your changes.',
+        description: 'Team assignments have been updated. Scores will come from Sleeper API. Remember to save your changes.',
         duration: 3000
       });
     }
@@ -858,36 +812,13 @@ const MatchupsManagement: React.FC = () => {
     setHasChanges(true);
 
     toast({
-      title: 'Override Toggled',
-      description: `Manual override ${matchups.find((m) => m.id === matchupId)?.is_manual_override ? 'removed' : 'enabled'} for matchup ${matchupId}`,
+      title: 'Team Assignment Override Toggled',
+      description: `Team assignment override ${matchups.find((m) => m.id === matchupId)?.is_manual_override ? 'removed' : 'enabled'} for matchup ${matchupId}. Scores always come from Sleeper API.`,
       duration: 2000
     });
   };
 
-  const handleUpdateScores = (matchupId: number, team1Score: number, team2Score: number) => {
-    console.log(`Updating scores for matchup ${matchupId}: Team 1 = ${team1Score}, Team 2 = ${team2Score}`);
 
-    setMatchups((prev) => prev.map((matchup) =>
-    matchup.id === matchupId ?
-    {
-      ...matchup,
-      team_1_score: team1Score,
-      team_2_score: team2Score,
-      winner_id: team1Score > team2Score ? matchup.team_1_id :
-      team2Score > team1Score ? matchup.team_2_id : 0,
-      is_manual_override: true,
-      status: 'complete' // Set status to complete when manually setting scores
-    } :
-    matchup
-    ));
-    setHasChanges(true);
-
-    toast({
-      title: 'Scores Updated',
-      description: `Matchup ${matchupId} scores updated. Remember to save changes.`,
-      duration: 2000
-    });
-  };
 
   // Helper function for batch updates (future enhancement)
   const prepareBatchUpdateData = (matchupsToUpdate: MatchupWithConference[]) => {
@@ -973,6 +904,7 @@ const MatchupsManagement: React.FC = () => {
         }
 
         // Prepare update data with all required fields (CRITICAL FIX: use lowercase 'id')
+        // NOTE: Only updating team assignments - scores come from Sleeper API
         const updateData = {
           id: matchup.id,
           conference_id: matchup.conference_id,
@@ -981,11 +913,12 @@ const MatchupsManagement: React.FC = () => {
           team_2_id: matchup.team_2_id,
           is_playoff: matchup.is_playoff,
           sleeper_matchup_id: matchup.sleeper_matchup_id || '',
+          // Keep existing scores - they should come from Sleeper API
           team_1_score: matchup.team_1_score,
           team_2_score: matchup.team_2_score,
           winner_id: matchup.winner_id,
           is_manual_override: matchup.is_manual_override,
-          status: matchup.is_manual_override ? 'complete' : matchup.status || 'pending',
+          status: matchup.status || 'pending',
           matchup_date: matchup.matchup_date || '',
           notes: matchup.notes || ''
         };
@@ -1093,7 +1026,7 @@ const MatchupsManagement: React.FC = () => {
             Matchups Management
           </CardTitle>
           <CardDescription>
-            Manage weekly matchups, scores, and overrides across all conferences. Drag and drop individual teams to swap opponents between matchups. Showing up to 18 matchups per week (6 per conference).
+            Manage weekly matchup team assignments across all conferences. Drag and drop individual teams to swap opponents between matchups. All scores come from Sleeper API. Showing up to 18 matchups per week (6 per conference).
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -1217,7 +1150,7 @@ const MatchupsManagement: React.FC = () => {
                 <div className="text-2xl font-bold text-orange-600">
                   {matchups.filter((m) => m.is_manual_override).length}
                 </div>
-                <div className="text-sm text-gray-600">Manual Overrides</div>
+                <div className="text-sm text-gray-600">Team Assignment Overrides</div>
               </div>
               <div className="space-y-1">
                 <div className="text-2xl font-bold text-purple-600">
@@ -1262,8 +1195,7 @@ const MatchupsManagement: React.FC = () => {
                         matchup={matchup}
                         teams={teams}
                         conferences={conferences}
-                        onToggleOverride={handleToggleOverride}
-                        onUpdateScores={handleUpdateScores} />
+                        onToggleOverride={handleToggleOverride} />
                       )}
                     </div>
                   </div>);

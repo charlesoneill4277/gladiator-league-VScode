@@ -2110,7 +2110,7 @@ class MatchupService {
         // For manual overrides, fetch team-specific data with validation
         if (dbMatchup.is_manual_override) {
           console.log(`🔄 Manual override detected - fetching enhanced data for validation`);
-          
+
           const teamBasedData = await this.fetchTeamsMatchupDataWithValidation(
             conference.league_id,
             week,
@@ -2165,8 +2165,8 @@ class MatchupService {
       // Enhanced hybrid team data creation - always combines database assignments with Sleeper data
       const hybridTeam1: HybridMatchupTeam = {
         roster_id: team1RosterId,
-        // For manual overrides, use database score but keep all Sleeper data for context
-        points: dbMatchup.is_manual_override ? dbMatchup.team_1_score : team1SleeperData?.points ?? 0,
+        // ALWAYS use Sleeper API scores - manual overrides only affect team assignments
+        points: team1SleeperData?.points ?? 0,
         projected_points: team1SleeperData?.projected_points,
         owner: team1User || null,
         roster: team1Roster || null,
@@ -2180,8 +2180,8 @@ class MatchupService {
 
       const hybridTeam2: HybridMatchupTeam = {
         roster_id: team2RosterId,
-        // For manual overrides, use database score but keep all Sleeper data for context
-        points: dbMatchup.is_manual_override ? dbMatchup.team_2_score : team2SleeperData?.points ?? 0,
+        // ALWAYS use Sleeper API scores - manual overrides only affect team assignments
+        points: team2SleeperData?.points ?? 0,
         projected_points: team2SleeperData?.projected_points,
         owner: team2User || null,
         roster: team2Roster || null,
@@ -2212,13 +2212,14 @@ class MatchupService {
             team1: team1SleeperData,
             team2: team2SleeperData
           },
-          // Track if this hybrid matchup uses manual score overrides
-          isManualScoreOverride: dbMatchup.is_manual_override
+          // Manual overrides only affect team assignments, not scores
+          isTeamAssignmentOverride: dbMatchup.is_manual_override,
+          isManualScoreOverride: false // Scores always come from Sleeper API
         }
       };
 
-      console.log(`✅ Created hybrid matchup: ${team1.team_name} vs ${team2.team_name} (Manual Score Override: ${dbMatchup.is_manual_override})`);
-      console.log(`🔄 Data source: HYBRID (Database team assignments + Sleeper API data)`);
+      console.log(`✅ Created hybrid matchup: ${team1.team_name} vs ${team2.team_name} (Team Assignment Override: ${dbMatchup.is_manual_override})`);
+      console.log(`🔄 Data source: HYBRID (Database team assignments + Sleeper API scores and data)`);
 
       // Debug: Log successful matchup creation and validate data integrity
       if (this.debugMode) {

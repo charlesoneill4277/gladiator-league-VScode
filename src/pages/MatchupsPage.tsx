@@ -240,7 +240,7 @@ const MatchupsPage: React.FC = () => {
         sleeper: hybridMatchups.filter((m) => m.dataSource === 'sleeper').length,
         hybrid: hybridMatchups.filter((m) => m.dataSource === 'hybrid').length
       };
-      
+
       // Count manual score overrides within hybrid flow
       const manualOverrideCount = hybridMatchups.filter((m) => m.isManualOverride).length;
 
