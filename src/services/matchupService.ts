@@ -127,21 +127,21 @@ class MatchupService {
    * Includes real-time roster ownership validation and bi-directional mapping verification
    */
   async validateRosterOwnership(
-    leagueId: string, 
-    rosterId: string, 
-    expectedOwnerId?: string
-  ): Promise<{isValid: boolean; currentOwnerId: string; lastVerified: Date; issues: string[]}> {
+  leagueId: string,
+  rosterId: string,
+  expectedOwnerId?: string)
+  : Promise<{isValid: boolean;currentOwnerId: string;lastVerified: Date;issues: string[];}> {
     const traceId = this.debugMode ? matchupDataFlowDebugger.startTrace(`ownership_${rosterId}`, 'validate_roster_ownership') : '';
     const issues: string[] = [];
-    
+
     try {
       console.log(`🔍 Validating roster ownership for roster ${rosterId}...`);
-      
+
       // Check cache first (validity: 5 minutes)
       const cacheKey = `${leagueId}_${rosterId}`;
       const cachedData = this.rosterOwnershipCache.get(cacheKey);
-      
-      if (cachedData && (Date.now() - cachedData.lastVerified.getTime()) < 300000) {
+
+      if (cachedData && Date.now() - cachedData.lastVerified.getTime() < 300000) {
         console.log(`✅ Using cached ownership data for roster ${rosterId}`);
         return {
           isValid: cachedData.isValid,
@@ -150,11 +150,11 @@ class MatchupService {
           issues: []
         };
       }
-      
+
       // Fetch fresh roster data from Sleeper API
       const rosters = await SleeperApiService.fetchLeagueRosters(leagueId);
-      const targetRoster = rosters.find(r => r.roster_id.toString() === rosterId);
-      
+      const targetRoster = rosters.find((r) => r.roster_id.toString() === rosterId);
+
       if (!targetRoster) {
         issues.push(`Roster ${rosterId} not found in league ${leagueId}`);
         return {
@@ -164,14 +164,14 @@ class MatchupService {
           issues
         };
       }
-      
+
       const currentOwnerId = targetRoster.owner_id;
       const isValid = expectedOwnerId ? currentOwnerId === expectedOwnerId : true;
-      
+
       if (expectedOwnerId && !isValid) {
         issues.push(`Roster ownership mismatch: expected ${expectedOwnerId}, found ${currentOwnerId}`);
       }
-      
+
       // Update cache
       this.rosterOwnershipCache.set(cacheKey, {
         rosterId,
@@ -179,30 +179,30 @@ class MatchupService {
         lastVerified: new Date(),
         isValid
       });
-      
+
       console.log(`${isValid ? '✅' : '❌'} Roster ownership validation completed:`, {
         rosterId,
         currentOwnerId,
         expectedOwnerId,
         isValid
       });
-      
+
       return {
         isValid,
         currentOwnerId,
         lastVerified: new Date(),
         issues
       };
-      
+
     } catch (error) {
       console.error('❌ Error validating roster ownership:', error);
-      
+
       if (this.debugMode) {
         matchupDataFlowDebugger.logError(traceId, 'critical', 'validation', 'roster_ownership', error, {
           rosterId, expectedOwnerId, leagueId
         });
       }
-      
+
       return {
         isValid: false,
         currentOwnerId: '',
@@ -217,29 +217,29 @@ class MatchupService {
    * Implements retry logic for roster verification failures
    */
   async correctRosterAssignments(
-    conferenceId: number,
-    issues: Array<{type: string; rosterId: string; teamId?: number; description: string}>
-  ): Promise<{corrected: number; failed: number; corrections: Array<any>}> {
+  conferenceId: number,
+  issues: Array<{type: string;rosterId: string;teamId?: number;description: string;}>)
+  : Promise<{corrected: number;failed: number;corrections: Array<any>;}> {
     const traceId = this.debugMode ? matchupDataFlowDebugger.startTrace(`correction_${conferenceId}`, 'correct_roster_assignments') : '';
-    
+
     try {
       console.log(`🔧 Starting automatic roster assignment corrections for conference ${conferenceId}...`);
-      
+
       const corrections: Array<any> = [];
       let corrected = 0;
       let failed = 0;
-      
+
       for (const issue of issues) {
         try {
           console.log(`🔄 Attempting to correct issue: ${issue.description}`);
-          
+
           if (issue.type === 'missing_roster_mapping') {
             // Attempt to create missing roster mapping
             const correction = await this.createMissingRosterMapping(conferenceId, issue.rosterId, issue.teamId);
             if (correction.success) {
               corrections.push(correction);
               corrected++;
-              
+
               // Add to audit trail
               this.addToAuditTrail({
                 rosterId: issue.rosterId,
@@ -247,7 +247,7 @@ class MatchupService {
                 reason: 'Missing roster mapping auto-correction',
                 source: 'automatic_correction'
               });
-              
+
             } else {
               failed++;
             }
@@ -257,7 +257,7 @@ class MatchupService {
             if (correction.success) {
               corrections.push(correction);
               corrected++;
-              
+
               // Add to audit trail
               this.addToAuditTrail({
                 rosterId: issue.rosterId,
@@ -266,7 +266,7 @@ class MatchupService {
                 reason: 'Incorrect roster mapping auto-correction',
                 source: 'automatic_correction'
               });
-              
+
             } else {
               failed++;
             }
@@ -280,38 +280,38 @@ class MatchupService {
               failed++;
             }
           }
-          
+
           // Add delay between corrections to avoid overwhelming the API
-          await new Promise(resolve => setTimeout(resolve, 100));
-          
+          await new Promise((resolve) => setTimeout(resolve, 100));
+
         } catch (error) {
           console.error(`❌ Failed to correct issue for roster ${issue.rosterId}:`, error);
           failed++;
         }
       }
-      
+
       console.log(`✅ Roster assignment correction completed:`, {
         totalIssues: issues.length,
         corrected,
         failed,
-        successRate: `${((corrected / issues.length) * 100).toFixed(1)}%`
+        successRate: `${(corrected / issues.length * 100).toFixed(1)}%`
       });
-      
+
       if (this.debugMode) {
         matchupDataFlowDebugger.logDataTransformation(traceId, 'correction', 'hybrid_service', issues, corrections);
       }
-      
+
       return { corrected, failed, corrections };
-      
+
     } catch (error) {
       console.error('❌ Error during roster assignment correction:', error);
-      
+
       if (this.debugMode) {
         matchupDataFlowDebugger.logError(traceId, 'critical', 'correction', 'roster_assignments', error, {
           conferenceId, issueCount: issues.length
         });
       }
-      
+
       return { corrected: 0, failed: issues.length, corrections: [] };
     }
   }
@@ -320,16 +320,16 @@ class MatchupService {
    * Create missing roster mapping in the database
    */
   private async createMissingRosterMapping(
-    conferenceId: number, 
-    rosterId: string, 
-    teamId?: number
-  ): Promise<{success: boolean; mapping?: any; oldTeamId?: number}> {
+  conferenceId: number,
+  rosterId: string,
+  teamId?: number)
+  : Promise<{success: boolean;mapping?: any;oldTeamId?: number;}> {
     try {
       if (!teamId) {
         console.warn(`Cannot create mapping for roster ${rosterId}: no team ID provided`);
         return { success: false };
       }
-      
+
       const newMapping = {
         team_id: teamId,
         conference_id: conferenceId,
@@ -337,16 +337,16 @@ class MatchupService {
         is_active: true,
         joined_date: new Date().toISOString()
       };
-      
+
       const response = await window.ezsite.apis.tableCreate('12853', newMapping);
-      
+
       if (response.error) {
         throw new Error(response.error);
       }
-      
+
       console.log(`✅ Created missing roster mapping: roster ${rosterId} → team ${teamId}`);
       return { success: true, mapping: newMapping };
-      
+
     } catch (error) {
       console.error(`❌ Failed to create roster mapping:`, error);
       return { success: false };
@@ -357,16 +357,16 @@ class MatchupService {
    * Fix incorrect roster mapping in the database
    */
   private async fixIncorrectRosterMapping(
-    conferenceId: number, 
-    rosterId: string, 
-    correctTeamId?: number
-  ): Promise<{success: boolean; mapping?: any; oldTeamId?: number}> {
+  conferenceId: number,
+  rosterId: string,
+  correctTeamId?: number)
+  : Promise<{success: boolean;mapping?: any;oldTeamId?: number;}> {
     try {
       if (!correctTeamId) {
         console.warn(`Cannot fix mapping for roster ${rosterId}: no correct team ID provided`);
         return { success: false };
       }
-      
+
       // First, find the existing mapping
       const existingResponse = await window.ezsite.apis.tablePage('12853', {
         PageNo: 1,
@@ -374,39 +374,39 @@ class MatchupService {
         OrderByField: 'id',
         IsAsc: true,
         Filters: [
-          { name: 'roster_id', op: 'Equal', value: rosterId },
-          { name: 'conference_id', op: 'Equal', value: conferenceId }
-        ]
+        { name: 'roster_id', op: 'Equal', value: rosterId },
+        { name: 'conference_id', op: 'Equal', value: conferenceId }]
+
       });
-      
+
       if (existingResponse.error) {
         throw new Error(existingResponse.error);
       }
-      
+
       const existingMappings = existingResponse.data.List;
       if (existingMappings.length === 0) {
         // No existing mapping found, create new one
         return await this.createMissingRosterMapping(conferenceId, rosterId, correctTeamId);
       }
-      
+
       const existingMapping = existingMappings[0];
       const oldTeamId = existingMapping.team_id;
-      
+
       // Update the mapping
       const updatedMapping = {
         ...existingMapping,
         team_id: correctTeamId
       };
-      
+
       const updateResponse = await window.ezsite.apis.tableUpdate('12853', updatedMapping);
-      
+
       if (updateResponse.error) {
         throw new Error(updateResponse.error);
       }
-      
+
       console.log(`✅ Fixed incorrect roster mapping: roster ${rosterId} → team ${oldTeamId} → team ${correctTeamId}`);
       return { success: true, mapping: updatedMapping, oldTeamId };
-      
+
     } catch (error) {
       console.error(`❌ Failed to fix roster mapping:`, error);
       return { success: false };
@@ -417,9 +417,9 @@ class MatchupService {
    * Handle orphaned roster by deactivating it
    */
   private async handleOrphanedRoster(
-    conferenceId: number, 
-    rosterId: string
-  ): Promise<{success: boolean; action?: string}> {
+  conferenceId: number,
+  rosterId: string)
+  : Promise<{success: boolean;action?: string;}> {
     try {
       // Find and deactivate orphaned roster mappings
       const existingResponse = await window.ezsite.apis.tablePage('12853', {
@@ -428,37 +428,37 @@ class MatchupService {
         OrderByField: 'id',
         IsAsc: true,
         Filters: [
-          { name: 'roster_id', op: 'Equal', value: rosterId },
-          { name: 'conference_id', op: 'Equal', value: conferenceId }
-        ]
+        { name: 'roster_id', op: 'Equal', value: rosterId },
+        { name: 'conference_id', op: 'Equal', value: conferenceId }]
+
       });
-      
+
       if (existingResponse.error) {
         throw new Error(existingResponse.error);
       }
-      
+
       const existingMappings = existingResponse.data.List;
       if (existingMappings.length === 0) {
         console.log(`No orphaned mapping found for roster ${rosterId}`);
         return { success: true, action: 'no_action_needed' };
       }
-      
+
       for (const mapping of existingMappings) {
         const updatedMapping = {
           ...mapping,
           is_active: false
         };
-        
+
         const updateResponse = await window.ezsite.apis.tableUpdate('12853', updatedMapping);
-        
+
         if (updateResponse.error) {
           throw new Error(updateResponse.error);
         }
       }
-      
+
       console.log(`✅ Deactivated ${existingMappings.length} orphaned roster mappings for roster ${rosterId}`);
       return { success: true, action: 'deactivated_orphaned_mappings' };
-      
+
     } catch (error) {
       console.error(`❌ Failed to handle orphaned roster:`, error);
       return { success: false };
@@ -484,14 +484,14 @@ class MatchupService {
       reason: entry.reason,
       source: entry.source
     };
-    
+
     this.auditTrail.push(auditEntry);
-    
+
     // Keep only last 1000 entries to prevent memory issues
     if (this.auditTrail.length > 1000) {
       this.auditTrail = this.auditTrail.slice(-1000);
     }
-    
+
     console.log(`📝 Audit trail entry added:`, auditEntry);
   }
 
@@ -500,7 +500,7 @@ class MatchupService {
    */
   getAuditTrail(rosterId?: string): Array<any> {
     if (rosterId) {
-      return this.auditTrail.filter(entry => entry.rosterId === rosterId);
+      return this.auditTrail.filter((entry) => entry.rosterId === rosterId);
     }
     return [...this.auditTrail];
   }
@@ -634,44 +634,44 @@ class MatchupService {
    * Implements comprehensive logging and alerts when roster verification fails with specific remediation steps
    */
   async performBidirectionalValidation(
-    conferenceIds: number[],
-    retryAttempts: number = 3
-  ): Promise<{
+  conferenceIds: number[],
+  retryAttempts: number = 3)
+  : Promise<{
     isValid: boolean;
     validationResults: any;
     correctionsPossible: boolean;
     remediationSteps: string[];
   }> {
     const traceId = this.debugMode ? matchupDataFlowDebugger.startTrace('bidirectional_validation', 'perform_bidirectional_validation') : '';
-    
+
     let attempt = 0;
     let lastError = null;
-    
+
     while (attempt < retryAttempts) {
       try {
         console.log(`🔄 Bidirectional validation attempt ${attempt + 1}/${retryAttempts}...`);
-        
+
         // Step 1: Get all relevant data
         const [teamMap, teams] = await Promise.all([
-          this.buildTeamConferenceMap(conferenceIds),
-          this.fetchTeams()
-        ]);
-        
+        this.buildTeamConferenceMap(conferenceIds),
+        this.fetchTeams()]
+        );
+
         // Step 2: Validate database-to-Sleeper mappings
         const dbToSleeperResults = await this.validateDatabaseToSleeper(conferenceIds, teamMap, teams);
-        
+
         // Step 3: Validate Sleeper-to-database mappings
         const sleeperToDbResults = await this.validateSleeperToDatabase(conferenceIds, teamMap);
-        
+
         // Step 4: Check for consistency between both directions
         const consistencyResults = await this.validateBidirectionalConsistency(dbToSleeperResults, sleeperToDbResults);
-        
+
         // Step 5: Generate remediation steps
         const remediationSteps = this.generateRemediationSteps(dbToSleeperResults, sleeperToDbResults, consistencyResults);
-        
+
         const isValid = dbToSleeperResults.isValid && sleeperToDbResults.isValid && consistencyResults.isValid;
         const correctionsPossible = this.assessCorrectionsPossible(dbToSleeperResults, sleeperToDbResults);
-        
+
         const validationResults = {
           databaseToSleeper: dbToSleeperResults,
           sleeperToDatabase: sleeperToDbResults,
@@ -679,60 +679,60 @@ class MatchupService {
           attempt: attempt + 1,
           timestamp: new Date().toISOString()
         };
-        
+
         console.log(`${isValid ? '✅' : '❌'} Bidirectional validation completed:`, {
           isValid,
           correctionsPossible,
           attempt: attempt + 1,
           remediationStepsCount: remediationSteps.length
         });
-        
+
         if (this.debugMode) {
-          matchupDataFlowDebugger.logDataTransformation(traceId, 'validation', 'hybrid_service', 
-            { conferenceIds, attempt }, validationResults);
-          
+          matchupDataFlowDebugger.logDataTransformation(traceId, 'validation', 'hybrid_service',
+          { conferenceIds, attempt }, validationResults);
+
           if (!isValid) {
             matchupDataFlowDebugger.logError(traceId, 'high', 'validation', 'bidirectional_validation',
-              'Bidirectional validation failed', { validationResults, remediationSteps });
+            'Bidirectional validation failed', { validationResults, remediationSteps });
           }
         }
-        
+
         return {
           isValid,
           validationResults,
           correctionsPossible,
           remediationSteps
         };
-        
+
       } catch (error) {
         console.error(`❌ Bidirectional validation attempt ${attempt + 1} failed:`, error);
         lastError = error;
         attempt++;
-        
+
         if (attempt < retryAttempts) {
           console.log(`⏳ Retrying in ${attempt * 1000}ms...`);
-          await new Promise(resolve => setTimeout(resolve, attempt * 1000));
+          await new Promise((resolve) => setTimeout(resolve, attempt * 1000));
         }
       }
     }
-    
+
     console.error(`❌ All bidirectional validation attempts failed:`, lastError);
-    
+
     if (this.debugMode) {
       matchupDataFlowDebugger.logError(traceId, 'critical', 'validation', 'bidirectional_validation',
-        'All validation attempts failed', { attempts: retryAttempts, lastError });
+      'All validation attempts failed', { attempts: retryAttempts, lastError });
     }
-    
+
     return {
       isValid: false,
       validationResults: { error: 'All validation attempts failed', lastError },
       correctionsPossible: false,
       remediationSteps: [
-        'Check network connectivity to Sleeper API',
-        'Verify database connection and table integrity',
-        'Review conference IDs and ensure they exist',
-        'Contact system administrator for manual intervention'
-      ]
+      'Check network connectivity to Sleeper API',
+      'Verify database connection and table integrity',
+      'Review conference IDs and ensure they exist',
+      'Contact system administrator for manual intervention']
+
     };
   }
 
@@ -740,10 +740,10 @@ class MatchupService {
    * Validate database-to-Sleeper mappings
    */
   private async validateDatabaseToSleeper(
-    conferenceIds: number[],
-    teamMap: Map<string, {teamId: number; rosterId: string}>,
-    teams: Team[]
-  ): Promise<{isValid: boolean; issues: string[]; details: any}> {
+  conferenceIds: number[],
+  teamMap: Map<string, {teamId: number;rosterId: string;}>,
+  teams: Team[])
+  : Promise<{isValid: boolean;issues: string[];details: any;}> {
     const issues: string[] = [];
     const details: any = {
       validMappings: 0,
@@ -751,45 +751,45 @@ class MatchupService {
       missingSleeperData: 0,
       ownershipMismatches: 0
     };
-    
+
     console.log('🔍 Validating database-to-Sleeper mappings...');
-    
+
     // Get conferences and their league IDs
     const conferences = await this.fetchConferences(conferenceIds);
-    
+
     for (const conference of conferences) {
       try {
         // Get live Sleeper data
         const [rosters, users] = await Promise.all([
-          SleeperApiService.fetchLeagueRosters(conference.league_id),
-          SleeperApiService.fetchLeagueUsers(conference.league_id)
-        ]);
-        
+        SleeperApiService.fetchLeagueRosters(conference.league_id),
+        SleeperApiService.fetchLeagueUsers(conference.league_id)]
+        );
+
         // Check each database mapping against Sleeper data
         for (const [key, mapping] of teamMap.entries()) {
           if (key.startsWith('roster_')) {
             const rosterId = mapping.rosterId;
             const teamId = mapping.teamId;
-            
+
             // Find corresponding Sleeper roster
-            const sleeperRoster = rosters.find(r => r.roster_id.toString() === rosterId);
-            
+            const sleeperRoster = rosters.find((r) => r.roster_id.toString() === rosterId);
+
             if (!sleeperRoster) {
               issues.push(`Database roster ${rosterId} not found in Sleeper league ${conference.league_id}`);
               details.missingSleeperData++;
               continue;
             }
-            
+
             // Find team in database
-            const team = teams.find(t => t.id === teamId);
+            const team = teams.find((t) => t.id === teamId);
             if (!team) {
               issues.push(`Team ${teamId} mapped to roster ${rosterId} not found in database`);
               details.invalidMappings++;
               continue;
             }
-            
+
             // Validate ownership
-            const sleeperUser = users.find(u => u.user_id === sleeperRoster.owner_id);
+            const sleeperUser = users.find((u) => u.user_id === sleeperRoster.owner_id);
             if (sleeperUser && team.owner_id !== sleeperUser.user_id) {
               issues.push(`Ownership mismatch: roster ${rosterId} owned by ${sleeperUser.user_id} in Sleeper but ${team.owner_id} in database`);
               details.ownershipMismatches++;
@@ -798,16 +798,16 @@ class MatchupService {
             }
           }
         }
-        
+
       } catch (error) {
         console.error(`Error validating conference ${conference.conference_name}:`, error);
         issues.push(`Failed to validate conference ${conference.conference_name}: ${error}`);
       }
     }
-    
+
     const isValid = issues.length === 0;
     console.log(`${isValid ? '✅' : '❌'} Database-to-Sleeper validation:`, details);
-    
+
     return { isValid, issues, details };
   }
 
@@ -815,28 +815,28 @@ class MatchupService {
    * Validate Sleeper-to-database mappings
    */
   private async validateSleeperToDatabase(
-    conferenceIds: number[],
-    teamMap: Map<string, {teamId: number; rosterId: string}>
-  ): Promise<{isValid: boolean; issues: string[]; details: any}> {
+  conferenceIds: number[],
+  teamMap: Map<string, {teamId: number;rosterId: string;}>)
+  : Promise<{isValid: boolean;issues: string[];details: any;}> {
     const issues: string[] = [];
     const details: any = {
       validMappings: 0,
       missingDatabaseMappings: 0,
       orphanedSleeperRosters: 0
     };
-    
+
     console.log('🔍 Validating Sleeper-to-database mappings...');
-    
+
     const conferences = await this.fetchConferences(conferenceIds);
-    
+
     for (const conference of conferences) {
       try {
         const rosters = await SleeperApiService.fetchLeagueRosters(conference.league_id);
-        
+
         for (const roster of rosters) {
           const rosterId = roster.roster_id.toString();
           const databaseMapping = teamMap.get(`roster_${rosterId}`);
-          
+
           if (!databaseMapping) {
             issues.push(`Sleeper roster ${rosterId} has no database mapping in conference ${conference.conference_name}`);
             details.orphanedSleeperRosters++;
@@ -850,16 +850,16 @@ class MatchupService {
             }
           }
         }
-        
+
       } catch (error) {
         console.error(`Error validating conference ${conference.conference_name}:`, error);
         issues.push(`Failed to validate conference ${conference.conference_name}: ${error}`);
       }
     }
-    
+
     const isValid = issues.length === 0;
     console.log(`${isValid ? '✅' : '❌'} Sleeper-to-database validation:`, details);
-    
+
     return { isValid, issues, details };
   }
 
@@ -867,33 +867,33 @@ class MatchupService {
    * Validate bidirectional consistency
    */
   private async validateBidirectionalConsistency(
-    dbToSleeperResults: any,
-    sleeperToDbResults: any
-  ): Promise<{isValid: boolean; issues: string[]; details: any}> {
+  dbToSleeperResults: any,
+  sleeperToDbResults: any)
+  : Promise<{isValid: boolean;issues: string[];details: any;}> {
     const issues: string[] = [];
     const details: any = {
       consistentMappings: 0,
       inconsistentMappings: 0
     };
-    
+
     console.log('🔄 Validating bidirectional consistency...');
-    
+
     // Compare validation results to ensure consistency
     const dbValidMappings = dbToSleeperResults.details.validMappings;
     const sleeperValidMappings = sleeperToDbResults.details.validMappings;
-    
+
     if (dbValidMappings !== sleeperValidMappings) {
       issues.push(`Mapping count mismatch: ${dbValidMappings} valid from DB-to-Sleeper, ${sleeperValidMappings} valid from Sleeper-to-DB`);
       details.inconsistentMappings++;
     } else {
       details.consistentMappings = dbValidMappings;
     }
-    
+
     // Additional consistency checks can be added here
-    
+
     const isValid = issues.length === 0;
     console.log(`${isValid ? '✅' : '❌'} Bidirectional consistency validation:`, details);
-    
+
     return { isValid, issues, details };
   }
 
@@ -901,31 +901,31 @@ class MatchupService {
    * Generate specific remediation steps based on validation results
    */
   private generateRemediationSteps(
-    dbToSleeperResults: any,
-    sleeperToDbResults: any,
-    consistencyResults: any
-  ): string[] {
+  dbToSleeperResults: any,
+  sleeperToDbResults: any,
+  consistencyResults: any)
+  : string[] {
     const steps: string[] = [];
-    
+
     // Database-to-Sleeper issues
     if (dbToSleeperResults.details.missingSleeperData > 0) {
       steps.push(`Update ${dbToSleeperResults.details.missingSleeperData} database roster mappings that reference non-existent Sleeper rosters`);
     }
-    
+
     if (dbToSleeperResults.details.ownershipMismatches > 0) {
       steps.push(`Resolve ${dbToSleeperResults.details.ownershipMismatches} ownership mismatches between database teams and Sleeper rosters`);
     }
-    
+
     // Sleeper-to-Database issues
     if (sleeperToDbResults.details.orphanedSleeperRosters > 0) {
       steps.push(`Create database mappings for ${sleeperToDbResults.details.orphanedSleeperRosters} orphaned Sleeper rosters`);
     }
-    
+
     // Consistency issues
     if (consistencyResults.details.inconsistentMappings > 0) {
       steps.push('Fix bidirectional mapping inconsistencies by reviewing and correcting broken reverse mappings');
     }
-    
+
     // General steps
     if (steps.length > 0) {
       steps.push('Run the automatic correction system to attempt fixes');
@@ -933,7 +933,7 @@ class MatchupService {
     } else {
       steps.push('No remediation needed - all validations passed');
     }
-    
+
     return steps;
   }
 
@@ -941,17 +941,17 @@ class MatchupService {
    * Assess if automatic corrections are possible
    */
   private assessCorrectionsPossible(
-    dbToSleeperResults: any,
-    sleeperToDbResults: any
-  ): boolean {
+  dbToSleeperResults: any,
+  sleeperToDbResults: any)
+  : boolean {
     // Corrections are possible if we have specific, actionable issues
-    const hasCorrectableIssues = 
-      dbToSleeperResults.details.missingSleeperData > 0 ||
-      sleeperToDbResults.details.orphanedSleeperRosters > 0;
-      
+    const hasCorrectableIssues =
+    dbToSleeperResults.details.missingSleeperData > 0 ||
+    sleeperToDbResults.details.orphanedSleeperRosters > 0;
+
     // Ownership mismatches might require manual intervention
     const hasComplexIssues = dbToSleeperResults.details.ownershipMismatches > 0;
-    
+
     return hasCorrectableIssues && !hasComplexIssues;
   }
 
@@ -963,11 +963,11 @@ class MatchupService {
       if (conferenceIds.length === 0) {
         return [];
       }
-      
+
       const filters = conferenceIds.length === 1 ? [
-        { name: 'id', op: 'Equal', value: conferenceIds[0] }
-      ] : [];
-      
+      { name: 'id', op: 'Equal', value: conferenceIds[0] }] :
+      [];
+
       const response = await window.ezsite.apis.tablePage('12820', {
         PageNo: 1,
         PageSize: 100,
@@ -975,18 +975,18 @@ class MatchupService {
         IsAsc: true,
         Filters: filters
       });
-      
+
       if (response.error) {
         throw new Error(response.error);
       }
-      
+
       const conferences = response.data.List as Conference[];
-      
+
       // Filter by conference IDs if we have multiple
       return conferenceIds.length > 1 ?
-        conferences.filter(c => conferenceIds.includes(c.id)) :
-        conferences;
-        
+      conferences.filter((c) => conferenceIds.includes(c.id)) :
+      conferences;
+
     } catch (error) {
       console.error('❌ Error fetching conferences:', error);
       throw error;
@@ -2023,74 +2023,74 @@ class MatchupService {
 
       // Enhanced roster ownership validation before proceeding
       console.log(`🔐 Validating roster ownership before creating hybrid matchup...`);
-      
+
       const [team1OwnershipValidation, team2OwnershipValidation] = await Promise.all([
-        this.validateRosterOwnership(conference.league_id, team1RosterId.toString(), team1.owner_id),
-        this.validateRosterOwnership(conference.league_id, team2RosterId.toString(), team2.owner_id)
-      ]);
-      
+      this.validateRosterOwnership(conference.league_id, team1RosterId.toString(), team1.owner_id),
+      this.validateRosterOwnership(conference.league_id, team2RosterId.toString(), team2.owner_id)]
+      );
+
       // Check for ownership validation failures
       const ownershipIssues: string[] = [];
       if (!team1OwnershipValidation.isValid) {
         ownershipIssues.push(...team1OwnershipValidation.issues);
         console.warn(`⚠️ Team 1 ownership validation failed:`, team1OwnershipValidation.issues);
       }
-      
+
       if (!team2OwnershipValidation.isValid) {
         ownershipIssues.push(...team2OwnershipValidation.issues);
         console.warn(`⚠️ Team 2 ownership validation failed:`, team2OwnershipValidation.issues);
       }
-      
+
       // If ownership validation fails, attempt automatic correction
       if (ownershipIssues.length > 0) {
         console.log(`🔧 Attempting automatic correction of ownership issues...`);
-        
-        const correctionIssues = ownershipIssues.map(issue => ({
+
+        const correctionIssues = ownershipIssues.map((issue) => ({
           type: 'ownership_mismatch',
           rosterId: issue.includes('team 1') ? team1RosterId.toString() : team2RosterId.toString(),
           teamId: issue.includes('team 1') ? team1.id : team2.id,
           description: issue
         }));
-        
+
         const correctionResult = await this.correctRosterAssignments(conference.id, correctionIssues);
-        
+
         if (correctionResult.corrected > 0) {
           console.log(`✅ Successfully corrected ${correctionResult.corrected} ownership issues`);
-          
+
           // Rebuild team map to reflect corrections
           teamMap = await this.buildTeamConferenceMap([conference.id]);
-          
+
           // Update mappings after correction
           const correctedTeam1Mapping = teamMap.get(`team_${team1.id}`);
           const correctedTeam2Mapping = teamMap.get(`team_${team2.id}`);
-          
+
           if (correctedTeam1Mapping && correctedTeam2Mapping) {
             console.log(`✅ Using corrected roster mappings`);
           } else {
             console.error(`❌ Correction failed - unable to find corrected mappings`);
-            
+
             if (this.debugMode) {
               matchupDataFlowDebugger.logError(traceId, 'critical', 'hybrid_service', 'ownership_correction',
-                'Roster ownership correction failed', { matchupId: dbMatchup.id, ownershipIssues });
+              'Roster ownership correction failed', { matchupId: dbMatchup.id, ownershipIssues });
             }
-            
+
             return null;
           }
         } else {
           console.warn(`⚠️ Automatic correction failed for ${correctionResult.failed} issues - proceeding with fallback logic`);
-          
+
           // Apply fallback logic for unresolvable ownership issues
           const fallbackResult = await this.applyFallbackLogic(
             dbMatchup, conference, teams, teamMap,
             { matchups: sleeperMatchupsData, rosters: rostersData, users: usersData },
             allPlayers
           );
-          
+
           if (!fallbackResult.success) {
             console.error(`❌ All fallback strategies failed for matchup ${dbMatchup.id}`);
             return null;
           }
-          
+
           console.log(`✅ Using fallback data due to ownership validation failures`);
         }
       } else {
@@ -2515,15 +2515,15 @@ class MatchupService {
     auditTrailSize: number;
     lastValidations: Array<any>;
   } {
-    const lastValidations = Array.from(this.rosterOwnershipCache.entries())
-      .slice(-10)
-      .map(([key, value]) => ({
-        key,
-        rosterId: value.rosterId,
-        ownerId: value.ownerId,
-        lastVerified: value.lastVerified,
-        isValid: value.isValid
-      }));
+    const lastValidations = Array.from(this.rosterOwnershipCache.entries()).
+    slice(-10).
+    map(([key, value]) => ({
+      key,
+      rosterId: value.rosterId,
+      ownerId: value.ownerId,
+      lastVerified: value.lastVerified,
+      isValid: value.isValid
+    }));
 
     return {
       cacheSize: this.rosterValidationCache.size,
@@ -2542,36 +2542,36 @@ class MatchupService {
     results: Array<any>;
   }> {
     console.log('🔄 Force refreshing all roster validations...');
-    
+
     let refreshed = 0;
     let failed = 0;
     const results: Array<any> = [];
-    
+
     try {
       // Clear existing cache
       this.clearRosterValidationCache();
-      
+
       // Get all team mappings
       const teamMap = await this.buildTeamConferenceMap(conferenceIds);
       const conferences = await this.fetchConferences(conferenceIds);
-      
+
       // Refresh validation for each roster
       for (const conference of conferences) {
         try {
           const rosters = await SleeperApiService.fetchLeagueRosters(conference.league_id);
-          
+
           for (const roster of rosters) {
             try {
               const rosterId = roster.roster_id.toString();
               const mapping = teamMap.get(`roster_${rosterId}`);
-              
+
               if (mapping) {
                 const validation = await this.validateRosterOwnership(
                   conference.league_id,
                   rosterId,
                   roster.owner_id
                 );
-                
+
                 results.push({
                   conferenceId: conference.id,
                   rosterId,
@@ -2579,7 +2579,7 @@ class MatchupService {
                   isValid: validation.isValid,
                   issues: validation.issues
                 });
-                
+
                 if (validation.isValid) {
                   refreshed++;
                 } else {
@@ -2595,11 +2595,11 @@ class MatchupService {
           console.error(`Failed to refresh validations for conference ${conference.id}:`, error);
         }
       }
-      
+
       console.log(`✅ Validation refresh completed: ${refreshed} refreshed, ${failed} failed`);
-      
+
       return { refreshed, failed, results };
-      
+
     } catch (error) {
       console.error('❌ Error during validation refresh:', error);
       return { refreshed, failed, results };
