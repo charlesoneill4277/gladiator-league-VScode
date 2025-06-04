@@ -169,28 +169,28 @@ export class SleeperApiService {
    * Sleep utility for retry mechanism
    */
   private static async sleep(ms: number): Promise<void> {
-    return new Promise(resolve => setTimeout(resolve, ms));
+    return new Promise((resolve) => setTimeout(resolve, ms));
   }
 
   /**
    * Enhanced fetch with retry mechanism
    */
   private static async fetchWithRetry(
-    url: string, 
-    config: RetryConfig = this.defaultRetryConfig
-  ): Promise<Response> {
+  url: string,
+  config: RetryConfig = this.defaultRetryConfig)
+  : Promise<Response> {
     let lastError: Error;
-    
+
     for (let attempt = 0; attempt <= config.maxRetries; attempt++) {
       try {
         console.log(`🔄 Fetching ${url} (attempt ${attempt + 1}/${config.maxRetries + 1})`);
         const response = await fetch(url);
-        
+
         if (response.ok) {
           console.log(`✅ Successfully fetched ${url} on attempt ${attempt + 1}`);
           return response;
         }
-        
+
         // Handle rate limiting
         if (response.status === 429) {
           const retryAfter = response.headers.get('Retry-After');
@@ -199,7 +199,7 @@ export class SleeperApiService {
           await this.sleep(delay);
           continue;
         }
-        
+
         // Handle server errors
         if (response.status >= 500) {
           lastError = new Error(`Server error: ${response.status} ${response.statusText}`);
@@ -207,22 +207,22 @@ export class SleeperApiService {
           // Client errors - don't retry
           throw new Error(`Client error: ${response.status} ${response.statusText}`);
         }
-        
+
       } catch (error) {
         lastError = error as Error;
         console.warn(`⚠️ Attempt ${attempt + 1} failed for ${url}:`, error);
       }
-      
+
       // Calculate delay for next attempt
       if (attempt < config.maxRetries) {
-        const delay = config.exponential 
-          ? Math.min(config.baseDelay * Math.pow(2, attempt), config.maxDelay)
-          : config.baseDelay;
+        const delay = config.exponential ?
+        Math.min(config.baseDelay * Math.pow(2, attempt), config.maxDelay) :
+        config.baseDelay;
         console.log(`⏳ Waiting ${delay}ms before next attempt`);
         await this.sleep(delay);
       }
     }
-    
+
     console.error(`❌ All retry attempts failed for ${url}`);
     throw lastError!;
   }
@@ -231,16 +231,16 @@ export class SleeperApiService {
    * Validate team data quality
    */
   static validateTeamData(
-    rosterId: number,
-    roster: SleeperRoster | null,
-    matchupData: SleeperMatchup | null,
-    allPlayers: Record<string, SleeperPlayer>
-  ): TeamDataQuality {
+  rosterId: number,
+  roster: SleeperRoster | null,
+  matchupData: SleeperMatchup | null,
+  allPlayers: Record<string, SleeperPlayer>)
+  : TeamDataQuality {
     const issues: string[] = [];
     let dataCompleteness = 0;
     let validPlayersCount = 0;
     let validStartersCount = 0;
-    
+
     // Check roster data
     const hasRosterData = roster !== null;
     if (!hasRosterData) {
@@ -248,29 +248,29 @@ export class SleeperApiService {
     } else {
       // Validate players exist in player database
       if (roster.players) {
-        validPlayersCount = roster.players.filter(playerId => 
-          allPlayers[playerId] !== undefined
+        validPlayersCount = roster.players.filter((playerId) =>
+        allPlayers[playerId] !== undefined
         ).length;
-        
+
         if (validPlayersCount < roster.players.length) {
           issues.push(`${roster.players.length - validPlayersCount} players not found in player database`);
         }
       }
-      
+
       // Validate starters
       if (roster.starters) {
-        validStartersCount = roster.starters.filter(playerId => 
-          allPlayers[playerId] !== undefined
+        validStartersCount = roster.starters.filter((playerId) =>
+        allPlayers[playerId] !== undefined
         ).length;
-        
+
         if (validStartersCount < roster.starters.length) {
           issues.push(`${roster.starters.length - validStartersCount} starters not found in player database`);
         }
       }
-      
+
       dataCompleteness += 40; // Base roster data
     }
-    
+
     // Check matchup data
     const hasMatchupData = matchupData !== null;
     if (!hasMatchupData) {
@@ -278,25 +278,25 @@ export class SleeperApiService {
     } else {
       dataCompleteness += 30; // Matchup data present
     }
-    
+
     // Check player points
-    const hasPlayerPoints = matchupData?.players_points && 
-      Object.keys(matchupData.players_points).length > 0;
+    const hasPlayerPoints = matchupData?.players_points &&
+    Object.keys(matchupData.players_points).length > 0;
     if (!hasPlayerPoints) {
       issues.push('Missing player points data');
     } else {
       dataCompleteness += 20; // Player points available
     }
-    
+
     // Check starter points
-    const hasStarterPoints = matchupData?.starters_points && 
-      matchupData.starters_points.length > 0;
+    const hasStarterPoints = matchupData?.starters_points &&
+    matchupData.starters_points.length > 0;
     if (!hasStarterPoints) {
       issues.push('Missing starter points data');
     } else {
       dataCompleteness += 10; // Starter points available
     }
-    
+
     return {
       rosterId,
       hasRosterData,
@@ -314,33 +314,33 @@ export class SleeperApiService {
    * Enhanced roster data fetching with comprehensive validation
    */
   static async fetchIndividualTeamRoster(
-    leagueId: string, 
-    rosterId: number,
-    retryConfig?: RetryConfig
-  ): Promise<ValidatedTeamRoster> {
+  leagueId: string,
+  rosterId: number,
+  retryConfig?: RetryConfig)
+  : Promise<ValidatedTeamRoster> {
     const config = { ...this.defaultRetryConfig, ...retryConfig };
     const validationErrors: string[] = [];
-    
+
     try {
       console.log(`🎯 Fetching individual team roster for roster ${rosterId}`);
-      
+
       // Fetch all required data
       const [rosters, allPlayers] = await Promise.allSettled([
-        this.fetchLeagueRosters(leagueId),
-        this.fetchAllPlayers()
-      ]);
-      
+      this.fetchLeagueRosters(leagueId),
+      this.fetchAllPlayers()]
+      );
+
       // Handle roster fetch result
       let rosterData: SleeperRoster | null = null;
       if (rosters.status === 'fulfilled') {
-        rosterData = rosters.value.find(r => r.roster_id === rosterId) || null;
+        rosterData = rosters.value.find((r) => r.roster_id === rosterId) || null;
         if (!rosterData) {
           validationErrors.push(`Roster ${rosterId} not found in league ${leagueId}`);
         }
       } else {
         validationErrors.push(`Failed to fetch rosters: ${rosters.reason}`);
       }
-      
+
       // Handle players fetch result
       let playersData: Record<string, SleeperPlayer> = {};
       if (allPlayers.status === 'fulfilled') {
@@ -348,22 +348,22 @@ export class SleeperApiService {
       } else {
         validationErrors.push(`Failed to fetch players: ${allPlayers.reason}`);
       }
-      
+
       // Create organized roster even with partial data
-      const organizedRoster = rosterData 
-        ? this.organizeRoster(rosterData, playersData)
-        : { starters: [], bench: [], ir: [] };
-      
+      const organizedRoster = rosterData ?
+      this.organizeRoster(rosterData, playersData) :
+      { starters: [], bench: [], ir: [] };
+
       // Validate data quality
       const dataQuality = this.validateTeamData(
-        rosterId, 
-        rosterData, 
+        rosterId,
+        rosterData,
         null, // No matchup data in this method
         playersData
       );
-      
+
       console.log(`📊 Team ${rosterId} data quality:`, dataQuality);
-      
+
       return {
         roster: rosterData!,
         matchupData: null,
@@ -371,11 +371,11 @@ export class SleeperApiService {
         dataQuality,
         validationErrors
       };
-      
+
     } catch (error) {
       console.error(`❌ Error fetching individual team roster for ${rosterId}:`, error);
       validationErrors.push(`Unexpected error: ${error}`);
-      
+
       // Return minimal structure with error information
       return {
         roster: null as any,
@@ -395,7 +395,7 @@ export class SleeperApiService {
       console.log(`📈 Fetching rosters for league: ${leagueId}`);
       const response = await this.fetchWithRetry(`${this.baseUrl}/league/${leagueId}/rosters`);
       const data = await response.json();
-      
+
       // Enhanced validation and logging
       const validationResults = {
         totalRosters: data.length,
@@ -404,14 +404,14 @@ export class SleeperApiService {
         rostersWithSettings: data.filter((r: SleeperRoster) => r.settings).length,
         averagePlayerCount: data.reduce((sum: number, r: SleeperRoster) => sum + (r.players?.length || 0), 0) / data.length
       };
-      
+
       console.log(`✅ Fetched ${data.length} rosters for league ${leagueId}:`, validationResults);
-      
+
       // Warn about potential data issues
       if (validationResults.rostersWithPlayers < validationResults.totalRosters) {
         console.warn(`⚠️ ${validationResults.totalRosters - validationResults.rostersWithPlayers} rosters have no players`);
       }
-      
+
       return data;
     } catch (error) {
       console.error('❌ Error fetching league rosters:', error);
@@ -427,7 +427,7 @@ export class SleeperApiService {
       console.log('🏈 Fetching all NFL players data...');
       const response = await this.fetchWithRetry(`${this.baseUrl}/players/nfl`);
       const data = await response.json();
-      
+
       // Enhanced validation and logging
       const validationResults = {
         totalPlayers: Object.keys(data).length,
@@ -436,25 +436,25 @@ export class SleeperApiService {
         playersWithTeams: 0,
         playersWithInjuryStatus: 0
       };
-      
+
       // Analyze player data quality
       Object.values(data).forEach((player: any) => {
         // Count by position
         const pos = player.position || 'UNKNOWN';
         validationResults.playersByPosition[pos] = (validationResults.playersByPosition[pos] || 0) + 1;
-        
+
         // Count active players
         if (player.status === 'Active') validationResults.activePlayersCount++;
-        
+
         // Count players with teams
         if (player.team) validationResults.playersWithTeams++;
-        
+
         // Count players with injury status
         if (player.injury_status) validationResults.playersWithInjuryStatus++;
       });
-      
+
       console.log(`✅ Fetched ${Object.keys(data).length} players from Sleeper API:`, validationResults);
-      
+
       return data;
     } catch (error) {
       console.error('❌ Error fetching players:', error);
@@ -614,7 +614,7 @@ export class SleeperApiService {
       console.log(`🏆 Fetching league info: ${leagueId}`);
       const response = await this.fetchWithRetry(`${this.baseUrl}/league/${leagueId}`);
       const data = await response.json();
-      
+
       // Enhanced validation
       const validationResults = {
         hasSettings: !!data.settings,
@@ -623,7 +623,7 @@ export class SleeperApiService {
         totalRosters: data.total_rosters,
         status: data.status
       };
-      
+
       console.log(`✅ Fetched league info for ${leagueId}:`, validationResults);
       return data;
     } catch (error) {
@@ -637,22 +637,18 @@ export class SleeperApiService {
    */
   static async fetchLeagueUsers(leagueId: string): Promise<SleeperUser[]> {
     try {
-      console.log(`👥 Fetching users for league: ${leagueId}`);
-      const response = await this.fetchWithRetry(`${this.baseUrl}/league/${leagueId}/users`);
+      console.log(`Fetching users for league: ${leagueId}`);
+      const response = await fetch(`${this.baseUrl}/league/${leagueId}/users`);
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch users: ${response.status} ${response.statusText}`);
+      }
+
       const data = await response.json();
-      
-      // Enhanced validation
-      const validationResults = {
-        totalUsers: data.length,
-        usersWithDisplayNames: data.filter((u: SleeperUser) => u.display_name).length,
-        usersWithAvatars: data.filter((u: SleeperUser) => u.avatar).length,
-        usersWithTeamNames: data.filter((u: SleeperUser) => u.metadata?.team_name).length
-      };
-      
-      console.log(`✅ Fetched ${data.length} users for league ${leagueId}:`, validationResults);
+      console.log(`Fetched ${data.length} users for league ${leagueId}`);
       return data;
     } catch (error) {
-      console.error('❌ Error fetching league users:', error);
+      console.error('Error fetching league users:', error);
       throw error;
     }
   }

@@ -77,6 +77,7 @@ export interface HybridMatchup {
 
 class MatchupService {
   private teamConferenceMap = new Map<string, {teamId: number;rosterId: string;}>();
+  private rosterValidationCache = new Map<string, any>();
   private debugMode = false;
 
   /**
@@ -86,6 +87,16 @@ class MatchupService {
     this.debugMode = enabled;
     matchupDataFlowDebugger.setDebugMode(enabled);
     console.log(`🔧 MatchupService debug mode: ${enabled ? 'ENABLED' : 'DISABLED'}`);
+    
+    if (enabled) {
+      console.log('🔍 Enhanced debugging features:');
+      console.log('  ✓ Roster API verification');
+      console.log('  ✓ Data validation tracing (roster_id → team_id → matchup)');
+      console.log('  ✓ Comprehensive data flow logging');
+      console.log('  ✓ Scoring data mapping validation');
+      console.log('  ✓ Fallback logic monitoring');
+      console.log('  ✓ Complete transformation pipeline tracking');
+    }
   }
 
   /**
@@ -93,6 +104,337 @@ class MatchupService {
    */
   getDebugMode(): boolean {
     return this.debugMode;
+  }
+
+  /**
+   * Enhanced roster API verification method to cross-check team assignments
+   * Validates that roster_id → team_id → matchup assignments are consistent
+   */
+  async verifyRosterAssignments(
+    conferenceIds: number[],
+    sleeperRosters: SleeperRoster[],
+    teamMap: Map<string, {teamId: number; rosterId: string;}>
+  ): Promise<{isValid: boolean; issues: string[]; recommendations: string[]}> {
+    const traceId = this.debugMode ? matchupDataFlowDebugger.startTrace('roster_verification', 'verify_roster_assignments') : '';
+    const stepId = this.debugMode ? matchupDataFlowDebugger.logStep(traceId, 'validation', 'roster_verification', {
+      conferenceIds,
+      sleeperRosterCount: sleeperRosters.length,
+      teamMapSize: teamMap.size
+    }).id : '';
+
+    try {
+      const issues: string[] = [];
+      const recommendations: string[] = [];
+      
+      console.log('🔍 Starting comprehensive roster assignment verification...');
+      
+      // 1. Cross-reference Sleeper rosters with team mappings
+      const sleeperRosterIds = new Set(sleeperRosters.map(r => r.roster_id.toString()));
+      const mappedRosterIds = new Set();
+      
+      for (const [key, mapping] of teamMap.entries()) {
+        if (key.startsWith('roster_')) {
+          mappedRosterIds.add(mapping.rosterId);
+        }
+      }
+      
+      // Check for missing roster mappings
+      const unmappedSleeperRosters = [...sleeperRosterIds].filter(id => !mappedRosterIds.has(id));
+      const unmappedTeamRosters = [...mappedRosterIds].filter(id => !sleeperRosterIds.has(id));
+      
+      if (unmappedSleeperRosters.length > 0) {
+        issues.push(`Found ${unmappedSleeperRosters.length} Sleeper rosters without team mappings: ${unmappedSleeperRosters.join(', ')}`);
+        recommendations.push('Update team_conferences_junction table to include missing roster mappings');
+      }
+      
+      if (unmappedTeamRosters.length > 0) {
+        issues.push(`Found ${unmappedTeamRosters.length} team roster mappings without corresponding Sleeper rosters: ${unmappedTeamRosters.join(', ')}`);
+        recommendations.push('Review and clean up orphaned team roster mappings in database');
+      }
+      
+      // 2. Validate team ownership consistency
+      for (const roster of sleeperRosters) {
+        const mapping = teamMap.get(`roster_${roster.roster_id}`);
+        if (mapping) {
+          // Verify the reverse mapping exists
+          const reverseMapping = teamMap.get(`team_${mapping.teamId}`);
+          if (!reverseMapping || reverseMapping.rosterId !== roster.roster_id.toString()) {
+            issues.push(`Roster ${roster.roster_id} has inconsistent bidirectional team mapping`);
+            recommendations.push(`Fix bidirectional mapping for roster ${roster.roster_id} and team ${mapping.teamId}`);
+          }
+        }
+      }
+      
+      // 3. Check for duplicate roster assignments
+      const rosterAssignments = new Map<string, number[]>();
+      for (const [key, mapping] of teamMap.entries()) {
+        if (key.startsWith('roster_')) {
+          if (!rosterAssignments.has(mapping.rosterId)) {
+            rosterAssignments.set(mapping.rosterId, []);
+          }
+          rosterAssignments.get(mapping.rosterId)!.push(mapping.teamId);
+        }
+      }
+      
+      for (const [rosterId, teamIds] of rosterAssignments.entries()) {
+        if (teamIds.length > 1) {
+          issues.push(`Roster ${rosterId} is assigned to multiple teams: ${teamIds.join(', ')}`);
+          recommendations.push(`Resolve duplicate roster assignment for roster ${rosterId}`);
+        }
+      }
+      
+      const isValid = issues.length === 0;
+      
+      console.log(`${isValid ? '✅' : '❌'} Roster verification completed:`, {
+        totalIssues: issues.length,
+        isValid,
+        sleeperRosters: sleeperRosters.length,
+        mappedRosters: mappedRosterIds.size,
+        unmappedSleeperRosters: unmappedSleeperRosters.length,
+        unmappedTeamRosters: unmappedTeamRosters.length
+      });
+      
+      if (this.debugMode) {
+        matchupDataFlowDebugger.performConsistencyCheck(traceId, 'roster_mapping', 
+          { expectedMappings: sleeperRosters.length, validationPassed: true },
+          { actualMappings: mappedRosterIds.size, issues: issues.length }
+        );
+        
+        if (!isValid) {
+          matchupDataFlowDebugger.logError(traceId, 'high', 'validation', 'roster_verification',
+            'Roster assignment validation failed', { issues, recommendations }
+          );
+        }
+        
+        matchupDataFlowDebugger.completeStep(traceId, stepId);
+        matchupDataFlowDebugger.completeTrace(traceId);
+      }
+      
+      return { isValid, issues, recommendations };
+      
+    } catch (error) {
+      console.error('❌ Error during roster verification:', error);
+      
+      if (this.debugMode) {
+        matchupDataFlowDebugger.logError(traceId, 'critical', 'validation', 'roster_verification', error, {
+          conferenceIds, sleeperRosterCount: sleeperRosters.length
+        });
+        matchupDataFlowDebugger.completeStep(traceId, stepId);
+      }
+      
+      return {
+        isValid: false,
+        issues: [`Critical error during roster verification: ${error}`],
+        recommendations: ['Review roster verification logic and data sources']
+      };
+    }
+  }
+
+  /**
+   * Enhanced data validation that traces roster_id → team_id → matchup assignments
+   * Provides comprehensive validation of the complete data flow
+   */
+  async validateDataFlowIntegrity(
+    databaseMatchups: DatabaseMatchup[],
+    sleeperMatchupsData: SleeperMatchup[],
+    teamMap: Map<string, {teamId: number; rosterId: string;}>,
+    teams: Team[]
+  ): Promise<{isValid: boolean; integrity: any; recommendations: string[]}> {
+    const traceId = this.debugMode ? matchupDataFlowDebugger.startTrace('data_flow_validation', 'validate_data_flow_integrity') : '';
+    const stepId = this.debugMode ? matchupDataFlowDebugger.logStep(traceId, 'validation', 'data_flow_integrity', {
+      databaseMatchups: databaseMatchups.length,
+      sleeperMatchups: sleeperMatchupsData.length,
+      teamMappings: teamMap.size,
+      teams: teams.length
+    }).id : '';
+
+    try {
+      console.log('🔬 Starting comprehensive data flow integrity validation...');
+      
+      const integrity = {
+        rosterToTeamMappings: { valid: 0, invalid: 0, missing: 0 },
+        teamToMatchupAssignments: { valid: 0, invalid: 0, missing: 0 },
+        scoringDataConsistency: { valid: 0, invalid: 0, missing: 0 },
+        dataCompleteness: { complete: 0, partial: 0, empty: 0 },
+        crossReferenceValidation: { passed: 0, failed: 0 }
+      };
+      
+      const recommendations: string[] = [];
+      const validationErrors: string[] = [];
+      
+      // 1. Validate roster_id → team_id mappings
+      console.log('🔗 Validating roster_id → team_id mappings...');
+      for (const dbMatchup of databaseMatchups) {
+        const team1Mapping = teamMap.get(`team_${dbMatchup.team_1_id}`);
+        const team2Mapping = teamMap.get(`team_${dbMatchup.team_2_id}`);
+        
+        if (team1Mapping && team2Mapping) {
+          // Verify reverse mappings exist and are consistent
+          const reverseTeam1 = teamMap.get(`roster_${team1Mapping.rosterId}`);
+          const reverseTeam2 = teamMap.get(`roster_${team2Mapping.rosterId}`);
+          
+          if (reverseTeam1?.teamId === dbMatchup.team_1_id && reverseTeam2?.teamId === dbMatchup.team_2_id) {
+            integrity.rosterToTeamMappings.valid++;
+          } else {
+            integrity.rosterToTeamMappings.invalid++;
+            validationErrors.push(`Matchup ${dbMatchup.id}: Inconsistent bidirectional roster mappings`);
+          }
+        } else {
+          integrity.rosterToTeamMappings.missing++;
+          validationErrors.push(`Matchup ${dbMatchup.id}: Missing roster mappings for teams ${dbMatchup.team_1_id}, ${dbMatchup.team_2_id}`);
+        }
+      }
+      
+      // 2. Validate team_id → matchup assignments
+      console.log('📋 Validating team_id → matchup assignments...');
+      for (const dbMatchup of databaseMatchups) {
+        const team1 = teams.find(t => t.id === dbMatchup.team_1_id);
+        const team2 = teams.find(t => t.id === dbMatchup.team_2_id);
+        
+        if (team1 && team2) {
+          integrity.teamToMatchupAssignments.valid++;
+        } else {
+          integrity.teamToMatchupAssignments.invalid++;
+          validationErrors.push(`Matchup ${dbMatchup.id}: Missing team records for IDs ${dbMatchup.team_1_id}, ${dbMatchup.team_2_id}`);
+        }
+      }
+      
+      // 3. Validate scoring data consistency
+      console.log('📊 Validating scoring data consistency...');
+      for (const dbMatchup of databaseMatchups) {
+        const team1Mapping = teamMap.get(`team_${dbMatchup.team_1_id}`);
+        const team2Mapping = teamMap.get(`team_${dbMatchup.team_2_id}`);
+        
+        if (team1Mapping && team2Mapping) {
+          const sleeperTeam1 = sleeperMatchupsData.find(m => m.roster_id === parseInt(team1Mapping.rosterId));
+          const sleeperTeam2 = sleeperMatchupsData.find(m => m.roster_id === parseInt(team2Mapping.rosterId));
+          
+          if (sleeperTeam1 && sleeperTeam2) {
+            // Check if scoring data is available and consistent
+            const hasValidScoringData = 
+              (sleeperTeam1.points !== undefined && sleeperTeam1.points >= 0) &&
+              (sleeperTeam2.points !== undefined && sleeperTeam2.points >= 0);
+            
+            if (hasValidScoringData) {
+              integrity.scoringDataConsistency.valid++;
+              
+              // For manual overrides, check if scores match database
+              if (dbMatchup.is_manual_override) {
+                const scoreDiscrepancy = 
+                  Math.abs(dbMatchup.team_1_score - sleeperTeam1.points) > 0.1 ||
+                  Math.abs(dbMatchup.team_2_score - sleeperTeam2.points) > 0.1;
+                
+                if (scoreDiscrepancy && this.debugMode) {
+                  console.log(`ℹ️ Manual override detected with score differences for matchup ${dbMatchup.id}`);
+                }
+              }
+            } else {
+              integrity.scoringDataConsistency.invalid++;
+              validationErrors.push(`Matchup ${dbMatchup.id}: Invalid or missing scoring data from Sleeper`);
+            }
+          } else {
+            integrity.scoringDataConsistency.missing++;
+            validationErrors.push(`Matchup ${dbMatchup.id}: Missing Sleeper matchup data for rosters ${team1Mapping.rosterId}, ${team2Mapping.rosterId}`);
+          }
+        }
+      }
+      
+      // 4. Validate data completeness
+      console.log('📝 Validating data completeness...');
+      for (const sleeperMatchup of sleeperMatchupsData) {
+        const hasPlayerPoints = sleeperMatchup.players_points && Object.keys(sleeperMatchup.players_points).length > 0;
+        const hasStarters = sleeperMatchup.starters && sleeperMatchup.starters.length > 0;
+        const hasStartersPoints = sleeperMatchup.starters_points && sleeperMatchup.starters_points.length > 0;
+        
+        if (hasPlayerPoints && hasStarters && hasStartersPoints) {
+          integrity.dataCompleteness.complete++;
+        } else if (hasPlayerPoints || hasStarters || hasStartersPoints) {
+          integrity.dataCompleteness.partial++;
+        } else {
+          integrity.dataCompleteness.empty++;
+        }
+      }
+      
+      // 5. Cross-reference validation
+      console.log('🔄 Performing cross-reference validation...');
+      const sleeperRosterIds = new Set(sleeperMatchupsData.map(m => m.roster_id));
+      for (const [key, mapping] of teamMap.entries()) {
+        if (key.startsWith('roster_')) {
+          if (sleeperRosterIds.has(parseInt(mapping.rosterId))) {
+            integrity.crossReferenceValidation.passed++;
+          } else {
+            integrity.crossReferenceValidation.failed++;
+            validationErrors.push(`Roster ${mapping.rosterId} in team mapping but not found in Sleeper data`);
+          }
+        }
+      }
+      
+      // Generate recommendations based on validation results
+      if (integrity.rosterToTeamMappings.invalid > 0 || integrity.rosterToTeamMappings.missing > 0) {
+        recommendations.push('Review and fix roster-to-team mappings in team_conferences_junction table');
+      }
+      
+      if (integrity.teamToMatchupAssignments.invalid > 0) {
+        recommendations.push('Verify team records exist for all matchup assignments');
+      }
+      
+      if (integrity.scoringDataConsistency.invalid > 0 || integrity.scoringDataConsistency.missing > 0) {
+        recommendations.push('Check Sleeper API connectivity and data synchronization for scoring information');
+      }
+      
+      if (integrity.dataCompleteness.empty > 0) {
+        recommendations.push('Some matchups have no player or scoring data - verify week and league configuration');
+      }
+      
+      if (integrity.crossReferenceValidation.failed > 0) {
+        recommendations.push('Clean up orphaned roster mappings or update Sleeper API data source');
+      }
+      
+      const isValid = validationErrors.length === 0;
+      
+      console.log(`${isValid ? '✅' : '❌'} Data flow integrity validation completed:`, {
+        isValid,
+        totalErrors: validationErrors.length,
+        integrity,
+        recommendations: recommendations.length
+      });
+      
+      if (this.debugMode) {
+        matchupDataFlowDebugger.logDataTransformation(traceId, 'validation', 'hybrid_service', 
+          { databaseMatchups, sleeperMatchupsData }, 
+          { integrity, validationErrors, isValid }
+        );
+        
+        if (!isValid) {
+          matchupDataFlowDebugger.logError(traceId, 'high', 'validation', 'data_flow_integrity',
+            `Data flow validation failed with ${validationErrors.length} errors`, 
+            { validationErrors, integrity }
+          );
+        }
+        
+        matchupDataFlowDebugger.completeStep(traceId, stepId);
+        matchupDataFlowDebugger.completeTrace(traceId);
+      }
+      
+      return { isValid, integrity, recommendations };
+      
+    } catch (error) {
+      console.error('❌ Error during data flow integrity validation:', error);
+      
+      if (this.debugMode) {
+        matchupDataFlowDebugger.logError(traceId, 'critical', 'validation', 'data_flow_integrity', error, {
+          databaseMatchups: databaseMatchups.length,
+          sleeperMatchups: sleeperMatchupsData.length
+        });
+        matchupDataFlowDebugger.completeStep(traceId, stepId);
+      }
+      
+      return {
+        isValid: false,
+        integrity: { error: 'Critical validation error' },
+        recommendations: ['Review data flow integrity validation logic']
+      };
+    }
   }
 
   /**
@@ -265,6 +607,415 @@ class MatchupService {
       console.error('❌ Error fetching teams:', error);
       throw error;
     }
+  }
+
+  /**
+   * Enhanced scoring data validation with comprehensive mapping verification
+   * Ensures that scoring data is correctly mapped to the right teams in each matchup
+   */
+  validateScoringDataMapping(
+    dbMatchup: DatabaseMatchup,
+    sleeperMatchup1: SleeperMatchup | undefined,
+    sleeperMatchup2: SleeperMatchup | undefined,
+    teamMap: Map<string, {teamId: number; rosterId: string;}>
+  ): {isValid: boolean; issues: string[]; corrections: any} {
+    const issues: string[] = [];
+    const corrections: any = {};
+    
+    console.log(`🎯 Validating scoring data mapping for matchup ${dbMatchup.id}...`);
+    
+    // Get expected roster IDs for the teams
+    const team1Mapping = teamMap.get(`team_${dbMatchup.team_1_id}`);
+    const team2Mapping = teamMap.get(`team_${dbMatchup.team_2_id}`);
+    
+    if (!team1Mapping || !team2Mapping) {
+      issues.push('Missing roster mappings for one or both teams');
+      return { isValid: false, issues, corrections };
+    }
+    
+    const expectedRoster1Id = parseInt(team1Mapping.rosterId);
+    const expectedRoster2Id = parseInt(team2Mapping.rosterId);
+    
+    // Validate that scoring data matches expected roster assignments
+    if (sleeperMatchup1) {
+      if (sleeperMatchup1.roster_id !== expectedRoster1Id) {
+        issues.push(`Team 1 scoring data roster mismatch: expected ${expectedRoster1Id}, got ${sleeperMatchup1.roster_id}`);
+        corrections.team1CorrectRosterId = expectedRoster1Id;
+      }
+      
+      // Validate scoring data completeness
+      if (sleeperMatchup1.points === undefined || sleeperMatchup1.points < 0) {
+        issues.push('Team 1 has invalid or missing points data');
+      }
+      
+      if (!sleeperMatchup1.players_points || Object.keys(sleeperMatchup1.players_points).length === 0) {
+        issues.push('Team 1 missing player-level scoring data');
+      }
+    } else {
+      issues.push('Missing Sleeper matchup data for team 1');
+    }
+    
+    if (sleeperMatchup2) {
+      if (sleeperMatchup2.roster_id !== expectedRoster2Id) {
+        issues.push(`Team 2 scoring data roster mismatch: expected ${expectedRoster2Id}, got ${sleeperMatchup2.roster_id}`);
+        corrections.team2CorrectRosterId = expectedRoster2Id;
+      }
+      
+      // Validate scoring data completeness
+      if (sleeperMatchup2.points === undefined || sleeperMatchup2.points < 0) {
+        issues.push('Team 2 has invalid or missing points data');
+      }
+      
+      if (!sleeperMatchup2.players_points || Object.keys(sleeperMatchup2.players_points).length === 0) {
+        issues.push('Team 2 missing player-level scoring data');
+      }
+    } else {
+      issues.push('Missing Sleeper matchup data for team 2');
+    }
+    
+    // Cross-validate matchup assignment consistency
+    if (sleeperMatchup1 && sleeperMatchup2) {
+      if (sleeperMatchup1.matchup_id !== sleeperMatchup2.matchup_id) {
+        issues.push(`Sleeper matchup ID mismatch: team 1 (${sleeperMatchup1.matchup_id}) vs team 2 (${sleeperMatchup2.matchup_id})`);
+      }
+    }
+    
+    const isValid = issues.length === 0;
+    
+    if (this.debugMode) {
+      console.log(`${isValid ? '✅' : '❌'} Scoring data validation for matchup ${dbMatchup.id}:`, {
+        isValid,
+        issues: issues.length,
+        expectedRosters: [expectedRoster1Id, expectedRoster2Id],
+        actualRosters: [sleeperMatchup1?.roster_id, sleeperMatchup2?.roster_id]
+      });
+    }
+    
+    return { isValid, issues, corrections };
+  }
+
+  /**
+   * Enhanced fallback logic for handling missing or inconsistent data
+   * Provides graceful degradation when data is incomplete
+   */
+  async applyFallbackLogic(
+    dbMatchup: DatabaseMatchup,
+    conference: Conference,
+    teams: Team[],
+    teamMap: Map<string, {teamId: number; rosterId: string;}>,
+    originalSleeperData?: {matchups: SleeperMatchup[]; rosters: SleeperRoster[]; users: SleeperUser[]},
+    allPlayers?: Record<string, SleeperPlayer>
+  ): Promise<{success: boolean; fallbackData: any; fallbackType: string}> {
+    const traceId = this.debugMode ? matchupDataFlowDebugger.startTrace(`fallback_${dbMatchup.id}`, 'apply_fallback_logic') : '';
+    
+    try {
+      console.log(`🔄 Applying fallback logic for matchup ${dbMatchup.id}...`);
+      
+      const team1 = teams.find(t => t.id === dbMatchup.team_1_id);
+      const team2 = teams.find(t => t.id === dbMatchup.team_2_id);
+      
+      if (!team1 || !team2) {
+        return { success: false, fallbackData: null, fallbackType: 'no_teams_found' };
+      }
+      
+      // Try different fallback strategies in order of preference
+      
+      // 1. Try to fetch fresh data from Sleeper API
+      if (conference.league_id) {
+        try {
+          console.log('🔄 Fallback strategy 1: Fresh Sleeper API fetch...');
+          const teamMapping1 = teamMap.get(`team_${dbMatchup.team_1_id}`);
+          const teamMapping2 = teamMap.get(`team_${dbMatchup.team_2_id}`);
+          
+          if (teamMapping1 && teamMapping2) {
+            const freshData = await SleeperApiService.fetchTeamsMatchupData(
+              conference.league_id,
+              dbMatchup.week,
+              [parseInt(teamMapping1.rosterId), parseInt(teamMapping2.rosterId)]
+            );
+            
+            if (freshData.matchups.length >= 2) {
+              console.log('✅ Fallback strategy 1 successful: Fresh data retrieved');
+              return {
+                success: true,
+                fallbackData: freshData,
+                fallbackType: 'fresh_sleeper_api'
+              };
+            }
+          }
+        } catch (error) {
+          console.warn('⚠️ Fallback strategy 1 failed:', error);
+        }
+      }
+      
+      // 2. Use manual override data if available
+      if (dbMatchup.is_manual_override) {
+        console.log('🔄 Fallback strategy 2: Manual override data...');
+        
+        const fallbackMatchupData = {
+          matchups: [
+            {
+              roster_id: parseInt(teamMap.get(`team_${dbMatchup.team_1_id}`)?.rosterId || '0'),
+              points: dbMatchup.team_1_score,
+              players_points: {},
+              starters_points: [],
+              starters: [],
+              matchup_id: dbMatchup.id
+            },
+            {
+              roster_id: parseInt(teamMap.get(`team_${dbMatchup.team_2_id}`)?.rosterId || '0'),
+              points: dbMatchup.team_2_score,
+              players_points: {},
+              starters_points: [],
+              starters: [],
+              matchup_id: dbMatchup.id
+            }
+          ],
+          rosters: originalSleeperData?.rosters || [],
+          users: originalSleeperData?.users || []
+        };
+        
+        console.log('✅ Fallback strategy 2 successful: Using manual override data');
+        return {
+          success: true,
+          fallbackData: fallbackMatchupData,
+          fallbackType: 'manual_override'
+        };
+      }
+      
+      // 3. Use partial original data with defaults
+      if (originalSleeperData) {
+        console.log('🔄 Fallback strategy 3: Partial original data with defaults...');
+        
+        const teamMapping1 = teamMap.get(`team_${dbMatchup.team_1_id}`);
+        const teamMapping2 = teamMap.get(`team_${dbMatchup.team_2_id}`);
+        
+        if (teamMapping1 && teamMapping2) {
+          const roster1Id = parseInt(teamMapping1.rosterId);
+          const roster2Id = parseInt(teamMapping2.rosterId);
+          
+          // Find existing matchup data or create defaults
+          let matchup1 = originalSleeperData.matchups.find(m => m.roster_id === roster1Id);
+          let matchup2 = originalSleeperData.matchups.find(m => m.roster_id === roster2Id);
+          
+          if (!matchup1) {
+            matchup1 = {
+              roster_id: roster1Id,
+              points: 0,
+              players_points: {},
+              starters_points: [],
+              starters: [],
+              matchup_id: dbMatchup.id
+            };
+          }
+          
+          if (!matchup2) {
+            matchup2 = {
+              roster_id: roster2Id,
+              points: 0,
+              players_points: {},
+              starters_points: [],
+              starters: [],
+              matchup_id: dbMatchup.id
+            };
+          }
+          
+          const fallbackData = {
+            matchups: [matchup1, matchup2],
+            rosters: originalSleeperData.rosters,
+            users: originalSleeperData.users
+          };
+          
+          console.log('✅ Fallback strategy 3 successful: Using partial data with defaults');
+          return {
+            success: true,
+            fallbackData,
+            fallbackType: 'partial_with_defaults'
+          };
+        }
+      }
+      
+      // 4. Last resort: Create minimal data structure
+      console.log('🔄 Fallback strategy 4: Creating minimal data structure...');
+      
+      const teamMapping1 = teamMap.get(`team_${dbMatchup.team_1_id}`);
+      const teamMapping2 = teamMap.get(`team_${dbMatchup.team_2_id}`);
+      
+      const minimalData = {
+        matchups: [
+          {
+            roster_id: parseInt(teamMapping1?.rosterId || '0'),
+            points: 0,
+            players_points: {},
+            starters_points: [],
+            starters: [],
+            matchup_id: dbMatchup.id
+          },
+          {
+            roster_id: parseInt(teamMapping2?.rosterId || '0'),
+            points: 0,
+            players_points: {},
+            starters_points: [],
+            starters: [],
+            matchup_id: dbMatchup.id
+          }
+        ],
+        rosters: [],
+        users: []
+      };
+      
+      console.log('⚠️ Fallback strategy 4 applied: Minimal data structure created');
+      return {
+        success: true,
+        fallbackData: minimalData,
+        fallbackType: 'minimal_structure'
+      };
+      
+    } catch (error) {
+      console.error('❌ All fallback strategies failed:', error);
+      
+      if (this.debugMode) {
+        matchupDataFlowDebugger.logError(traceId, 'critical', 'hybrid_service', 'fallback_logic', error, {
+          matchupId: dbMatchup.id,
+          conference: conference.conference_name
+        });
+      }
+      
+      return { success: false, fallbackData: null, fallbackType: 'all_strategies_failed' };
+    }
+  }
+
+  /**
+   * Enhanced debug pipeline for complete data transformation tracking
+   * Provides detailed logging of each step in the data transformation process
+   */
+  logDataTransformationPipeline(
+    stage: string,
+    operation: string,
+    inputData: any,
+    outputData: any,
+    transformationDetails: any = {}
+  ): void {
+    if (!this.debugMode) return;
+    
+    const timestamp = new Date().toISOString();
+    const pipelineStep = {
+      timestamp,
+      stage,
+      operation,
+      input: {
+        type: Array.isArray(inputData) ? 'array' : typeof inputData,
+        size: Array.isArray(inputData) ? inputData.length : Object.keys(inputData || {}).length,
+        keys: Array.isArray(inputData) ? [] : Object.keys(inputData || {}),
+        sample: this.getSampleData(inputData)
+      },
+      output: {
+        type: Array.isArray(outputData) ? 'array' : typeof outputData,
+        size: Array.isArray(outputData) ? outputData.length : Object.keys(outputData || {}).length,
+        keys: Array.isArray(outputData) ? [] : Object.keys(outputData || {}),
+        sample: this.getSampleData(outputData)
+      },
+      transformationDetails,
+      metrics: {
+        dataGrowth: this.calculateDataGrowth(inputData, outputData),
+        fieldsAdded: this.getFieldsAdded(inputData, outputData),
+        fieldsRemoved: this.getFieldsRemoved(inputData, outputData),
+        fieldsModified: this.getFieldsModified(inputData, outputData)
+      }
+    };
+    
+    console.log(`🔌 Data Transformation Pipeline [${stage}/${operation}]:`, pipelineStep);
+    
+    // Track performance implications
+    if (pipelineStep.metrics.dataGrowth > 5) {
+      console.warn(`⚠️ Significant data growth detected: ${pipelineStep.metrics.dataGrowth}x increase`);
+    }
+    
+    if (pipelineStep.metrics.fieldsRemoved.length > 0) {
+      console.warn(`⚠️ Data fields removed during transformation:`, pipelineStep.metrics.fieldsRemoved);
+    }
+  }
+
+  /**
+   * Helper method to get sample data for debugging without overwhelming logs
+   */
+  private getSampleData(data: any): any {
+    if (!data) return null;
+    
+    if (Array.isArray(data)) {
+      return data.slice(0, 2); // First 2 items
+    }
+    
+    if (typeof data === 'object') {
+      const keys = Object.keys(data).slice(0, 5); // First 5 keys
+      const sample: any = {};
+      keys.forEach(key => {
+        sample[key] = data[key];
+      });
+      return sample;
+    }
+    
+    return data;
+  }
+
+  /**
+   * Calculate data growth ratio between input and output
+   */
+  private calculateDataGrowth(input: any, output: any): number {
+    if (!input || !output) return 0;
+    
+    const inputSize = JSON.stringify(input).length;
+    const outputSize = JSON.stringify(output).length;
+    
+    return inputSize > 0 ? outputSize / inputSize : 0;
+  }
+
+  /**
+   * Get fields that were added during transformation
+   */
+  private getFieldsAdded(input: any, output: any): string[] {
+    if (!input || !output || typeof input !== 'object' || typeof output !== 'object') {
+      return [];
+    }
+    
+    const inputKeys = new Set(Object.keys(input));
+    const outputKeys = new Set(Object.keys(output));
+    
+    return Array.from(outputKeys).filter(key => !inputKeys.has(key));
+  }
+
+  /**
+   * Get fields that were removed during transformation
+   */
+  private getFieldsRemoved(input: any, output: any): string[] {
+    if (!input || !output || typeof input !== 'object' || typeof output !== 'object') {
+      return [];
+    }
+    
+    const inputKeys = new Set(Object.keys(input));
+    const outputKeys = new Set(Object.keys(output));
+    
+    return Array.from(inputKeys).filter(key => !outputKeys.has(key));
+  }
+
+  /**
+   * Get fields that were modified during transformation
+   */
+  private getFieldsModified(input: any, output: any): string[] {
+    if (!input || !output || typeof input !== 'object' || typeof output !== 'object') {
+      return [];
+    }
+    
+    const modified: string[] = [];
+    const commonKeys = Object.keys(input).filter(key => Object.keys(output).includes(key));
+    
+    commonKeys.forEach(key => {
+      if (JSON.stringify(input[key]) !== JSON.stringify(output[key])) {
+        modified.push(key);
+      }
+    });
+    
+    return modified;
   }
 
   /**
