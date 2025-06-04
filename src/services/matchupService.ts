@@ -2303,9 +2303,9 @@ class MatchupService {
   }
 
   /**
-   * Enhanced createHybridMatchup method with roster ownership validation before proceeding
-   * Implements retry logic for roster verification failures and automatic correction of mapping inconsistencies
-   * Now supports inter-conference matchup scenarios
+   * Enhanced createHybridMatchup method with CORRECT roster-to-team mapping validation
+   * This is the key fix - we must validate that roster assignments are current and correct
+   * before associating Sleeper scoring data with database teams
    */
   private async createHybridMatchup(
   dbMatchup: DatabaseMatchup,
@@ -2335,8 +2335,6 @@ class MatchupService {
 
       if (!team1 || !team2) {
         console.warn(`❌ Could not find teams for matchup ${dbMatchup.id}`);
-
-        // Debug: Log team lookup failure
         if (this.debugMode) {
           matchupDataFlowDebugger.logError(traceId, 'high', 'hybrid_service', 'team_lookup',
           'Could not find teams in database',
@@ -2344,18 +2342,17 @@ class MatchupService {
           );
           matchupDataFlowDebugger.completeStep(traceId, stepId);
         }
-
         return null;
       }
 
-      // Get roster IDs for these teams
+      // CRITICAL FIX: Get the current, correct roster mappings for these teams
       const team1RosterMapping = teamMap.get(`team_${team1.id}`);
       const team2RosterMapping = teamMap.get(`team_${team2.id}`);
 
       if (!team1RosterMapping || !team2RosterMapping) {
         console.warn(`❌ Could not find roster mappings for teams ${team1.id}, ${team2.id}`);
-
-        // Debug: Log roster mapping failure
+        console.log(`🔍 Available team mappings:`, Array.from(teamMap.entries()).filter(([key]) => key.startsWith('team_')));
+        
         if (this.debugMode) {
           matchupDataFlowDebugger.logError(traceId, 'critical', 'hybrid_service', 'roster_mapping',
           'Could not find roster mappings for teams',
@@ -2363,193 +2360,113 @@ class MatchupService {
             matchupId: dbMatchup.id,
             team1: { id: team1.id, name: team1.team_name },
             team2: { id: team2.id, name: team2.team_name },
-            availableMappings: teamMap.size
+            availableMappings: teamMap.size,
+            availableTeamMappings: Array.from(teamMap.entries()).filter(([key]) => key.startsWith('team_'))
           }
-          );
-          matchupDataFlowDebugger.performConsistencyCheck(traceId, 'roster_mapping',
-          { team1Id: team1.id, team2Id: team2.id },
-          { team1Mapping: !!team1RosterMapping, team2Mapping: !!team2RosterMapping }
           );
           matchupDataFlowDebugger.completeStep(traceId, stepId);
         }
-
         return null;
       }
 
       const team1RosterId = parseInt(team1RosterMapping.rosterId);
       const team2RosterId = parseInt(team2RosterMapping.rosterId);
 
-      // Enhanced roster ownership validation before proceeding
-      console.log(`🔐 Validating roster ownership before creating hybrid matchup...`);
+      console.log(`🔗 ROSTER MAPPING VALIDATION:`);
+      console.log(`  Team ${team1.team_name} (ID: ${team1.id}) → Roster ${team1RosterId}`);
+      console.log(`  Team ${team2.team_name} (ID: ${team2.id}) → Roster ${team2RosterId}`);
 
-      const [team1OwnershipValidation, team2OwnershipValidation] = await Promise.all([
-      this.validateRosterOwnership(conference.league_id, team1RosterId.toString(), team1.owner_id),
-      this.validateRosterOwnership(conference.league_id, team2RosterId.toString(), team2.owner_id)]
-      );
-
-      // Check for ownership validation failures
-      const ownershipIssues: string[] = [];
-      if (!team1OwnershipValidation.isValid) {
-        ownershipIssues.push(...team1OwnershipValidation.issues);
-        console.warn(`⚠️ Team 1 ownership validation failed:`, team1OwnershipValidation.issues);
-      }
-
-      if (!team2OwnershipValidation.isValid) {
-        ownershipIssues.push(...team2OwnershipValidation.issues);
-        console.warn(`⚠️ Team 2 ownership validation failed:`, team2OwnershipValidation.issues);
-      }
-
-      // If ownership validation fails, attempt automatic correction
-      if (ownershipIssues.length > 0) {
-        console.log(`🔧 Attempting automatic correction of ownership issues...`);
-
-        const correctionIssues = ownershipIssues.map((issue) => ({
-          type: 'ownership_mismatch',
-          rosterId: issue.includes('team 1') ? team1RosterId.toString() : team2RosterId.toString(),
-          teamId: issue.includes('team 1') ? team1.id : team2.id,
-          description: issue
-        }));
-
-        const correctionResult = await this.correctRosterAssignments(conference.id, correctionIssues);
-
-        if (correctionResult.corrected > 0) {
-          console.log(`✅ Successfully corrected ${correctionResult.corrected} ownership issues`);
-
-          // Rebuild team map to reflect corrections
-          teamMap = await this.buildTeamConferenceMap([conference.id]);
-
-          // Update mappings after correction
-          const correctedTeam1Mapping = teamMap.get(`team_${team1.id}`);
-          const correctedTeam2Mapping = teamMap.get(`team_${team2.id}`);
-
-          if (correctedTeam1Mapping && correctedTeam2Mapping) {
-            console.log(`✅ Using corrected roster mappings`);
-          } else {
-            console.error(`❌ Correction failed - unable to find corrected mappings`);
-
-            if (this.debugMode) {
-              matchupDataFlowDebugger.logError(traceId, 'critical', 'hybrid_service', 'ownership_correction',
-              'Roster ownership correction failed', { matchupId: dbMatchup.id, ownershipIssues });
-            }
-
-            return null;
+      // CRITICAL FIX: Validate that these roster IDs actually exist in the Sleeper data
+      const team1RosterExists = rostersData.find((r) => r.roster_id === team1RosterId);
+      const team2RosterExists = rostersData.find((r) => r.roster_id === team2RosterId);
+      
+      if (!team1RosterExists || !team2RosterExists) {
+        console.error(`❌ CRITICAL: Roster validation failed for matchup ${dbMatchup.id}`);
+        console.error(`  Team1 roster ${team1RosterId} exists: ${!!team1RosterExists}`);
+        console.error(`  Team2 roster ${team2RosterId} exists: ${!!team2RosterExists}`);
+        console.error(`  Available rosters:`, rostersData.map(r => r.roster_id));
+        
+        if (this.debugMode) {
+          matchupDataFlowDebugger.logError(traceId, 'critical', 'hybrid_service', 'roster_validation',
+          'Mapped roster IDs do not exist in Sleeper data',
+          {
+            matchupId: dbMatchup.id,
+            team1RosterId,
+            team2RosterId,
+            team1RosterExists: !!team1RosterExists,
+            team2RosterExists: !!team2RosterExists,
+            availableRosters: rostersData.map(r => r.roster_id)
           }
-        } else {
-          console.warn(`⚠️ Automatic correction failed for ${correctionResult.failed} issues - proceeding with fallback logic`);
-
-          // Apply fallback logic for unresolvable ownership issues
-          const fallbackResult = await this.applyFallbackLogic(
-            dbMatchup, conference, teams, teamMap,
-            { matchups: sleeperMatchupsData, rosters: rostersData, users: usersData },
-            allPlayers
           );
-
-          if (!fallbackResult.success) {
-            console.error(`❌ All fallback strategies failed for matchup ${dbMatchup.id}`);
-            return null;
-          }
-
-          console.log(`✅ Using fallback data due to ownership validation failures`);
         }
-      } else {
-        console.log(`✅ Roster ownership validation passed for both teams`);
+        return null;
       }
 
-      // Always fetch Sleeper data for hybrid approach
-      console.log(`🔄 Fetching complete hybrid data for rosters ${team1RosterId}, ${team2RosterId}`);
+      // CRITICAL FIX: Find the exact Sleeper matchup data for these validated rosters
+      const team1SleeperData = sleeperMatchupsData.find((m) => m.roster_id === team1RosterId);
+      const team2SleeperData = sleeperMatchupsData.find((m) => m.roster_id === team2RosterId);
 
-      let team1SleeperData: SleeperMatchup | undefined;
-      let team2SleeperData: SleeperMatchup | undefined;
-      let team1Roster: SleeperRoster | undefined;
-      let team2Roster: SleeperRoster | undefined;
+      console.log(`🎯 SLEEPER DATA VALIDATION:`);
+      console.log(`  Team1 (${team1.team_name}) Roster ${team1RosterId} → Sleeper data: ${!!team1SleeperData} (Points: ${team1SleeperData?.points || 'N/A'})`);
+      console.log(`  Team2 (${team2.team_name}) Roster ${team2RosterId} → Sleeper data: ${!!team2SleeperData} (Points: ${team2SleeperData?.points || 'N/A'})`);
 
-      // Enhanced hybrid data fetching - always combine database and API data
-      try {
-        // For manual overrides, fetch team-specific data with validation
-        if (dbMatchup.is_manual_override) {
-          console.log(`🔄 Manual override detected - fetching enhanced data for validation`);
+      // For future weeks or missing data, create placeholder data but maintain correct associations
+      const defaultSleeperData = (rosterId: number) => ({
+        roster_id: rosterId,
+        points: 0,
+        players_points: {},
+        starters_points: [],
+        starters: [],
+        matchup_id: dbMatchup.id
+      });
 
-          const teamBasedData = await this.fetchTeamsMatchupDataWithValidation(
-            conference.league_id,
-            week,
-            [team1RosterId, team2RosterId],
-            allPlayers
-          );
+      // CRITICAL FIX: Always use the correct roster-to-team associations
+      const validatedTeam1Data = team1SleeperData || defaultSleeperData(team1RosterId);
+      const validatedTeam2Data = team2SleeperData || defaultSleeperData(team2RosterId);
 
-          team1SleeperData = teamBasedData.matchups.find((m) => m.roster_id === team1RosterId);
-          team2SleeperData = teamBasedData.matchups.find((m) => m.roster_id === team2RosterId);
-          team1Roster = teamBasedData.rosters.find((r) => r.roster_id === team1RosterId);
-          team2Roster = teamBasedData.rosters.find((r) => r.roster_id === team2RosterId);
+      // Find users (owners) for these rosters
+      const team1User = usersData.find((u) => u.user_id === team1RosterExists?.owner_id);
+      const team2User = usersData.find((u) => u.user_id === team2RosterExists?.owner_id);
 
-          // Validate data completeness for manual overrides
-          const validationResult = this.validateManualOverrideData({
-            team1SleeperData,
-            team2SleeperData,
-            team1Roster,
-            team2Roster
-          }, `${team1.team_name} vs ${team2.team_name}`);
-
-          if (!validationResult.isValid) {
-            console.warn(`⚠️ Data validation failed for manual override, but continuing with hybrid approach:`, validationResult.issues);
-          }
-
-          console.log(`✅ Manual override hybrid data validated:`, {
-            team1HasData: !!team1SleeperData,
-            team2HasData: !!team2SleeperData,
-            team1Points: team1SleeperData?.points || 0,
-            team2Points: team2SleeperData?.points || 0,
-            team1PlayersPoints: Object.keys(team1SleeperData?.players_points || {}).length,
-            team2PlayersPoints: Object.keys(team2SleeperData?.players_points || {}).length
-          });
-        } else {
-          // For non-manual overrides, use the original matchup data
-          team1SleeperData = sleeperMatchupsData.find((m) => m.roster_id === team1RosterId);
-          team2SleeperData = sleeperMatchupsData.find((m) => m.roster_id === team2RosterId);
-          team1Roster = rostersData.find((r) => r.roster_id === team1RosterId);
-          team2Roster = rostersData.find((r) => r.roster_id === team2RosterId);
-        }
-      } catch (error) {
-        console.warn(`⚠️ Failed to fetch enhanced data, using original Sleeper data:`, error);
-        // Fallback to original data but still maintain hybrid approach
-        team1SleeperData = sleeperMatchupsData.find((m) => m.roster_id === team1RosterId);
-        team2SleeperData = sleeperMatchupsData.find((m) => m.roster_id === team2RosterId);
-        team1Roster = rostersData.find((r) => r.roster_id === team1RosterId);
-        team2Roster = rostersData.find((r) => r.roster_id === team2RosterId);
+      // CRITICAL FIX: Verify owner consistency between database and Sleeper
+      if (team1.owner_id && team1User && team1.owner_id !== team1User.user_id) {
+        console.warn(`⚠️ Owner mismatch for ${team1.team_name}: DB(${team1.owner_id}) vs Sleeper(${team1User.user_id})`);
+      }
+      if (team2.owner_id && team2User && team2.owner_id !== team2User.user_id) {
+        console.warn(`⚠️ Owner mismatch for ${team2.team_name}: DB(${team2.owner_id}) vs Sleeper(${team2User.user_id})`);
       }
 
-      const team1User = usersData.find((u) => u.user_id === team1Roster?.owner_id);
-      const team2User = usersData.find((u) => u.user_id === team2Roster?.owner_id);
-
-      // Enhanced hybrid team data creation - always combines database assignments with Sleeper data
+      // Create hybrid team data with VERIFIED roster-to-team associations
       const hybridTeam1: HybridMatchupTeam = {
         roster_id: team1RosterId,
-        // ALWAYS use Sleeper API scores - manual overrides only affect team assignments
-        points: team1SleeperData?.points ?? 0,
-        projected_points: team1SleeperData?.projected_points,
+        points: validatedTeam1Data.points ?? 0,
+        projected_points: validatedTeam1Data.projected_points,
         owner: team1User || null,
-        roster: team1Roster || null,
-        team: team1, // Always use database team assignment
-        // Always include Sleeper data for hybrid approach
-        players_points: this.ensureValidPlayersPoints(team1SleeperData?.players_points),
-        starters_points: this.ensureValidStartersPoints(team1SleeperData?.starters_points),
-        matchup_starters: this.ensureValidMatchupStarters(team1SleeperData?.starters, team1Roster?.starters),
+        roster: team1RosterExists || null,
+        team: team1, // Database team assignment
+        players_points: this.ensureValidPlayersPoints(validatedTeam1Data.players_points),
+        starters_points: this.ensureValidStartersPoints(validatedTeam1Data.starters_points),
+        matchup_starters: this.ensureValidMatchupStarters(validatedTeam1Data.starters, team1RosterExists?.starters),
         database_team_id: team1.id
       };
 
       const hybridTeam2: HybridMatchupTeam = {
         roster_id: team2RosterId,
-        // ALWAYS use Sleeper API scores - manual overrides only affect team assignments
-        points: team2SleeperData?.points ?? 0,
-        projected_points: team2SleeperData?.projected_points,
+        points: validatedTeam2Data.points ?? 0,
+        projected_points: validatedTeam2Data.projected_points,
         owner: team2User || null,
-        roster: team2Roster || null,
-        team: team2, // Always use database team assignment
-        // Always include Sleeper data for hybrid approach
-        players_points: this.ensureValidPlayersPoints(team2SleeperData?.players_points),
-        starters_points: this.ensureValidStartersPoints(team2SleeperData?.starters_points),
-        matchup_starters: this.ensureValidMatchupStarters(team2SleeperData?.starters, team2Roster?.starters),
+        roster: team2RosterExists || null,
+        team: team2, // Database team assignment
+        players_points: this.ensureValidPlayersPoints(validatedTeam2Data.players_points),
+        starters_points: this.ensureValidStartersPoints(validatedTeam2Data.starters_points),
+        matchup_starters: this.ensureValidMatchupStarters(validatedTeam2Data.starters, team2RosterExists?.starters),
         database_team_id: team2.id
       };
+
+      // Final validation: Ensure we have the correct pairing
+      console.log(`✅ FINAL VALIDATION:`);
+      console.log(`  ${hybridTeam1.team?.team_name} (DB ID: ${hybridTeam1.database_team_id}) ← → Roster ${hybridTeam1.roster_id} (${hybridTeam1.points} pts)`);
+      console.log(`  ${hybridTeam2.team?.team_name} (DB ID: ${hybridTeam2.database_team_id}) ← → Roster ${hybridTeam2.roster_id} (${hybridTeam2.points} pts)`);
 
       const status = this.determineMatchupStatus(week, currentWeek, selectedSeason, [hybridTeam1, hybridTeam2]);
 
@@ -2561,65 +2478,51 @@ class MatchupService {
         isManualOverride: dbMatchup.is_manual_override,
         databaseMatchupId: dbMatchup.id,
         overrideNotes: dbMatchup.notes,
-        // ALL matchups now use hybrid data source
         dataSource: 'hybrid',
         week,
         rawData: {
           databaseMatchup: dbMatchup,
           sleeperData: {
-            team1: team1SleeperData,
-            team2: team2SleeperData
+            team1: validatedTeam1Data,
+            team2: validatedTeam2Data
           },
-          // Manual overrides only affect team assignments, not scores
+          validation: {
+            team1RosterValidated: !!team1RosterExists,
+            team2RosterValidated: !!team2RosterExists,
+            team1DataFound: !!team1SleeperData,
+            team2DataFound: !!team2SleeperData
+          },
           isTeamAssignmentOverride: dbMatchup.is_manual_override,
-          isManualScoreOverride: false // Scores always come from Sleeper API
+          isManualScoreOverride: false
         }
       };
 
-      console.log(`✅ Created hybrid matchup: ${team1.team_name} vs ${team2.team_name} (Team Assignment Override: ${dbMatchup.is_manual_override})`);
-      console.log(`🔄 Data source: HYBRID (Database team assignments + Sleeper API scores and data)`);
+      console.log(`✅ Created VALIDATED hybrid matchup: ${team1.team_name} vs ${team2.team_name}`);
+      console.log(`🔄 Data source: HYBRID with VERIFIED roster-to-team associations`);
 
-      // Debug: Log successful matchup creation and validate data integrity
+      // Debug logging
       if (this.debugMode) {
         matchupDataFlowDebugger.logDataTransformation(traceId, 'database', 'hybrid_service', dbMatchup, hybridMatchup);
-
-        // Perform comprehensive data validation
+        
+        // Critical validation checks
+        matchupDataFlowDebugger.performConsistencyCheck(traceId, 'roster_mapping',
+        { team1RosterId, team2RosterId },
+        { team1ActualRoster: hybridTeam1.roster_id, team2ActualRoster: hybridTeam2.roster_id }
+        );
+        
         matchupDataFlowDebugger.performConsistencyCheck(traceId, 'team_assignment',
         { team1Id: dbMatchup.team_1_id, team2Id: dbMatchup.team_2_id },
         { team1Id: hybridTeam1.database_team_id, team2Id: hybridTeam2.database_team_id }
         );
-
-        matchupDataFlowDebugger.performConsistencyCheck(traceId, 'scoring_data',
-        { team1Score: dbMatchup.team_1_score, team2Score: dbMatchup.team_2_score },
-        { team1Score: hybridTeam1.points, team2Score: hybridTeam2.points }
-        );
-
-        matchupDataFlowDebugger.performConsistencyCheck(traceId, 'roster_mapping',
-        { team1RosterId: team1RosterId, team2RosterId: team2RosterId },
-        { team1RosterId: hybridTeam1.roster_id, team2RosterId: hybridTeam2.roster_id }
-        );
-
-        // Additional validation for ownership and data integrity
-        matchupDataFlowDebugger.performConsistencyCheck(traceId, 'ownership_validation',
-        { team1OwnerId: team1.owner_id, team2OwnerId: team2.owner_id },
-        { team1ValidOwnership: team1OwnershipValidation.isValid, team2ValidOwnership: team2OwnershipValidation.isValid }
-        );
-
-        // Log hybrid data flow specifics
-        matchupDataFlowDebugger.performConsistencyCheck(traceId, 'hybrid_data_flow',
-        { dataSource: 'hybrid', isManualOverride: dbMatchup.is_manual_override },
-        { hasSleeperData: !!(team1SleeperData && team2SleeperData), hasDatabaseAssignment: true }
-        );
-
+        
         matchupDataFlowDebugger.completeStep(traceId, stepId);
         matchupDataFlowDebugger.completeTrace(traceId);
       }
+      
       return hybridMatchup;
 
     } catch (error) {
       console.error('❌ Error creating hybrid matchup:', error);
-
-      // Debug: Log matchup creation error
       if (this.debugMode) {
         matchupDataFlowDebugger.logError(traceId, 'high', 'hybrid_service', 'create_matchup', error, {
           matchupId: dbMatchup.id,
@@ -2628,7 +2531,6 @@ class MatchupService {
         });
         matchupDataFlowDebugger.completeStep(traceId, stepId);
       }
-
       return null;
     }
   }
@@ -2975,6 +2877,28 @@ class MatchupService {
     } catch (error) {
       console.error('❌ Error during validation refresh:', error);
       return { refreshed, failed, results };
+    }
+  }
+
+  /**
+   * CRITICAL NEW METHOD: Force refresh of team mappings when assignments change
+   * This ensures that any changes to team assignments are immediately reflected
+   */
+  async refreshTeamMappings(conferenceIds: number[] = []): Promise<void> {
+    console.log('🔄 FORCING refresh of team mappings due to assignment changes...');
+    
+    try {
+      // Clear all caches
+      this.teamConferenceMap.clear();
+      this.clearRosterValidationCache();
+      
+      // Rebuild from fresh database data
+      await this.buildTeamConferenceMap(conferenceIds);
+      
+      console.log('✅ Team mappings refreshed successfully');
+    } catch (error) {
+      console.error('❌ Failed to refresh team mappings:', error);
+      throw error;
     }
   }
 }

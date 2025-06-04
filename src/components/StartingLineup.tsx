@@ -505,11 +505,11 @@ const StartingLineup: React.FC<StartingLineupProps> = ({
           <div className="flex items-center space-x-2">
             <span>{teamName} Starting Lineup</span>
             {/* Inter-conference matchup indicator */}
-            {isInterConference && teamConference && (
-              <Badge variant="outline" className="text-xs bg-purple-50 text-purple-700 border-purple-200">
+            {isInterConference && teamConference &&
+            <Badge variant="outline" className="text-xs bg-purple-50 text-purple-700 border-purple-200">
                 🏠 {teamConference}
               </Badge>
-            )}
+            }
           </div>
           <div className="flex items-center space-x-2">
             <Badge variant="outline" className="text-xs">
@@ -532,11 +532,11 @@ const StartingLineup: React.FC<StartingLineupProps> = ({
           </div>
         </CardTitle>
         {/* Inter-conference matchup details */}
-        {isInterConference && teamConference && opponentConference && (
-          <div className="text-xs text-purple-600 bg-purple-50 p-2 rounded border border-purple-200">
+        {isInterConference && teamConference && opponentConference &&
+        <div className="text-xs text-purple-600 bg-purple-50 p-2 rounded border border-purple-200">
             ⚔️ Inter-Conference Matchup: {teamConference} vs {opponentConference}
           </div>
-        )}
+        }
       </CardHeader>
       <CardContent>
         {/* Data Quality Alerts */}
