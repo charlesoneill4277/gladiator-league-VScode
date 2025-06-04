@@ -101,7 +101,7 @@ class MatchupService {
   async fetchDatabaseMatchups(conferenceIds: number[], week: number): Promise<DatabaseMatchup[]> {
     const traceId = this.debugMode ? matchupDataFlowDebugger.startTrace(`db_fetch_${week}`, 'fetch_database_matchups') : '';
     const stepId = this.debugMode ? matchupDataFlowDebugger.logStep(traceId, 'database', 'fetch_matchups', { conferenceIds, week }).id : '';
-    
+
     try {
       console.log('🗄️ Fetching database matchups...', { conferenceIds, week });
 
@@ -147,7 +147,7 @@ class MatchupService {
       dbMatchups;
 
       console.log(`✅ Found ${filteredMatchups.length} database matchups for week ${week}`);
-      
+
       // Debug: Log data transformation and validation
       if (this.debugMode) {
         matchupDataFlowDebugger.logDataTransformation(traceId, 'database', 'hybrid_service', null, filteredMatchups);
@@ -155,17 +155,17 @@ class MatchupService {
         matchupDataFlowDebugger.completeStep(traceId, stepId);
         matchupDataFlowDebugger.completeTrace(traceId);
       }
-      
+
       return filteredMatchups;
     } catch (error) {
       console.error('❌ Error fetching database matchups:', error);
-      
+
       // Debug: Log error
       if (this.debugMode) {
         matchupDataFlowDebugger.logError(traceId, 'high', 'database', 'fetch_matchups', error, { conferenceIds, week });
         matchupDataFlowDebugger.completeStep(traceId, stepId);
       }
-      
+
       throw error;
     }
   }
@@ -176,7 +176,7 @@ class MatchupService {
   async buildTeamConferenceMap(conferenceIds: number[]): Promise<Map<string, {teamId: number;rosterId: string;}>> {
     const traceId = this.debugMode ? matchupDataFlowDebugger.startTrace(`map_${conferenceIds.join('_')}`, 'build_team_conference_map') : '';
     const stepId = this.debugMode ? matchupDataFlowDebugger.logStep(traceId, 'database', 'build_team_map', { conferenceIds }).id : '';
-    
+
     try {
       console.log('🔗 Building team-conference mapping...', { conferenceIds });
 
@@ -219,7 +219,7 @@ class MatchupService {
 
       this.teamConferenceMap = map;
       console.log(`✅ Built team-conference mapping with ${map.size} entries`);
-      
+
       // Debug: Validate mapping integrity
       if (this.debugMode) {
         const mapArray = Array.from(map.entries());
@@ -228,17 +228,17 @@ class MatchupService {
         matchupDataFlowDebugger.completeStep(traceId, stepId);
         matchupDataFlowDebugger.completeTrace(traceId);
       }
-      
+
       return map;
     } catch (error) {
       console.error('❌ Error building team-conference map:', error);
-      
+
       // Debug: Log error
       if (this.debugMode) {
         matchupDataFlowDebugger.logError(traceId, 'critical', 'database', 'build_team_map', error, { conferenceIds });
         matchupDataFlowDebugger.completeStep(traceId, stepId);
       }
-      
+
       throw error;
     }
   }
@@ -286,7 +286,7 @@ class MatchupService {
       currentWeek,
       selectedSeason
     }).id : '';
-    
+
     try {
       console.log('🚀 Starting hybrid matchup data fetch...', {
         conferences: conferences.length,
@@ -381,42 +381,42 @@ class MatchupService {
       }
 
       console.log(`✅ Created ${hybridMatchups.length} hybrid matchups`);
-      
+
       // Debug: Final validation and consistency checks
       if (this.debugMode) {
         const dataSourceCounts = {
-          database: hybridMatchups.filter(m => m.dataSource === 'database').length,
-          sleeper: hybridMatchups.filter(m => m.dataSource === 'sleeper').length,
-          hybrid: hybridMatchups.filter(m => m.dataSource === 'hybrid').length
+          database: hybridMatchups.filter((m) => m.dataSource === 'database').length,
+          sleeper: hybridMatchups.filter((m) => m.dataSource === 'sleeper').length,
+          hybrid: hybridMatchups.filter((m) => m.dataSource === 'hybrid').length
         };
-        
+
         matchupDataFlowDebugger.logDataTransformation(traceId, 'hybrid_service', 'ui_component', databaseMatchups, hybridMatchups);
-        matchupDataFlowDebugger.performConsistencyCheck(traceId, 'data_integrity', 
-          { expectedConferences: conferences.length }, 
-          { actualMatchups: hybridMatchups.length, dataSourceCounts }
+        matchupDataFlowDebugger.performConsistencyCheck(traceId, 'data_integrity',
+        { expectedConferences: conferences.length },
+        { actualMatchups: hybridMatchups.length, dataSourceCounts }
         );
-        
+
         // Check for any matchups with missing team assignments
-        const missingTeamAssignments = hybridMatchups.filter(m => 
-          !m.teams[0]?.database_team_id || !m.teams[1]?.database_team_id
+        const missingTeamAssignments = hybridMatchups.filter((m) =>
+        !m.teams[0]?.database_team_id || !m.teams[1]?.database_team_id
         );
-        
+
         if (missingTeamAssignments.length > 0) {
-          matchupDataFlowDebugger.logError(traceId, 'medium', 'hybrid_service', 'team_assignment_validation', 
-            `${missingTeamAssignments.length} matchups missing team assignments`, 
-            { missingMatchupIds: missingTeamAssignments.map(m => m.matchup_id) }
+          matchupDataFlowDebugger.logError(traceId, 'medium', 'hybrid_service', 'team_assignment_validation',
+          `${missingTeamAssignments.length} matchups missing team assignments`,
+          { missingMatchupIds: missingTeamAssignments.map((m) => m.matchup_id) }
           );
         }
-        
+
         matchupDataFlowDebugger.completeStep(traceId, stepId);
         matchupDataFlowDebugger.completeTrace(traceId);
       }
-      
+
       return hybridMatchups;
 
     } catch (error) {
       console.error('❌ Error creating hybrid matchups:', error);
-      
+
       // Debug: Log critical error
       if (this.debugMode) {
         matchupDataFlowDebugger.logError(traceId, 'critical', 'hybrid_service', 'get_hybrid_matchups', error, {
@@ -426,7 +426,7 @@ class MatchupService {
         });
         matchupDataFlowDebugger.completeStep(traceId, stepId);
       }
-      
+
       throw error;
     }
   }
@@ -455,7 +455,7 @@ class MatchupService {
       isManualOverride: dbMatchup.is_manual_override,
       conference: conference.conference_name
     }).id : '';
-    
+
     try {
       // Find teams from database
       const team1 = teams.find((t) => t.id === dbMatchup.team_1_id);
@@ -463,16 +463,16 @@ class MatchupService {
 
       if (!team1 || !team2) {
         console.warn(`❌ Could not find teams for matchup ${dbMatchup.id}`);
-        
+
         // Debug: Log team lookup failure
         if (this.debugMode) {
-          matchupDataFlowDebugger.logError(traceId, 'high', 'hybrid_service', 'team_lookup', 
-            'Could not find teams in database', 
-            { matchupId: dbMatchup.id, team1Id: dbMatchup.team_1_id, team2Id: dbMatchup.team_2_id, availableTeams: teams.length }
+          matchupDataFlowDebugger.logError(traceId, 'high', 'hybrid_service', 'team_lookup',
+          'Could not find teams in database',
+          { matchupId: dbMatchup.id, team1Id: dbMatchup.team_1_id, team2Id: dbMatchup.team_2_id, availableTeams: teams.length }
           );
           matchupDataFlowDebugger.completeStep(traceId, stepId);
         }
-        
+
         return null;
       }
 
@@ -482,25 +482,25 @@ class MatchupService {
 
       if (!team1RosterMapping || !team2RosterMapping) {
         console.warn(`❌ Could not find roster mappings for teams ${team1.id}, ${team2.id}`);
-        
+
         // Debug: Log roster mapping failure
         if (this.debugMode) {
-          matchupDataFlowDebugger.logError(traceId, 'critical', 'hybrid_service', 'roster_mapping', 
-            'Could not find roster mappings for teams', 
-            { 
-              matchupId: dbMatchup.id, 
-              team1: { id: team1.id, name: team1.team_name }, 
-              team2: { id: team2.id, name: team2.team_name },
-              availableMappings: teamMap.size
-            }
+          matchupDataFlowDebugger.logError(traceId, 'critical', 'hybrid_service', 'roster_mapping',
+          'Could not find roster mappings for teams',
+          {
+            matchupId: dbMatchup.id,
+            team1: { id: team1.id, name: team1.team_name },
+            team2: { id: team2.id, name: team2.team_name },
+            availableMappings: teamMap.size
+          }
           );
-          matchupDataFlowDebugger.performConsistencyCheck(traceId, 'roster_mapping', 
-            { team1Id: team1.id, team2Id: team2.id }, 
-            { team1Mapping: !!team1RosterMapping, team2Mapping: !!team2RosterMapping }
+          matchupDataFlowDebugger.performConsistencyCheck(traceId, 'roster_mapping',
+          { team1Id: team1.id, team2Id: team2.id },
+          { team1Mapping: !!team1RosterMapping, team2Mapping: !!team2RosterMapping }
           );
           matchupDataFlowDebugger.completeStep(traceId, stepId);
         }
-        
+
         return null;
       }
 
@@ -622,27 +622,27 @@ class MatchupService {
       };
 
       console.log(`✅ Created hybrid matchup: ${team1.team_name} vs ${team2.team_name} (Manual Override: ${useManualOverride})`);
-      
+
       // Debug: Log successful matchup creation and validate data integrity
       if (this.debugMode) {
         matchupDataFlowDebugger.logDataTransformation(traceId, 'database', 'hybrid_service', dbMatchup, hybridMatchup);
-        
+
         // Perform comprehensive data validation
-        matchupDataFlowDebugger.performConsistencyCheck(traceId, 'team_assignment', 
-          { team1Id: dbMatchup.team_1_id, team2Id: dbMatchup.team_2_id },
-          { team1Id: hybridTeam1.database_team_id, team2Id: hybridTeam2.database_team_id }
+        matchupDataFlowDebugger.performConsistencyCheck(traceId, 'team_assignment',
+        { team1Id: dbMatchup.team_1_id, team2Id: dbMatchup.team_2_id },
+        { team1Id: hybridTeam1.database_team_id, team2Id: hybridTeam2.database_team_id }
         );
-        
-        matchupDataFlowDebugger.performConsistencyCheck(traceId, 'scoring_data', 
-          { team1Score: dbMatchup.team_1_score, team2Score: dbMatchup.team_2_score },
-          { team1Score: hybridTeam1.points, team2Score: hybridTeam2.points }
+
+        matchupDataFlowDebugger.performConsistencyCheck(traceId, 'scoring_data',
+        { team1Score: dbMatchup.team_1_score, team2Score: dbMatchup.team_2_score },
+        { team1Score: hybridTeam1.points, team2Score: hybridTeam2.points }
         );
-        
-        matchupDataFlowDebugger.performConsistencyCheck(traceId, 'roster_mapping', 
-          { team1RosterId: team1RosterId, team2RosterId: team2RosterId },
-          { team1RosterId: hybridTeam1.roster_id, team2RosterId: hybridTeam2.roster_id }
+
+        matchupDataFlowDebugger.performConsistencyCheck(traceId, 'roster_mapping',
+        { team1RosterId: team1RosterId, team2RosterId: team2RosterId },
+        { team1RosterId: hybridTeam1.roster_id, team2RosterId: hybridTeam2.roster_id }
         );
-        
+
         matchupDataFlowDebugger.completeStep(traceId, stepId);
         matchupDataFlowDebugger.completeTrace(traceId);
       }
@@ -650,7 +650,7 @@ class MatchupService {
 
     } catch (error) {
       console.error('❌ Error creating hybrid matchup:', error);
-      
+
       // Debug: Log matchup creation error
       if (this.debugMode) {
         matchupDataFlowDebugger.logError(traceId, 'high', 'hybrid_service', 'create_matchup', error, {
@@ -660,7 +660,7 @@ class MatchupService {
         });
         matchupDataFlowDebugger.completeStep(traceId, stepId);
       }
-      
+
       return null;
     }
   }

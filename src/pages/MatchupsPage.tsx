@@ -200,7 +200,7 @@ const MatchupsPage: React.FC = () => {
       console.log(`👥 Team count: ${teamData.length}`);
       console.log(`📅 Selected week: ${selectedWeek}`);
       console.log(`📅 Current week: ${currentWeek}`);
-      
+
       // Enable debug mode in MatchupService if debug mode is active
       MatchupService.setDebugMode(debugMode);
 

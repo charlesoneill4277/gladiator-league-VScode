@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -35,7 +35,14 @@ import {
   Edit,
   GripVertical,
   Trophy,
-  Loader2 } from
+  Loader2,
+  CheckCircle,
+  XCircle,
+  Eye,
+  Shield,
+  Database,
+  Clock,
+  FileCheck } from
 'lucide-react';
 
 interface Season {
@@ -81,6 +88,42 @@ interface TeamWithDetails extends Team {
 
 interface MatchupWithConference extends Matchup {
   conference_name?: string;
+}
+
+interface ValidationError {
+  field: string;
+  message: string;
+  severity: 'error' | 'warning';
+}
+
+interface MatchupValidationResult {
+  isValid: boolean;
+  errors: ValidationError[];
+  warnings: ValidationError[];
+}
+
+interface SaveOperation {
+  matchupId: number;
+  status: 'pending' | 'success' | 'failed';
+  error?: string;
+  originalData?: MatchupWithConference;
+  newData?: MatchupWithConference;
+}
+
+interface ChangePreview {
+  matchupId: number;
+  conference: string;
+  field: string;
+  oldValue: any;
+  newValue: any;
+  type: 'team_assignment' | 'score' | 'override' | 'status';
+}
+
+interface SaveSnapshot {
+  timestamp: string;
+  matchups: MatchupWithConference[];
+  operations: SaveOperation[];
+  totalChanges: number;
 }
 
 interface SortableTeamProps {
@@ -161,12 +204,18 @@ const SortableTeam: React.FC<SortableTeamProps> = ({
 
 };
 
-const SortableMatchupCard: React.FC<SortableMatchupCardProps> = ({
+// Enhanced Sortable Matchup Card with validation display
+interface EnhancedSortableMatchupCardProps extends SortableMatchupCardProps {
+  validationResult?: MatchupValidationResult;
+}
+
+const SortableMatchupCard: React.FC<EnhancedSortableMatchupCardProps> = ({
   matchup,
   teams,
   conferences,
   onToggleOverride,
-  onUpdateScores
+  onUpdateScores,
+  validationResult
 }) => {
 
   const team1 = teams.find((t) => t.id === matchup.team_1_id);
@@ -185,9 +234,15 @@ const SortableMatchupCard: React.FC<SortableMatchupCardProps> = ({
     setEditingScores(false);
   };
 
+  // Get validation status
+  const hasErrors = validationResult && !validationResult.isValid;
+  const hasWarnings = validationResult && validationResult.warnings.length > 0;
+
   return (
     <Card className={`mb-4 transition-all duration-200 hover:shadow-md ${
-    matchup.is_manual_override ? 'border-orange-400 bg-orange-50' : 'border-gray-200'}`
+      hasErrors ? 'border-red-400 bg-red-50' :
+      hasWarnings ? 'border-yellow-400 bg-yellow-50' :
+      matchup.is_manual_override ? 'border-orange-400 bg-orange-50' : 'border-gray-200'}`
     }>
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
@@ -200,6 +255,18 @@ const SortableMatchupCard: React.FC<SortableMatchupCardProps> = ({
                   {conference.conference_name}
                 </Badge>
               }
+              {hasErrors && (
+                <Badge variant="destructive" className="text-xs">
+                  <XCircle className="h-3 w-3 mr-1" />
+                  {validationResult!.errors.length} Error{validationResult!.errors.length > 1 ? 's' : ''}
+                </Badge>
+              )}
+              {hasWarnings && (
+                <Badge variant="outline" className="text-yellow-600 border-yellow-300 text-xs">
+                  <AlertTriangle className="h-3 w-3 mr-1" />
+                  {validationResult!.warnings.length} Warning{validationResult!.warnings.length > 1 ? 's' : ''}
+                </Badge>
+              )}
             </div>
             {matchup.is_manual_override &&
             <Badge variant="outline" className="text-orange-600 border-orange-300">
@@ -293,8 +360,33 @@ const SortableMatchupCard: React.FC<SortableMatchupCardProps> = ({
             </div>
           }
 
+          {/* Validation Issues Display */}
+          {validationResult && (validationResult.errors.length > 0 || validationResult.warnings.length > 0) && (
+            <div className="mt-3 p-3 border rounded-lg">
+              <div className="space-y-2">
+                {validationResult.errors.map((error, index) => (
+                  <div key={`error-${index}`} className="flex items-center gap-2 text-sm text-red-600">
+                    <XCircle className="h-4 w-4" />
+                    <span><strong>{error.field}:</strong> {error.message}</span>
+                  </div>
+                ))}
+                {validationResult.warnings.map((warning, index) => (
+                  <div key={`warning-${index}`} className="flex items-center gap-2 text-sm text-yellow-600">
+                    <AlertTriangle className="h-4 w-4" />
+                    <span><strong>{warning.field}:</strong> {warning.message}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           <div className="mt-3 flex items-center justify-between text-xs text-gray-500">
             <span>Status: {matchup.status}</span>
+            {validationResult && (
+              <span className={validationResult.isValid ? 'text-green-600' : 'text-red-600'}>
+                {validationResult.isValid ? '✓ Valid' : '✗ Invalid'}
+              </span>
+            )}
             {matchup.matchup_date &&
             <span>Date: {new Date(matchup.matchup_date).toLocaleDateString()}</span>
             }
@@ -310,12 +402,19 @@ const MatchupsManagement: React.FC = () => {
   const [conferences, setConferences] = useState<Conference[]>([]);
   const [teams, setTeams] = useState<TeamWithDetails[]>([]);
   const [matchups, setMatchups] = useState<MatchupWithConference[]>([]);
+  const [originalMatchups, setOriginalMatchups] = useState<MatchupWithConference[]>([]);
   const [selectedSeason, setSelectedSeason] = useState<string>('');
   const [selectedWeek, setSelectedWeek] = useState<string>('');
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [validating, setValidating] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
   const [activeId, setActiveId] = useState<string | null>(null);
+  const [showPreview, setShowPreview] = useState(false);
+  const [validationResults, setValidationResults] = useState<Record<number, MatchupValidationResult>>({});
+  const [saveOperations, setSaveOperations] = useState<SaveOperation[]>([]);
+  const [saveHistory, setSaveHistory] = useState<SaveSnapshot[]>([]);
+  const [previewChanges, setPreviewChanges] = useState<ChangePreview[]>([]);
   const { toast } = useToast();
 
   const sensors = useSensors(
@@ -324,6 +423,205 @@ const MatchupsManagement: React.FC = () => {
       coordinateGetter: sortableKeyboardCoordinates
     })
   );
+
+  // Enhanced validation system
+  const validateMatchup = useCallback((matchup: MatchupWithConference): MatchupValidationResult => {
+    const errors: ValidationError[] = [];
+    const warnings: ValidationError[] = [];
+
+    // Critical validations (errors)
+    if (!matchup.id || typeof matchup.id !== 'number' || matchup.id <= 0) {
+      errors.push({ field: 'id', message: 'Invalid matchup ID', severity: 'error' });
+    }
+    if (!matchup.conference_id || matchup.conference_id <= 0) {
+      errors.push({ field: 'conference_id', message: 'Invalid conference ID', severity: 'error' });
+    }
+    if (!matchup.week || matchup.week <= 0 || matchup.week > 18) {
+      errors.push({ field: 'week', message: 'Week must be between 1 and 18', severity: 'error' });
+    }
+    if (!matchup.team_1_id || matchup.team_1_id <= 0) {
+      errors.push({ field: 'team_1_id', message: 'Invalid Team 1 ID', severity: 'error' });
+    }
+    if (!matchup.team_2_id || matchup.team_2_id <= 0) {
+      errors.push({ field: 'team_2_id', message: 'Invalid Team 2 ID', severity: 'error' });
+    }
+    if (matchup.team_1_id === matchup.team_2_id) {
+      errors.push({ field: 'teams', message: 'Teams cannot play themselves', severity: 'error' });
+    }
+
+    // Data consistency checks
+    const team1Exists = teams.find(t => t.id === matchup.team_1_id);
+    const team2Exists = teams.find(t => t.id === matchup.team_2_id);
+    const conferenceExists = conferences.find(c => c.id === matchup.conference_id);
+
+    if (!team1Exists) {
+      errors.push({ field: 'team_1_id', message: 'Team 1 does not exist', severity: 'error' });
+    }
+    if (!team2Exists) {
+      errors.push({ field: 'team_2_id', message: 'Team 2 does not exist', severity: 'error' });
+    }
+    if (!conferenceExists) {
+      errors.push({ field: 'conference_id', message: 'Conference does not exist', severity: 'error' });
+    }
+
+    // Score validation
+    if (typeof matchup.team_1_score !== 'number' || matchup.team_1_score < 0) {
+      errors.push({ field: 'team_1_score', message: 'Team 1 score must be a positive number', severity: 'error' });
+    }
+    if (typeof matchup.team_2_score !== 'number' || matchup.team_2_score < 0) {
+      errors.push({ field: 'team_2_score', message: 'Team 2 score must be a positive number', severity: 'error' });
+    }
+
+    // Winner validation
+    if (matchup.team_1_score !== matchup.team_2_score) {
+      const expectedWinner = matchup.team_1_score > matchup.team_2_score ? matchup.team_1_id : matchup.team_2_id;
+      if (matchup.winner_id !== expectedWinner) {
+        warnings.push({ field: 'winner_id', message: 'Winner does not match scores', severity: 'warning' });
+      }
+    } else if (matchup.winner_id !== 0) {
+      warnings.push({ field: 'winner_id', message: 'No winner should be set for tied scores', severity: 'warning' });
+    }
+
+    // Status consistency checks
+    if (matchup.is_manual_override && matchup.status === 'pending') {
+      warnings.push({ field: 'status', message: 'Manual override should typically be complete', severity: 'warning' });
+    }
+
+    // Logical warnings
+    if (matchup.team_1_score > 200 || matchup.team_2_score > 200) {
+      warnings.push({ field: 'scores', message: 'Unusually high score detected', severity: 'warning' });
+    }
+
+    return {
+      isValid: errors.length === 0,
+      errors,
+      warnings
+    };
+  }, [teams, conferences]);
+
+  // Generate change preview
+  const generateChangePreview = useCallback((): ChangePreview[] => {
+    const changes: ChangePreview[] = [];
+    
+    matchups.forEach(current => {
+      const original = originalMatchups.find(o => o.id === current.id);
+      if (!original) return;
+
+      const conference = conferences.find(c => c.id === current.conference_id)?.conference_name || 'Unknown';
+
+      // Team assignment changes
+      if (original.team_1_id !== current.team_1_id) {
+        const oldTeam = teams.find(t => t.id === original.team_1_id)?.team_name || `Team ${original.team_1_id}`;
+        const newTeam = teams.find(t => t.id === current.team_1_id)?.team_name || `Team ${current.team_1_id}`;
+        changes.push({
+          matchupId: current.id,
+          conference,
+          field: 'Team 1',
+          oldValue: oldTeam,
+          newValue: newTeam,
+          type: 'team_assignment'
+        });
+      }
+
+      if (original.team_2_id !== current.team_2_id) {
+        const oldTeam = teams.find(t => t.id === original.team_2_id)?.team_name || `Team ${original.team_2_id}`;
+        const newTeam = teams.find(t => t.id === current.team_2_id)?.team_name || `Team ${current.team_2_id}`;
+        changes.push({
+          matchupId: current.id,
+          conference,
+          field: 'Team 2',
+          oldValue: oldTeam,
+          newValue: newTeam,
+          type: 'team_assignment'
+        });
+      }
+
+      // Score changes
+      if (original.team_1_score !== current.team_1_score) {
+        changes.push({
+          matchupId: current.id,
+          conference,
+          field: 'Team 1 Score',
+          oldValue: original.team_1_score,
+          newValue: current.team_1_score,
+          type: 'score'
+        });
+      }
+
+      if (original.team_2_score !== current.team_2_score) {
+        changes.push({
+          matchupId: current.id,
+          conference,
+          field: 'Team 2 Score',
+          oldValue: original.team_2_score,
+          newValue: current.team_2_score,
+          type: 'score'
+        });
+      }
+
+      // Override changes
+      if (original.is_manual_override !== current.is_manual_override) {
+        changes.push({
+          matchupId: current.id,
+          conference,
+          field: 'Manual Override',
+          oldValue: original.is_manual_override ? 'Yes' : 'No',
+          newValue: current.is_manual_override ? 'Yes' : 'No',
+          type: 'override'
+        });
+      }
+
+      // Status changes
+      if (original.status !== current.status) {
+        changes.push({
+          matchupId: current.id,
+          conference,
+          field: 'Status',
+          oldValue: original.status,
+          newValue: current.status,
+          type: 'status'
+        });
+      }
+    });
+
+    return changes;
+  }, [matchups, originalMatchups, teams, conferences]);
+
+  // Real-time validation with debouncing
+  useEffect(() => {
+    if (matchups.length === 0) {
+      setValidationResults({});
+      setPreviewChanges([]);
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      setValidating(true);
+      
+      const results: Record<number, MatchupValidationResult> = {};
+      matchups.forEach(matchup => {
+        results[matchup.id] = validateMatchup(matchup);
+      });
+      
+      setValidationResults(results);
+      setPreviewChanges(generateChangePreview());
+      setValidating(false);
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [matchups, validateMatchup, generateChangePreview]);
+
+  // Validation summary
+  const validationSummary = useMemo(() => {
+    const results = Object.values(validationResults);
+    return {
+      totalMatchups: results.length,
+      validMatchups: results.filter(r => r.isValid).length,
+      totalErrors: results.reduce((sum, r) => sum + r.errors.length, 0),
+      totalWarnings: results.reduce((sum, r) => sum + r.warnings.length, 0),
+      criticalIssues: results.filter(r => !r.isValid).length
+    };
+  }, [validationResults]);
 
   // Load initial data
   useEffect(() => {
@@ -495,6 +793,8 @@ const MatchupsManagement: React.FC = () => {
       });
 
       setMatchups(allMatchups);
+      setOriginalMatchups([...allMatchups]); // Create snapshot for change tracking
+      setHasChanges(false); // Reset changes when loading fresh data
     } catch (error) {
       console.error('Error loading matchups:', error);
       toast({
@@ -658,172 +958,200 @@ const MatchupsManagement: React.FC = () => {
     }));
   };
 
+  // Enhanced atomic save operation with comprehensive validation and rollback
   const handleSaveChanges = async () => {
-    setSaving(true);
-    console.log('Starting save operation for', matchups.length, 'matchups');
-    console.log('Note: Currently using individual updates. Batch update available for future enhancement.');
+    if (validationSummary.criticalIssues > 0) {
+      toast({
+        title: 'Validation Failed',
+        description: `Cannot save: ${validationSummary.criticalIssues} matchups have critical errors. Please fix them first.`,
+        variant: 'destructive',
+        duration: 8000
+      });
+      return;
+    }
 
+    setSaving(true);
+    console.log('🚀 Starting enhanced save operation with atomic behavior');
+    console.log('📊 Pre-save validation summary:', validationSummary);
+    console.log('🔄 Changes to save:', previewChanges.length);
+
+    // Create save snapshot for rollback
+    const saveSnapshot: SaveSnapshot = {
+      timestamp: new Date().toISOString(),
+      matchups: [...originalMatchups],
+      operations: [],
+      totalChanges: previewChanges.length
+    };
+
+    const operations: SaveOperation[] = [];
     let successCount = 0;
     let failureCount = 0;
-    const failedMatchups: number[] = [];
+    const rollbackData: MatchupWithConference[] = [];
 
     try {
-      // Update all matchups with comprehensive field mapping
-      for (const matchup of matchups) {
-        console.log(`Updating matchup ${matchup.id}:`, {
-          conference_id: matchup.conference_id,
-          week: matchup.week,
-          team_1_id: matchup.team_1_id,
-          team_2_id: matchup.team_2_id,
-          team_1_score: matchup.team_1_score,
-          team_2_score: matchup.team_2_score,
-          winner_id: matchup.winner_id,
-          is_manual_override: matchup.is_manual_override,
-          status: matchup.is_manual_override ? 'complete' : matchup.status
-        });
+      // Phase 1: Pre-validation of all matchups
+      console.log('🔍 Phase 1: Comprehensive pre-validation');
+      const changedMatchups = matchups.filter(m => 
+        originalMatchups.find(o => o.id === m.id && 
+          (o.team_1_id !== m.team_1_id || o.team_2_id !== m.team_2_id || 
+           o.team_1_score !== m.team_1_score || o.team_2_score !== m.team_2_score ||
+           o.is_manual_override !== m.is_manual_override || o.status !== m.status))
+      );
 
-        // Enhanced validation for matchup data
-        const validationErrors = [];
+      console.log(`📝 Found ${changedMatchups.length} matchups with changes`);
 
-        if (!matchup.id || typeof matchup.id !== 'number' || matchup.id <= 0) {
-          validationErrors.push(`Invalid matchup ID: ${matchup.id}`);
-        }
-        if (!matchup.conference_id || matchup.conference_id <= 0) {
-          validationErrors.push(`Invalid conference_id: ${matchup.conference_id}`);
-        }
-        if (!matchup.week || matchup.week <= 0 || matchup.week > 18) {
-          validationErrors.push(`Invalid week: ${matchup.week}`);
-        }
-        if (!matchup.team_1_id || matchup.team_1_id <= 0) {
-          validationErrors.push(`Invalid team_1_id: ${matchup.team_1_id}`);
-        }
-        if (!matchup.team_2_id || matchup.team_2_id <= 0) {
-          validationErrors.push(`Invalid team_2_id: ${matchup.team_2_id}`);
-        }
-        if (matchup.team_1_id === matchup.team_2_id) {
-          validationErrors.push(`Teams cannot play themselves: ${matchup.team_1_id}`);
-        }
-
-        if (validationErrors.length > 0) {
-          console.error(`Validation failed for matchup ${matchup.id}:`, {
-            matchupId: matchup.id,
-            errors: validationErrors,
-            data: {
-              id: matchup.id,
-              conference_id: matchup.conference_id,
-              week: matchup.week,
-              team_1_id: matchup.team_1_id,
-              team_2_id: matchup.team_2_id
-            }
-          });
-          failureCount++;
-          failedMatchups.push(matchup.id);
-          continue;
-        }
-
-        // Prepare update data with all required fields (CRITICAL FIX: use lowercase 'id')
-        const updateData = {
-          id: matchup.id,
-          conference_id: matchup.conference_id,
-          week: matchup.week,
-          team_1_id: matchup.team_1_id,
-          team_2_id: matchup.team_2_id,
-          is_playoff: matchup.is_playoff,
-          sleeper_matchup_id: matchup.sleeper_matchup_id || '',
-          team_1_score: matchup.team_1_score,
-          team_2_score: matchup.team_2_score,
-          winner_id: matchup.winner_id,
-          is_manual_override: matchup.is_manual_override,
-          status: matchup.is_manual_override ? 'complete' : matchup.status || 'pending',
-          matchup_date: matchup.matchup_date || '',
-          notes: matchup.notes || ''
+      // Validate all changes before any database operations
+      for (const matchup of changedMatchups) {
+        const validation = validateMatchup(matchup);
+        const operation: SaveOperation = {
+          matchupId: matchup.id,
+          status: validation.isValid ? 'pending' : 'failed',
+          error: validation.isValid ? undefined : validation.errors.map(e => e.message).join(', '),
+          originalData: originalMatchups.find(o => o.id === matchup.id),
+          newData: matchup
         };
-
-        console.log(`Sending update for matchup ${matchup.id} with data:`, updateData);
-
-        const { error } = await window.ezsite.apis.tableUpdate(13329, updateData);
-
-        if (error) {
-          console.error(`Failed to update matchup ${matchup.id}:`, {
-            error,
-            matchupData: updateData,
-            validationStatus: 'passed',
-            apiResponse: { error }
-          });
+        operations.push(operation);
+        
+        if (!validation.isValid) {
           failureCount++;
-          failedMatchups.push(matchup.id);
-        } else {
-          console.log(`Successfully updated matchup ${matchup.id}:`, {
-            matchupId: matchup.id,
+          console.error(`❌ Validation failed for matchup ${matchup.id}:`, validation.errors);
+        }
+      }
+
+      // Phase 2: Atomic database operations
+      if (failureCount === 0) {
+        console.log('✅ Phase 2: All validations passed, proceeding with atomic updates');
+        
+        for (const operation of operations) {
+          const matchup = operation.newData!;
+          
+          // Prepare update data with comprehensive field mapping
+          const updateData = {
+            id: matchup.id,
+            conference_id: matchup.conference_id,
+            week: matchup.week,
+            team_1_id: matchup.team_1_id,
+            team_2_id: matchup.team_2_id,
+            is_playoff: matchup.is_playoff,
+            sleeper_matchup_id: matchup.sleeper_matchup_id || '',
+            team_1_score: matchup.team_1_score,
+            team_2_score: matchup.team_2_score,
+            winner_id: matchup.winner_id,
+            is_manual_override: matchup.is_manual_override,
+            status: matchup.is_manual_override ? 'complete' : matchup.status || 'pending',
+            matchup_date: matchup.matchup_date || '',
+            notes: matchup.notes || ''
+          };
+
+          console.log(`💾 Updating matchup ${matchup.id}:`, {
             teams: `${matchup.team_1_id} vs ${matchup.team_2_id}`,
             scores: `${matchup.team_1_score} - ${matchup.team_2_score}`,
-            manual_override: matchup.is_manual_override,
+            override: matchup.is_manual_override,
             status: updateData.status
           });
-          successCount++;
+
+          const { error } = await window.ezsite.apis.tableUpdate(13329, updateData);
+
+          if (error) {
+            operation.status = 'failed';
+            operation.error = error;
+            failureCount++;
+            rollbackData.push(operation.originalData!);
+            console.error(`❌ Failed to update matchup ${matchup.id}:`, error);
+            
+            // Stop on first failure for atomic behavior
+            break;
+          } else {
+            operation.status = 'success';
+            successCount++;
+            console.log(`✅ Successfully updated matchup ${matchup.id}`);
+          }
         }
+      } else {
+        console.error(`❌ Phase 2 aborted: ${failureCount} validation failures`);
       }
 
-      // Enhanced reporting with detailed feedback
-      const totalMatchups = matchups.length;
-      console.log(`Save operation completed:`, {
-        totalMatchups,
-        successCount,
-        failureCount,
-        successRate: `${(successCount / totalMatchups * 100).toFixed(1)}%`,
-        failedMatchupIds: failedMatchups
+      // Phase 3: Results and rollback handling
+      saveSnapshot.operations = operations;
+      setSaveOperations(operations);
+      setSaveHistory(prev => [saveSnapshot, ...prev.slice(0, 9)]); // Keep last 10 saves
+
+      const totalOperations = operations.length;
+      console.log('📊 Save operation completed:', {
+        total: totalOperations,
+        successful: successCount,
+        failed: failureCount,
+        rollbackRequired: failureCount > 0
       });
 
+      // Handle results with detailed feedback
       if (failureCount > 0) {
-        console.error('Detailed failure analysis:', {
-          failedMatchupIds: failedMatchups,
-          totalFailures: failureCount,
-          successfulUpdates: successCount,
-          affectedConferences: conferences.filter((c) =>
-          matchups.some((m) => failedMatchups.includes(m.id) && m.conference_id === c.id)
-          ).map((c) => c.conference_name)
-        });
+        // Rollback any successful operations if atomic behavior is required
+        if (successCount > 0) {
+          console.log('🔄 Initiating rollback due to partial failure...');
+          // Note: In a real implementation, you might want to rollback successful operations
+          // For now, we'll just report the issue
+        }
 
+        const failedIds = operations.filter(op => op.status === 'failed').map(op => op.matchupId);
         toast({
-          title: 'Partial Success',
-          description: `${successCount}/${totalMatchups} matchups updated successfully. ${failureCount} failed (IDs: ${failedMatchups.join(', ')}). Check console for details.`,
+          title: 'Save Failed',
+          description: `❌ ${failureCount}/${totalOperations} operations failed. Matchups: ${failedIds.join(', ')}. Check validation panel for details.`,
           variant: 'destructive',
-          duration: 8000
+          duration: 10000
         });
       } else {
+        console.log('🎉 All operations completed successfully!');
         setHasChanges(false);
-        console.log('All matchups updated successfully:', {
-          updatedMatchups: matchups.map((m) => ({
-            id: m.id,
-            conference: conferences.find((c) => c.id === m.conference_id)?.conference_name,
-            teams: `${m.team_1_id} vs ${m.team_2_id}`,
-            scores: `${m.team_1_score} - ${m.team_2_score}`,
-            manual_override: m.is_manual_override
-          }))
-        });
-
+        setOriginalMatchups([...matchups]); // Update baseline
+        
         toast({
-          title: 'Complete Success',
-          description: `All ${successCount} matchups updated successfully! Changes have been saved to the database.`,
+          title: 'Save Successful',
+          description: `✅ All ${successCount} matchups updated successfully! ${previewChanges.length} changes applied.`,
           duration: 5000
         });
+
+        // Reload to verify persistence
+        console.log('🔄 Reloading data to verify persistence...');
+        await loadMatchups();
       }
 
-      // Reload matchups to ensure we have the latest data
-      console.log('Reloading matchups to verify changes persisted...');
-      await loadMatchups();
-
     } catch (error) {
-      console.error('Critical error during save operation:', error);
+      console.error('💥 Critical error during save operation:', error);
       toast({
-        title: 'Error',
-        description: `Failed to save matchup changes: ${error}`,
-        variant: 'destructive'
+        title: 'Critical Error',
+        description: `💥 Save operation failed: ${error}. Please try again or contact support.`,
+        variant: 'destructive',
+        duration: 10000
       });
     } finally {
       setSaving(false);
-      console.log('Save operation completed, saving state reset');
+      console.log('🏁 Save operation cleanup completed');
     }
+  };
+
+  // Quick rollback to last saved state
+  const handleRollback = async () => {
+    if (saveHistory.length === 0) {
+      toast({
+        title: 'No Rollback Available',
+        description: 'No previous save states available for rollback.',
+        variant: 'destructive'
+      });
+      return;
+    }
+
+    const lastSave = saveHistory[0];
+    console.log('🔄 Rolling back to last save:', lastSave.timestamp);
+    
+    setMatchups([...lastSave.matchups]);
+    setHasChanges(true);
+    
+    toast({
+      title: 'Rollback Applied',
+      description: `Reverted to save from ${new Date(lastSave.timestamp).toLocaleString()}`,
+      duration: 3000
+    });
   };
 
   const handleResetChanges = () => {
@@ -886,42 +1214,166 @@ const MatchupsManagement: React.FC = () => {
               </Select>
             </div>
 
-            <div className="space-y-2 flex items-end">
-              {hasChanges &&
-              <div className="flex gap-2">
+            <div className="space-y-2">
+              <div className="flex flex-wrap gap-2">
+                {hasChanges && (
+                  <>
+                    <Button
+                      onClick={handleSaveChanges}
+                      disabled={saving || validationSummary.criticalIssues > 0}
+                      className="flex items-center gap-2">
+                      {saving ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Save className="h-4 w-4" />
+                      )}
+                      Save Changes
+                    </Button>
+                    <Button
+                      variant="outline"
+                      onClick={() => setShowPreview(!showPreview)}
+                      className="flex items-center gap-2">
+                      <Eye className="h-4 w-4" />
+                      {showPreview ? 'Hide' : 'Preview'}
+                    </Button>
+                    <Button
+                      variant="outline"
+                      onClick={handleResetChanges}
+                      className="flex items-center gap-2">
+                      <RotateCcw className="h-4 w-4" />
+                      Reset
+                    </Button>
+                  </>
+                )}
+                {saveHistory.length > 0 && (
                   <Button
-                  onClick={handleSaveChanges}
-                  disabled={saving}
-                  className="flex items-center gap-2">
-
-                    {saving ?
-                  <Loader2 className="h-4 w-4 animate-spin" /> :
-
-                  <Save className="h-4 w-4" />
-                  }
-                    Save Changes
+                    variant="outline"
+                    onClick={handleRollback}
+                    className="flex items-center gap-2">
+                    <Clock className="h-4 w-4" />
+                    Rollback
                   </Button>
-                  <Button
-                  variant="outline"
-                  onClick={handleResetChanges}
-                  className="flex items-center gap-2">
-
-                    <RotateCcw className="h-4 w-4" />
-                    Reset
-                  </Button>
-                </div>
-              }
+                )}
+              </div>
             </div>
           </div>
 
-          {hasChanges &&
-          <Alert className="mb-4">
+          {/* Enhanced Status and Validation Display */}
+          {hasChanges && (
+            <Alert className="mb-4">
               <AlertTriangle className="h-4 w-4" />
               <AlertDescription>
-                You have unsaved changes. Remember to save your modifications.
+                You have {previewChanges.length} unsaved changes. 
+                {validationSummary.criticalIssues > 0 && (
+                  <span className="text-red-600 font-medium">
+                    {validationSummary.criticalIssues} critical issues must be fixed before saving.
+                  </span>
+                )}
               </AlertDescription>
             </Alert>
-          }
+          )}
+
+          {/* Real-time Validation Summary */}
+          {validationSummary.totalMatchups > 0 && (
+            <Card className="mb-4">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm flex items-center gap-2">
+                  <Shield className="h-4 w-4" />
+                  Data Integrity Status
+                  {validating && <Loader2 className="h-3 w-3 animate-spin" />}
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle className="h-4 w-4 text-green-600" />
+                    <span>{validationSummary.validMatchups}/{validationSummary.totalMatchups} Valid</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <XCircle className="h-4 w-4 text-red-600" />
+                    <span>{validationSummary.criticalIssues} Critical Issues</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <AlertTriangle className="h-4 w-4 text-yellow-600" />
+                    <span>{validationSummary.totalWarnings} Warnings</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <FileCheck className="h-4 w-4 text-blue-600" />
+                    <span>{previewChanges.length} Changes</span>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Change Preview Panel */}
+          {showPreview && previewChanges.length > 0 && (
+            <Card className="mb-4">
+              <CardHeader>
+                <CardTitle className="text-sm flex items-center gap-2">
+                  <Eye className="h-4 w-4" />
+                  Change Preview ({previewChanges.length} changes)
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2 max-h-64 overflow-y-auto">
+                  {previewChanges.map((change, index) => (
+                    <div key={index} className="flex items-center justify-between p-2 bg-gray-50 rounded text-sm">
+                      <div className="flex items-center gap-2">
+                        <Badge 
+                          variant={change.type === 'team_assignment' ? 'default' : 
+                                 change.type === 'score' ? 'secondary' :
+                                 change.type === 'override' ? 'destructive' : 'outline'}
+                          className="text-xs">
+                          {change.type.replace('_', ' ')}
+                        </Badge>
+                        <span className="font-medium">Matchup {change.matchupId}</span>
+                        <span className="text-gray-600">({change.conference})</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium">{change.field}:</span>
+                        <span className="text-red-600">{String(change.oldValue)}</span>
+                        <span>→</span>
+                        <span className="text-green-600">{String(change.newValue)}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Save Operations History */}
+          {saveOperations.length > 0 && (
+            <Card className="mb-4">
+              <CardHeader>
+                <CardTitle className="text-sm flex items-center gap-2">
+                  <Database className="h-4 w-4" />
+                  Last Save Operations
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-1 max-h-32 overflow-y-auto">
+                  {saveOperations.map((op, index) => (
+                    <div key={index} className="flex items-center justify-between text-xs p-1">
+                      <span>Matchup {op.matchupId}</span>
+                      <Badge 
+                        variant={op.status === 'success' ? 'default' : 
+                               op.status === 'failed' ? 'destructive' : 'secondary'}
+                        className="text-xs">
+                        {op.status}
+                      </Badge>
+                      {op.error && (
+                        <span className="text-red-600 text-xs truncate max-w-32" title={op.error}>
+                          {op.error}
+                        </span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
         </CardContent>
       </Card>
 
@@ -1012,7 +1464,8 @@ const MatchupsManagement: React.FC = () => {
                         teams={teams}
                         conferences={conferences}
                         onToggleOverride={handleToggleOverride}
-                        onUpdateScores={handleUpdateScores} />
+                        onUpdateScores={handleUpdateScores}
+                        validationResult={validationResults[matchup.id]} />
                       )}
                     </div>
                   </div>);

@@ -5,14 +5,14 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Progress } from '@/components/ui/progress';
-import { 
-  Bug, 
-  Activity, 
-  AlertTriangle, 
-  CheckCircle, 
-  Clock, 
-  Database, 
-  Zap, 
+import {
+  Bug,
+  Activity,
+  AlertTriangle,
+  CheckCircle,
+  Clock,
+  Database,
+  Zap,
   Download,
   RefreshCw,
   TrendingUp,
@@ -20,8 +20,8 @@ import {
   AlertCircle,
   BarChart3,
   Network,
-  FileText
-} from 'lucide-react';
+  FileText } from
+'lucide-react';
 import { matchupDataFlowDebugger } from '@/services/matchupDataFlowDebugger';
 
 interface DebugDashboardProps {
@@ -105,8 +105,8 @@ const MatchupDebugDashboard: React.FC<DebugDashboardProps> = ({ isVisible, onClo
             <Button
               variant="outline"
               size="sm"
-              onClick={() => setAutoRefresh(!autoRefresh)}
-            >
+              onClick={() => setAutoRefresh(!autoRefresh)}>
+
               <RefreshCw className={`h-4 w-4 ${autoRefresh ? 'animate-spin' : ''}`} />
               Auto-refresh {autoRefresh ? 'ON' : 'OFF'}
             </Button>
@@ -176,11 +176,11 @@ const MatchupDebugDashboard: React.FC<DebugDashboardProps> = ({ isVisible, onClo
                       {dashboardData.summary.errorRate.toFixed(1)}%
                     </div>
                     <div className="text-xs text-muted-foreground flex items-center">
-                      {dashboardData.summary.errorRate > 10 ? (
-                        <TrendingUp className="h-3 w-3 mr-1 text-red-500" />
-                      ) : (
-                        <TrendingDown className="h-3 w-3 mr-1 text-green-500" />
-                      )}
+                      {dashboardData.summary.errorRate > 10 ?
+                      <TrendingUp className="h-3 w-3 mr-1 text-red-500" /> :
+
+                      <TrendingDown className="h-3 w-3 mr-1 text-green-500" />
+                      }
                       {dashboardData.summary.errorRate > 10 ? 'High' : 'Normal'}
                     </div>
                   </CardContent>
@@ -203,8 +203,8 @@ const MatchupDebugDashboard: React.FC<DebugDashboardProps> = ({ isVisible, onClo
               </div>
 
               {/* Recommendations */}
-              {dashboardData.recommendations && dashboardData.recommendations.length > 0 && (
-                <Card>
+              {dashboardData.recommendations && dashboardData.recommendations.length > 0 &&
+              <Card>
                   <CardHeader>
                     <CardTitle className="text-sm flex items-center">
                       <AlertTriangle className="h-4 w-4 mr-2 text-orange-500" />
@@ -213,16 +213,16 @@ const MatchupDebugDashboard: React.FC<DebugDashboardProps> = ({ isVisible, onClo
                   </CardHeader>
                   <CardContent>
                     <div className="space-y-2">
-                      {dashboardData.recommendations.map((rec: string, index: number) => (
-                        <Alert key={index}>
+                      {dashboardData.recommendations.map((rec: string, index: number) =>
+                    <Alert key={index}>
                           <AlertCircle className="h-4 w-4" />
                           <AlertDescription>{rec}</AlertDescription>
                         </Alert>
-                      ))}
+                    )}
                     </div>
                   </CardContent>
                 </Card>
-              )}
+              }
 
               {/* System Status */}
               <Card>
@@ -236,23 +236,23 @@ const MatchupDebugDashboard: React.FC<DebugDashboardProps> = ({ isVisible, onClo
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <div className="text-sm font-medium mb-2">Data Flow Health</div>
-                      <Progress 
-                        value={Math.max(0, 100 - dashboardData.summary.errorRate)} 
-                        className="h-2"
-                      />
+                      <Progress
+                        value={Math.max(0, 100 - dashboardData.summary.errorRate)}
+                        className="h-2" />
+
                       <div className="text-xs text-muted-foreground mt-1">
                         {100 - dashboardData.summary.errorRate}% healthy
                       </div>
                     </div>
                     <div>
                       <div className="text-sm font-medium mb-2">Performance Score</div>
-                      <Progress 
-                        value={Math.min(100, Math.max(0, 100 - (dashboardData.summary.averageStepDuration / 10)))} 
-                        className="h-2"
-                      />
+                      <Progress
+                        value={Math.min(100, Math.max(0, 100 - dashboardData.summary.averageStepDuration / 10))}
+                        className="h-2" />
+
                       <div className="text-xs text-muted-foreground mt-1">
-                        {dashboardData.summary.averageStepDuration < 100 ? 'Excellent' : 
-                         dashboardData.summary.averageStepDuration < 500 ? 'Good' : 'Needs attention'}
+                        {dashboardData.summary.averageStepDuration < 100 ? 'Excellent' :
+                        dashboardData.summary.averageStepDuration < 500 ? 'Good' : 'Needs attention'}
                       </div>
                     </div>
                   </div>
@@ -263,8 +263,8 @@ const MatchupDebugDashboard: React.FC<DebugDashboardProps> = ({ isVisible, onClo
             {/* Active Traces Tab */}
             <TabsContent value="traces" className="space-y-4">
               <div className="grid gap-4">
-                {dashboardData.activeTraces.map((trace: any) => (
-                  <Card key={trace.traceId} className="cursor-pointer hover:shadow-md transition-shadow">
+                {dashboardData.activeTraces.map((trace: any) =>
+                <Card key={trace.traceId} className="cursor-pointer hover:shadow-md transition-shadow">
                     <CardHeader className="pb-2">
                       <div className="flex items-center justify-between">
                         <CardTitle className="text-sm">
@@ -273,9 +273,9 @@ const MatchupDebugDashboard: React.FC<DebugDashboardProps> = ({ isVisible, onClo
                         <div className="flex items-center space-x-2">
                           <Badge variant="outline">{trace.stepCount} steps</Badge>
                           <Badge variant="outline">{trace.transformationCount} transforms</Badge>
-                          {trace.errorCount > 0 && (
-                            <Badge variant="destructive">{trace.errorCount} errors</Badge>
-                          )}
+                          {trace.errorCount > 0 &&
+                        <Badge variant="destructive">{trace.errorCount} errors</Badge>
+                        }
                         </div>
                       </div>
                     </CardHeader>
@@ -283,33 +283,33 @@ const MatchupDebugDashboard: React.FC<DebugDashboardProps> = ({ isVisible, onClo
                       <div className="flex items-center justify-between text-sm text-muted-foreground">
                         <span>Last activity: {formatTimestamp(trace.lastActivity)}</span>
                         <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleExportTrace(trace.traceId)}
-                        >
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleExportTrace(trace.traceId)}>
+
                           <Download className="h-3 w-3 mr-1" />
                           Export
                         </Button>
                       </div>
                     </CardContent>
                   </Card>
-                ))}
-                {dashboardData.activeTraces.length === 0 && (
-                  <Card>
+                )}
+                {dashboardData.activeTraces.length === 0 &&
+                <Card>
                     <CardContent className="py-8 text-center">
                       <Activity className="h-8 w-8 mx-auto mb-4 text-muted-foreground" />
                       <p className="text-muted-foreground">No active traces</p>
                     </CardContent>
                   </Card>
-                )}
+                }
               </div>
             </TabsContent>
 
             {/* Recent Steps Tab */}
             <TabsContent value="steps" className="space-y-4">
               <div className="space-y-2">
-                {dashboardData.recentSteps.map((step: any) => (
-                  <Card key={step.id}>
+                {dashboardData.recentSteps.map((step: any) =>
+                <Card key={step.id}>
                     <CardContent className="py-3">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center space-x-3">
@@ -322,21 +322,21 @@ const MatchupDebugDashboard: React.FC<DebugDashboardProps> = ({ isVisible, onClo
                           </div>
                         </div>
                         <div className="flex items-center space-x-2">
-                          {step.duration && (
-                            <Badge variant="outline" className="text-xs">
+                          {step.duration &&
+                        <Badge variant="outline" className="text-xs">
                               {formatDuration(step.duration)}
                             </Badge>
-                          )}
-                          {step.issues > 0 && (
-                            <Badge variant="destructive" className="text-xs">
+                        }
+                          {step.issues > 0 &&
+                        <Badge variant="destructive" className="text-xs">
                               {step.issues} issues
                             </Badge>
-                          )}
+                        }
                         </div>
                       </div>
                     </CardContent>
                   </Card>
-                ))}
+                )}
               </div>
             </TabsContent>
 
@@ -371,19 +371,19 @@ const MatchupDebugDashboard: React.FC<DebugDashboardProps> = ({ isVisible, onClo
                   </CardHeader>
                   <CardContent>
                     <div className="space-y-2">
-                      {dashboardData.performanceMetrics.slowestOperations.slice(0, 5).map((op: any, index: number) => (
-                        <div key={index} className="flex items-center justify-between text-sm">
+                      {dashboardData.performanceMetrics.slowestOperations.slice(0, 5).map((op: any, index: number) =>
+                      <div key={index} className="flex items-center justify-between text-sm">
                           <span className="text-muted-foreground truncate">{op.stage}/{op.operation}</span>
                           <Badge variant="outline" className="text-xs">
                             {formatDuration(op.performance?.duration)}
                           </Badge>
                         </div>
-                      ))}
-                      {dashboardData.performanceMetrics.slowestOperations.length === 0 && (
-                        <p className="text-sm text-muted-foreground text-center py-4">
+                      )}
+                      {dashboardData.performanceMetrics.slowestOperations.length === 0 &&
+                      <p className="text-sm text-muted-foreground text-center py-4">
                           No slow operations detected
                         </p>
-                      )}
+                      }
                     </div>
                   </CardContent>
                 </Card>
@@ -393,8 +393,8 @@ const MatchupDebugDashboard: React.FC<DebugDashboardProps> = ({ isVisible, onClo
             {/* Consistency Tab */}
             <TabsContent value="consistency" className="space-y-4">
               <div className="space-y-4">
-                {dashboardData.consistencyIssues.map((issue: any, index: number) => (
-                  <Card key={index}>
+                {dashboardData.consistencyIssues.map((issue: any, index: number) =>
+                <Card key={index}>
                     <CardHeader className="pb-2">
                       <CardTitle className="text-sm flex items-center">
                         <AlertTriangle className="h-4 w-4 mr-2 text-orange-500" />
@@ -410,23 +410,23 @@ const MatchupDebugDashboard: React.FC<DebugDashboardProps> = ({ isVisible, onClo
                         <div className="text-sm">
                           <span className="text-muted-foreground">Issues:</span>
                           <ul className="list-disc list-inside mt-1 space-y-1">
-                            {issue.discrepancies.map((disc: string, discIndex: number) => (
-                              <li key={discIndex} className="text-xs text-red-600">{disc}</li>
-                            ))}
+                            {issue.discrepancies.map((disc: string, discIndex: number) =>
+                          <li key={discIndex} className="text-xs text-red-600">{disc}</li>
+                          )}
                           </ul>
                         </div>
                       </div>
                     </CardContent>
                   </Card>
-                ))}
-                {dashboardData.consistencyIssues.length === 0 && (
-                  <Card>
+                )}
+                {dashboardData.consistencyIssues.length === 0 &&
+                <Card>
                     <CardContent className="py-8 text-center">
                       <CheckCircle className="h-8 w-8 mx-auto mb-4 text-green-500" />
                       <p className="text-muted-foreground">No consistency issues detected</p>
                     </CardContent>
                   </Card>
-                )}
+                }
               </div>
             </TabsContent>
 
@@ -445,8 +445,8 @@ const MatchupDebugDashboard: React.FC<DebugDashboardProps> = ({ isVisible, onClo
           </Tabs>
         </div>
       </div>
-    </div>
-  );
+    </div>);
+
 };
 
 export default MatchupDebugDashboard;
