@@ -234,12 +234,15 @@ const MatchupsPage: React.FC = () => {
         playersData
       );
 
-      // Calculate data source statistics
+      // Calculate data source statistics - all matchups now use hybrid flow
       const sourceStats = {
-        database: hybridMatchups.filter((m) => m.dataSource === 'database').length,
+        database: 0, // No longer used - all manual overrides use hybrid flow
         sleeper: hybridMatchups.filter((m) => m.dataSource === 'sleeper').length,
         hybrid: hybridMatchups.filter((m) => m.dataSource === 'hybrid').length
       };
+      
+      // Count manual score overrides within hybrid flow
+      const manualOverrideCount = hybridMatchups.filter((m) => m.isManualOverride).length;
 
       setDataSourceStats(sourceStats);
       setMatchups(hybridMatchups);
@@ -251,12 +254,14 @@ const MatchupsPage: React.FC = () => {
         errors: [],
         weekStatus: status,
         dataSourceStats: sourceStats,
+        manualOverrideCount,
         hybridMatchups: hybridMatchups.map((m) => ({
           id: m.matchup_id,
           conference: m.conference.conference_name,
           teams: m.teams.map((t) => t.team?.team_name || t.owner?.display_name || 'Unknown'),
           dataSource: m.dataSource,
-          isManualOverride: m.isManualOverride
+          isManualOverride: m.isManualOverride,
+          isManualScoreOverride: m.rawData?.isManualScoreOverride || false
         }))
       };
 
@@ -264,6 +269,8 @@ const MatchupsPage: React.FC = () => {
 
       console.log(`✅ Successfully loaded ${hybridMatchups.length} hybrid matchups`);
       console.log('📊 Data source stats:', sourceStats);
+      console.log(`🔧 Manual score overrides: ${manualOverrideCount}`);
+      console.log('🔄 All matchups now use Hybrid Data Flow (Database assignments + Sleeper API data)');
 
     } catch (error) {
       const errorMsg = `Failed to fetch hybrid matchup data: ${error}`;
@@ -477,17 +484,17 @@ const MatchupsPage: React.FC = () => {
         </Card>
       }
 
-      {/* Data Source Summary */}
-      {(dataSourceStats.database > 0 || dataSourceStats.sleeper > 0 || dataSourceStats.hybrid > 0) &&
+      {/* Data Source Summary - Updated for Unified Hybrid Flow */}
+      {(dataSourceStats.sleeper > 0 || dataSourceStats.hybrid > 0) &&
       <Card className="border-l-4 border-l-green-500">
           <CardContent className="py-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-3">
                 <Zap className="h-5 w-5 text-green-500" />
                 <div>
-                  <div className="font-medium">Hybrid Data Flow Active</div>
+                  <div className="font-medium">Unified Hybrid Data Flow</div>
                   <div className="text-sm text-muted-foreground">
-                    Team assignments from database, real-time scoring from Sleeper API
+                    All matchups use database team assignments + Sleeper API data
                   </div>
                 </div>
               </div>
@@ -498,16 +505,16 @@ const MatchupsPage: React.FC = () => {
                     <span>{dataSourceStats.hybrid} Hybrid</span>
                   </div>
               }
-                {dataSourceStats.database > 0 &&
-              <div className="flex items-center space-x-1">
-                    <div className="w-3 h-3 rounded-full bg-orange-500"></div>
-                    <span>{dataSourceStats.database} Database</span>
-                  </div>
-              }
                 {dataSourceStats.sleeper > 0 &&
               <div className="flex items-center space-x-1">
                     <div className="w-3 h-3 rounded-full bg-blue-500"></div>
-                    <span>{dataSourceStats.sleeper} Sleeper</span>
+                    <span>{dataSourceStats.sleeper} Sleeper-Only</span>
+                  </div>
+              }
+                {rawApiData?.manualOverrideCount > 0 &&
+              <div className="flex items-center space-x-1">
+                    <Database className="h-3 w-3 text-orange-500" />
+                    <span>{rawApiData.manualOverrideCount} Score Override{rawApiData.manualOverrideCount !== 1 ? 's' : ''}</span>
                   </div>
               }
               </div>
@@ -599,7 +606,7 @@ const MatchupsPage: React.FC = () => {
                         {matchup.isManualOverride &&
                         <Badge variant="outline" className="text-xs bg-orange-50 text-orange-700 border-orange-200">
                             <Database className="h-3 w-3 mr-1" />
-                            Manual Override
+                            Score Override
                           </Badge>
                         }
                         {debugMode &&
@@ -715,7 +722,7 @@ const MatchupsPage: React.FC = () => {
                             <div className="text-xs capitalize">{matchup.dataSource}</div>
                             {matchup.isManualOverride &&
                           <div className="text-xs text-orange-600 mt-1">
-                                Manual Override
+                                Score Override
                               </div>
                           }
                           </div>
@@ -728,7 +735,7 @@ const MatchupsPage: React.FC = () => {
                           <div className="flex items-start space-x-2">
                             <Database className="h-4 w-4 text-orange-600 mt-0.5" />
                             <div>
-                              <div className="text-sm font-medium text-orange-800">Admin Notes</div>
+                              <div className="text-sm font-medium text-orange-800">Score Override Notes</div>
                               <div className="text-sm text-orange-700">{matchup.overrideNotes}</div>
                             </div>
                           </div>

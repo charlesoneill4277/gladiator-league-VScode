@@ -2097,20 +2097,20 @@ class MatchupService {
         console.log(`✅ Roster ownership validation passed for both teams`);
       }
 
-      // Determine if we should use database override or Sleeper data
-      const useManualOverride = dbMatchup.is_manual_override;
+      // Always fetch Sleeper data for hybrid approach
+      console.log(`🔄 Fetching complete hybrid data for rosters ${team1RosterId}, ${team2RosterId}`);
 
       let team1SleeperData: SleeperMatchup | undefined;
       let team2SleeperData: SleeperMatchup | undefined;
       let team1Roster: SleeperRoster | undefined;
       let team2Roster: SleeperRoster | undefined;
 
-      // Enhanced manual override logic for better data fetching
-      if (useManualOverride) {
-        console.log(`🔄 Manual override detected - ensuring complete data for rosters ${team1RosterId}, ${team2RosterId}`);
-
-        try {
-          // Fetch team-specific data with validation
+      // Enhanced hybrid data fetching - always combine database and API data
+      try {
+        // For manual overrides, fetch team-specific data with validation
+        if (dbMatchup.is_manual_override) {
+          console.log(`🔄 Manual override detected - fetching enhanced data for validation`);
+          
           const teamBasedData = await this.fetchTeamsMatchupDataWithValidation(
             conference.league_id,
             week,
@@ -2132,11 +2132,10 @@ class MatchupService {
           }, `${team1.team_name} vs ${team2.team_name}`);
 
           if (!validationResult.isValid) {
-            console.warn(`⚠️ Data validation failed for manual override, using fallback data:`, validationResult.issues);
-            // Use fallback data but continue with the override
+            console.warn(`⚠️ Data validation failed for manual override, but continuing with hybrid approach:`, validationResult.issues);
           }
 
-          console.log(`✅ Manual override data validated:`, {
+          console.log(`✅ Manual override hybrid data validated:`, {
             team1HasData: !!team1SleeperData,
             team2HasData: !!team2SleeperData,
             team1Points: team1SleeperData?.points || 0,
@@ -2144,16 +2143,16 @@ class MatchupService {
             team1PlayersPoints: Object.keys(team1SleeperData?.players_points || {}).length,
             team2PlayersPoints: Object.keys(team2SleeperData?.players_points || {}).length
           });
-        } catch (error) {
-          console.warn(`⚠️ Failed to fetch team-specific data for manual override, using fallback:`, error);
-          // Fallback to original data but log this for debugging
+        } else {
+          // For non-manual overrides, use the original matchup data
           team1SleeperData = sleeperMatchupsData.find((m) => m.roster_id === team1RosterId);
           team2SleeperData = sleeperMatchupsData.find((m) => m.roster_id === team2RosterId);
           team1Roster = rostersData.find((r) => r.roster_id === team1RosterId);
           team2Roster = rostersData.find((r) => r.roster_id === team2RosterId);
         }
-      } else {
-        // For non-manual overrides, use the original matchup data
+      } catch (error) {
+        console.warn(`⚠️ Failed to fetch enhanced data, using original Sleeper data:`, error);
+        // Fallback to original data but still maintain hybrid approach
         team1SleeperData = sleeperMatchupsData.find((m) => m.roster_id === team1RosterId);
         team2SleeperData = sleeperMatchupsData.find((m) => m.roster_id === team2RosterId);
         team1Roster = rostersData.find((r) => r.roster_id === team1RosterId);
@@ -2163,14 +2162,16 @@ class MatchupService {
       const team1User = usersData.find((u) => u.user_id === team1Roster?.owner_id);
       const team2User = usersData.find((u) => u.user_id === team2Roster?.owner_id);
 
-      // Enhanced team data creation with better fallback handling
+      // Enhanced hybrid team data creation - always combines database assignments with Sleeper data
       const hybridTeam1: HybridMatchupTeam = {
         roster_id: team1RosterId,
-        points: useManualOverride ? dbMatchup.team_1_score : team1SleeperData?.points ?? 0,
+        // For manual overrides, use database score but keep all Sleeper data for context
+        points: dbMatchup.is_manual_override ? dbMatchup.team_1_score : team1SleeperData?.points ?? 0,
         projected_points: team1SleeperData?.projected_points,
         owner: team1User || null,
         roster: team1Roster || null,
-        team: team1,
+        team: team1, // Always use database team assignment
+        // Always include Sleeper data for hybrid approach
         players_points: this.ensureValidPlayersPoints(team1SleeperData?.players_points),
         starters_points: this.ensureValidStartersPoints(team1SleeperData?.starters_points),
         matchup_starters: this.ensureValidMatchupStarters(team1SleeperData?.starters, team1Roster?.starters),
@@ -2179,11 +2180,13 @@ class MatchupService {
 
       const hybridTeam2: HybridMatchupTeam = {
         roster_id: team2RosterId,
-        points: useManualOverride ? dbMatchup.team_2_score : team2SleeperData?.points ?? 0,
+        // For manual overrides, use database score but keep all Sleeper data for context
+        points: dbMatchup.is_manual_override ? dbMatchup.team_2_score : team2SleeperData?.points ?? 0,
         projected_points: team2SleeperData?.projected_points,
         owner: team2User || null,
         roster: team2Roster || null,
-        team: team2,
+        team: team2, // Always use database team assignment
+        // Always include Sleeper data for hybrid approach
         players_points: this.ensureValidPlayersPoints(team2SleeperData?.players_points),
         starters_points: this.ensureValidStartersPoints(team2SleeperData?.starters_points),
         matchup_starters: this.ensureValidMatchupStarters(team2SleeperData?.starters, team2Roster?.starters),
@@ -2197,21 +2200,25 @@ class MatchupService {
         conference,
         teams: [hybridTeam1, hybridTeam2],
         status,
-        isManualOverride: useManualOverride,
+        isManualOverride: dbMatchup.is_manual_override,
         databaseMatchupId: dbMatchup.id,
         overrideNotes: dbMatchup.notes,
-        dataSource: useManualOverride ? 'database' : 'hybrid',
+        // ALL matchups now use hybrid data source
+        dataSource: 'hybrid',
         week,
         rawData: {
           databaseMatchup: dbMatchup,
           sleeperData: {
             team1: team1SleeperData,
             team2: team2SleeperData
-          }
+          },
+          // Track if this hybrid matchup uses manual score overrides
+          isManualScoreOverride: dbMatchup.is_manual_override
         }
       };
 
-      console.log(`✅ Created hybrid matchup: ${team1.team_name} vs ${team2.team_name} (Manual Override: ${useManualOverride})`);
+      console.log(`✅ Created hybrid matchup: ${team1.team_name} vs ${team2.team_name} (Manual Score Override: ${dbMatchup.is_manual_override})`);
+      console.log(`🔄 Data source: HYBRID (Database team assignments + Sleeper API data)`);
 
       // Debug: Log successful matchup creation and validate data integrity
       if (this.debugMode) {
@@ -2237,6 +2244,12 @@ class MatchupService {
         matchupDataFlowDebugger.performConsistencyCheck(traceId, 'ownership_validation',
         { team1OwnerId: team1.owner_id, team2OwnerId: team2.owner_id },
         { team1ValidOwnership: team1OwnershipValidation.isValid, team2ValidOwnership: team2OwnershipValidation.isValid }
+        );
+
+        // Log hybrid data flow specifics
+        matchupDataFlowDebugger.performConsistencyCheck(traceId, 'hybrid_data_flow',
+        { dataSource: 'hybrid', isManualOverride: dbMatchup.is_manual_override },
+        { hasSleeperData: !!(team1SleeperData && team2SleeperData), hasDatabaseAssignment: true }
         );
 
         matchupDataFlowDebugger.completeStep(traceId, stepId);
