@@ -200,7 +200,7 @@ const MatchupsPage: React.FC = () => {
 
       setApiErrors([]);
       const errors: string[] = [];
-      
+
       // Determine and set week status
       const status = determineWeekStatus(selectedWeek, currentWeek);
       setWeekStatus(status);
@@ -230,14 +230,14 @@ const MatchupsPage: React.FC = () => {
 
       // Calculate data source statistics
       const sourceStats = {
-        database: hybridMatchups.filter(m => m.dataSource === 'database').length,
-        sleeper: hybridMatchups.filter(m => m.dataSource === 'sleeper').length,
-        hybrid: hybridMatchups.filter(m => m.dataSource === 'hybrid').length
+        database: hybridMatchups.filter((m) => m.dataSource === 'database').length,
+        sleeper: hybridMatchups.filter((m) => m.dataSource === 'sleeper').length,
+        hybrid: hybridMatchups.filter((m) => m.dataSource === 'hybrid').length
       };
 
       setDataSourceStats(sourceStats);
       setMatchups(hybridMatchups);
-      
+
       // Set debug data
       const debugData = {
         conferences: conferenceData.length,
@@ -245,15 +245,15 @@ const MatchupsPage: React.FC = () => {
         errors: [],
         weekStatus: status,
         dataSourceStats: sourceStats,
-        hybridMatchups: hybridMatchups.map(m => ({
+        hybridMatchups: hybridMatchups.map((m) => ({
           id: m.matchup_id,
           conference: m.conference.conference_name,
-          teams: m.teams.map(t => t.team?.team_name || t.owner?.display_name || 'Unknown'),
+          teams: m.teams.map((t) => t.team?.team_name || t.owner?.display_name || 'Unknown'),
           dataSource: m.dataSource,
           isManualOverride: m.isManualOverride
         }))
       };
-      
+
       setRawApiData(debugData);
 
       console.log(`✅ Successfully loaded ${hybridMatchups.length} hybrid matchups`);
@@ -486,24 +486,24 @@ const MatchupsPage: React.FC = () => {
                 </div>
               </div>
               <div className="flex items-center space-x-4 text-sm">
-                {dataSourceStats.hybrid > 0 && (
-                  <div className="flex items-center space-x-1">
+                {dataSourceStats.hybrid > 0 &&
+              <div className="flex items-center space-x-1">
                     <div className="w-3 h-3 rounded-full bg-green-500"></div>
                     <span>{dataSourceStats.hybrid} Hybrid</span>
                   </div>
-                )}
-                {dataSourceStats.database > 0 && (
-                  <div className="flex items-center space-x-1">
+              }
+                {dataSourceStats.database > 0 &&
+              <div className="flex items-center space-x-1">
                     <div className="w-3 h-3 rounded-full bg-orange-500"></div>
                     <span>{dataSourceStats.database} Database</span>
                   </div>
-                )}
-                {dataSourceStats.sleeper > 0 && (
-                  <div className="flex items-center space-x-1">
+              }
+                {dataSourceStats.sleeper > 0 &&
+              <div className="flex items-center space-x-1">
                     <div className="w-3 h-3 rounded-full bg-blue-500"></div>
                     <span>{dataSourceStats.sleeper} Sleeper</span>
                   </div>
-                )}
+              }
               </div>
             </div>
           </CardContent>
@@ -590,17 +590,17 @@ const MatchupsPage: React.FC = () => {
                           {matchup.conference.conference_name}
                         </CardTitle>
                         {getStatusBadge(matchup.status)}
-                        {matchup.isManualOverride && (
-                          <Badge variant="outline" className="text-xs bg-orange-50 text-orange-700 border-orange-200">
+                        {matchup.isManualOverride &&
+                        <Badge variant="outline" className="text-xs bg-orange-50 text-orange-700 border-orange-200">
                             <Database className="h-3 w-3 mr-1" />
                             Manual Override
                           </Badge>
-                        )}
-                        {debugMode && (
-                          <Badge variant="outline" className="text-xs">
+                        }
+                        {debugMode &&
+                        <Badge variant="outline" className="text-xs">
                             {matchup.dataSource}
                           </Badge>
-                        )}
+                        }
                       </div>
                       <ChevronDown className={`h-4 w-4 transition-transform ${
                       expandedMatchups.has(`${matchup.conference.id}-${matchup.matchup_id}`) ? 'rotate-180' : ''}`
@@ -717,8 +717,8 @@ const MatchupsPage: React.FC = () => {
                       }
                       
                       {/* Manual Override Notes */}
-                      {matchup.overrideNotes && matchup.overrideNotes.trim() && (
-                        <div className="mt-4 p-3 bg-orange-50 border border-orange-200 rounded-lg">
+                      {matchup.overrideNotes && matchup.overrideNotes.trim() &&
+                      <div className="mt-4 p-3 bg-orange-50 border border-orange-200 rounded-lg">
                           <div className="flex items-start space-x-2">
                             <Database className="h-4 w-4 text-orange-600 mt-0.5" />
                             <div>
@@ -727,7 +727,7 @@ const MatchupsPage: React.FC = () => {
                             </div>
                           </div>
                         </div>
-                      )}
+                      }
                     </div>
                   </CollapsibleContent>
                 </CardContent>

@@ -75,7 +75,7 @@ export interface HybridMatchup {
 }
 
 class MatchupService {
-  private teamConferenceMap = new Map<string, { teamId: number; rosterId: string; }>();
+  private teamConferenceMap = new Map<string, {teamId: number;rosterId: string;}>();
 
   /**
    * Fetch database matchups for a specific week and conferences
@@ -90,12 +90,12 @@ class MatchupService {
       }
 
       const filters = [
-        {
-          name: 'week',
-          op: 'Equal',
-          value: week
-        }
-      ];
+      {
+        name: 'week',
+        op: 'Equal',
+        value: week
+      }];
+
 
       // If we have specific conferences, filter by them
       if (conferenceIds.length === 1) {
@@ -122,8 +122,8 @@ class MatchupService {
 
       // Filter by conference IDs if we have multiple
       const filteredMatchups = conferenceIds.length > 1 ?
-        dbMatchups.filter((m) => conferenceIds.includes(m.conference_id)) :
-        dbMatchups;
+      dbMatchups.filter((m) => conferenceIds.includes(m.conference_id)) :
+      dbMatchups;
 
       console.log(`✅ Found ${filteredMatchups.length} database matchups for week ${week}`);
       return filteredMatchups;
@@ -136,17 +136,17 @@ class MatchupService {
   /**
    * Build mapping between teams and conferences from junction table
    */
-  async buildTeamConferenceMap(conferenceIds: number[]): Promise<Map<string, { teamId: number; rosterId: string; }>> {
+  async buildTeamConferenceMap(conferenceIds: number[]): Promise<Map<string, {teamId: number;rosterId: string;}>> {
     try {
       console.log('🔗 Building team-conference mapping...', { conferenceIds });
 
       const filters = conferenceIds.length > 0 ? [
-        conferenceIds.length === 1 ? {
-          name: 'conference_id',
-          op: 'Equal',
-          value: conferenceIds[0]
-        } : null
-      ].filter(Boolean) : [];
+      conferenceIds.length === 1 ? {
+        name: 'conference_id',
+        op: 'Equal',
+        value: conferenceIds[0]
+      } : null].
+      filter(Boolean) : [];
 
       const response = await window.ezsite.apis.tablePage('12853', {
         PageNo: 1,
@@ -161,7 +161,7 @@ class MatchupService {
       }
 
       const junctions = response.data.List as TeamConferenceJunction[];
-      const map = new Map<string, { teamId: number; rosterId: string; }>();
+      const map = new Map<string, {teamId: number;rosterId: string;}>();
 
       junctions.forEach((junction) => {
         if (conferenceIds.length === 0 || conferenceIds.includes(junction.conference_id)) {
@@ -214,13 +214,13 @@ class MatchupService {
    * Get hybrid matchup data by combining database assignments with Sleeper API data
    */
   async getHybridMatchups(
-    conferences: Conference[],
-    teams: Team[],
-    week: number,
-    currentWeek: number,
-    selectedSeason: number,
-    allPlayers: Record<string, SleeperPlayer>
-  ): Promise<HybridMatchup[]> {
+  conferences: Conference[],
+  teams: Team[],
+  week: number,
+  currentWeek: number,
+  selectedSeason: number,
+  allPlayers: Record<string, SleeperPlayer>)
+  : Promise<HybridMatchup[]> {
     try {
       console.log('🚀 Starting hybrid matchup data fetch...', {
         conferences: conferences.length,
@@ -231,12 +231,12 @@ class MatchupService {
       });
 
       const conferenceIds = conferences.map((c) => c.id);
-      
+
       // Step 1: Fetch database matchups (team assignments)
       const [databaseMatchups, teamMap] = await Promise.all([
-        this.fetchDatabaseMatchups(conferenceIds, week),
-        this.buildTeamConferenceMap(conferenceIds)
-      ]);
+      this.fetchDatabaseMatchups(conferenceIds, week),
+      this.buildTeamConferenceMap(conferenceIds)]
+      );
 
       console.log(`📊 Database matchups: ${databaseMatchups.length}`);
       console.log(`🔗 Team mappings: ${teamMap.size}`);
@@ -258,7 +258,7 @@ class MatchupService {
           if (conferenceDbMatchups.length === 0) {
             // No database matchups - fall back to Sleeper API for matchup assignments
             console.log(`⚠️ No database matchups for ${conference.conference_name}, falling back to Sleeper API`);
-            
+
             const sleeperMatchups = await this.getSleeperMatchups(
               conference,
               teams,
@@ -267,17 +267,17 @@ class MatchupService {
               selectedSeason,
               allPlayers
             );
-            
+
             hybridMatchups.push(...sleeperMatchups);
             continue;
           }
 
           // Fetch real-time data from Sleeper API
           const [sleeperMatchupsData, rostersData, usersData] = await Promise.all([
-            SleeperApiService.fetchMatchups(conference.league_id, week),
-            SleeperApiService.fetchLeagueRosters(conference.league_id),
-            SleeperApiService.fetchLeagueUsers(conference.league_id)
-          ]);
+          SleeperApiService.fetchMatchups(conference.league_id, week),
+          SleeperApiService.fetchLeagueRosters(conference.league_id),
+          SleeperApiService.fetchLeagueUsers(conference.league_id)]
+          );
 
           console.log(`📈 Sleeper API data:`, {
             matchups: sleeperMatchupsData.length,
@@ -308,7 +308,7 @@ class MatchupService {
 
         } catch (error) {
           console.error(`❌ Error processing conference ${conference.conference_name}:`, error);
-          
+
           // Continue with other conferences even if one fails
           continue;
         }
@@ -327,18 +327,18 @@ class MatchupService {
    * Create a single hybrid matchup from database assignment + Sleeper data
    */
   private async createHybridMatchup(
-    dbMatchup: DatabaseMatchup,
-    conference: Conference,
-    teams: Team[],
-    sleeperMatchupsData: SleeperMatchup[],
-    rostersData: SleeperRoster[],
-    usersData: SleeperUser[],
-    teamMap: Map<string, { teamId: number; rosterId: string; }>,
-    allPlayers: Record<string, SleeperPlayer>,
-    week: number,
-    currentWeek: number,
-    selectedSeason: number
-  ): Promise<HybridMatchup | null> {
+  dbMatchup: DatabaseMatchup,
+  conference: Conference,
+  teams: Team[],
+  sleeperMatchupsData: SleeperMatchup[],
+  rostersData: SleeperRoster[],
+  usersData: SleeperUser[],
+  teamMap: Map<string, {teamId: number;rosterId: string;}>,
+  allPlayers: Record<string, SleeperPlayer>,
+  week: number,
+  currentWeek: number,
+  selectedSeason: number)
+  : Promise<HybridMatchup | null> {
     try {
       // Find teams from database
       const team1 = teams.find((t) => t.id === dbMatchup.team_1_id);
@@ -361,22 +361,58 @@ class MatchupService {
       const team1RosterId = parseInt(team1RosterMapping.rosterId);
       const team2RosterId = parseInt(team2RosterMapping.rosterId);
 
-      // Find corresponding Sleeper data
-      const team1SleeperData = sleeperMatchupsData.find((m) => m.roster_id === team1RosterId);
-      const team2SleeperData = sleeperMatchupsData.find((m) => m.roster_id === team2RosterId);
+      // Determine if we should use database override or Sleeper data
+      const useManualOverride = dbMatchup.is_manual_override;
 
-      const team1Roster = rostersData.find((r) => r.roster_id === team1RosterId);
-      const team2Roster = rostersData.find((r) => r.roster_id === team2RosterId);
+      let team1SleeperData: SleeperMatchup | undefined;
+      let team2SleeperData: SleeperMatchup | undefined;
+      let team1Roster: SleeperRoster | undefined;
+      let team2Roster: SleeperRoster | undefined;
+
+      if (useManualOverride) {
+        // For manual overrides, fetch team-specific data to ensure we get the correct rosters and scoring
+        console.log(`🔄 Manual override detected - fetching team-specific data for rosters ${team1RosterId}, ${team2RosterId}`);
+        
+        try {
+          const teamBasedData = await SleeperApiService.fetchTeamsMatchupData(
+            conference.league_id,
+            week,
+            [team1RosterId, team2RosterId]
+          );
+          
+          team1SleeperData = teamBasedData.matchups.find((m) => m.roster_id === team1RosterId);
+          team2SleeperData = teamBasedData.matchups.find((m) => m.roster_id === team2RosterId);
+          team1Roster = teamBasedData.rosters.find((r) => r.roster_id === team1RosterId);
+          team2Roster = teamBasedData.rosters.find((r) => r.roster_id === team2RosterId);
+          
+          console.log(`✅ Team-specific data fetched:`, {
+            team1HasData: !!team1SleeperData,
+            team2HasData: !!team2SleeperData,
+            team1Points: team1SleeperData?.points || 0,
+            team2Points: team2SleeperData?.points || 0
+          });
+        } catch (error) {
+          console.warn(`⚠️ Failed to fetch team-specific data, falling back to original data:`, error);
+          // Fallback to original data if team-specific fetch fails
+          team1SleeperData = sleeperMatchupsData.find((m) => m.roster_id === team1RosterId);
+          team2SleeperData = sleeperMatchupsData.find((m) => m.roster_id === team2RosterId);
+          team1Roster = rostersData.find((r) => r.roster_id === team1RosterId);
+          team2Roster = rostersData.find((r) => r.roster_id === team2RosterId);
+        }
+      } else {
+        // For non-manual overrides, use the original matchup data
+        team1SleeperData = sleeperMatchupsData.find((m) => m.roster_id === team1RosterId);
+        team2SleeperData = sleeperMatchupsData.find((m) => m.roster_id === team2RosterId);
+        team1Roster = rostersData.find((r) => r.roster_id === team1RosterId);
+        team2Roster = rostersData.find((r) => r.roster_id === team2RosterId);
+      }
 
       const team1User = usersData.find((u) => u.user_id === team1Roster?.owner_id);
       const team2User = usersData.find((u) => u.user_id === team2Roster?.owner_id);
 
-      // Determine if we should use database override or Sleeper data
-      const useManualOverride = dbMatchup.is_manual_override;
-      
       const hybridTeam1: HybridMatchupTeam = {
         roster_id: team1RosterId,
-        points: useManualOverride ? dbMatchup.team_1_score : (team1SleeperData?.points ?? 0),
+        points: useManualOverride ? dbMatchup.team_1_score : team1SleeperData?.points ?? 0,
         projected_points: team1SleeperData?.projected_points,
         owner: team1User || null,
         roster: team1Roster || null,
@@ -389,7 +425,7 @@ class MatchupService {
 
       const hybridTeam2: HybridMatchupTeam = {
         roster_id: team2RosterId,
-        points: useManualOverride ? dbMatchup.team_2_score : (team2SleeperData?.points ?? 0),
+        points: useManualOverride ? dbMatchup.team_2_score : team2SleeperData?.points ?? 0,
         projected_points: team2SleeperData?.projected_points,
         owner: team2User || null,
         roster: team2Roster || null,
@@ -421,7 +457,7 @@ class MatchupService {
         }
       };
 
-      console.log(`✅ Created hybrid matchup: ${team1.team_name} vs ${team2.team_name}`);
+      console.log(`✅ Created hybrid matchup: ${team1.team_name} vs ${team2.team_name} (Manual Override: ${useManualOverride})`);
       return hybridMatchup;
 
     } catch (error) {
@@ -434,19 +470,19 @@ class MatchupService {
    * Fallback to pure Sleeper API matchups when no database assignments exist
    */
   private async getSleeperMatchups(
-    conference: Conference,
-    teams: Team[],
-    week: number,
-    currentWeek: number,
-    selectedSeason: number,
-    allPlayers: Record<string, SleeperPlayer>
-  ): Promise<HybridMatchup[]> {
+  conference: Conference,
+  teams: Team[],
+  week: number,
+  currentWeek: number,
+  selectedSeason: number,
+  allPlayers: Record<string, SleeperPlayer>)
+  : Promise<HybridMatchup[]> {
     try {
       const [matchupsData, rostersData, usersData] = await Promise.all([
-        SleeperApiService.fetchMatchups(conference.league_id, week),
-        SleeperApiService.fetchLeagueRosters(conference.league_id),
-        SleeperApiService.fetchLeagueUsers(conference.league_id)
-      ]);
+      SleeperApiService.fetchMatchups(conference.league_id, week),
+      SleeperApiService.fetchLeagueRosters(conference.league_id),
+      SleeperApiService.fetchLeagueUsers(conference.league_id)]
+      );
 
       const organizedMatchups = SleeperApiService.organizeMatchups(
         matchupsData,
@@ -485,11 +521,11 @@ class MatchupService {
    * Determine matchup status based on week and scoring data
    */
   private determineMatchupStatus(
-    week: number,
-    currentWeek: number,
-    selectedSeason: number,
-    teams: any[]
-  ): 'live' | 'completed' | 'upcoming' {
+  week: number,
+  currentWeek: number,
+  selectedSeason: number,
+  teams: any[])
+  : 'live' | 'completed' | 'upcoming' {
     const currentYear = new Date().getFullYear();
     const isHistoricalSeason = selectedSeason < currentYear;
 
