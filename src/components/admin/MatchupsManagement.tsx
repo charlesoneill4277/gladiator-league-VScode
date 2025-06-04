@@ -114,7 +114,7 @@ const SortableTeam: React.FC<SortableTeamProps> = ({
     transform,
     transition,
     isDragging
-  } = useSortable({ 
+  } = useSortable({
     id: teamId,
     data: {
       type: 'team',
@@ -139,15 +139,15 @@ const SortableTeam: React.FC<SortableTeamProps> = ({
       className={`flex items-center gap-3 p-3 rounded-lg border-2 border-dashed transition-all duration-200 cursor-grab hover:cursor-grabbing
         ${isDragging ? 'border-blue-400 bg-blue-50' : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'}
         ${isWinner ? 'bg-green-50 border-green-200' : ''}
-      `}
-    >
-      {team?.team_logo_url && (
-        <img
-          src={team.team_logo_url}
-          alt={team.team_name}
-          className="w-8 h-8 rounded-full"
-        />
-      )}
+      `}>
+
+      {team?.team_logo_url &&
+      <img
+        src={team.team_logo_url}
+        alt={team.team_name}
+        className="w-8 h-8 rounded-full" />
+
+      }
       <div className={teamPosition === 'team2' ? 'text-right' : ''}>
         <div className="font-medium">{team?.team_name || `Team ${teamPosition === 'team1' ? '1' : '2'}`}</div>
         <div className="text-sm text-gray-600">{team?.owner_name}</div>
@@ -157,8 +157,8 @@ const SortableTeam: React.FC<SortableTeamProps> = ({
           {score}
         </div>
       </div>
-    </div>
-  );
+    </div>);
+
 };
 
 const SortableMatchupCard: React.FC<SortableMatchupCardProps> = ({
@@ -187,8 +187,8 @@ const SortableMatchupCard: React.FC<SortableMatchupCardProps> = ({
 
   return (
     <Card className={`mb-4 transition-all duration-200 hover:shadow-md ${
-      matchup.is_manual_override ? 'border-orange-400 bg-orange-50' : 'border-gray-200'}`
-      }>
+    matchup.is_manual_override ? 'border-orange-400 bg-orange-50' : 'border-gray-200'}`
+    }>
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -234,8 +234,8 @@ const SortableMatchupCard: React.FC<SortableMatchupCardProps> = ({
                 matchupId={matchup.id}
                 teamPosition="team1"
                 score={matchup.team_1_score}
-                isWinner={isTeam1Winner}
-              />
+                isWinner={isTeam1Winner} />
+
             </div>
             <div className="space-y-2">
               <label className="text-sm font-medium text-gray-700">Team 2</label>
@@ -244,8 +244,8 @@ const SortableMatchupCard: React.FC<SortableMatchupCardProps> = ({
                 matchupId={matchup.id}
                 teamPosition="team2"
                 score={matchup.team_2_score}
-                isWinner={isTeam2Winner}
-              />
+                isWinner={isTeam2Winner} />
+
             </div>
           </div>
 
@@ -507,10 +507,10 @@ const MatchupsManagement: React.FC = () => {
 
       setMatchups((prevMatchups) => {
         const updatedMatchups = [...prevMatchups];
-        
-        const activeMatchup = updatedMatchups.find(m => m.id === activeMatchupId);
-        const overMatchup = updatedMatchups.find(m => m.id === overMatchupId);
-        
+
+        const activeMatchup = updatedMatchups.find((m) => m.id === activeMatchupId);
+        const overMatchup = updatedMatchups.find((m) => m.id === overMatchupId);
+
         if (!activeMatchup || !overMatchup) return prevMatchups;
 
         // Get the team IDs to swap
@@ -535,7 +535,7 @@ const MatchupsManagement: React.FC = () => {
         activeMatchup.team_2_score = 0;
         activeMatchup.winner_id = 0;
         activeMatchup.is_manual_override = true;
-        
+
         overMatchup.team_1_score = 0;
         overMatchup.team_2_score = 0;
         overMatchup.winner_id = 0;
@@ -543,7 +543,7 @@ const MatchupsManagement: React.FC = () => {
 
         return updatedMatchups;
       });
-      
+
       setHasChanges(true);
       toast({
         title: 'Teams Swapped',
@@ -601,7 +601,7 @@ const MatchupsManagement: React.FC = () => {
         title: 'Success',
         description: 'Matchups and team assignments updated successfully'
       });
-      
+
       // Reload matchups to ensure we have the latest data
       await loadMatchups();
     } catch (error) {
@@ -776,10 +776,10 @@ const MatchupsManagement: React.FC = () => {
           onDragEnd={handleDragEnd}>
 
           <SortableContext
-            items={matchups.flatMap(m => [
-              `${m.id}-team1`,
-              `${m.id}-team2`
-            ])}
+            items={matchups.flatMap((m) => [
+            `${m.id}-team1`,
+            `${m.id}-team2`]
+            )}
             strategy={rectSortingStrategy}>
 
             <div className="space-y-6">
@@ -811,16 +811,16 @@ const MatchupsManagement: React.FC = () => {
             </div>
           </SortableContext>
           <DragOverlay>
-            {activeId ? (
-              <div className="bg-white p-3 rounded-lg border-2 border-blue-400 shadow-lg">
+            {activeId ?
+            <div className="bg-white p-3 rounded-lg border-2 border-blue-400 shadow-lg">
                 <div className="flex items-center gap-2">
                   <div className="w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center">
                     <Users className="h-3 w-3 text-blue-600" />
                   </div>
                   <span className="text-sm font-medium">Moving team...</span>
                 </div>
-              </div>
-            ) : null}
+              </div> :
+            null}
           </DragOverlay>
         </DndContext>
       </div> :
