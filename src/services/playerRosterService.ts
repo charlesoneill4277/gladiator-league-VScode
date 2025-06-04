@@ -225,19 +225,19 @@ export class PlayerRosterService {
 
       // Fetch additional data needed for processing with error handling
       const [teams, teamConferenceJunctions] = await Promise.allSettled([
-        this.fetchTeams(),
-        this.fetchTeamConferenceJunctions()
-      ]).then(results => {
+      this.fetchTeams(),
+      this.fetchTeamConferenceJunctions()]
+      ).then((results) => {
         const teams = results[0].status === 'fulfilled' ? results[0].value : [];
         const junctions = results[1].status === 'fulfilled' ? results[1].value : [];
-        
+
         if (results[0].status === 'rejected') {
           console.error('❌ Failed to fetch teams:', results[0].reason);
         }
         if (results[1].status === 'rejected') {
           console.error('❌ Failed to fetch team-conference junctions:', results[1].reason);
         }
-        
+
         return [teams, junctions] as [Team[], TeamConferenceJunction[]];
       });
 
@@ -341,17 +341,17 @@ export class PlayerRosterService {
       });
 
       const settledResults = await Promise.allSettled(rosterPromises);
-      
+
       // Log any failed conference fetches
-      const failedCount = settledResults.filter(result => result.status === 'rejected').length;
+      const failedCount = settledResults.filter((result) => result.status === 'rejected').length;
       if (failedCount > 0) {
         console.warn(`⚠️ ${failedCount}/${conferences.length} conference roster fetches failed`);
       }
 
       // Validate and log final data structure
       const totalPlayers = Object.keys(rosterStatusMap).length;
-      const playersWithMultipleTeams = Object.values(rosterStatusMap).filter(status => status.teams.length > 1).length;
-      
+      const playersWithMultipleTeams = Object.values(rosterStatusMap).filter((status) => status.teams.length > 1).length;
+
       console.log('📊 Roster data processing complete:', {
         totalPlayers,
         playersWithMultipleTeams,
@@ -409,23 +409,23 @@ export class PlayerRosterService {
    * Get roster status for multiple players efficiently
    */
   static async getBatchPlayerRosterStatus(
-    playerIds: string[], 
-    conferences: Conference[]
-  ): Promise<Record<string, RosterStatusInfo>> {
+  playerIds: string[],
+  conferences: Conference[])
+  : Promise<Record<string, RosterStatusInfo>> {
     try {
       const allRosterData = await this.fetchAllRosterData(conferences);
       const result: Record<string, RosterStatusInfo> = {};
-      
-      playerIds.forEach(playerId => {
+
+      playerIds.forEach((playerId) => {
         result[playerId] = allRosterData[playerId] || { isRostered: false, teams: [] };
       });
-      
+
       return result;
     } catch (error) {
       console.error('❌ Error getting batch player roster status:', error);
       // Return empty status for all requested players
       const fallbackResult: Record<string, RosterStatusInfo> = {};
-      playerIds.forEach(playerId => {
+      playerIds.forEach((playerId) => {
         fallbackResult[playerId] = { isRostered: false, teams: [] };
       });
       return fallbackResult;
@@ -436,19 +436,19 @@ export class PlayerRosterService {
    * Get players by team with proper multi-conference support
    */
   static async getPlayersByTeam(
-    teamId: number, 
-    conferences: Conference[]
-  ): Promise<string[]> {
+  teamId: number,
+  conferences: Conference[])
+  : Promise<string[]> {
     try {
       const allRosterData = await this.fetchAllRosterData(conferences);
       const playerIds: string[] = [];
-      
+
       Object.entries(allRosterData).forEach(([playerId, status]) => {
-        if (status.isRostered && status.teams.some(assoc => assoc.team.id === teamId)) {
+        if (status.isRostered && status.teams.some((assoc) => assoc.team.id === teamId)) {
           playerIds.push(playerId);
         }
       });
-      
+
       return playerIds;
     } catch (error) {
       console.error('❌ Error getting players by team:', error);
@@ -460,19 +460,19 @@ export class PlayerRosterService {
    * Get players by conference with proper multi-team support
    */
   static async getPlayersByConference(
-    conferenceId: number, 
-    conferences: Conference[]
-  ): Promise<string[]> {
+  conferenceId: number,
+  conferences: Conference[])
+  : Promise<string[]> {
     try {
       const allRosterData = await this.fetchAllRosterData(conferences);
       const playerIds: string[] = [];
-      
+
       Object.entries(allRosterData).forEach(([playerId, status]) => {
-        if (status.isRostered && status.teams.some(assoc => assoc.conference.id === conferenceId)) {
+        if (status.isRostered && status.teams.some((assoc) => assoc.conference.id === conferenceId)) {
           playerIds.push(playerId);
         }
       });
-      
+
       return playerIds;
     } catch (error) {
       console.error('❌ Error getting players by conference:', error);
@@ -520,20 +520,20 @@ export class PlayerRosterService {
       if (conferences) {
         const cacheKey = this.getCacheKey(conferences);
         this.rosterCache.delete(cacheKey);
-        
+
         // Also check for overlapping cache entries that might contain these conferences
-        const conferencesToInvalidate = new Set(conferences.map(c => c.league_id));
+        const conferencesToInvalidate = new Set(conferences.map((c) => c.league_id));
         const keysToDelete: string[] = [];
-        
+
         this.rosterCache.forEach((entry, key) => {
-          const hasOverlap = entry.conferences.some(confId => conferencesToInvalidate.has(confId));
+          const hasOverlap = entry.conferences.some((confId) => conferencesToInvalidate.has(confId));
           if (hasOverlap) {
             keysToDelete.push(key);
           }
         });
-        
-        keysToDelete.forEach(key => this.rosterCache.delete(key));
-        
+
+        keysToDelete.forEach((key) => this.rosterCache.delete(key));
+
         console.log('🔄 Cache invalidated for specific conferences', {
           targetConferences: conferences.length,
           deletedCacheKeys: keysToDelete.length
@@ -557,20 +557,20 @@ export class PlayerRosterService {
   static invalidateCacheByTeam(teamId: number): void {
     try {
       const keysToDelete: string[] = [];
-      
+
       this.rosterCache.forEach((entry, key) => {
         // Check if any players in this cache entry are associated with the team
-        const hasTeamData = Object.values(entry.data).some(status => 
-          status.isRostered && status.teams.some(assoc => assoc.team.id === teamId)
+        const hasTeamData = Object.values(entry.data).some((status) =>
+        status.isRostered && status.teams.some((assoc) => assoc.team.id === teamId)
         );
-        
+
         if (hasTeamData) {
           keysToDelete.push(key);
         }
       });
-      
-      keysToDelete.forEach(key => this.rosterCache.delete(key));
-      
+
+      keysToDelete.forEach((key) => this.rosterCache.delete(key));
+
       console.log('🔄 Cache invalidated for team', {
         teamId,
         deletedCacheKeys: keysToDelete.length
@@ -643,7 +643,7 @@ export class PlayerRosterService {
       if (response.error) {
         throw new Error(`Database error fetching teams: ${response.error}`);
       }
-      
+
       if (!response.data || !response.data.List) {
         throw new Error('Invalid response format when fetching teams');
       }
@@ -676,7 +676,7 @@ export class PlayerRosterService {
       if (response.error) {
         throw new Error(`Database error fetching junctions: ${response.error}`);
       }
-      
+
       if (!response.data || !response.data.List) {
         throw new Error('Invalid response format when fetching team-conference junctions');
       }
@@ -698,17 +698,17 @@ export class PlayerRosterService {
     teamsPerConference: Record<string, number>;
     lastUpdated: number | null;
   }> {
-    return this.fetchAllRosterData(conferences).then(data => {
+    return this.fetchAllRosterData(conferences).then((data) => {
       const totalPlayers = Object.keys(data).length;
-      const multiTeamPlayers = Object.values(data).filter(status => status.teams.length > 1).length;
+      const multiTeamPlayers = Object.values(data).filter((status) => status.teams.length > 1).length;
       const teamsPerConference: Record<string, number> = {};
       let lastUpdated: number | null = null;
 
-      Object.values(data).forEach(status => {
+      Object.values(data).forEach((status) => {
         if (status.lastUpdated && (!lastUpdated || status.lastUpdated > lastUpdated)) {
           lastUpdated = status.lastUpdated;
         }
-        status.teams.forEach(assoc => {
+        status.teams.forEach((assoc) => {
           const confName = assoc.conference.conference_name;
           teamsPerConference[confName] = (teamsPerConference[confName] || 0) + 1;
         });
@@ -720,7 +720,7 @@ export class PlayerRosterService {
         teamsPerConference,
         lastUpdated
       };
-    }).catch(error => {
+    }).catch((error) => {
       console.error('❌ Error getting roster data summary:', error);
       return {
         totalPlayers: 0,

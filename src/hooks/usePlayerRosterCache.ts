@@ -244,14 +244,14 @@ conferences: Conference[])
 
     if (status.isRostered) {
       rosteredPlayers.push(playerId);
-      
+
       // Track multi-team players
       if (status.teams && status.teams.length > 1) {
         multiTeamPlayers.push(playerId);
       }
-      
+
       // Build team distribution
-      status.teams?.forEach(teamAssoc => {
+      status.teams?.forEach((teamAssoc) => {
         const teamKey = `${teamAssoc.team.team_name} (${teamAssoc.conference.conference_name})`;
         if (!teamDistribution[teamKey]) {
           teamDistribution[teamKey] = [];
