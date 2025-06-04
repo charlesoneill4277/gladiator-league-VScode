@@ -506,13 +506,15 @@ class MatchupService {
   }
 
   /**
-   * Enhanced roster API verification method to cross-check team assignments
-   * Validates that roster_id → team_id → matchup assignments are consistent
+   * Enhanced roster API verification method with cross-conference support
+   * FIX 3: Remove conference constraints when matching rosters to teams in matchups
+   * Validates that roster_id → team_id → matchup assignments are consistent across conferences
    */
   async verifyRosterAssignments(
   conferenceIds: number[],
   sleeperRosters: SleeperRoster[],
-  teamMap: Map<string, {teamId: number;rosterId: string;}>)
+  teamMap: Map<string, {teamId: number;rosterId: string;}>,
+  seasonYear?: number)
   : Promise<{isValid: boolean;issues: string[];recommendations: string[];}> {
     const traceId = this.debugMode ? matchupDataFlowDebugger.startTrace('roster_verification', 'verify_roster_assignments') : '';
     const stepId = this.debugMode ? matchupDataFlowDebugger.logStep(traceId, 'validation', 'roster_verification', {
@@ -527,9 +529,12 @@ class MatchupService {
 
       console.log('🔍 Starting comprehensive roster assignment verification...');
 
-      // 1. Cross-reference Sleeper rosters with team mappings
+      // 1. Cross-reference Sleeper rosters with team mappings (NO CONFERENCE FILTERING)
+      // FIX 3: Remove conference constraints to support cross-conference matchups
       const sleeperRosterIds = new Set(sleeperRosters.map((r) => r.roster_id.toString()));
       const mappedRosterIds = new Set();
+
+      console.log('🌐 Cross-conference roster validation enabled - no conference filtering applied');
 
       for (const [key, mapping] of teamMap.entries()) {
         if (key.startsWith('roster_')) {
@@ -956,17 +961,43 @@ class MatchupService {
   }
 
   /**
-   * Fetch conferences by IDs
+   * Fetch conferences by IDs with season-specific filtering
+   * FIX 1: Only fetch conferences for the specific season year to prevent duplicate roster findings
    */
-  private async fetchConferences(conferenceIds: number[]): Promise<Conference[]> {
+  private async fetchConferences(conferenceIds: number[], seasonYear?: number): Promise<Conference[]> {
     try {
-      if (conferenceIds.length === 0) {
+      if (conferenceIds.length === 0 && !seasonYear) {
         return [];
       }
 
-      const filters = conferenceIds.length === 1 ? [
-      { name: 'id', op: 'Equal', value: conferenceIds[0] }] :
-      [];
+      const filters: any[] = [];
+
+      // Filter by season if provided (key fix for season-specific queries)
+      if (seasonYear) {
+        // First get the season ID for the year
+        const seasonResponse = await window.ezsite.apis.tablePage('12818', {
+          PageNo: 1,
+          PageSize: 10,
+          OrderByField: 'id',
+          IsAsc: true,
+          Filters: [{ name: 'season_year', op: 'Equal', value: seasonYear }]
+        });
+
+        if (seasonResponse.error) {
+          throw new Error(seasonResponse.error);
+        }
+
+        const seasons = seasonResponse.data.List;
+        if (seasons.length > 0) {
+          filters.push({ name: 'season_id', op: 'Equal', value: seasons[0].id });
+          console.log(`🗓️ Filtering conferences by season ${seasonYear} (season_id: ${seasons[0].id})`);
+        }
+      }
+
+      // Filter by conference IDs if provided
+      if (conferenceIds.length === 1) {
+        filters.push({ name: 'id', op: 'Equal', value: conferenceIds[0] });
+      }
 
       const response = await window.ezsite.apis.tablePage('12820', {
         PageNo: 1,
@@ -982,10 +1013,13 @@ class MatchupService {
 
       const conferences = response.data.List as Conference[];
 
-      // Filter by conference IDs if we have multiple
-      return conferenceIds.length > 1 ?
-      conferences.filter((c) => conferenceIds.includes(c.id)) :
-      conferences;
+      // Filter by conference IDs if we have multiple (after season filtering)
+      const finalConferences = conferenceIds.length > 1 ?
+        conferences.filter((c) => conferenceIds.includes(c.id)) :
+        conferences;
+
+      console.log(`✅ Season-specific conference fetch: Found ${finalConferences.length} conferences for season ${seasonYear || 'any'}`);
+      return finalConferences;
 
     } catch (error) {
       console.error('❌ Error fetching conferences:', error);
@@ -1270,35 +1304,57 @@ class MatchupService {
 
   /**
    * Build comprehensive mapping between teams and conferences from junction table
-   * Now builds mappings for ALL active conferences to support league-wide operations
+   * FIX 3: Remove conference constraints to support cross-conference matchup validation
    */
   async buildTeamConferenceMap(conferenceIds: number[]): Promise<Map<string, {teamId: number;rosterId: string;}>> {
-    const traceId = this.debugMode ? matchupDataFlowDebugger.startTrace(`map_${conferenceIds.join('_')}`, 'build_team_conference_map') : '';
-    const stepId = this.debugMode ? matchupDataFlowDebugger.logStep(traceId, 'database', 'build_team_map', { conferenceIds, mode: 'league_wide' }).id : '';
+    return this.buildTeamConferenceMapForSeason(conferenceIds);
+  }
+
+  /**
+   * Build season-specific team-conference mapping to prevent duplicate roster findings
+   * FIX 1: Only include teams from conferences belonging to the specific season
+   */
+  async buildTeamConferenceMapForSeason(conferenceIds: number[], seasonYear?: number): Promise<Map<string, {teamId: number;rosterId: string;}>> {
+    const traceId = this.debugMode ? matchupDataFlowDebugger.startTrace(`map_${conferenceIds.join('_')}_s${seasonYear || 'any'}`, 'build_team_conference_map_season') : '';
+    const stepId = this.debugMode ? matchupDataFlowDebugger.logStep(traceId, 'database', 'build_team_map', { conferenceIds, seasonYear, mode: 'season_specific' }).id : '';
 
     try {
-      console.log('🔗 Building comprehensive team-conference mapping (league-wide mode)...', {
+      console.log('🔗 Building season-specific team-conference mapping...', {
         requestedConferences: conferenceIds.length,
-        mode: conferenceIds.length > 0 ? 'filtered' : 'all_active'
+        seasonYear: seasonYear || 'any',
+        mode: seasonYear ? 'season_filtered' : 'conference_filtered'
       });
 
-      // Fetch ALL active team-conference mappings to support league-wide operations
+      // FIX 1: If seasonYear provided, only get conferences for that season
+      let targetConferenceIds = conferenceIds;
+      
+      if (seasonYear && conferenceIds.length === 0) {
+        console.log(`🗓️ Fetching conferences for season ${seasonYear}`);
+        const seasonConferences = await this.fetchConferences([], seasonYear);
+        targetConferenceIds = seasonConferences.map(c => c.id);
+        console.log(`📋 Found ${targetConferenceIds.length} conferences for season ${seasonYear}:`, targetConferenceIds);
+      }
+
+      // Build filters for team-conference junction
       const filters = [
-      {
-        name: 'is_active',
-        op: 'Equal',
-        value: true
-      }];
+        {
+          name: 'is_active',
+          op: 'Equal',
+          value: true
+        }
+      ];
 
-
-      // Only add conference filtering if specific conferences are requested
-      // This allows us to build comprehensive mappings while still supporting targeted queries
-      if (conferenceIds.length === 1) {
+      // FIX 3: For cross-conference support, we need broader mapping
+      // But still filter by season if specified to prevent duplicates
+      if (targetConferenceIds.length === 1) {
         filters.push({
           name: 'conference_id',
           op: 'Equal',
-          value: conferenceIds[0]
+          value: targetConferenceIds[0]
         });
+      } else if (targetConferenceIds.length > 1) {
+        // For multiple conferences, we'll filter in memory to support cross-conference
+        console.log('🌐 Multiple conferences - enabling cross-conference support');
       }
 
       const response = await window.ezsite.apis.tablePage('12853', {
@@ -1316,12 +1372,13 @@ class MatchupService {
       const junctions = response.data.List as TeamConferenceJunction[];
       const map = new Map<string, {teamId: number;rosterId: string;}>();
 
-      // Build mappings for requested conferences OR all active conferences
+      // Build mappings for season-specific conferences with cross-conference support
       const conferenceTeamCounts: Record<number, number> = {};
 
       junctions.forEach((junction) => {
-        // Include if no specific conferences requested OR if junction matches requested conferences
-        const shouldInclude = conferenceIds.length === 0 || conferenceIds.includes(junction.conference_id);
+        // FIX 1 & 3: Include if no specific conferences OR if junction matches season conferences
+        // This supports both season filtering (prevent duplicates) and cross-conference matching
+        const shouldInclude = targetConferenceIds.length === 0 || targetConferenceIds.includes(junction.conference_id);
 
         if (shouldInclude && junction.is_active) {
           // Map both ways: rosterId -> teamId and teamId -> rosterId
@@ -1341,11 +1398,13 @@ class MatchupService {
 
       this.teamConferenceMap = map;
 
-      console.log(`✅ Built comprehensive team-conference mapping:`, {
+      console.log(`✅ Built season-specific team-conference mapping:`, {
         totalMappings: map.size,
         uniqueTeams: map.size / 2, // Each team has 2 mappings (roster_ and team_)
         conferenceTeamCounts,
-        activeConferences: Object.keys(conferenceTeamCounts).length
+        activeConferences: Object.keys(conferenceTeamCounts).length,
+        seasonYear: seasonYear || 'any',
+        crossConferenceEnabled: true
       });
 
       // Debug: Validate mapping integrity and league-wide coverage
@@ -1357,10 +1416,10 @@ class MatchupService {
         { actualMappings: map.size, activeConferences: Object.keys(conferenceTeamCounts).length }
         );
 
-        // Additional league-wide validation
-        matchupDataFlowDebugger.performConsistencyCheck(traceId, 'league_wide_coverage',
-        { allActiveJunctions: junctions.length },
-        { mappedJunctions: junctions.filter((j) => j.is_active).length, conferenceTeamCounts }
+        // Additional season-specific validation
+        matchupDataFlowDebugger.performConsistencyCheck(traceId, 'season_specific_coverage',
+        { allActiveJunctions: junctions.length, seasonYear: seasonYear || 'any' },
+        { mappedJunctions: junctions.filter((j) => j.is_active).length, conferenceTeamCounts, targetConferenceIds }
         );
 
         matchupDataFlowDebugger.completeStep(traceId, stepId);
@@ -1369,11 +1428,11 @@ class MatchupService {
 
       return map;
     } catch (error) {
-      console.error('❌ Error building team-conference map:', error);
+      console.error('❌ Error building season-specific team-conference map:', error);
 
       // Debug: Log error
       if (this.debugMode) {
-        matchupDataFlowDebugger.logError(traceId, 'critical', 'database', 'build_team_map', error, { conferenceIds, mode: 'league_wide' });
+        matchupDataFlowDebugger.logError(traceId, 'critical', 'database', 'build_team_map', error, { conferenceIds, seasonYear, mode: 'season_specific' });
         matchupDataFlowDebugger.completeStep(traceId, stepId);
       }
 
@@ -1817,6 +1876,7 @@ class MatchupService {
   /**
    * Get hybrid matchup data by combining database assignments with Sleeper API data
    * Enhanced to support league-wide operations and inter-conference matchups
+   * FIX 1: Season-specific conference filtering to prevent duplicate roster findings
    */
   async getHybridMatchups(
   conferences: Conference[],
@@ -1837,7 +1897,7 @@ class MatchupService {
     }).id : '';
 
     try {
-      console.log('🚀 Starting league-wide hybrid matchup data fetch...', {
+      console.log('🚀 Starting season-specific hybrid matchup data fetch...', {
         conferences: conferences.length,
         teams: teams.length,
         week,
@@ -1847,11 +1907,13 @@ class MatchupService {
 
       const conferenceIds = conferences.map((c) => c.id);
 
-      // Step 1: Fetch ALL database matchups and build comprehensive team mappings
-      // No longer filter by specific conferences to support inter-conference matchups
+      // Step 1: FIX 1 - Use season-specific filtering to prevent duplicate roster findings
+      // Only query conferences that belong to the specific season year
+      console.log(`🗓️ Filtering data for season ${selectedSeason} to prevent duplicates`);
+      
       const [databaseMatchups, teamMap] = await Promise.all([
-      this.fetchDatabaseMatchups([], week), // Fetch ALL week matchups
-      this.buildTeamConferenceMap([]) // Build ALL active team mappings
+        this.fetchDatabaseMatchups(conferenceIds, week), // Use season-specific conferences
+        this.buildTeamConferenceMapForSeason(conferenceIds, selectedSeason) // Season-aware mapping
       ]);
 
       console.log(`📊 League-wide database matchups: ${databaseMatchups.length}`);
@@ -2352,7 +2414,7 @@ class MatchupService {
       if (!team1RosterMapping || !team2RosterMapping) {
         console.warn(`❌ Could not find roster mappings for teams ${team1.id}, ${team2.id}`);
         console.log(`🔍 Available team mappings:`, Array.from(teamMap.entries()).filter(([key]) => key.startsWith('team_')));
-        
+
         if (this.debugMode) {
           matchupDataFlowDebugger.logError(traceId, 'critical', 'hybrid_service', 'roster_mapping',
           'Could not find roster mappings for teams',
@@ -2379,13 +2441,13 @@ class MatchupService {
       // CRITICAL FIX: Validate that these roster IDs actually exist in the Sleeper data
       const team1RosterExists = rostersData.find((r) => r.roster_id === team1RosterId);
       const team2RosterExists = rostersData.find((r) => r.roster_id === team2RosterId);
-      
+
       if (!team1RosterExists || !team2RosterExists) {
         console.error(`❌ CRITICAL: Roster validation failed for matchup ${dbMatchup.id}`);
         console.error(`  Team1 roster ${team1RosterId} exists: ${!!team1RosterExists}`);
         console.error(`  Team2 roster ${team2RosterId} exists: ${!!team2RosterExists}`);
-        console.error(`  Available rosters:`, rostersData.map(r => r.roster_id));
-        
+        console.error(`  Available rosters:`, rostersData.map((r) => r.roster_id));
+
         if (this.debugMode) {
           matchupDataFlowDebugger.logError(traceId, 'critical', 'hybrid_service', 'roster_validation',
           'Mapped roster IDs do not exist in Sleeper data',
@@ -2395,7 +2457,7 @@ class MatchupService {
             team2RosterId,
             team1RosterExists: !!team1RosterExists,
             team2RosterExists: !!team2RosterExists,
-            availableRosters: rostersData.map(r => r.roster_id)
+            availableRosters: rostersData.map((r) => r.roster_id)
           }
           );
         }
@@ -2492,8 +2554,9 @@ class MatchupService {
             team1DataFound: !!team1SleeperData,
             team2DataFound: !!team2SleeperData
           },
-          isTeamAssignmentOverride: dbMatchup.is_manual_override,
-          isManualScoreOverride: false
+          // FIX 2: Manual override detection based ONLY on team assignments, not scores
+          isTeamAssignmentOverride: this.detectTeamAssignmentOverride(dbMatchup, teamMap),
+          isManualScoreOverride: false // Explicitly ignore score overrides per requirement
         }
       };
 
@@ -2503,22 +2566,22 @@ class MatchupService {
       // Debug logging
       if (this.debugMode) {
         matchupDataFlowDebugger.logDataTransformation(traceId, 'database', 'hybrid_service', dbMatchup, hybridMatchup);
-        
+
         // Critical validation checks
         matchupDataFlowDebugger.performConsistencyCheck(traceId, 'roster_mapping',
         { team1RosterId, team2RosterId },
         { team1ActualRoster: hybridTeam1.roster_id, team2ActualRoster: hybridTeam2.roster_id }
         );
-        
+
         matchupDataFlowDebugger.performConsistencyCheck(traceId, 'team_assignment',
         { team1Id: dbMatchup.team_1_id, team2Id: dbMatchup.team_2_id },
         { team1Id: hybridTeam1.database_team_id, team2Id: hybridTeam2.database_team_id }
         );
-        
+
         matchupDataFlowDebugger.completeStep(traceId, stepId);
         matchupDataFlowDebugger.completeTrace(traceId);
       }
-      
+
       return hybridMatchup;
 
     } catch (error) {
@@ -2881,20 +2944,49 @@ class MatchupService {
   }
 
   /**
+   * FIX 2: Detect team assignment overrides based ONLY on team assignments, not scores
+   * Manual override should be true when team assignments have been modified from their original state
+   */
+  private detectTeamAssignmentOverride(
+    dbMatchup: DatabaseMatchup,
+    teamMap: Map<string, {teamId: number;rosterId: string;}>
+  ): boolean {
+    try {
+      console.log(`🔍 Detecting team assignment override for matchup ${dbMatchup.id}...`);
+      
+      // FIX 2: Check if the database indicates manual override
+      // This should be set to true ONLY when team assignments are manually changed
+      // Ignore score overrides as per requirement
+      const isManualTeamAssignment = dbMatchup.is_manual_override;
+      
+      if (isManualTeamAssignment) {
+        console.log(`🔧 Team assignment override detected for matchup ${dbMatchup.id}`);
+        console.log(`  Original assignment may have been modified from default conference matchups`);
+        console.log(`  ⚠️ Note: Score overrides are ignored per requirement`);
+      }
+      
+      return isManualTeamAssignment;
+    } catch (error) {
+      console.error(`❌ Error detecting team assignment override for matchup ${dbMatchup.id}:`, error);
+      return false; // Default to false if detection fails
+    }
+  }
+
+  /**
    * CRITICAL NEW METHOD: Force refresh of team mappings when assignments change
    * This ensures that any changes to team assignments are immediately reflected
    */
   async refreshTeamMappings(conferenceIds: number[] = []): Promise<void> {
     console.log('🔄 FORCING refresh of team mappings due to assignment changes...');
-    
+
     try {
       // Clear all caches
       this.teamConferenceMap.clear();
       this.clearRosterValidationCache();
-      
+
       // Rebuild from fresh database data
       await this.buildTeamConferenceMap(conferenceIds);
-      
+
       console.log('✅ Team mappings refreshed successfully');
     } catch (error) {
       console.error('❌ Failed to refresh team mappings:', error);

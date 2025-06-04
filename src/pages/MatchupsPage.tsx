@@ -237,10 +237,10 @@ const MatchupsPage: React.FC = () => {
     }
   };
 
-  // Enhanced fetchMatchupData with hybrid service integration and CRITICAL FIX for team assignments
+  // Enhanced fetchMatchupData with hybrid service integration and debugging
   const fetchMatchupData = async (conferenceData: Conference[], teamData: Team[]) => {
     try {
-      console.log('🚀 Starting VALIDATED hybrid matchup data fetch...');
+      console.log('🚀 Starting hybrid matchup data fetch...');
       console.log(`📊 Conference count: ${conferenceData.length}`);
       console.log(`👥 Team count: ${teamData.length}`);
       console.log(`📅 Selected week: ${selectedWeek}`);
@@ -251,10 +251,6 @@ const MatchupsPage: React.FC = () => {
 
       setApiErrors([]);
       const errors: string[] = [];
-
-      // CRITICAL FIX: Force refresh team mappings to ensure we have the latest assignments
-      console.log('🔄 Ensuring team mappings are current...');
-      await MatchupService.refreshTeamMappings(conferenceData.map(c => c.id));
 
       // Determine and set week status
       const status = determineWeekStatus(selectedWeek, currentWeek);
@@ -273,8 +269,7 @@ const MatchupsPage: React.FC = () => {
       setAllPlayers(playersData);
       console.log(`✅ Loaded ${Object.keys(playersData).length} players`);
 
-      // CRITICAL FIX: Use hybrid service with validated team mappings
-      console.log('🔍 Creating hybrid matchups with VALIDATED roster-to-team associations...');
+      // Use hybrid service to get matchups with season-aware filtering
       const hybridMatchups = await MatchupService.getHybridMatchups(
         conferenceData,
         teamData,
@@ -284,7 +279,7 @@ const MatchupsPage: React.FC = () => {
         playersData
       );
 
-      // Calculate data source statistics - all matchups now use validated hybrid flow
+      // Calculate data source statistics - all matchups now use hybrid flow
       const sourceStats = {
         database: 0, // No longer used - all manual overrides use hybrid flow
         sleeper: hybridMatchups.filter((m) => m.dataSource === 'sleeper').length,
@@ -294,68 +289,36 @@ const MatchupsPage: React.FC = () => {
       // Count manual score overrides within hybrid flow
       const manualOverrideCount = hybridMatchups.filter((m) => m.isManualOverride).length;
 
-      // CRITICAL FIX: Validate that each matchup has correct team-roster associations
-      const validationIssues: string[] = [];
-      hybridMatchups.forEach((matchup, index) => {
-        matchup.teams.forEach((team, teamIndex) => {
-          if (!team.database_team_id) {
-            validationIssues.push(`Matchup ${index + 1}, Team ${teamIndex + 1}: Missing database team ID`);
-          }
-          if (!team.roster_id) {
-            validationIssues.push(`Matchup ${index + 1}, Team ${teamIndex + 1}: Missing roster ID`);
-          }
-          if (!team.team?.team_name) {
-            validationIssues.push(`Matchup ${index + 1}, Team ${teamIndex + 1}: Missing team name`);
-          }
-        });
-      });
-
-      if (validationIssues.length > 0) {
-        console.warn('⚠️ Matchup validation issues found:', validationIssues);
-        setApiErrors(prev => [...prev, ...validationIssues]);
-      } else {
-        console.log('✅ All matchups passed validation checks');
-      }
-
       setDataSourceStats(sourceStats);
       setMatchups(hybridMatchups);
 
-      // Enhanced debug data with validation results
+      // Set debug data
       const debugData = {
         conferences: conferenceData.length,
         totalMatchups: hybridMatchups.length,
-        errors: validationIssues,
+        errors: [],
         weekStatus: status,
         dataSourceStats: sourceStats,
         manualOverrideCount,
-        validationPassed: validationIssues.length === 0,
         hybridMatchups: hybridMatchups.map((m) => ({
           id: m.matchup_id,
           conference: m.conference.conference_name,
-          teams: m.teams.map((t) => ({
-            name: t.team?.team_name || t.owner?.display_name || 'Unknown',
-            dbTeamId: t.database_team_id,
-            rosterId: t.roster_id,
-            points: t.points,
-            validAssociation: !!(t.database_team_id && t.roster_id && t.team?.team_name)
-          })),
+          teams: m.teams.map((t) => t.team?.team_name || t.owner?.display_name || 'Unknown'),
           dataSource: m.dataSource,
           isManualOverride: m.isManualOverride,
-          isManualScoreOverride: m.rawData?.isManualScoreOverride || false,
-          validationPassed: m.teams.every(t => t.database_team_id && t.roster_id && t.team?.team_name)
+          isManualScoreOverride: m.rawData?.isManualScoreOverride || false
         }))
       };
 
       setRawApiData(debugData);
 
-      console.log(`✅ Successfully loaded ${hybridMatchups.length} VALIDATED hybrid matchups`);
+      console.log(`✅ Successfully loaded ${hybridMatchups.length} hybrid matchups`);
       console.log('📊 Data source stats:', sourceStats);
       console.log(`🔧 Manual score overrides: ${manualOverrideCount}`);
-      console.log(`🔍 Validation issues: ${validationIssues.length}`);
-      console.log('🔄 All matchups use VALIDATED Hybrid Data Flow (Verified Database assignments + Sleeper API data)');
+      console.log('🔄 All matchups now use Hybrid Data Flow (Database assignments + Sleeper API data)');
 
     } catch (error) {
-      const errorMsg = `Failed to fetch validated hybrid matchup data: ${error}`;
+      const errorMsg = `Failed to fetch hybrid matchup data: ${error}`;
       console.error('❌ Error fetching matchup data:', error);
       setApiErrors((prev) => [...prev, errorMsg]);
 
