@@ -638,9 +638,30 @@ const MatchupsManagement: React.FC = () => {
     });
   };
 
+  // Helper function for batch updates (future enhancement)
+  const prepareBatchUpdateData = (matchupsToUpdate: MatchupWithConference[]) => {
+    return matchupsToUpdate.map(matchup => ({
+      id: matchup.id,
+      conference_id: matchup.conference_id,
+      week: matchup.week,
+      team_1_id: matchup.team_1_id,
+      team_2_id: matchup.team_2_id,
+      is_playoff: matchup.is_playoff,
+      sleeper_matchup_id: matchup.sleeper_matchup_id || '',
+      team_1_score: matchup.team_1_score,
+      team_2_score: matchup.team_2_score,
+      winner_id: matchup.winner_id,
+      is_manual_override: matchup.is_manual_override,
+      status: matchup.is_manual_override ? 'complete' : matchup.status || 'pending',
+      matchup_date: matchup.matchup_date || '',
+      notes: matchup.notes || ''
+    }));
+  };
+
   const handleSaveChanges = async () => {
     setSaving(true);
     console.log('Starting save operation for', matchups.length, 'matchups');
+    console.log('Note: Currently using individual updates. Batch update available for future enhancement.');
 
     let successCount = 0;
     let failureCount = 0;
@@ -661,21 +682,48 @@ const MatchupsManagement: React.FC = () => {
           status: matchup.is_manual_override ? 'complete' : matchup.status
         });
 
-        // Validate required fields before attempting update
-        if (!matchup.id || matchup.conference_id <= 0 || matchup.week <= 0) {
-          console.error(`Invalid matchup data for ID ${matchup.id}:`, {
-            id: matchup.id,
-            conference_id: matchup.conference_id,
-            week: matchup.week
+        // Enhanced validation for matchup data
+        const validationErrors = [];
+        
+        if (!matchup.id || typeof matchup.id !== 'number' || matchup.id <= 0) {
+          validationErrors.push(`Invalid matchup ID: ${matchup.id}`);
+        }
+        if (!matchup.conference_id || matchup.conference_id <= 0) {
+          validationErrors.push(`Invalid conference_id: ${matchup.conference_id}`);
+        }
+        if (!matchup.week || matchup.week <= 0 || matchup.week > 18) {
+          validationErrors.push(`Invalid week: ${matchup.week}`);
+        }
+        if (!matchup.team_1_id || matchup.team_1_id <= 0) {
+          validationErrors.push(`Invalid team_1_id: ${matchup.team_1_id}`);
+        }
+        if (!matchup.team_2_id || matchup.team_2_id <= 0) {
+          validationErrors.push(`Invalid team_2_id: ${matchup.team_2_id}`);
+        }
+        if (matchup.team_1_id === matchup.team_2_id) {
+          validationErrors.push(`Teams cannot play themselves: ${matchup.team_1_id}`);
+        }
+        
+        if (validationErrors.length > 0) {
+          console.error(`Validation failed for matchup ${matchup.id}:`, {
+            matchupId: matchup.id,
+            errors: validationErrors,
+            data: {
+              id: matchup.id,
+              conference_id: matchup.conference_id,
+              week: matchup.week,
+              team_1_id: matchup.team_1_id,
+              team_2_id: matchup.team_2_id
+            }
           });
           failureCount++;
           failedMatchups.push(matchup.id);
           continue;
         }
 
-        // Prepare update data with all required fields
+        // Prepare update data with all required fields (CRITICAL FIX: use lowercase 'id')
         const updateData = {
-          ID: matchup.id,
+          id: matchup.id,
           conference_id: matchup.conference_id,
           week: matchup.week,
           team_1_id: matchup.team_1_id,
@@ -696,30 +744,68 @@ const MatchupsManagement: React.FC = () => {
         const { error } = await window.ezsite.apis.tableUpdate(13329, updateData);
 
         if (error) {
-          console.error(`Failed to update matchup ${matchup.id}:`, error);
+          console.error(`Failed to update matchup ${matchup.id}:`, {
+            error,
+            matchupData: updateData,
+            validationStatus: 'passed',
+            apiResponse: { error }
+          });
           failureCount++;
           failedMatchups.push(matchup.id);
         } else {
-          console.log(`Successfully updated matchup ${matchup.id}`);
+          console.log(`Successfully updated matchup ${matchup.id}:`, {
+            matchupId: matchup.id,
+            teams: `${matchup.team_1_id} vs ${matchup.team_2_id}`,
+            scores: `${matchup.team_1_score} - ${matchup.team_2_score}`,
+            manual_override: matchup.is_manual_override,
+            status: updateData.status
+          });
           successCount++;
         }
       }
 
-      // Report results
-      console.log(`Save operation completed: ${successCount} successes, ${failureCount} failures`);
+      // Enhanced reporting with detailed feedback
+      const totalMatchups = matchups.length;
+      console.log(`Save operation completed:`, {
+        totalMatchups,
+        successCount,
+        failureCount,
+        successRate: `${((successCount / totalMatchups) * 100).toFixed(1)}%`,
+        failedMatchupIds: failedMatchups
+      });
 
       if (failureCount > 0) {
-        console.error('Failed matchup IDs:', failedMatchups);
+        console.error('Detailed failure analysis:', {
+          failedMatchupIds: failedMatchups,
+          totalFailures: failureCount,
+          successfulUpdates: successCount,
+          affectedConferences: conferences.filter(c => 
+            matchups.some(m => failedMatchups.includes(m.id) && m.conference_id === c.id)
+          ).map(c => c.conference_name)
+        });
+        
         toast({
           title: 'Partial Success',
-          description: `${successCount} matchups updated successfully, ${failureCount} failed. Check console for details.`,
-          variant: 'destructive'
+          description: `${successCount}/${totalMatchups} matchups updated successfully. ${failureCount} failed (IDs: ${failedMatchups.join(', ')}). Check console for details.`,
+          variant: 'destructive',
+          duration: 8000
         });
       } else {
         setHasChanges(false);
+        console.log('All matchups updated successfully:', {
+          updatedMatchups: matchups.map(m => ({
+            id: m.id,
+            conference: conferences.find(c => c.id === m.conference_id)?.conference_name,
+            teams: `${m.team_1_id} vs ${m.team_2_id}`,
+            scores: `${m.team_1_score} - ${m.team_2_score}`,
+            manual_override: m.is_manual_override
+          }))
+        });
+        
         toast({
-          title: 'Success',
-          description: `All ${successCount} matchups updated successfully`
+          title: 'Complete Success',
+          description: `All ${successCount} matchups updated successfully! Changes have been saved to the database.`,
+          duration: 5000
         });
       }
 
