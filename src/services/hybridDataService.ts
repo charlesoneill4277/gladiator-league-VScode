@@ -47,7 +47,7 @@ class HybridDataService {
   async getTeamsData(): Promise<HybridTeamData[]> {
     const cacheKey = 'teams_data';
     const cached = this.getCachedData(cacheKey);
-    
+
     if (cached) {
       console.log('Returning cached teams data');
       return cached;
@@ -55,7 +55,7 @@ class HybridDataService {
 
     try {
       console.log('Fetching fresh teams data');
-      
+
       // Get teams from database
       const teamsResponse = await window.ezsite.apis.tablePage('12852', {
         PageNo: 1,
@@ -69,7 +69,7 @@ class HybridDataService {
       }
 
       const teams = teamsResponse.data?.List || [];
-      
+
       // Get team records
       const recordsResponse = await window.ezsite.apis.tablePage('13768', {
         PageNo: 1,
@@ -79,7 +79,7 @@ class HybridDataService {
       });
 
       const records = recordsResponse.data?.List || [];
-      
+
       // Get conferences for team mapping
       const conferencesResponse = await window.ezsite.apis.tablePage('12820', {
         PageNo: 1,
@@ -89,12 +89,12 @@ class HybridDataService {
       });
 
       const conferences = conferencesResponse.data?.List || [];
-      
+
       // Combine the data
-      const hybridTeams: HybridTeamData[] = teams.map(team => {
-        const teamRecord = records.find(r => r.team_id === team.id);
-        const conference = conferences.find(c => c.id === teamRecord?.conference_id);
-        
+      const hybridTeams: HybridTeamData[] = teams.map((team) => {
+        const teamRecord = records.find((r) => r.team_id === team.id);
+        const conference = conferences.find((c) => c.id === teamRecord?.conference_id);
+
         return {
           id: team.id,
           name: team.team_name || 'Unknown Team',
@@ -109,9 +109,9 @@ class HybridDataService {
 
       this.setCachedData(cacheKey, hybridTeams);
       console.log(`Processed ${hybridTeams.length} teams`);
-      
+
       return hybridTeams;
-      
+
     } catch (error) {
       console.error('Error in hybrid teams data service:', error);
       throw error;
@@ -124,7 +124,7 @@ class HybridDataService {
   async getMatchupsData(week: number): Promise<ProcessedMatchup[]> {
     const cacheKey = `processed_matchups_week_${week}`;
     const cached = this.getCachedData(cacheKey);
-    
+
     if (cached) {
       console.log(`Returning cached processed matchups data for week ${week}`);
       return cached;
@@ -132,15 +132,15 @@ class HybridDataService {
 
     try {
       console.log(`Fetching processed matchups data for week ${week} using new pipeline`);
-      
+
       // Use the new matchup data pipeline
       const processedMatchups = await matchupDataPipeline.getMatchupsForWeek(week);
-      
+
       this.setCachedData(cacheKey, processedMatchups);
       console.log(`Processed ${processedMatchups.length} matchups for week ${week} via new pipeline`);
-      
+
       return processedMatchups;
-      
+
     } catch (error) {
       console.error(`Error in hybrid matchups data service for week ${week}:`, error);
       throw error;
@@ -153,8 +153,8 @@ class HybridDataService {
   async getLegacyMatchupsData(week: number): Promise<HybridMatchupData[]> {
     try {
       const processedMatchups = await this.getMatchupsData(week);
-      
-      return processedMatchups.map(matchup => ({
+
+      return processedMatchups.map((matchup) => ({
         week: matchup.week,
         team1: {
           id: matchup.team1.teamInfo.teamId,
@@ -194,7 +194,7 @@ class HybridDataService {
         } : undefined,
         isComplete: matchup.status === 'complete'
       }));
-      
+
     } catch (error) {
       console.error('Error converting to legacy matchup format:', error);
       return [];

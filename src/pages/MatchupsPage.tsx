@@ -18,7 +18,7 @@ type WeekStatus = {
 };
 
 interface ExtendedProcessedMatchup extends ProcessedMatchup {
-  conference?: { id: number; conference_name: string };
+  conference?: {id: number;conference_name: string;};
   dataSource?: string;
   isManualOverride?: boolean;
 }
@@ -51,14 +51,14 @@ const MatchupsPage: React.FC = () => {
         const currentDate = new Date();
         const currentMonth = currentDate.getMonth();
         let week = 14; // Default
-        
+
         // Simple week calculation based on date
-        if (currentMonth >= 8 && currentMonth <= 11) { // Sep-Dec
-          const weekOfYear = Math.floor((currentDate.getDate() + 
-            new Date(currentDate.getFullYear(), currentMonth, 1).getDay()) / 7);
+        if (currentMonth >= 8 && currentMonth <= 11) {// Sep-Dec
+          const weekOfYear = Math.floor((currentDate.getDate() +
+          new Date(currentDate.getFullYear(), currentMonth, 1).getDay()) / 7);
           week = Math.min(18, Math.max(1, weekOfYear));
         }
-        
+
         setCurrentWeek(week);
         setSelectedWeek(week);
       } catch (error) {
@@ -124,9 +124,9 @@ const MatchupsPage: React.FC = () => {
 
       // Use new matchup data pipeline
       const processedMatchups = await matchupDataPipeline.getMatchupsForWeek(selectedWeek);
-      
+
       // Convert to extended format for backward compatibility
-      const extendedMatchups: ExtendedProcessedMatchup[] = processedMatchups.map(matchup => ({
+      const extendedMatchups: ExtendedProcessedMatchup[] = processedMatchups.map((matchup) => ({
         ...matchup,
         conference: {
           id: matchup.team1.teamInfo.conferenceId,
@@ -152,7 +152,7 @@ const MatchupsPage: React.FC = () => {
         errors: [],
         weekStatus: status,
         dataSourceStats: sourceStats,
-        processedMatchups: extendedMatchups.map(m => ({
+        processedMatchups: extendedMatchups.map((m) => ({
           id: m.matchupId,
           conference: m.conference?.conference_name,
           teams: [m.team1.teamInfo.teamName, m.team2.teamInfo.teamName],
@@ -171,7 +171,7 @@ const MatchupsPage: React.FC = () => {
     } catch (error) {
       const errorMsg = `Failed to fetch matchup data: ${error}`;
       console.error('❌ Error fetching matchup data:', error);
-      setApiErrors(prev => [...prev, errorMsg]);
+      setApiErrors((prev) => [...prev, errorMsg]);
 
       toast({
         title: 'Data Error',
@@ -253,8 +253,8 @@ const MatchupsPage: React.FC = () => {
             <p>Loading matchup data...</p>
           </CardContent>
         </Card>
-      </div>
-    );
+      </div>);
+
   }
 
   return (
@@ -269,7 +269,7 @@ const MatchupsPage: React.FC = () => {
           <p className="text-muted-foreground">
             {selectedSeason} Season • Week {selectedWeek} • {
             selectedConference ?
-            currentSeasonConfig.conferences.find(c => c.id === selectedConference)?.name || 'Selected Conference' :
+            currentSeasonConfig.conferences.find((c) => c.id === selectedConference)?.name || 'Selected Conference' :
             'All Conferences'
             }
           </p>
@@ -596,12 +596,12 @@ const MatchupsPage: React.FC = () => {
                           <div className="font-medium mb-2">{matchup.team1.teamInfo.teamName} Lineup</div>
                           <div className="space-y-2">
                             <div className="text-sm font-medium">Starters:</div>
-                            {matchup.team1.starters.map((starter, index) => (
-                              <div key={index} className="flex justify-between text-sm">
+                            {matchup.team1.starters.map((starter, index) =>
+                            <div key={index} className="flex justify-between text-sm">
                                 <span>{starter.playerName}</span>
                                 <span>{starter.points.toFixed(1)}</span>
                               </div>
-                            ))}
+                            )}
                           </div>
                         </div>
 
@@ -610,12 +610,12 @@ const MatchupsPage: React.FC = () => {
                           <div className="font-medium mb-2">{matchup.team2.teamInfo.teamName} Lineup</div>
                           <div className="space-y-2">
                             <div className="text-sm font-medium">Starters:</div>
-                            {matchup.team2.starters.map((starter, index) => (
-                              <div key={index} className="flex justify-between text-sm">
+                            {matchup.team2.starters.map((starter, index) =>
+                            <div key={index} className="flex justify-between text-sm">
                                 <span>{starter.playerName}</span>
                                 <span>{starter.points.toFixed(1)}</span>
                               </div>
-                            ))}
+                            )}
                           </div>
                         </div>
                       </div>
@@ -651,8 +651,8 @@ const MatchupsPage: React.FC = () => {
                   </CollapsibleContent>
                 </CardContent>
               </Collapsible>
-            </Card>
-          );
+            </Card>);
+
         })}
 
         {matchups.length === 0 &&
@@ -667,8 +667,8 @@ const MatchupsPage: React.FC = () => {
           </Card>
         }
       </div>
-    </div>
-  );
+    </div>);
+
 };
 
 export default MatchupsPage;
