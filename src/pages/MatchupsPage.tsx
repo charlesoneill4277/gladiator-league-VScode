@@ -9,6 +9,7 @@ import { Swords, ChevronDown, Clock, Trophy, Users, RefreshCw, AlertCircle, Bug,
 import { useToast } from '@/hooks/use-toast';
 import { matchupDataPipeline, ProcessedMatchup, ProcessedTeamMatchupData } from '@/services/matchupDataPipeline';
 import { hybridDataService } from '@/services/hybridDataService';
+import enhancedMatchupService, { EnhancedMatchupResult } from '@/services/enhancedMatchupService';
 import StartingLineup from '@/components/StartingLineup';
 
 type WeekStatus = {
@@ -23,6 +24,46 @@ interface ExtendedProcessedMatchup extends ProcessedMatchup {
   isManualOverride?: boolean;
 }
 
+interface EnhancedMatchupDisplay {
+  matchupId: string;
+  week: number;
+  status: 'upcoming' | 'live' | 'completed';
+  isInterConference: boolean;
+  isManualOverride: boolean;
+  team1: {
+    teamName: string;
+    ownerName: string;
+    conferenceId: number;
+    conferenceName: string;
+    totalPoints: number;
+    starters: Array<{
+      position: string;
+      playerName: string;
+      points: number;
+    }>;
+  };
+  team2: {
+    teamName: string;
+    ownerName: string;
+    conferenceId: number;
+    conferenceName: string;
+    totalPoints: number;
+    starters: Array<{
+      position: string;
+      playerName: string;
+      points: number;
+    }>;
+  };
+  winner?: 'team1' | 'team2' | null;
+  dataQuality: {
+    overallScore: number;
+    issues: string[];
+    warnings: string[];
+  };
+  conference?: {id: number;conference_name: string;};
+  dataSource?: string;
+}
+
 const MatchupsPage: React.FC = () => {
   const { selectedSeason, selectedConference, currentSeasonConfig } = useApp();
   const { toast } = useToast();
@@ -30,8 +71,9 @@ const MatchupsPage: React.FC = () => {
   const [selectedWeek, setSelectedWeek] = useState<number>(14);
   const [currentWeek, setCurrentWeek] = useState<number>(14);
   const [expandedMatchups, setExpandedMatchups] = useState<Set<string>>(new Set());
-  const [matchups, setMatchups] = useState<ExtendedProcessedMatchup[]>([]);
+  const [matchups, setMatchups] = useState<EnhancedMatchupDisplay[]>([]);
   const [loading, setLoading] = useState(true);
+  const [useEnhancedPipeline, setUseEnhancedPipeline] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [debugMode, setDebugMode] = useState(false);
   const [weekStatus, setWeekStatus] = useState<WeekStatus | null>(null);
@@ -107,12 +149,13 @@ const MatchupsPage: React.FC = () => {
     }
   };
 
-  // Fetch matchup data using new pipeline
+  // Fetch matchup data using enhanced pipeline
   const fetchMatchupData = async () => {
     try {
-      console.log('🚀 Starting new matchup data pipeline...');
+      console.log('🚀 Starting enhanced cross-conference matchup pipeline...');
       console.log(`📊 Selected week: ${selectedWeek}`);
       console.log(`📅 Current week: ${currentWeek}`);
+      console.log(`🔄 Enhanced pipeline enabled: ${useEnhancedPipeline}`);
 
       setApiErrors([]);
       const errors: string[] = [];
@@ -122,50 +165,152 @@ const MatchupsPage: React.FC = () => {
       setWeekStatus(status);
       console.log('📋 Week status:', status);
 
-      // Use new matchup data pipeline
-      const processedMatchups = await matchupDataPipeline.getMatchupsForWeek(selectedWeek);
+      let enhancedMatchups: EnhancedMatchupDisplay[] = [];
 
-      // Convert to extended format for backward compatibility
-      const extendedMatchups: ExtendedProcessedMatchup[] = processedMatchups.map((matchup) => ({
-        ...matchup,
-        conference: {
-          id: matchup.team1.teamInfo.conferenceId,
-          conference_name: matchup.team1.teamInfo.conferenceName
-        },
-        dataSource: 'hybrid',
-        isManualOverride: false // TODO: Add manual override detection
-      }));
+      if (useEnhancedPipeline) {
+        // Use enhanced pipeline for database-driven matchups
+        console.log('🎯 Using enhanced database-driven matchup pipeline...');
+        
+        const conferenceIds = selectedConference ? [selectedConference] : undefined;
+        const enhancedResults = await enhancedMatchupService.getEnhancedMatchupsForWeek(
+          selectedWeek,
+          conferenceIds
+        );
+
+        // Convert to display format
+        enhancedMatchups = enhancedResults.map((result) => ({
+          matchupId: result.matchupId,
+          week: result.week,
+          status: result.status,
+          isInterConference: result.isInterConference,
+          isManualOverride: result.isManualOverride,
+          team1: {
+            teamName: result.team1.teamInfo.teamName,
+            ownerName: result.team1.teamInfo.ownerName,
+            conferenceId: result.team1.teamInfo.conferenceId,
+            conferenceName: result.team1.teamInfo.conferenceName,
+            totalPoints: result.team1.lineup.totalPoints,
+            starters: result.team1.lineup.starters.map(s => ({
+              position: s.position,
+              playerName: s.playerName,
+              points: s.points
+            }))
+          },
+          team2: {
+            teamName: result.team2.teamInfo.teamName,
+            ownerName: result.team2.teamInfo.ownerName,
+            conferenceId: result.team2.teamInfo.conferenceId,
+            conferenceName: result.team2.teamInfo.conferenceName,
+            totalPoints: result.team2.lineup.totalPoints,
+            starters: result.team2.lineup.starters.map(s => ({
+              position: s.position,
+              playerName: s.playerName,
+              points: s.points
+            }))
+          },
+          winner: result.winner,
+          dataQuality: {
+            overallScore: result.dataQuality.overallScore,
+            issues: result.dataQuality.issues,
+            warnings: result.dataQuality.warnings
+          },
+          conference: {
+            id: result.team1.teamInfo.conferenceId,
+            conference_name: result.team1.teamInfo.conferenceName
+          },
+          dataSource: 'enhanced_database'
+        }));
+
+        console.log(`✅ Enhanced pipeline loaded ${enhancedMatchups.length} matchups`);
+
+      } else {
+        // Fallback to original pipeline
+        console.log('🔄 Using fallback matchup pipeline...');
+        
+        const processedMatchups = await matchupDataPipeline.getMatchupsForWeek(selectedWeek);
+
+        // Convert to enhanced display format
+        enhancedMatchups = processedMatchups.map((matchup) => ({
+          matchupId: matchup.matchupId,
+          week: selectedWeek,
+          status: matchup.status as 'upcoming' | 'live' | 'completed',
+          isInterConference: matchup.team1.teamInfo.conferenceId !== matchup.team2.teamInfo.conferenceId,
+          isManualOverride: false,
+          team1: {
+            teamName: matchup.team1.teamInfo.teamName,
+            ownerName: matchup.team1.teamInfo.ownerName,
+            conferenceId: matchup.team1.teamInfo.conferenceId,
+            conferenceName: matchup.team1.teamInfo.conferenceName,
+            totalPoints: matchup.team1.totalPoints,
+            starters: matchup.team1.starters.map(s => ({
+              position: s.position || 'N/A',
+              playerName: s.playerName,
+              points: s.points
+            }))
+          },
+          team2: {
+            teamName: matchup.team2.teamInfo.teamName,
+            ownerName: matchup.team2.teamInfo.ownerName,
+            conferenceId: matchup.team2.teamInfo.conferenceId,
+            conferenceName: matchup.team2.teamInfo.conferenceName,
+            totalPoints: matchup.team2.totalPoints,
+            starters: matchup.team2.starters.map(s => ({
+              position: s.position || 'N/A',
+              playerName: s.playerName,
+              points: s.points
+            }))
+          },
+          winner: matchup.winner as 'team1' | 'team2' | null,
+          dataQuality: {
+            overallScore: 85, // Default score for fallback pipeline
+            issues: [],
+            warnings: []
+          },
+          conference: {
+            id: matchup.team1.teamInfo.conferenceId,
+            conference_name: matchup.team1.teamInfo.conferenceName
+          },
+          dataSource: 'fallback_hybrid'
+        }));
+      }
 
       // Calculate data source statistics
       const sourceStats = {
-        database: 0,
-        sleeper: 0,
-        hybrid: extendedMatchups.length
+        database: enhancedMatchups.filter(m => m.dataSource === 'enhanced_database').length,
+        sleeper: enhancedMatchups.filter(m => m.dataSource === 'fallback_hybrid').length,
+        hybrid: enhancedMatchups.length
       };
 
       setDataSourceStats(sourceStats);
-      setMatchups(extendedMatchups);
+      setMatchups(enhancedMatchups);
 
       // Set debug data
       const debugData = {
-        totalMatchups: extendedMatchups.length,
+        totalMatchups: enhancedMatchups.length,
         errors: [],
         weekStatus: status,
         dataSourceStats: sourceStats,
-        processedMatchups: extendedMatchups.map((m) => ({
+        interConferenceCount: enhancedMatchups.filter(m => m.isInterConference).length,
+        manualOverrideCount: enhancedMatchups.filter(m => m.isManualOverride).length,
+        pipelineUsed: useEnhancedPipeline ? 'enhanced_database' : 'fallback_hybrid',
+        processedMatchups: enhancedMatchups.map((m) => ({
           id: m.matchupId,
           conference: m.conference?.conference_name,
-          teams: [m.team1.teamInfo.teamName, m.team2.teamInfo.teamName],
+          teams: [m.team1.teamName, m.team2.teamName],
           dataSource: m.dataSource,
           isManualOverride: m.isManualOverride,
+          isInterConference: m.isInterConference,
           team1Points: m.team1.totalPoints,
-          team2Points: m.team2.totalPoints
+          team2Points: m.team2.totalPoints,
+          dataQuality: m.dataQuality.overallScore
         }))
       };
 
       setRawApiData(debugData);
 
-      console.log(`✅ Successfully loaded ${extendedMatchups.length} matchups using new pipeline`);
+      console.log(`✅ Successfully loaded ${enhancedMatchups.length} matchups`);
+      console.log(`🌐 Inter-conference matchups: ${enhancedMatchups.filter(m => m.isInterConference).length}`);
+      console.log(`🔧 Manual overrides: ${enhancedMatchups.filter(m => m.isManualOverride).length}`);
       console.log('📊 Data source stats:', sourceStats);
 
     } catch (error) {
@@ -235,8 +380,8 @@ const MatchupsPage: React.FC = () => {
     return `Player ${playerId}`;
   };
 
-  const getWinningTeam = (matchup: ExtendedProcessedMatchup) => {
-    if (matchup.status !== 'complete' && matchup.status !== 'completed') return null;
+  const getWinningTeam = (matchup: EnhancedMatchupDisplay) => {
+    if (matchup.status !== 'completed') return null;
     return matchup.winner;
   };
 
@@ -326,6 +471,17 @@ const MatchupsPage: React.FC = () => {
           </Button>
           
           <Button
+            variant={useEnhancedPipeline ? "default" : "outline"}
+            size="sm"
+            onClick={() => {
+              setUseEnhancedPipeline(!useEnhancedPipeline);
+              loadData(true);
+            }}>
+            <Database className="h-4 w-4" />
+            {useEnhancedPipeline ? 'Enhanced' : 'Fallback'}
+          </Button>
+          
+          <Button
             variant={debugMode ? "default" : "outline"}
             size="sm"
             onClick={() => setDebugMode(!debugMode)}>
@@ -374,25 +530,42 @@ const MatchupsPage: React.FC = () => {
         </Card>
       }
 
-      {/* Data Source Summary */}
-      {(dataSourceStats.sleeper > 0 || dataSourceStats.hybrid > 0) &&
+      {/* Enhanced Data Source Summary */}
+      {(dataSourceStats.database > 0 || dataSourceStats.hybrid > 0) &&
       <Card className="border-l-4 border-l-green-500">
           <CardContent className="py-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-3">
                 <Zap className="h-5 w-5 text-green-500" />
                 <div>
-                  <div className="font-medium">New Matchup Data Pipeline</div>
+                  <div className="font-medium">
+                    {useEnhancedPipeline ? 'Enhanced Cross-Conference Pipeline' : 'Legacy Matchup Pipeline'}
+                  </div>
                   <div className="text-sm text-muted-foreground">
-                    Database team assignments + Sleeper API roster data
+                    {useEnhancedPipeline 
+                      ? 'Database matchup assignments + Cross-conference Sleeper API support'
+                      : 'Sleeper API only with basic processing'
+                    }
                   </div>
                 </div>
               </div>
               <div className="flex items-center space-x-4 text-sm">
-                {dataSourceStats.hybrid > 0 &&
+                {dataSourceStats.database > 0 &&
+              <div className="flex items-center space-x-1">
+                    <div className="w-3 h-3 rounded-full bg-blue-500"></div>
+                    <span>{dataSourceStats.database} Database</span>
+                  </div>
+              }
+                {dataSourceStats.sleeper > 0 &&
               <div className="flex items-center space-x-1">
                     <div className="w-3 h-3 rounded-full bg-green-500"></div>
-                    <span>{dataSourceStats.hybrid} Processed</span>
+                    <span>{dataSourceStats.sleeper} Sleeper</span>
+                  </div>
+              }
+                {rawApiData?.interConferenceCount > 0 &&
+              <div className="flex items-center space-x-1">
+                    <div className="w-3 h-3 rounded-full bg-purple-500"></div>
+                    <span>{rawApiData.interConferenceCount} Inter-Conference</span>
                   </div>
               }
                 {rawApiData?.manualOverrideCount > 0 &&
@@ -446,9 +619,18 @@ const MatchupsPage: React.FC = () => {
                 <strong>Total Matchups:</strong> {rawApiData.totalMatchups}
               </div>
               <details className="text-sm">
-                <summary className="cursor-pointer font-medium">Pipeline Data</summary>
+                <summary className="cursor-pointer font-medium">Enhanced Pipeline Data</summary>
                 <pre className="mt-2 p-3 bg-gray-50 rounded text-xs overflow-x-auto max-h-96">
-                  {JSON.stringify(rawApiData, null, 2)}
+                  {JSON.stringify({
+                    ...rawApiData,
+                    pipelineType: useEnhancedPipeline ? 'enhanced_database' : 'fallback_hybrid',
+                    enhancedFeatures: useEnhancedPipeline ? [
+                      'Cross-conference support',
+                      'Database-driven team assignments', 
+                      'Position validation',
+                      'Data quality metrics'
+                    ] : ['Basic Sleeper API processing']
+                  }, null, 2)}
                 </pre>
               </details>
             </div>
@@ -460,7 +642,7 @@ const MatchupsPage: React.FC = () => {
       <div className="grid gap-4">
         {matchups.map((matchup) => {
           const winningTeam = getWinningTeam(matchup);
-          const isInterConference = matchup.team1.teamInfo.conferenceId !== matchup.team2.teamInfo.conferenceId;
+          const isInterConference = matchup.isInterConference;
 
           return (
             <Card key={`${matchup.matchupId}`}
@@ -516,21 +698,21 @@ const MatchupsPage: React.FC = () => {
                     <div className="text-right space-y-1">
                       <div className="space-y-1">
                         <div className="font-semibold">
-                          {matchup.team1.teamInfo.teamName}
+                          {matchup.team1.teamName}
                         </div>
                         <div className="text-sm text-muted-foreground">
-                          {matchup.team1.teamInfo.ownerName}
+                          {matchup.team1.ownerName}
                         </div>
                         {isInterConference &&
                         <div className="flex justify-end">
                             <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-200">
-                              🏠 {matchup.team1.teamInfo.conferenceName}
+                              🏠 {matchup.team1.conferenceName}
                             </Badge>
                           </div>
                         }
                       </div>
-                      <div className={`text-2xl font-bold ${winningTeam === matchup.team1 ? 'text-green-600' : ''}`}>
-                        {matchup.status === 'pending' && selectedSeason >= new Date().getFullYear() ? '--' : matchup.team1.totalPoints.toFixed(1)}
+                      <div className={`text-2xl font-bold ${winningTeam === 'team1' ? 'text-green-600' : ''}`}>
+                        {matchup.status === 'upcoming' && selectedSeason >= new Date().getFullYear() ? '--' : matchup.team1.totalPoints.toFixed(1)}
                         {debugMode &&
                         <div className="text-xs text-muted-foreground mt-1">
                             Raw: {matchup.team1.totalPoints}
@@ -551,7 +733,7 @@ const MatchupsPage: React.FC = () => {
                           Cross-Conference
                         </div>
                       }
-                      {matchup.status === 'complete' && winningTeam &&
+                      {matchup.status === 'completed' && winningTeam &&
                       <Trophy className="h-6 w-6 mx-auto mt-2 text-yellow-500" />
                       }
                     </div>
@@ -560,21 +742,21 @@ const MatchupsPage: React.FC = () => {
                     <div className="text-left space-y-1">
                       <div className="space-y-1">
                         <div className="font-semibold">
-                          {matchup.team2.teamInfo.teamName}
+                          {matchup.team2.teamName}
                         </div>
                         <div className="text-sm text-muted-foreground">
-                          {matchup.team2.teamInfo.ownerName}
+                          {matchup.team2.ownerName}
                         </div>
                         {isInterConference &&
                         <div className="flex justify-start">
                             <Badge variant="outline" className="text-xs bg-green-50 text-green-700 border-green-200">
-                              🏠 {matchup.team2.teamInfo.conferenceName}
+                              🏠 {matchup.team2.conferenceName}
                             </Badge>
                           </div>
                         }
                       </div>
-                      <div className={`text-2xl font-bold ${winningTeam === matchup.team2 ? 'text-green-600' : ''}`}>
-                        {matchup.status === 'pending' && selectedSeason >= new Date().getFullYear() ? '--' : matchup.team2.totalPoints.toFixed(1)}
+                      <div className={`text-2xl font-bold ${winningTeam === 'team2' ? 'text-green-600' : ''}`}>
+                        {matchup.status === 'upcoming' && selectedSeason >= new Date().getFullYear() ? '--' : matchup.team2.totalPoints.toFixed(1)}
                         {debugMode &&
                         <div className="text-xs text-muted-foreground mt-1">
                             Raw: {matchup.team2.totalPoints}
@@ -593,58 +775,100 @@ const MatchupsPage: React.FC = () => {
                       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                         {/* Team 1 Lineup */}
                         <div className="p-4 border rounded-lg">
-                          <div className="font-medium mb-2">{matchup.team1.teamInfo.teamName} Lineup</div>
+                          <div className="font-medium mb-2">{matchup.team1.teamName} Lineup</div>
                           <div className="space-y-2">
-                            <div className="text-sm font-medium">Starters:</div>
+                            <div className="text-sm font-medium">Starting Positions (QB, RB, RB, WR, WR, WR, TE, WRT, WRTQ):</div>
                             {matchup.team1.starters.map((starter, index) =>
-                            <div key={index} className="flex justify-between text-sm">
-                                <span>{starter.playerName}</span>
-                                <span>{starter.points.toFixed(1)}</span>
+                            <div key={index} className="flex justify-between items-center text-sm">
+                                <div className="flex items-center space-x-2">
+                                  <Badge 
+                                    variant="outline" 
+                                    className="text-xs min-w-[45px] text-center"
+                                  >
+                                    {starter.position}
+                                  </Badge>
+                                  <span>{starter.playerName}</span>
+                                </div>
+                                <span className="font-medium">{starter.points.toFixed(1)}</span>
                               </div>
                             )}
+                            <div className="pt-2 border-t text-sm font-medium">
+                              Total: {matchup.team1.totalPoints.toFixed(1)} pts
+                            </div>
                           </div>
                         </div>
 
                         {/* Team 2 Lineup */}
                         <div className="p-4 border rounded-lg">
-                          <div className="font-medium mb-2">{matchup.team2.teamInfo.teamName} Lineup</div>
+                          <div className="font-medium mb-2">{matchup.team2.teamName} Lineup</div>
                           <div className="space-y-2">
-                            <div className="text-sm font-medium">Starters:</div>
+                            <div className="text-sm font-medium">Starting Positions (QB, RB, RB, WR, WR, WR, TE, WRT, WRTQ):</div>
                             {matchup.team2.starters.map((starter, index) =>
-                            <div key={index} className="flex justify-between text-sm">
-                                <span>{starter.playerName}</span>
-                                <span>{starter.points.toFixed(1)}</span>
+                            <div key={index} className="flex justify-between items-center text-sm">
+                                <div className="flex items-center space-x-2">
+                                  <Badge 
+                                    variant="outline" 
+                                    className="text-xs min-w-[45px] text-center"
+                                  >
+                                    {starter.position}
+                                  </Badge>
+                                  <span>{starter.playerName}</span>
+                                </div>
+                                <span className="font-medium">{starter.points.toFixed(1)}</span>
                               </div>
                             )}
+                            <div className="pt-2 border-t text-sm font-medium">
+                              Total: {matchup.team2.totalPoints.toFixed(1)} pts
+                            </div>
                           </div>
                         </div>
                       </div>
 
-                      {/* Matchup Stats */}
-                      {matchup.status !== 'pending' &&
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
-                          <div>
-                            <div className="text-sm text-muted-foreground">Total Points</div>
-                            <div className="font-semibold">
-                              {(matchup.team1.totalPoints + matchup.team2.totalPoints).toFixed(1)}
+                      {/* Enhanced Matchup Stats */}
+                      {matchup.status !== 'upcoming' &&
+                      <div className="space-y-4">
+                          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
+                            <div>
+                              <div className="text-sm text-muted-foreground">Total Points</div>
+                              <div className="font-semibold">
+                                {(matchup.team1.totalPoints + matchup.team2.totalPoints).toFixed(1)}
+                              </div>
+                            </div>
+                            <div>
+                              <div className="text-sm text-muted-foreground">Point Spread</div>
+                              <div className="font-semibold">
+                                {Math.abs(matchup.team1.totalPoints - matchup.team2.totalPoints).toFixed(1)}
+                              </div>
+                            </div>
+                            <div>
+                              <div className="text-sm text-muted-foreground">High Score</div>
+                              <div className="font-semibold">
+                                {Math.max(matchup.team1.totalPoints, matchup.team2.totalPoints).toFixed(1)}
+                              </div>
+                            </div>
+                            <div>
+                              <div className="text-sm text-muted-foreground">Data Quality</div>
+                              <div className={`text-xs font-medium ${
+                                matchup.dataQuality.overallScore >= 90 ? 'text-green-600' :
+                                matchup.dataQuality.overallScore >= 70 ? 'text-yellow-600' : 'text-red-600'
+                              }`}>
+                                {matchup.dataQuality.overallScore}%
+                              </div>
                             </div>
                           </div>
-                          <div>
-                            <div className="text-sm text-muted-foreground">Point Spread</div>
-                            <div className="font-semibold">
-                              {Math.abs(matchup.team1.totalPoints - matchup.team2.totalPoints).toFixed(1)}
+                          
+                          {/* Data Quality Details */}
+                          {(matchup.dataQuality.issues.length > 0 || matchup.dataQuality.warnings.length > 0) &&
+                          <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                              <div className="text-xs font-medium text-yellow-800 mb-1">Data Quality Notes:</div>
+                              {matchup.dataQuality.issues.map((issue, index) =>
+                            <div key={index} className="text-xs text-red-600 mb-1">• {issue}</div>
+                            )}
+                              {matchup.dataQuality.warnings.map((warning, index) =>
+                            <div key={index} className="text-xs text-yellow-600 mb-1">• {warning}</div>
+                            )}
                             </div>
-                          </div>
-                          <div>
-                            <div className="text-sm text-muted-foreground">High Score</div>
-                            <div className="font-semibold">
-                              {Math.max(matchup.team1.totalPoints, matchup.team2.totalPoints).toFixed(1)}
-                            </div>
-                          </div>
-                          <div>
-                            <div className="text-sm text-muted-foreground">Data Source</div>
-                            <div className="text-xs capitalize">{matchup.dataSource}</div>
-                          </div>
+                          }
                         </div>
                       }
                     </div>

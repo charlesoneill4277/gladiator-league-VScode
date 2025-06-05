@@ -176,18 +176,18 @@ const SortableTeam: React.FC<SortableTeamProps> = ({
       {...listeners}
       className={`flex items-center gap-2 p-2 rounded border border-dashed transition-all duration-200 cursor-grab hover:cursor-grabbing min-h-[60px]
         ${isDragging ? 'border-blue-400 bg-blue-50' : 'border-gray-300 hover:border-gray-400 hover:bg-gray-50'}
-      `} data-id="2q1aw90dx">
+      `}>
 
       {team?.team_logo_url &&
       <img
         src={team.team_logo_url}
         alt={team.team_name}
-        className="w-6 h-6 rounded-full flex-shrink-0" data-id="9j1oeh1l5" />
+        className="w-6 h-6 rounded-full flex-shrink-0" />
 
       }
-      <div className="flex-1 min-w-0" data-id="xhj53x7z7">
-        <div className="font-medium text-sm truncate" data-id="mu2tgtm2w">{team?.team_name || `Team ${teamPosition === 'team1' ? '1' : '2'}`}</div>
-        <div className="text-xs text-gray-600 truncate" data-id="am0zmjdhn">{team?.owner_name}</div>
+      <div className="flex-1 min-w-0">
+        <div className="font-medium text-sm truncate">{team?.team_name || `Team ${teamPosition === 'team1' ? '1' : '2'}`}</div>
+        <div className="text-xs text-gray-600 truncate">{team?.owner_name}</div>
       </div>
     </div>);
 
@@ -207,19 +207,19 @@ const SortableMatchupCard: React.FC<SortableMatchupCardProps> = ({
   return (
     <Card className={`border transition-all duration-200 hover:shadow-sm ${
     matchup.is_manual_override ? 'border-orange-300 bg-orange-25' : 'border-gray-200'}`
-    } data-id="0i0nf195c">
-      <CardContent className="p-3" data-id="8tgxueh69">
+    }>
+      <CardContent className="p-3">
         {/* Compact header */}
-        <div className="flex items-center justify-between mb-3" data-id="x5a56xfbf">
-          <div className="flex items-center gap-2" data-id="4zr1nsv6v">
-            <span className="text-sm font-medium" data-id="27sbptbvw">#{matchup.id}</span>
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-medium">#{matchup.id}</span>
             {matchup.is_manual_override &&
-              <Badge variant="outline" className="text-xs px-1 py-0 h-5 text-orange-600 border-orange-300" data-id="2uqw2kaf4">
+            <Badge variant="outline" className="text-xs px-1 py-0 h-5 text-orange-600 border-orange-300">
                 Override
               </Badge>
             }
             {matchup.is_playoff &&
-              <Badge variant="default" className="text-xs px-1 py-0 h-5 bg-purple-600" data-id="rrpkopbv7">
+            <Badge variant="default" className="text-xs px-1 py-0 h-5 bg-purple-600">
                 Playoff
               </Badge>
             }
@@ -228,28 +228,28 @@ const SortableMatchupCard: React.FC<SortableMatchupCardProps> = ({
             variant="ghost"
             size="sm"
             className="h-7 px-2 text-xs"
-            onClick={() => onToggleOverride(matchup.id)} data-id="jhwdnivm9">
-            <Edit className="h-3 w-3" data-id="9stba9k21" />
+            onClick={() => onToggleOverride(matchup.id)}>
+            <Edit className="h-3 w-3" />
           </Button>
         </div>
 
         {/* Compact team layout */}
-        <div className="grid grid-cols-2 gap-3" data-id="7cnrttm1y">
+        <div className="grid grid-cols-2 gap-3">
           <SortableTeam
             team={team1}
             matchupId={matchup.id}
-            teamPosition="team1" data-id="figj7qo9d" />
+            teamPosition="team1" />
           <SortableTeam
             team={team2}
             matchupId={matchup.id}
-            teamPosition="team2" data-id="859zvaji7" />
+            teamPosition="team2" />
         </div>
 
         {/* Compact footer */}
-        <div className="mt-2 flex items-center justify-between text-xs text-gray-500" data-id="x2kou3nnu">
-          <span data-id="ew92rjmpl">{matchup.status}</span>
+        <div className="mt-2 flex items-center justify-between text-xs text-gray-500">
+          <span>{matchup.status}</span>
           {matchup.matchup_date &&
-            <span data-id="u7r69n4iu">{new Date(matchup.matchup_date).toLocaleDateString()}</span>
+          <span>{new Date(matchup.matchup_date).toLocaleDateString()}</span>
           }
         </div>
       </CardContent>
@@ -920,31 +920,31 @@ const MatchupsManagement: React.FC = () => {
   const weeks = Array.from({ length: 18 }, (_, i) => i + 1); // 18 weeks for NFL season
 
   return (
-    <div className="space-y-6" data-id="q02vp8bm8">
-      <Card data-id="9ay41boko">
-        <CardHeader className="pb-3" data-id="0y5cigzwu">
-          <CardTitle className="flex items-center gap-2 text-lg" data-id="hz7ti2q9k">
-            <Calendar className="h-5 w-5" data-id="pds2noyy3" />
+    <div className="space-y-6">
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="flex items-center gap-2 text-lg">
+            <Calendar className="h-5 w-5" />
             Matchups Management
           </CardTitle>
-          <CardDescription className="text-sm" data-id="r69gd1uuj">
+          <CardDescription className="text-sm">
             Drag teams between matchups to reassign opponents.
           </CardDescription>
         </CardHeader>
-        <CardContent data-id="he69iad95">
-          <div className="flex flex-wrap items-end gap-4 mb-4" data-id="hko3quy02">
-            <div className="space-y-1" data-id="x68wneqpy">
-              <label className="text-sm font-medium" data-id="n9e7hdy25">Season</label>
-              <Select value={selectedSeason} onValueChange={setSelectedSeason} data-id="ue284zzzx">
-                <SelectTrigger className="w-48" data-id="lewa7y497">
-                  <SelectValue placeholder="Select season..." data-id="c7kwd4zo6" />
+        <CardContent>
+          <div className="flex flex-wrap items-end gap-4 mb-4">
+            <div className="space-y-1">
+              <label className="text-sm font-medium">Season</label>
+              <Select value={selectedSeason} onValueChange={setSelectedSeason}>
+                <SelectTrigger className="w-48">
+                  <SelectValue placeholder="Select season..." />
                 </SelectTrigger>
-                <SelectContent data-id="5urc94sxs">
+                <SelectContent>
                   {seasons.map((season) =>
-                  <SelectItem key={season.id} value={season.id.toString()} data-id="dqj33cdr1">
+                  <SelectItem key={season.id} value={season.id.toString()}>
                       {season.season_name}
                       {season.is_current_season &&
-                    <Badge variant="secondary" className="ml-2" data-id="1ep3cujgn">Current</Badge>
+                    <Badge variant="secondary" className="ml-2">Current</Badge>
                     }
                     </SelectItem>
                   )}
@@ -952,19 +952,19 @@ const MatchupsManagement: React.FC = () => {
               </Select>
             </div>
 
-            <div className="space-y-1" data-id="qwszhvbgj">
-              <label className="text-sm font-medium" data-id="73lepre9x">Week</label>
+            <div className="space-y-1">
+              <label className="text-sm font-medium">Week</label>
               <Select
                 value={selectedWeek}
                 onValueChange={setSelectedWeek}
-                disabled={!selectedSeason} data-id="umc9sendx">
+                disabled={!selectedSeason}>
 
-                <SelectTrigger className="w-32" data-id="uuukliv77">
-                  <SelectValue placeholder="Week..." data-id="howc9s5fa" />
+                <SelectTrigger className="w-32">
+                  <SelectValue placeholder="Week..." />
                 </SelectTrigger>
-                <SelectContent data-id="0xvng3mwl">
+                <SelectContent>
                   {weeks.map((week) =>
-                  <SelectItem key={week} value={week.toString()} data-id="qhhub24gd">
+                  <SelectItem key={week} value={week.toString()}>
                       Week {week}
                     </SelectItem>
                   )}
@@ -972,19 +972,19 @@ const MatchupsManagement: React.FC = () => {
               </Select>
             </div>
 
-            <div className="flex-1" data-id="3orfdy46n">
+            <div className="flex-1">
               {hasChanges &&
-              <div className="flex gap-2 justify-end" data-id="3jq8nk6ej">
+              <div className="flex gap-2 justify-end">
                   <Button
                   onClick={handleSaveChanges}
                   disabled={saving}
                   size="sm"
-                  className="flex items-center gap-2" data-id="blaetry32">
+                  className="flex items-center gap-2">
 
                     {saving ?
-                  <Loader2 className="h-4 w-4 animate-spin" data-id="ur39do684" /> :
+                  <Loader2 className="h-4 w-4 animate-spin" /> :
 
-                  <Save className="h-4 w-4" data-id="fa3ho5dca" />
+                  <Save className="h-4 w-4" />
                   }
                     Save
                   </Button>
@@ -992,9 +992,9 @@ const MatchupsManagement: React.FC = () => {
                   variant="outline"
                   size="sm"
                   onClick={handleResetChanges}
-                  className="flex items-center gap-2" data-id="gwvekf0tv">
+                  className="flex items-center gap-2">
 
-                    <RotateCcw className="h-4 w-4" data-id="wg90njrpi" />
+                    <RotateCcw className="h-4 w-4" />
                     Reset
                   </Button>
                 </div>
@@ -1003,9 +1003,9 @@ const MatchupsManagement: React.FC = () => {
           </div>
 
           {hasChanges &&
-          <Alert className="mb-3 py-2" data-id="3nnjy2gc3">
-              <AlertTriangle className="h-4 w-4" data-id="pi3ta1kuz" />
-              <AlertDescription className="text-sm" data-id="yoimnw0rt">
+          <Alert className="mb-3 py-2">
+              <AlertTriangle className="h-4 w-4" />
+              <AlertDescription className="text-sm">
                 Unsaved changes detected. Remember to save.
               </AlertDescription>
             </Alert>
@@ -1014,50 +1014,50 @@ const MatchupsManagement: React.FC = () => {
       </Card>
 
       {loading ?
-      <Card data-id="jk2jx0wq1">
-          <CardContent className="flex items-center justify-center py-12" data-id="0fc3wzpo3">
-            <div className="flex items-center gap-2" data-id="8cljj7bcw">
-              <Loader2 className="h-6 w-6 animate-spin" data-id="ptaevpqlh" />
-              <span data-id="0ytq7oyga">Loading matchups...</span>
+      <Card>
+          <CardContent className="flex items-center justify-center py-12">
+            <div className="flex items-center gap-2">
+              <Loader2 className="h-6 w-6 animate-spin" />
+              <span>Loading matchups...</span>
             </div>
           </CardContent>
         </Card> :
       matchups.length === 0 && selectedWeek ?
-      <Card data-id="dmb72cnfo">
-          <CardContent className="flex items-center justify-center py-12" data-id="h72h7sj6x">
-            <div className="text-center" data-id="wxdr9rqir">
-              <Users className="h-12 w-12 text-gray-400 mx-auto mb-4" data-id="14o2kczqv" />
-              <h3 className="text-lg font-medium text-gray-900 mb-2" data-id="b8kpwy9ic">No Matchups Found</h3>
-              <p className="text-gray-600" data-id="ishzt6ta8">
+      <Card>
+          <CardContent className="flex items-center justify-center py-12">
+            <div className="text-center">
+              <Users className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+              <h3 className="text-lg font-medium text-gray-900 mb-2">No Matchups Found</h3>
+              <p className="text-gray-600">
                 No matchups found for the selected week. They may need to be created first.
               </p>
             </div>
           </CardContent>
         </Card> :
       matchups.length > 0 ?
-      <div className="space-y-6" data-id="w3k9jzfa8">
+      <div className="space-y-6">
         {/* Compact Summary Stats */}
-        <Card data-id="fic259nzv">
-          <CardContent className="p-4" data-id="ioagbffsc">
-            <div className="flex items-center justify-between" data-id="d7zjaz5ji">
-              <div className="flex items-center gap-6" data-id="77t15d1e7">
-                <div className="text-center" data-id="s9hj0oi8x">
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-6">
+                <div className="text-center">
                   <div className="text-lg font-bold text-blue-600">{matchups.length}</div>
                   <div className="text-xs text-gray-600">Total</div>
                 </div>
-                <div className="text-center" data-id="z2baul15g">
+                <div className="text-center">
                   <div className="text-lg font-bold text-green-600">
                     {matchups.filter((m) => m.status === 'complete').length}
                   </div>
                   <div className="text-xs text-gray-600">Complete</div>
                 </div>
-                <div className="text-center" data-id="ecljm7gf2">
+                <div className="text-center">
                   <div className="text-lg font-bold text-orange-600">
                     {matchups.filter((m) => m.is_manual_override).length}
                   </div>
                   <div className="text-xs text-gray-600">Overrides</div>
                 </div>
-                <div className="text-center" data-id="6bitpp4vg">
+                <div className="text-center">
                   <div className="text-lg font-bold text-purple-600">
                     {matchups.filter((m) => m.is_playoff).length}
                   </div>
@@ -1073,34 +1073,34 @@ const MatchupsManagement: React.FC = () => {
           sensors={sensors}
           collisionDetection={closestCenter}
           onDragStart={handleDragStart}
-          onDragEnd={handleDragEnd} data-id="bq7pe3yfp">
+          onDragEnd={handleDragEnd}>
 
           <SortableContext
             items={matchups.flatMap((m) => [
             `${m.id}-team1`,
             `${m.id}-team2`]
             )}
-            strategy={rectSortingStrategy} data-id="syzkayz79">
+            strategy={rectSortingStrategy}>
 
-            <div className="space-y-4" data-id="ri3a49l4b">
+            <div className="space-y-4">
               {conferences.map((conference) => {
                 const conferenceMatchups = matchups.filter((m) => m.conference_id === conference.id);
                 if (conferenceMatchups.length === 0) return null;
 
                 return (
-                  <div key={conference.id} className="space-y-3" data-id="sov144wtk">
-                    <div className="flex items-center gap-2 pb-1 border-b" data-id="vmill7lm2">
-                      <h3 className="text-base font-semibold" data-id="gj551ssez">{conference.conference_name}</h3>
-                      <Badge variant="secondary" className="text-xs h-5" data-id="b35vx0ss3">{conferenceMatchups.length}</Badge>
+                  <div key={conference.id} className="space-y-3">
+                    <div className="flex items-center gap-2 pb-1 border-b">
+                      <h3 className="text-base font-semibold">{conference.conference_name}</h3>
+                      <Badge variant="secondary" className="text-xs h-5">{conferenceMatchups.length}</Badge>
                     </div>
-                    <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-3" data-id="k6a5kfxxq">
+                    <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-3">
                       {conferenceMatchups.map((matchup) =>
                       <SortableMatchupCard
                         key={matchup.id}
                         matchup={matchup}
                         teams={teams}
                         conferences={conferences}
-                        onToggleOverride={handleToggleOverride} data-id="ojm2aed5n" />
+                        onToggleOverride={handleToggleOverride} />
                       )}
                     </div>
                   </div>);
@@ -1108,14 +1108,14 @@ const MatchupsManagement: React.FC = () => {
               })}
             </div>
           </SortableContext>
-          <DragOverlay data-id="mdlpx7ep5">
+          <DragOverlay>
             {activeId ?
-            <div className="bg-white p-3 rounded-lg border-2 border-blue-400 shadow-lg" data-id="itfsklu42">
-                <div className="flex items-center gap-2" data-id="b215oiew8">
-                  <div className="w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center" data-id="y4o587oo3">
-                    <Users className="h-3 w-3 text-blue-600" data-id="s6cozypen" />
+            <div className="bg-white p-3 rounded-lg border-2 border-blue-400 shadow-lg">
+                <div className="flex items-center gap-2">
+                  <div className="w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center">
+                    <Users className="h-3 w-3 text-blue-600" />
                   </div>
-                  <span className="text-sm font-medium" data-id="z84f79a55">Moving team...</span>
+                  <span className="text-sm font-medium">Moving team...</span>
                 </div>
               </div> :
             null}
@@ -1123,12 +1123,12 @@ const MatchupsManagement: React.FC = () => {
         </DndContext>
       </div> :
 
-      <Card data-id="49dmtz98z">
-          <CardContent className="flex items-center justify-center py-12" data-id="f8lxmh56y">
-            <div className="text-center" data-id="64oc8l27r">
-              <Calendar className="h-12 w-12 text-gray-400 mx-auto mb-4" data-id="rjmmsmf8w" />
-              <h3 className="text-lg font-medium text-gray-900 mb-2" data-id="qt17onulu">Select Filters</h3>
-              <p className="text-gray-600" data-id="txl9vlo2p">
+      <Card>
+          <CardContent className="flex items-center justify-center py-12">
+            <div className="text-center">
+              <Calendar className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+              <h3 className="text-lg font-medium text-gray-900 mb-2">Select Filters</h3>
+              <p className="text-gray-600">
                 Please select a season and week to manage matchups across all conferences.
               </p>
             </div>
