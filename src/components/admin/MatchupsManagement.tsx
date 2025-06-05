@@ -174,20 +174,20 @@ const SortableTeam: React.FC<SortableTeamProps> = ({
       style={style}
       {...attributes}
       {...listeners}
-      className={`flex items-center gap-3 p-3 rounded-lg border-2 border-dashed transition-all duration-200 cursor-grab hover:cursor-grabbing
-        ${isDragging ? 'border-blue-400 bg-blue-50' : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'}
+      className={`flex items-center gap-2 p-2 rounded border border-dashed transition-all duration-200 cursor-grab hover:cursor-grabbing min-h-[60px]
+        ${isDragging ? 'border-blue-400 bg-blue-50' : 'border-gray-300 hover:border-gray-400 hover:bg-gray-50'}
       `} data-id="2q1aw90dx">
 
       {team?.team_logo_url &&
       <img
         src={team.team_logo_url}
         alt={team.team_name}
-        className="w-8 h-8 rounded-full" data-id="9j1oeh1l5" />
+        className="w-6 h-6 rounded-full flex-shrink-0" data-id="9j1oeh1l5" />
 
       }
-      <div className={teamPosition === 'team2' ? 'text-right' : ''} data-id="xhj53x7z7">
-        <div className="font-medium" data-id="mu2tgtm2w">{team?.team_name || `Team ${teamPosition === 'team1' ? '1' : '2'}`}</div>
-        <div className="text-sm text-gray-600" data-id="am0zmjdhn">{team?.owner_name}</div>
+      <div className="flex-1 min-w-0" data-id="xhj53x7z7">
+        <div className="font-medium text-sm truncate" data-id="mu2tgtm2w">{team?.team_name || `Team ${teamPosition === 'team1' ? '1' : '2'}`}</div>
+        <div className="text-xs text-gray-600 truncate" data-id="am0zmjdhn">{team?.owner_name}</div>
       </div>
     </div>);
 
@@ -205,79 +205,52 @@ const SortableMatchupCard: React.FC<SortableMatchupCardProps> = ({
   const conference = conferences.find((c) => c.id === matchup.conference_id);
 
   return (
-    <Card className={`mb-4 transition-all duration-200 hover:shadow-md ${
-    matchup.is_manual_override ? 'border-orange-400 bg-orange-50' : 'border-gray-200'}`
+    <Card className={`border transition-all duration-200 hover:shadow-sm ${
+    matchup.is_manual_override ? 'border-orange-300 bg-orange-25' : 'border-gray-200'}`
     } data-id="0i0nf195c">
-      <CardHeader className="pb-3" data-id="ckgb0jyhh">
-        <div className="flex items-center justify-between" data-id="x5a56xfbf">
+      <CardContent className="p-3" data-id="8tgxueh69">
+        {/* Compact header */}
+        <div className="flex items-center justify-between mb-3" data-id="x5a56xfbf">
           <div className="flex items-center gap-2" data-id="4zr1nsv6v">
-            <div className="flex items-center gap-2" data-id="0j6ytcd8t">
-              <Trophy className="h-4 w-4 text-blue-600" data-id="hyhtob4jm" />
-              <span className="font-medium" data-id="27sbptbvw">Matchup {matchup.id}</span>
-              {conference &&
-              <Badge variant="secondary" className="text-xs" data-id="psy8fgmdj">
-                  {conference.conference_name}
-                </Badge>
-              }
-            </div>
+            <span className="text-sm font-medium" data-id="27sbptbvw">#{matchup.id}</span>
             {matchup.is_manual_override &&
-            <Badge variant="outline" className="text-orange-600 border-orange-300" data-id="2uqw2kaf4">
-                Team Assignment Override
+              <Badge variant="outline" className="text-xs px-1 py-0 h-5 text-orange-600 border-orange-300" data-id="2uqw2kaf4">
+                Override
               </Badge>
             }
             {matchup.is_playoff &&
-            <Badge variant="default" className="bg-purple-600" data-id="rrpkopbv7">
+              <Badge variant="default" className="text-xs px-1 py-0 h-5 bg-purple-600" data-id="rrpkopbv7">
                 Playoff
               </Badge>
             }
           </div>
-          <div className="flex items-center gap-2" data-id="3ond9789x">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => onToggleOverride(matchup.id)} data-id="jhwdnivm9">
-              <Edit className="h-3 w-3 mr-1" data-id="9stba9k21" />
-              {matchup.is_manual_override ? 'Remove Team Override' : 'Team Override'}
-            </Button>
-          </div>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-7 px-2 text-xs"
+            onClick={() => onToggleOverride(matchup.id)} data-id="jhwdnivm9">
+            <Edit className="h-3 w-3" data-id="9stba9k21" />
+          </Button>
         </div>
-      </CardHeader>
-      <CardContent data-id="8tgxueh69">
-        <div className="space-y-4" data-id="vfg6775pj">
-          {/* Team Selection Area with Drag and Drop */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4" data-id="7cnrttm1y">
-            <div className="space-y-2" data-id="q6nlrpskk">
-              <label className="text-sm font-medium text-gray-700" data-id="o3vsfs14p">Team 1</label>
-              <SortableTeam
-                team={team1}
-                matchupId={matchup.id}
-                teamPosition="team1" data-id="figj7qo9d" />
 
-            </div>
-            <div className="space-y-2" data-id="fuljegfqb">
-              <label className="text-sm font-medium text-gray-700" data-id="o2ccp7o6p">Team 2</label>
-              <SortableTeam
-                team={team2}
-                matchupId={matchup.id}
-                teamPosition="team2" data-id="859zvaji7" />
+        {/* Compact team layout */}
+        <div className="grid grid-cols-2 gap-3" data-id="7cnrttm1y">
+          <SortableTeam
+            team={team1}
+            matchupId={matchup.id}
+            teamPosition="team1" data-id="figj7qo9d" />
+          <SortableTeam
+            team={team2}
+            matchupId={matchup.id}
+            teamPosition="team2" data-id="859zvaji7" />
+        </div>
 
-            </div>
-          </div>
-
-
-
-          {matchup.notes &&
-          <div className="mt-3 p-2 bg-gray-50 rounded text-sm" data-id="c6s15xnjw">
-              <strong data-id="27vl2x14u">Notes:</strong> {matchup.notes}
-            </div>
+        {/* Compact footer */}
+        <div className="mt-2 flex items-center justify-between text-xs text-gray-500" data-id="x2kou3nnu">
+          <span data-id="ew92rjmpl">{matchup.status}</span>
+          {matchup.matchup_date &&
+            <span data-id="u7r69n4iu">{new Date(matchup.matchup_date).toLocaleDateString()}</span>
           }
-
-          <div className="mt-3 flex items-center justify-between text-xs text-gray-500" data-id="x2kou3nnu">
-            <span data-id="ew92rjmpl">Status: {matchup.status}</span>
-            {matchup.matchup_date &&
-            <span data-id="u7r69n4iu">Date: {new Date(matchup.matchup_date).toLocaleDateString()}</span>
-            }
-          </div>
         </div>
       </CardContent>
     </Card>);
@@ -949,21 +922,21 @@ const MatchupsManagement: React.FC = () => {
   return (
     <div className="space-y-6" data-id="q02vp8bm8">
       <Card data-id="9ay41boko">
-        <CardHeader data-id="0y5cigzwu">
-          <CardTitle className="flex items-center gap-2" data-id="hz7ti2q9k">
+        <CardHeader className="pb-3" data-id="0y5cigzwu">
+          <CardTitle className="flex items-center gap-2 text-lg" data-id="hz7ti2q9k">
             <Calendar className="h-5 w-5" data-id="pds2noyy3" />
             Matchups Management
           </CardTitle>
-          <CardDescription data-id="r69gd1uuj">
-            Manage weekly matchup team assignments across all conferences. Drag and drop individual teams to swap opponents between matchups. Showing up to 18 matchups per week (6 per conference).
+          <CardDescription className="text-sm" data-id="r69gd1uuj">
+            Drag teams between matchups to reassign opponents.
           </CardDescription>
         </CardHeader>
         <CardContent data-id="he69iad95">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6" data-id="hko3quy02">
-            <div className="space-y-2" data-id="x68wneqpy">
+          <div className="flex flex-wrap items-end gap-4 mb-4" data-id="hko3quy02">
+            <div className="space-y-1" data-id="x68wneqpy">
               <label className="text-sm font-medium" data-id="n9e7hdy25">Season</label>
               <Select value={selectedSeason} onValueChange={setSelectedSeason} data-id="ue284zzzx">
-                <SelectTrigger data-id="lewa7y497">
+                <SelectTrigger className="w-48" data-id="lewa7y497">
                   <SelectValue placeholder="Select season..." data-id="c7kwd4zo6" />
                 </SelectTrigger>
                 <SelectContent data-id="5urc94sxs">
@@ -979,15 +952,15 @@ const MatchupsManagement: React.FC = () => {
               </Select>
             </div>
 
-            <div className="space-y-2" data-id="qwszhvbgj">
+            <div className="space-y-1" data-id="qwszhvbgj">
               <label className="text-sm font-medium" data-id="73lepre9x">Week</label>
               <Select
                 value={selectedWeek}
                 onValueChange={setSelectedWeek}
                 disabled={!selectedSeason} data-id="umc9sendx">
 
-                <SelectTrigger data-id="uuukliv77">
-                  <SelectValue placeholder="Select week..." data-id="howc9s5fa" />
+                <SelectTrigger className="w-32" data-id="uuukliv77">
+                  <SelectValue placeholder="Week..." data-id="howc9s5fa" />
                 </SelectTrigger>
                 <SelectContent data-id="0xvng3mwl">
                   {weeks.map((week) =>
@@ -999,12 +972,13 @@ const MatchupsManagement: React.FC = () => {
               </Select>
             </div>
 
-            <div className="space-y-2 flex items-end" data-id="3orfdy46n">
+            <div className="flex-1" data-id="3orfdy46n">
               {hasChanges &&
-              <div className="flex gap-2" data-id="3jq8nk6ej">
+              <div className="flex gap-2 justify-end" data-id="3jq8nk6ej">
                   <Button
                   onClick={handleSaveChanges}
                   disabled={saving}
+                  size="sm"
                   className="flex items-center gap-2" data-id="blaetry32">
 
                     {saving ?
@@ -1012,10 +986,11 @@ const MatchupsManagement: React.FC = () => {
 
                   <Save className="h-4 w-4" data-id="fa3ho5dca" />
                   }
-                    Save Changes
+                    Save
                   </Button>
                   <Button
                   variant="outline"
+                  size="sm"
                   onClick={handleResetChanges}
                   className="flex items-center gap-2" data-id="gwvekf0tv">
 
@@ -1028,10 +1003,10 @@ const MatchupsManagement: React.FC = () => {
           </div>
 
           {hasChanges &&
-          <Alert className="mb-4" data-id="3nnjy2gc3">
+          <Alert className="mb-3 py-2" data-id="3nnjy2gc3">
               <AlertTriangle className="h-4 w-4" data-id="pi3ta1kuz" />
-              <AlertDescription data-id="yoimnw0rt">
-                You have unsaved changes. Remember to save your modifications.
+              <AlertDescription className="text-sm" data-id="yoimnw0rt">
+                Unsaved changes detected. Remember to save.
               </AlertDescription>
             </Alert>
           }
@@ -1061,37 +1036,39 @@ const MatchupsManagement: React.FC = () => {
         </Card> :
       matchups.length > 0 ?
       <div className="space-y-6" data-id="w3k9jzfa8">
-        {/* Summary Stats */}
+        {/* Compact Summary Stats */}
         <Card data-id="fic259nzv">
-          <CardContent className="pt-6" data-id="ioagbffsc">
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 text-center" data-id="d7zjaz5ji">
-              <div className="space-y-1" data-id="77t15d1e7">
-                <div className="text-2xl font-bold text-blue-600" data-id="s9hj0oi8x">{matchups.length}</div>
-                <div className="text-sm text-gray-600" data-id="9jj5ht0ru">Total Matchups</div>
-              </div>
-              <div className="space-y-1" data-id="z2baul15g">
-                <div className="text-2xl font-bold text-green-600" data-id="35li6lyh6">
-                  {matchups.filter((m) => m.status === 'complete').length}
+          <CardContent className="p-4" data-id="ioagbffsc">
+            <div className="flex items-center justify-between" data-id="d7zjaz5ji">
+              <div className="flex items-center gap-6" data-id="77t15d1e7">
+                <div className="text-center" data-id="s9hj0oi8x">
+                  <div className="text-lg font-bold text-blue-600">{matchups.length}</div>
+                  <div className="text-xs text-gray-600">Total</div>
                 </div>
-                <div className="text-sm text-gray-600" data-id="0f9avz1ai">Complete</div>
-              </div>
-              <div className="space-y-1" data-id="ecljm7gf2">
-                <div className="text-2xl font-bold text-orange-600" data-id="issr9s0kw">
-                  {matchups.filter((m) => m.is_manual_override).length}
+                <div className="text-center" data-id="z2baul15g">
+                  <div className="text-lg font-bold text-green-600">
+                    {matchups.filter((m) => m.status === 'complete').length}
+                  </div>
+                  <div className="text-xs text-gray-600">Complete</div>
                 </div>
-                <div className="text-sm text-gray-600" data-id="0y8ktqyhn">Team Assignment Overrides</div>
-              </div>
-              <div className="space-y-1" data-id="6bitpp4vg">
-                <div className="text-2xl font-bold text-purple-600" data-id="cs5v4d95a">
-                  {matchups.filter((m) => m.is_playoff).length}
+                <div className="text-center" data-id="ecljm7gf2">
+                  <div className="text-lg font-bold text-orange-600">
+                    {matchups.filter((m) => m.is_manual_override).length}
+                  </div>
+                  <div className="text-xs text-gray-600">Overrides</div>
                 </div>
-                <div className="text-sm text-gray-600" data-id="6oi3mb717">Playoff Games</div>
+                <div className="text-center" data-id="6bitpp4vg">
+                  <div className="text-lg font-bold text-purple-600">
+                    {matchups.filter((m) => m.is_playoff).length}
+                  </div>
+                  <div className="text-xs text-gray-600">Playoff</div>
+                </div>
               </div>
             </div>
           </CardContent>
         </Card>
 
-        {/* Matchups by Conference */}
+        {/* Compact Grid Layout */}
         <DndContext
           sensors={sensors}
           collisionDetection={closestCenter}
@@ -1105,19 +1082,18 @@ const MatchupsManagement: React.FC = () => {
             )}
             strategy={rectSortingStrategy} data-id="syzkayz79">
 
-            <div className="space-y-6" data-id="ri3a49l4b">
+            <div className="space-y-4" data-id="ri3a49l4b">
               {conferences.map((conference) => {
                 const conferenceMatchups = matchups.filter((m) => m.conference_id === conference.id);
                 if (conferenceMatchups.length === 0) return null;
 
                 return (
-                  <div key={conference.id} className="space-y-4" data-id="sov144wtk">
-                    <div className="flex items-center gap-2 border-b pb-2" data-id="vmill7lm2">
-                      <Users className="h-5 w-5 text-blue-600" data-id="0pr9vsxr8" />
-                      <h3 className="text-lg font-semibold" data-id="gj551ssez">{conference.conference_name}</h3>
-                      <Badge variant="secondary" data-id="b35vx0ss3">{conferenceMatchups.length} matchups</Badge>
+                  <div key={conference.id} className="space-y-3" data-id="sov144wtk">
+                    <div className="flex items-center gap-2 pb-1 border-b" data-id="vmill7lm2">
+                      <h3 className="text-base font-semibold" data-id="gj551ssez">{conference.conference_name}</h3>
+                      <Badge variant="secondary" className="text-xs h-5" data-id="b35vx0ss3">{conferenceMatchups.length}</Badge>
                     </div>
-                    <div className="space-y-4 pl-4" data-id="k6a5kfxxq">
+                    <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-3" data-id="k6a5kfxxq">
                       {conferenceMatchups.map((matchup) =>
                       <SortableMatchupCard
                         key={matchup.id}
