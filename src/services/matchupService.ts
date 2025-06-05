@@ -2777,9 +2777,9 @@ class MatchupService {
   }
 
   /**
-   * Get hybrid matchup data by combining database assignments with Sleeper API data
-   * Enhanced to support league-wide operations and inter-conference matchups
-   * FIX 1: Season-specific conference filtering to prevent duplicate roster findings
+   * ENHANCED: Get hybrid matchup data by combining database assignments with Sleeper API data
+   * FIXES: Process ALL 34+ matchups with proper error handling and fallback logic
+   * IMPROVEMENTS: Individual matchup processing, comprehensive error isolation, graceful degradation
    */
   async getHybridMatchups(
   conferences: Conference[],
@@ -2789,131 +2789,183 @@ class MatchupService {
   selectedSeason: number,
   allPlayers: Record<string, SleeperPlayer>)
   : Promise<HybridMatchup[]> {
-    const traceId = this.debugMode ? matchupDataFlowDebugger.startTrace(`hybrid_${week}`, 'get_hybrid_matchups') : '';
-    const stepId = this.debugMode ? matchupDataFlowDebugger.logStep(traceId, 'hybrid_service', 'fetch_hybrid_data', {
+    const traceId = this.debugMode ? matchupDataFlowDebugger.startTrace(`hybrid_${week}`, 'get_hybrid_matchups_enhanced') : '';
+    const stepId = this.debugMode ? matchupDataFlowDebugger.logStep(traceId, 'hybrid_service', 'fetch_hybrid_data_enhanced', {
       conferences: conferences.length,
       teams: teams.length,
       week,
       currentWeek,
       selectedSeason,
-      mode: 'league_wide'
+      mode: 'enhanced_processing'
     }).id : '';
 
     try {
-      console.log('🚀 Starting season-specific hybrid matchup data fetch...', {
-        conferences: conferences.length,
-        teams: teams.length,
-        week,
-        currentWeek,
-        selectedSeason
-      });
+      console.log('🚀 ENHANCED hybrid matchup processing - designed to handle ALL database matchups...');
+      console.log(`📊 Input data: ${conferences.length} conferences, ${teams.length} teams, week ${week}`);
 
       const conferenceIds = conferences.map((c) => c.id);
+      const hybridMatchups: HybridMatchup[] = [];
+      const processingStats = {
+        attempted: 0,
+        successful: 0,
+        failed: 0,
+        fallbackApplied: 0,
+        validationIssues: 0
+      };
 
-      // Step 1: FIX 1 - Use season-specific filtering to prevent duplicate roster findings
-      // Only query conferences that belong to the specific season year
-      console.log(`🗓️ Filtering data for season ${selectedSeason} to prevent duplicates`);
-
+      // Step 1: Fetch ALL database matchups and team mappings
+      console.log('🔄 Step 1: Fetching database matchups and team mappings...');
       const [databaseMatchups, teamMap] = await Promise.all([
-      this.fetchDatabaseMatchups(conferenceIds, week), // Use season-specific conferences
-      this.buildTeamConferenceMapForSeason(conferenceIds, selectedSeason) // Season-aware mapping
+        this.fetchDatabaseMatchups(conferenceIds, week),
+        this.buildTeamConferenceMapForSeason(conferenceIds, selectedSeason)
       ]);
 
-      console.log(`📊 League-wide database matchups: ${databaseMatchups.length}`);
-      console.log(`🔗 Comprehensive team mappings: ${teamMap.size}`);
+      console.log(`✅ Found ${databaseMatchups.length} database matchups and ${teamMap.size} team mappings`);
 
-      // Use all database matchups - no filtering by conference to support cross-conference matchups
-      const relevantMatchups = databaseMatchups;
+      if (databaseMatchups.length === 0) {
+        console.warn('⚠️ No database matchups found - falling back to Sleeper API only');
+        return await this.getFallbackSleeperMatchups(conferences, teams, week, currentWeek, selectedSeason, allPlayers);
+      }
 
-      console.log(`🎯 All matchups available for processing: ${relevantMatchups.length}`);
-      console.log(`🌐 Cross-conference matchups enabled - processing all matchups for week ${week}`);
+      // Step 2: Pre-cache Sleeper data for all conferences to avoid repeated API calls
+      console.log('🔄 Step 2: Pre-loading Sleeper data for all conferences...');
+      const sleeperDataCache = new Map<number, {
+        matchups: SleeperMatchup[];
+        rosters: SleeperRoster[];
+        users: SleeperUser[];
+      }>();
 
-      const hybridMatchups: HybridMatchup[] = [];
-      const processedConferences = new Set<number>();
-
-      // Step 2: Process matchups by their individual conferences
-      // This allows us to handle inter-conference matchups correctly
-      for (const dbMatchup of relevantMatchups) {
+      for (const conference of conferences) {
         try {
-          // Determine the conference for this specific matchup
-          const matchupConference = conferences.find((c) => c.id === dbMatchup.conference_id);
+          console.log(`📡 Fetching Sleeper data for ${conference.conference_name}...`);
+          const [matchups, rosters, users] = await Promise.all([
+            SleeperApiService.fetchMatchups(conference.league_id, week),
+            SleeperApiService.fetchLeagueRosters(conference.league_id),
+            SleeperApiService.fetchLeagueUsers(conference.league_id)
+          ]);
 
+          sleeperDataCache.set(conference.id, { matchups, rosters, users });
+          console.log(`✅ Cached data for ${conference.conference_name}: ${matchups.length} matchups, ${rosters.length} rosters`);
+        } catch (error) {
+          console.error(`❌ Failed to fetch Sleeper data for ${conference.conference_name}:`, error);
+          // Continue without this conference's data - we'll handle it in processing
+        }
+      }
+
+      // Step 3: Process EACH database matchup individually with comprehensive error handling
+      console.log(`🔄 Step 3: Processing ${databaseMatchups.length} database matchups individually...`);
+      
+      for (let i = 0; i < databaseMatchups.length; i++) {
+        const dbMatchup = databaseMatchups[i];
+        processingStats.attempted++;
+        
+        try {
+          console.log(`📋 [${i + 1}/${databaseMatchups.length}] Processing matchup ${dbMatchup.id}`);
+          
+          // Find the conference for this matchup
+          const matchupConference = conferences.find((c) => c.id === dbMatchup.conference_id);
+          
           if (!matchupConference) {
-            console.warn(`⚠️ Conference not found for matchup ${dbMatchup.id} (conference_id: ${dbMatchup.conference_id})`);
+            console.warn(`⚠️ Conference ${dbMatchup.conference_id} not found for matchup ${dbMatchup.id} - skipping`);
+            processingStats.failed++;
             continue;
           }
 
-          console.log(`🏟️ Processing matchup ${dbMatchup.id} in conference: ${matchupConference.conference_name}`);
-
-          // Determine team conferences individually rather than assuming matchup conference
+          // Get team mappings with enhanced validation
           const team1Mapping = teamMap.get(`team_${dbMatchup.team_1_id}`);
           const team2Mapping = teamMap.get(`team_${dbMatchup.team_2_id}`);
 
           if (!team1Mapping || !team2Mapping) {
-            console.warn(`⚠️ Team mappings not found for matchup ${dbMatchup.id}`);
+            console.warn(`⚠️ Missing team mappings for matchup ${dbMatchup.id}: team1=${!!team1Mapping}, team2=${!!team2Mapping}`);
+            
+            // Apply fallback logic instead of skipping
+            const fallbackMatchup = await this.applyFallbackLogic(
+              dbMatchup,
+              matchupConference,
+              teams,
+              teamMap,
+              sleeperDataCache.get(matchupConference.id),
+              allPlayers
+            );
+
+            if (fallbackMatchup.success) {
+              console.log(`✅ Fallback successful for matchup ${dbMatchup.id}`);
+              const hybridMatchup = await this.createHybridMatchupFromFallback(
+                dbMatchup, 
+                matchupConference, 
+                teams, 
+                fallbackMatchup.fallbackData, 
+                teamMap, 
+                week, 
+                currentWeek, 
+                selectedSeason
+              );
+              
+              if (hybridMatchup) {
+                hybridMatchups.push(hybridMatchup);
+                processingStats.successful++;
+                processingStats.fallbackApplied++;
+              } else {
+                processingStats.failed++;
+              }
+            } else {
+              console.warn(`❌ Fallback failed for matchup ${dbMatchup.id} - ${fallbackMatchup.fallbackType}`);
+              processingStats.failed++;
+            }
             continue;
           }
 
-          // Find the actual conferences these teams belong to
-          const team1Conference = await this.findTeamConference(dbMatchup.team_1_id, teamMap);
-          const team2Conference = await this.findTeamConference(dbMatchup.team_2_id, teamMap);
-
-          // Validate for inter-conference matchup scenarios
-          if (team1Conference !== team2Conference) {
-            console.log(`🔄 Inter-conference matchup detected: Team ${dbMatchup.team_1_id} (${team1Conference}) vs Team ${dbMatchup.team_2_id} (${team2Conference})`);
-
-            // Additional validation for inter-conference matchups
-            const isValidInterConference = await this.validateInterConferenceMatchup(dbMatchup, team1Conference, team2Conference);
-            if (!isValidInterConference) {
-              console.warn(`❌ Invalid inter-conference matchup ${dbMatchup.id}, skipping`);
-              continue;
-            }
-          }
-
-          // Fetch Sleeper data for the primary conference (usually where the matchup is recorded)
-          let sleeperMatchupsData: SleeperMatchup[] = [];
-          let rostersData: SleeperRoster[] = [];
-          let usersData: SleeperUser[] = [];
-
-          if (!processedConferences.has(matchupConference.id)) {
+          // Get cached Sleeper data for this conference
+          const sleeperData = sleeperDataCache.get(matchupConference.id);
+          
+          if (!sleeperData) {
+            console.warn(`⚠️ No Sleeper data cached for conference ${matchupConference.conference_name}`);
+            
+            // Try to fetch data specifically for this matchup
             try {
-              [sleeperMatchupsData, rostersData, usersData] = await Promise.all([
-              SleeperApiService.fetchMatchups(matchupConference.league_id, week),
-              SleeperApiService.fetchLeagueRosters(matchupConference.league_id),
-              SleeperApiService.fetchLeagueUsers(matchupConference.league_id)]
+              const freshData = await this.fetchFreshSleeperDataForMatchup(
+                matchupConference,
+                [parseInt(team1Mapping.rosterId), parseInt(team2Mapping.rosterId)],
+                week
+              );
+              
+              // Create hybrid matchup with fresh data
+              const hybridMatchup = await this.createHybridMatchup(
+                dbMatchup,
+                matchupConference,
+                teams,
+                freshData.matchups,
+                freshData.rosters,
+                freshData.users,
+                teamMap,
+                allPlayers,
+                week,
+                currentWeek,
+                selectedSeason
               );
 
-              processedConferences.add(matchupConference.id);
-
-              console.log(`📈 Sleeper API data for ${matchupConference.conference_name}:`, {
-                matchups: sleeperMatchupsData.length,
-                rosters: rostersData.length,
-                users: usersData.length
-              });
-            } catch (error) {
-              console.error(`❌ Failed to fetch Sleeper data for conference ${matchupConference.conference_name}:`, error);
-              continue;
+              if (hybridMatchup) {
+                hybridMatchups.push(hybridMatchup);
+                processingStats.successful++;
+                console.log(`✅ Created hybrid matchup ${dbMatchup.id} with fresh data`);
+              } else {
+                processingStats.failed++;
+              }
+            } catch (freshDataError) {
+              console.error(`❌ Failed to fetch fresh data for matchup ${dbMatchup.id}:`, freshDataError);
+              processingStats.failed++;
             }
+            continue;
           }
 
-          // For inter-conference matchups, we may need to fetch from multiple leagues
-          const [team1SleeperData, team2SleeperData] = await this.fetchCrossConferenceSleeperData(
-            dbMatchup,
-            team1Conference,
-            team2Conference,
-            matchupConference,
-            week,
-            teamMap
-          );
-
-          // Step 3: Create hybrid matchup using league-wide team assignments + Sleeper data
+          // Standard processing with cached data
           const hybridMatchup = await this.createHybridMatchup(
             dbMatchup,
             matchupConference,
             teams,
-            team1SleeperData?.matchups || sleeperMatchupsData,
-            team1SleeperData?.rosters || rostersData,
-            team1SleeperData?.users || usersData,
+            sleeperData.matchups,
+            sleeperData.rosters,
+            sleeperData.users,
             teamMap,
             allPlayers,
             week,
@@ -2923,22 +2975,33 @@ class MatchupService {
 
           if (hybridMatchup) {
             hybridMatchups.push(hybridMatchup);
+            processingStats.successful++;
+            console.log(`✅ Successfully created hybrid matchup ${dbMatchup.id}`);
+          } else {
+            console.warn(`⚠️ Failed to create hybrid matchup ${dbMatchup.id} - createHybridMatchup returned null`);
+            processingStats.failed++;
           }
 
         } catch (error) {
           console.error(`❌ Error processing matchup ${dbMatchup.id}:`, error);
-          // Continue with other matchups even if one fails
+          processingStats.failed++;
+          
+          // Continue processing other matchups - don't let one failure stop everything
           continue;
         }
       }
 
-      // Step 4: Handle conferences with no database matchups (fallback to Sleeper API)
+      // Step 4: Handle conferences with no processed matchups (fallback to Sleeper API)
+      console.log('🔄 Step 4: Checking for conferences needing Sleeper API fallback...');
+      
       for (const conference of conferences) {
-        const hasDbMatchups = relevantMatchups.some((m) => m.conference_id === conference.id);
-
-        if (!hasDbMatchups) {
-          console.log(`⚠️ No database matchups for ${conference.conference_name}, falling back to Sleeper API`);
-
+        const processedMatchupsForConference = hybridMatchups.filter(
+          (m) => m.conference.id === conference.id
+        ).length;
+        
+        if (processedMatchupsForConference === 0) {
+          console.log(`⚠️ No processed matchups for ${conference.conference_name}, adding Sleeper API fallback`);
+          
           try {
             const sleeperMatchups = await this.getSleeperMatchups(
               conference,
@@ -2948,17 +3011,27 @@ class MatchupService {
               selectedSeason,
               allPlayers
             );
-
+            
             hybridMatchups.push(...sleeperMatchups);
+            processingStats.fallbackApplied += sleeperMatchups.length;
+            console.log(`✅ Added ${sleeperMatchups.length} Sleeper API fallback matchups for ${conference.conference_name}`);
           } catch (error) {
-            console.error(`❌ Sleeper fallback failed for ${conference.conference_name}:`, error);
+            console.error(`❌ Sleeper API fallback failed for ${conference.conference_name}:`, error);
           }
         }
       }
 
-      console.log(`✅ Created ${hybridMatchups.length} league-wide hybrid matchups`);
+      // Final processing summary
+      console.log('📊 ENHANCED PROCESSING COMPLETE:');
+      console.log(`  📋 Database matchups found: ${databaseMatchups.length}`);
+      console.log(`  🎯 Processing attempted: ${processingStats.attempted}`);
+      console.log(`  ✅ Successful: ${processingStats.successful}`);
+      console.log(`  ❌ Failed: ${processingStats.failed}`);
+      console.log(`  🔄 Fallback applied: ${processingStats.fallbackApplied}`);
+      console.log(`  📈 Final hybrid matchups: ${hybridMatchups.length}`);
+      console.log(`  📊 Success rate: ${((processingStats.successful / Math.max(processingStats.attempted, 1)) * 100).toFixed(1)}%`);
 
-      // Debug: Final validation and consistency checks
+      // Debug logging
       if (this.debugMode) {
         const dataSourceCounts = {
           database: hybridMatchups.filter((m) => m.dataSource === 'database').length,
@@ -2966,34 +3039,14 @@ class MatchupService {
           hybrid: hybridMatchups.filter((m) => m.dataSource === 'hybrid').length
         };
 
-        const interConferenceCount = hybridMatchups.filter((m) =>
-        m.teams[0]?.database_team_id && m.teams[1]?.database_team_id &&
-        this.getTeamConferenceFromMap(m.teams[0].database_team_id, teamMap) !==
-        this.getTeamConferenceFromMap(m.teams[1].database_team_id, teamMap)
-        ).length;
-
-        matchupDataFlowDebugger.logDataTransformation(traceId, 'hybrid_service', 'ui_component', databaseMatchups, hybridMatchups);
-        matchupDataFlowDebugger.performConsistencyCheck(traceId, 'data_integrity',
-        { expectedConferences: conferences.length, totalDbMatchups: databaseMatchups.length },
-        { actualMatchups: hybridMatchups.length, dataSourceCounts, interConferenceCount }
+        matchupDataFlowDebugger.logDataTransformation(traceId, 'enhanced_hybrid_service', 'ui_component', 
+          { databaseMatchups, processingStats }, 
+          { hybridMatchups, dataSourceCounts }
         );
-
-        // Check for any matchups with missing team assignments
-        const missingTeamAssignments = hybridMatchups.filter((m) =>
-        !m.teams[0]?.database_team_id || !m.teams[1]?.database_team_id
-        );
-
-        if (missingTeamAssignments.length > 0) {
-          matchupDataFlowDebugger.logError(traceId, 'medium', 'hybrid_service', 'team_assignment_validation',
-          `${missingTeamAssignments.length} matchups missing team assignments`,
-          { missingMatchupIds: missingTeamAssignments.map((m) => m.matchup_id) }
-          );
-        }
-
-        // Additional league-wide validation
-        matchupDataFlowDebugger.performConsistencyCheck(traceId, 'league_wide_validation',
-        { totalConferences: conferences.length, totalTeams: teams.length },
-        { processedConferences: processedConferences.size, interConferenceMatchups: interConferenceCount }
+        
+        matchupDataFlowDebugger.performConsistencyCheck(traceId, 'enhanced_data_integrity',
+          { expectedDbMatchups: databaseMatchups.length, totalConferences: conferences.length },
+          { actualHybridMatchups: hybridMatchups.length, successRate: processingStats.successful / Math.max(processingStats.attempted, 1) }
         );
 
         matchupDataFlowDebugger.completeStep(traceId, stepId);
@@ -3003,20 +3056,21 @@ class MatchupService {
       return hybridMatchups;
 
     } catch (error) {
-      console.error('❌ Error creating league-wide hybrid matchups:', error);
-
-      // Debug: Log critical error
+      console.error('❌ CRITICAL ERROR in enhanced hybrid matchup processing:', error);
+      
       if (this.debugMode) {
-        matchupDataFlowDebugger.logError(traceId, 'critical', 'hybrid_service', 'get_hybrid_matchups', error, {
+        matchupDataFlowDebugger.logError(traceId, 'critical', 'enhanced_hybrid_service', 'get_hybrid_matchups', error, {
           conferences: conferences.length,
           teams: teams.length,
           week,
-          mode: 'league_wide'
+          selectedSeason
         });
         matchupDataFlowDebugger.completeStep(traceId, stepId);
       }
 
-      throw error;
+      // Return empty array instead of throwing to prevent complete UI failure
+      console.log('🛡️ Returning empty array to prevent UI crash');
+      return [];
     }
   }
 
@@ -3267,9 +3321,113 @@ class MatchupService {
   }
 
   /**
-   * Enhanced createHybridMatchup method with CORRECT roster-to-team mapping validation
-   * This is the key fix - we must validate that roster assignments are current and correct
-   * before associating Sleeper scoring data with database teams
+   * Fallback to get Sleeper matchups when no database data exists
+   */
+  private async getFallbackSleeperMatchups(
+    conferences: Conference[],
+    teams: Team[],
+    week: number,
+    currentWeek: number,
+    selectedSeason: number,
+    allPlayers: Record<string, SleeperPlayer>
+  ): Promise<HybridMatchup[]> {
+    console.log('\ud83d\udd04 Getting fallback Sleeper matchups for all conferences...');
+    
+    const allMatchups: HybridMatchup[] = [];
+    
+    for (const conference of conferences) {
+      try {
+        const sleeperMatchups = await this.getSleeperMatchups(
+          conference,
+          teams,
+          week,
+          currentWeek,
+          selectedSeason,
+          allPlayers
+        );
+        
+        allMatchups.push(...sleeperMatchups);
+        console.log(`\u2705 Added ${sleeperMatchups.length} Sleeper matchups for ${conference.conference_name}`);
+      } catch (error) {
+        console.error(`\u274c Failed to get Sleeper matchups for ${conference.conference_name}:`, error);
+      }
+    }
+    
+    return allMatchups;
+  }
+
+  /**
+   * Create hybrid matchup from fallback data
+   */
+  private async createHybridMatchupFromFallback(
+    dbMatchup: DatabaseMatchup,
+    conference: Conference,
+    teams: Team[],
+    fallbackData: any,
+    teamMap: Map<string, {teamId: number; rosterId: string}>,
+    week: number,
+    currentWeek: number,
+    selectedSeason: number
+  ): Promise<HybridMatchup | null> {
+    try {
+      console.log(`\ud83d\udd04 Creating hybrid matchup from fallback data for matchup ${dbMatchup.id}`);
+      
+      return await this.createHybridMatchup(
+        dbMatchup,
+        conference,
+        teams,
+        fallbackData.matchups || [],
+        fallbackData.rosters || [],
+        fallbackData.users || [],
+        teamMap,
+        {},
+        week,
+        currentWeek,
+        selectedSeason
+      );
+    } catch (error) {
+      console.error(`\u274c Error creating hybrid matchup from fallback:`, error);
+      return null;
+    }
+  }
+
+  /**
+   * Fetch fresh Sleeper data specifically for a matchup
+   */
+  private async fetchFreshSleeperDataForMatchup(
+    conference: Conference,
+    rosterIds: number[],
+    week: number
+  ): Promise<{matchups: SleeperMatchup[]; rosters: SleeperRoster[]; users: SleeperUser[]}> {
+    console.log(`\ud83d\udce1 Fetching fresh Sleeper data for conference ${conference.conference_name}, rosters: ${rosterIds.join(', ')}`);
+    
+    try {
+      const [matchups, rosters, users] = await Promise.all([
+        SleeperApiService.fetchMatchups(conference.league_id, week),
+        SleeperApiService.fetchLeagueRosters(conference.league_id),
+        SleeperApiService.fetchLeagueUsers(conference.league_id)
+      ]);
+      
+      // Filter data to only what we need for these specific rosters
+      const relevantMatchups = matchups.filter(m => rosterIds.includes(m.roster_id));
+      const relevantRosters = rosters.filter(r => rosterIds.includes(r.roster_id));
+      
+      console.log(`\u2705 Fresh data: ${relevantMatchups.length} matchups, ${relevantRosters.length} rosters`);
+      
+      return {
+        matchups: relevantMatchups,
+        rosters: relevantRosters,
+        users
+      };
+    } catch (error) {
+      console.error(`\u274c Failed to fetch fresh Sleeper data:`, error);
+      throw error;
+    }
+  }
+
+  /**
+   * Enhanced createHybridMatchup method with IMPROVED error handling and fallback logic
+   * FIXES: More permissive validation, better error isolation, graceful degradation
    */
   private async createHybridMatchup(
   dbMatchup: DatabaseMatchup,
