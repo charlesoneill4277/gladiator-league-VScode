@@ -53,21 +53,21 @@ interface CacheEntry<T> {
 
 class MatchupDataPipeline {
   private static instance: MatchupDataPipeline;
-  
+
   // Enhanced caching with TTL and proper invalidation
   private playerCache: Map<string, CacheEntry<string>> = new Map();
   private teamInfoCache: Map<string, CacheEntry<TeamInfo>> = new Map();
   private sleeperDataCache: Map<string, CacheEntry<SleeperMatchupData[]>> = new Map();
-  private batchedPlayerCache: Map<string, CacheEntry<{[key: string]: string}>> = new Map();
-  
+  private batchedPlayerCache: Map<string, CacheEntry<{[key: string]: string;}>> = new Map();
+
   // Cache TTL configurations (in milliseconds)
   private readonly CACHE_TTL = {
     PLAYER_NAME: 30 * 60 * 1000, // 30 minutes
-    TEAM_INFO: 15 * 60 * 1000,   // 15 minutes  
+    TEAM_INFO: 15 * 60 * 1000, // 15 minutes  
     SLEEPER_DATA: 5 * 60 * 1000, // 5 minutes
     BATCH_PLAYERS: 60 * 60 * 1000 // 1 hour
   };
-  
+
   // Request timeout configuration
   private readonly REQUEST_TIMEOUT = 10000; // 10 seconds
 
@@ -101,7 +101,7 @@ class MatchupDataPipeline {
       const uniqueConferenceIds = new Set<number>();
       const uniqueLeagueIds = new Set<string>();
 
-      matchups.forEach(matchup => {
+      matchups.forEach((matchup) => {
         uniqueTeamIds.add(matchup.team_1_id);
         uniqueTeamIds.add(matchup.team_2_id);
         uniqueConferenceIds.add(matchup.conference_id);
@@ -110,36 +110,36 @@ class MatchupDataPipeline {
       console.log(`🔄 Batch processing ${uniqueTeamIds.size} teams across ${uniqueConferenceIds.size} conferences`);
 
       // Step 3: Load team information only for valid team-conference combinations
-      const teamConferencePairs: Array<{teamId: number, conferenceId: number}> = [];
-      
-      matchups.forEach(matchup => {
+      const teamConferencePairs: Array<{teamId: number;conferenceId: number;}> = [];
+
+      matchups.forEach((matchup) => {
         teamConferencePairs.push(
           { teamId: matchup.team_1_id, conferenceId: matchup.conference_id },
           { teamId: matchup.team_2_id, conferenceId: matchup.conference_id }
         );
       });
-      
+
       // Remove duplicates
-      const uniquePairs = teamConferencePairs.filter((pair, index, array) => 
-        array.findIndex(p => p.teamId === pair.teamId && p.conferenceId === pair.conferenceId) === index
+      const uniquePairs = teamConferencePairs.filter((pair, index, array) =>
+      array.findIndex((p) => p.teamId === pair.teamId && p.conferenceId === pair.conferenceId) === index
       );
-      
+
       console.log(`🔄 Loading ${uniquePairs.length} unique team-conference combinations`);
 
-      const teamInfoPromises = uniquePairs.map(pair => 
-        this.getTeamInfoBatched(pair.teamId, pair.conferenceId).catch(error => {
-          console.warn(`⚠️ Failed to load team ${pair.teamId} in conference ${pair.conferenceId}:`, error.message);
-          return null;
-        })
+      const teamInfoPromises = uniquePairs.map((pair) =>
+      this.getTeamInfoBatched(pair.teamId, pair.conferenceId).catch((error) => {
+        console.warn(`⚠️ Failed to load team ${pair.teamId} in conference ${pair.conferenceId}:`, error.message);
+        return null;
+      })
       );
 
       const teamInfoResults = await Promise.allSettled(teamInfoPromises);
-      const teamInfos = teamInfoResults
-        .filter(result => result.status === 'fulfilled' && result.value !== null)
-        .map(result => (result as PromiseFulfilledResult<TeamInfo>).value);
+      const teamInfos = teamInfoResults.
+      filter((result) => result.status === 'fulfilled' && result.value !== null).
+      map((result) => (result as PromiseFulfilledResult<TeamInfo>).value);
 
       // Extract unique league IDs for Sleeper API calls
-      teamInfos.forEach(teamInfo => {
+      teamInfos.forEach((teamInfo) => {
         if (teamInfo.leagueId) {
           uniqueLeagueIds.add(teamInfo.leagueId);
         }
@@ -148,17 +148,17 @@ class MatchupDataPipeline {
       console.log(`📡 Fetching Sleeper data for ${uniqueLeagueIds.size} leagues`);
 
       // Step 4: Batch fetch all Sleeper data in parallel
-      const sleeperDataPromises = Array.from(uniqueLeagueIds).map(leagueId => 
-        this.getSleeperMatchupDataWithTimeout(leagueId, week).catch(error => {
-          console.warn(`⚠️ Failed to fetch Sleeper data for league ${leagueId}:`, error);
-          return { leagueId, data: [] };
-        })
+      const sleeperDataPromises = Array.from(uniqueLeagueIds).map((leagueId) =>
+      this.getSleeperMatchupDataWithTimeout(leagueId, week).catch((error) => {
+        console.warn(`⚠️ Failed to fetch Sleeper data for league ${leagueId}:`, error);
+        return { leagueId, data: [] };
+      })
       );
 
       const sleeperResults = await Promise.allSettled(sleeperDataPromises);
       const sleeperDataMap = new Map<string, SleeperMatchupData[]>();
-      
-      sleeperResults.forEach(result => {
+
+      sleeperResults.forEach((result) => {
         if (result.status === 'fulfilled' && result.value) {
           const { leagueId, data } = result.value;
           sleeperDataMap.set(leagueId, data);
@@ -167,25 +167,25 @@ class MatchupDataPipeline {
 
       // Step 5: Process all matchups in parallel with error isolation
       console.log(`⚡ Processing ${matchups.length} matchups in parallel`);
-      
-      const matchupPromises = matchups.map(matchup => 
-        this.processMatchupOptimized(matchup, week, sleeperDataMap).catch(error => {
-          console.error(`❌ Error processing matchup ${matchup.id}:`, error);
-          return null; // Return null for failed matchups to maintain error isolation
-        })
+
+      const matchupPromises = matchups.map((matchup) =>
+      this.processMatchupOptimized(matchup, week, sleeperDataMap).catch((error) => {
+        console.error(`❌ Error processing matchup ${matchup.id}:`, error);
+        return null; // Return null for failed matchups to maintain error isolation
+      })
       );
 
       const matchupResults = await Promise.allSettled(matchupPromises);
-      const processedMatchups = matchupResults
-        .filter(result => result.status === 'fulfilled' && result.value !== null)
-        .map(result => (result as PromiseFulfilledResult<ProcessedMatchup>).value);
+      const processedMatchups = matchupResults.
+      filter((result) => result.status === 'fulfilled' && result.value !== null).
+      map((result) => (result as PromiseFulfilledResult<ProcessedMatchup>).value);
 
       const endTime = Date.now();
       const processingTime = endTime - startTime;
-      
+
       console.log(`✅ Successfully processed ${processedMatchups.length}/${matchups.length} matchups in ${processingTime}ms`);
       console.log(`📈 Performance: ${(processingTime / matchups.length).toFixed(2)}ms per matchup`);
-      
+
       return processedMatchups;
 
     } catch (error) {
@@ -201,21 +201,21 @@ class MatchupDataPipeline {
   private async getMatchupsFromDatabase(week: number) {
     try {
       const response = await Promise.race([
-        window.ezsite.apis.tablePage('13329', {
-          PageNo: 1,
-          PageSize: 100,
-          OrderByField: 'id',
-          IsAsc: true,
-          Filters: [{
-            name: 'week',
-            op: 'Equal',
-            value: week
-          }]
-        }),
-        new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('Database query timeout')), this.REQUEST_TIMEOUT)
-        )
-      ]);
+      window.ezsite.apis.tablePage('13329', {
+        PageNo: 1,
+        PageSize: 100,
+        OrderByField: 'id',
+        IsAsc: true,
+        Filters: [{
+          name: 'week',
+          op: 'Equal',
+          value: week
+        }]
+      }),
+      new Promise((_, reject) =>
+      setTimeout(() => reject(new Error('Database query timeout')), this.REQUEST_TIMEOUT)
+      )]
+      );
 
       if (response.error) {
         throw new Error(`Failed to fetch matchups: ${response.error}`);
@@ -224,7 +224,7 @@ class MatchupDataPipeline {
       const matchups = response.data?.List || [];
       console.log(`📋 Retrieved ${matchups.length} matchup records from database`);
       return matchups;
-      
+
     } catch (error) {
       console.error(`❌ Database query failed for week ${week}:`, error);
       throw error;
@@ -235,24 +235,21 @@ class MatchupDataPipeline {
    * OPTIMIZED: Process individual matchup with pre-loaded data
    */
   private async processMatchupOptimized(
-    matchupRecord: any, 
-    week: number, 
-    sleeperDataMap: Map<string, SleeperMatchupData[]>
-  ): Promise<ProcessedMatchup> {
+  matchupRecord: any,
+  week: number,
+  sleeperDataMap: Map<string, SleeperMatchupData[]>)
+  : Promise<ProcessedMatchup> {
     console.log(`⚡ Processing matchup ${matchupRecord.id}: Team ${matchupRecord.team_1_id} vs Team ${matchupRecord.team_2_id}`);
 
     try {
       // Get team information (should be cached from batch operation)
       const [team1Info, team2Info] = await Promise.all([
-        this.getTeamInfoFromCache(matchupRecord.team_1_id, matchupRecord.conference_id),
-        this.getTeamInfoFromCache(matchupRecord.team_2_id, matchupRecord.conference_id)
-      ]);
+      this.getTeamInfoFromCache(matchupRecord.team_1_id, matchupRecord.conference_id),
+      this.getTeamInfoFromCache(matchupRecord.team_2_id, matchupRecord.conference_id)]
+      );
 
-      if (!team1Info) {
-        throw new Error(`Missing team info for team ${matchupRecord.team_1_id} in conference ${matchupRecord.conference_id}`);
-      }
-      if (!team2Info) {
-        throw new Error(`Missing team info for team ${matchupRecord.team_2_id} in conference ${matchupRecord.conference_id}`);
+      if (!team1Info || !team2Info) {
+        throw new Error(`Missing team info for matchup ${matchupRecord.id}`);
       }
 
       // Get pre-loaded Sleeper data
@@ -265,9 +262,9 @@ class MatchupDataPipeline {
 
       // Map Sleeper data to teams
       const [team1SleeperData, team2SleeperData] = await Promise.all([
-        this.findSleeperDataForTeam(sleeperMatchups, team1Info),
-        this.findSleeperDataForTeam(sleeperMatchups, team2Info)
-      ]);
+      this.findSleeperDataForTeam(sleeperMatchups, team1Info),
+      this.findSleeperDataForTeam(sleeperMatchups, team2Info)]
+      );
 
       if (!team1SleeperData || !team2SleeperData) {
         throw new Error(`Could not find Sleeper data for both teams in matchup ${matchupRecord.id}`);
@@ -275,9 +272,9 @@ class MatchupDataPipeline {
 
       // Process team data in parallel
       const [team1Processed, team2Processed] = await Promise.all([
-        this.processTeamMatchupDataOptimized(team1Info, team1SleeperData),
-        this.processTeamMatchupDataOptimized(team2Info, team2SleeperData)
-      ]);
+      this.processTeamMatchupDataOptimized(team1Info, team1SleeperData),
+      this.processTeamMatchupDataOptimized(team2Info, team2SleeperData)]
+      );
 
       // Determine winner
       let winner: ProcessedTeamMatchupData | undefined;
@@ -296,7 +293,7 @@ class MatchupDataPipeline {
         status: matchupRecord.status || 'pending',
         winner
       };
-      
+
     } catch (error) {
       console.error(`❌ Failed to process matchup ${matchupRecord.id}:`, error);
       throw error;
@@ -379,11 +376,11 @@ class MatchupDataPipeline {
   private async getTeamInfoFromCache(teamId: number, conferenceId: number): Promise<TeamInfo | null> {
     const cacheKey = `${teamId}-${conferenceId}`;
     const cached = this.getCacheEntry(this.teamInfoCache, cacheKey);
-    
+
     if (cached) {
       return cached;
     }
-    
+
     // If not in cache, try to fetch (this should ideally not happen with batch loading)
     try {
       return await this.getTeamInfoBatched(teamId, conferenceId);
@@ -399,7 +396,7 @@ class MatchupDataPipeline {
   private async getTeamInfoBatched(teamId: number, conferenceId: number): Promise<TeamInfo> {
     const cacheKey = `${teamId}-${conferenceId}`;
     const cached = this.getCacheEntry(this.teamInfoCache, cacheKey);
-    
+
     if (cached) {
       return cached;
     }
@@ -409,31 +406,31 @@ class MatchupDataPipeline {
     try {
       // Batch all required queries in parallel with timeout
       const [teamResponse, conferenceResponse, junctionResponse] = await Promise.race([
-        Promise.all([
-          window.ezsite.apis.tablePage('12852', {
-            PageNo: 1,
-            PageSize: 1,
-            Filters: [{ name: 'id', op: 'Equal', value: teamId }]
-          }),
-          window.ezsite.apis.tablePage('12820', {
-            PageNo: 1,
-            PageSize: 1,
-            Filters: [{ name: 'id', op: 'Equal', value: conferenceId }]
-          }),
-          window.ezsite.apis.tablePage('12853', {
-            PageNo: 1,
-            PageSize: 1,
-            Filters: [
-              { name: 'team_id', op: 'Equal', value: teamId },
-              { name: 'conference_id', op: 'Equal', value: conferenceId },
-              { name: 'is_active', op: 'Equal', value: true }
-            ]
-          })
-        ]),
-        new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('Team info query timeout')), this.REQUEST_TIMEOUT)
-        )
-      ]);
+      Promise.all([
+      window.ezsite.apis.tablePage('12852', {
+        PageNo: 1,
+        PageSize: 1,
+        Filters: [{ name: 'id', op: 'Equal', value: teamId }]
+      }),
+      window.ezsite.apis.tablePage('12820', {
+        PageNo: 1,
+        PageSize: 1,
+        Filters: [{ name: 'id', op: 'Equal', value: conferenceId }]
+      }),
+      window.ezsite.apis.tablePage('12853', {
+        PageNo: 1,
+        PageSize: 1,
+        Filters: [
+        { name: 'team_id', op: 'Equal', value: teamId },
+        { name: 'conference_id', op: 'Equal', value: conferenceId },
+        { name: 'is_active', op: 'Equal', value: true }]
+
+      })]
+      ),
+      new Promise((_, reject) =>
+      setTimeout(() => reject(new Error('Team info query timeout')), this.REQUEST_TIMEOUT)
+      )]
+      );
 
       // Validate all responses with detailed error info
       if (teamResponse.error || !teamResponse.data?.List?.[0]) {
@@ -450,22 +447,22 @@ class MatchupDataPipeline {
       }
 
       const [team, conference, junction] = [
-        teamResponse.data.List[0],
-        conferenceResponse.data.List[0],
-        junctionResponse.data.List[0]
-      ];
+      teamResponse.data.List[0],
+      conferenceResponse.data.List[0],
+      junctionResponse.data.List[0]];
+
 
       // Get season info using the correct table ID
       const seasonResponse = await Promise.race([
-        window.ezsite.apis.tablePage('12818', {
-          PageNo: 1,
-          PageSize: 1,
-          Filters: [{ name: 'id', op: 'Equal', value: conference.season_id }]
-        }),
-        new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('Season query timeout')), this.REQUEST_TIMEOUT)
-        )
-      ]);
+      window.ezsite.apis.tablePage('12818', {
+        PageNo: 1,
+        PageSize: 1,
+        Filters: [{ name: 'id', op: 'Equal', value: conference.season_id }]
+      }),
+      new Promise((_, reject) =>
+      setTimeout(() => reject(new Error('Season query timeout')), this.REQUEST_TIMEOUT)
+      )]
+      );
 
       if (seasonResponse.error || !seasonResponse.data?.List?.[0]) {
         console.error(`Season query failed for ID ${conference.season_id}:`, seasonResponse.error, seasonResponse.data);
@@ -491,7 +488,7 @@ class MatchupDataPipeline {
       console.log(`✅ Team info cached for ${teamInfo.teamName} (${teamInfo.rosterId})`);
 
       return teamInfo;
-      
+
     } catch (error) {
       console.error(`❌ Error fetching team info for ${teamId}-${conferenceId}:`, error);
       throw error;
@@ -588,10 +585,10 @@ class MatchupDataPipeline {
   /**
    * OPTIMIZED: Get matchup data from Sleeper API with caching and timeout
    */
-  private async getSleeperMatchupDataWithTimeout(leagueId: string, week: number): Promise<{leagueId: string, data: SleeperMatchupData[]}> {
+  private async getSleeperMatchupDataWithTimeout(leagueId: string, week: number): Promise<{leagueId: string;data: SleeperMatchupData[];}> {
     const cacheKey = `${leagueId}-${week}`;
     const cached = this.getCacheEntry(this.sleeperDataCache, cacheKey);
-    
+
     if (cached) {
       console.log(`📂 Using cached Sleeper data for league ${leagueId}, week ${week}`);
       return { leagueId, data: cached };
@@ -607,7 +604,7 @@ class MatchupDataPipeline {
         `https://api.sleeper.app/v1/league/${leagueId}/matchups/${week}`,
         { signal: controller.signal }
       );
-      
+
       clearTimeout(timeoutId);
 
       if (!response.ok) {
@@ -619,9 +616,9 @@ class MatchupDataPipeline {
 
       // Cache the result
       this.setCacheEntry(this.sleeperDataCache, cacheKey, data, this.CACHE_TTL.SLEEPER_DATA);
-      
+
       return { leagueId, data };
-      
+
     } catch (error) {
       if (error.name === 'AbortError') {
         console.error(`⏰ Timeout fetching Sleeper data for league ${leagueId}, week ${week}`);
@@ -668,7 +665,7 @@ class MatchupDataPipeline {
 
     // Collect all unique player IDs
     const allPlayerIds = [...new Set([...sleeperData.starters, ...sleeperData.players])];
-    
+
     // Batch fetch player names
     const playerNamesMap = await this.getBatchPlayerNames(allPlayerIds);
 
@@ -699,10 +696,10 @@ class MatchupDataPipeline {
   /**
    * OPTIMIZED: Batch fetch player names to reduce API calls
    */
-  private async getBatchPlayerNames(playerIds: string[]): Promise<{[key: string]: string}> {
+  private async getBatchPlayerNames(playerIds: string[]): Promise<{[key: string]: string;}> {
     if (playerIds.length === 0) return {};
 
-    const result: {[key: string]: string} = {};
+    const result: {[key: string]: string;} = {};
     const uncachedIds: string[] = [];
 
     // Check cache first
@@ -727,7 +724,7 @@ class MatchupDataPipeline {
       if (uncachedIds.length > 0) {
         const dbPlayers = await this.getBatchPlayerNamesFromDatabase(uncachedIds);
         Object.assign(result, dbPlayers);
-        
+
         // Cache database results
         Object.entries(dbPlayers).forEach(([playerId, playerName]) => {
           this.setCacheEntry(this.playerCache, playerId, playerName, this.CACHE_TTL.PLAYER_NAME);
@@ -735,11 +732,11 @@ class MatchupDataPipeline {
       }
 
       // For any players still not found, try Sleeper API batch
-      const stillMissing = uncachedIds.filter(id => !result[id]);
+      const stillMissing = uncachedIds.filter((id) => !result[id]);
       if (stillMissing.length > 0) {
         const sleeperPlayers = await this.getBatchPlayerNamesFromSleeper(stillMissing);
         Object.assign(result, sleeperPlayers);
-        
+
         // Cache Sleeper results
         Object.entries(sleeperPlayers).forEach(([playerId, playerName]) => {
           this.setCacheEntry(this.playerCache, playerId, playerName, this.CACHE_TTL.PLAYER_NAME);
@@ -747,7 +744,7 @@ class MatchupDataPipeline {
       }
 
       // Fill in fallback names for any remaining missing players
-      uncachedIds.forEach(playerId => {
+      uncachedIds.forEach((playerId) => {
         if (!result[playerId]) {
           const fallbackName = `Player ${playerId}`;
           result[playerId] = fallbackName;
@@ -757,19 +754,19 @@ class MatchupDataPipeline {
 
       console.log(`✅ Resolved ${Object.keys(result).length} player names`);
       return result;
-      
+
     } catch (error) {
       console.error('❌ Error in batch player name resolution:', error);
-      
+
       // Fallback: provide default names for all uncached players
-      uncachedIds.forEach(playerId => {
+      uncachedIds.forEach((playerId) => {
         if (!result[playerId]) {
           const fallbackName = `Player ${playerId}`;
           result[playerId] = fallbackName;
           this.setCacheEntry(this.playerCache, playerId, fallbackName, this.CACHE_TTL.PLAYER_NAME);
         }
       });
-      
+
       return result;
     }
   }
@@ -777,27 +774,22 @@ class MatchupDataPipeline {
   /**
    * OPTIMIZED: Batch fetch player names from database
    */
-  private async getBatchPlayerNamesFromDatabase(playerIds: string[]): Promise<{[key: string]: string}> {
+  private async getBatchPlayerNamesFromDatabase(playerIds: string[]): Promise<{[key: string]: string;}> {
     if (playerIds.length === 0) return {};
 
     try {
       // Note: This is a simplified approach. In a real implementation,
       // you might want to use a more sophisticated query with IN clause
-      const promises = playerIds.slice(0, 50).map(playerId => // Limit batch size
-        Promise.race([
-          window.ezsite.apis.tablePage('12870', {
-            PageNo: 1,
-            PageSize: 1,
-            Filters: [{ name: 'sleeper_player_id', op: 'Equal', value: playerId }]
-          }),
-          new Promise((resolve) => 
-            setTimeout(() => resolve({ data: { List: [] } }), 3000) // 3 second timeout per query
-          )
-        ]).catch(() => ({ data: { List: [] } })) // Handle errors gracefully
+      const promises = playerIds.slice(0, 50).map((playerId) => // Limit batch size
+      window.ezsite.apis.tablePage('12870', {
+        PageNo: 1,
+        PageSize: 1,
+        Filters: [{ name: 'sleeper_player_id', op: 'Equal', value: playerId }]
+      }).catch(() => ({ data: { List: [] } })) // Handle errors gracefully
       );
 
       const responses = await Promise.all(promises);
-      const result: {[key: string]: string} = {};
+      const result: {[key: string]: string;} = {};
 
       responses.forEach((response, index) => {
         if (response.data?.List?.[0]) {
@@ -808,7 +800,7 @@ class MatchupDataPipeline {
 
       console.log(`📊 Found ${Object.keys(result).length}/${playerIds.length} players in database`);
       return result;
-      
+
     } catch (error) {
       console.warn('⚠️ Error fetching player names from database:', error);
       return {};
@@ -818,7 +810,7 @@ class MatchupDataPipeline {
   /**
    * OPTIMIZED: Batch fetch player names from Sleeper API
    */
-  private async getBatchPlayerNamesFromSleeper(playerIds: string[]): Promise<{[key: string]: string}> {
+  private async getBatchPlayerNamesFromSleeper(playerIds: string[]): Promise<{[key: string]: string;}> {
     if (playerIds.length === 0) return {};
 
     const cacheKey = 'sleeper-players-batch';
@@ -827,14 +819,14 @@ class MatchupDataPipeline {
     if (!allPlayers) {
       try {
         console.log('📡 Fetching complete player database from Sleeper API');
-        
+
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), this.REQUEST_TIMEOUT * 2); // Longer timeout for batch
 
         const response = await fetch('https://api.sleeper.app/v1/players/nfl', {
           signal: controller.signal
         });
-        
+
         clearTimeout(timeoutId);
 
         if (response.ok) {
@@ -850,9 +842,9 @@ class MatchupDataPipeline {
       }
     }
 
-    const result: {[key: string]: string} = {};
-    
-    playerIds.forEach(playerId => {
+    const result: {[key: string]: string;} = {};
+
+    playerIds.forEach((playerId) => {
       if (allPlayers[playerId]) {
         const player = allPlayers[playerId];
         result[playerId] = player.full_name || `${player.first_name || ''} ${player.last_name || ''}`.trim() || `Player ${playerId}`;
@@ -978,28 +970,28 @@ class MatchupDataPipeline {
 
   private clearExpiredCaches(): void {
     const now = Date.now();
-    
+
     // Clear expired player cache entries
     for (const [key, entry] of this.playerCache.entries()) {
       if (now - entry.timestamp >= entry.ttl) {
         this.playerCache.delete(key);
       }
     }
-    
+
     // Clear expired team info cache entries
     for (const [key, entry] of this.teamInfoCache.entries()) {
       if (now - entry.timestamp >= entry.ttl) {
         this.teamInfoCache.delete(key);
       }
     }
-    
+
     // Clear expired sleeper data cache entries
     for (const [key, entry] of this.sleeperDataCache.entries()) {
       if (now - entry.timestamp >= entry.ttl) {
         this.sleeperDataCache.delete(key);
       }
     }
-    
+
     // Clear expired batched player cache entries
     for (const [key, entry] of this.batchedPlayerCache.entries()) {
       if (now - entry.timestamp >= entry.ttl) {
