@@ -2177,25 +2177,21 @@ class MatchupService {
 
       const dbMatchups = response.data.List as DatabaseMatchup[];
 
-      // Only filter by conference IDs in memory if specific conferences are requested
-      const filteredMatchups = conferenceIds.length > 0 ?
-      dbMatchups.filter((m) => conferenceIds.includes(m.conference_id)) :
-      dbMatchups;
-
-      console.log(`✅ Found ${filteredMatchups.length} database matchups for week ${week} (${dbMatchups.length} total league-wide)`);
+      console.log(`✅ Found ${dbMatchups.length} database matchups for week ${week} (league-wide mode - filtering will be done later)`);
 
       // Debug: Log data transformation and validation
       if (this.debugMode) {
-        matchupDataFlowDebugger.logDataTransformation(traceId, 'database', 'hybrid_service', null, filteredMatchups);
+        matchupDataFlowDebugger.logDataTransformation(traceId, 'database', 'hybrid_service', null, dbMatchups);
         matchupDataFlowDebugger.performConsistencyCheck(traceId, 'data_integrity',
-        { expectedFilteredCount: conferenceIds.length * 6, totalAvailable: dbMatchups.length },
-        { actualFilteredCount: filteredMatchups.length, leagueWideCount: dbMatchups.length }
+        { totalAvailable: dbMatchups.length, leagueWideMode: true },
+        { actualMatchups: dbMatchups.length, weekNumber: week }
         );
         matchupDataFlowDebugger.completeStep(traceId, stepId);
         matchupDataFlowDebugger.completeTrace(traceId);
       }
 
-      return filteredMatchups;
+      // Return all matchups - filtering will be done in getHybridMatchups
+      return dbMatchups;
     } catch (error) {
       console.error('❌ Error fetching database matchups:', error);
 
@@ -2826,12 +2822,11 @@ class MatchupService {
       console.log(`📊 League-wide database matchups: ${databaseMatchups.length}`);
       console.log(`🔗 Comprehensive team mappings: ${teamMap.size}`);
 
-      // Filter to requested conferences only after fetching all data
-      const relevantMatchups = conferenceIds.length > 0 ?
-      databaseMatchups.filter((m) => conferenceIds.includes(m.conference_id)) :
-      databaseMatchups;
+      // Use all database matchups - no filtering by conference to support cross-conference matchups
+      const relevantMatchups = databaseMatchups;
 
-      console.log(`🎯 Relevant matchups for processing: ${relevantMatchups.length}`);
+      console.log(`🎯 All matchups available for processing: ${relevantMatchups.length}`);
+      console.log(`🌐 Cross-conference matchups enabled - processing all matchups for week ${week}`);
 
       const hybridMatchups: HybridMatchup[] = [];
       const processedConferences = new Set<number>();
@@ -3561,14 +3556,14 @@ class MatchupService {
    * Ensures roster IDs are current, correct, and consistently mapped
    */
   async performPreProcessingValidation(
-    conferenceIds: number[],
-    options: {
-      enforceStrictValidation?: boolean;
-      enableProgressiveRetry?: boolean;
-      bypassCache?: boolean;
-      validateOwnership?: boolean;
-    } = {}
-  ): Promise<{
+  conferenceIds: number[],
+  options: {
+    enforceStrictValidation?: boolean;
+    enableProgressiveRetry?: boolean;
+    bypassCache?: boolean;
+    validateOwnership?: boolean;
+  } = {})
+  : Promise<{
     isValid: boolean;
     validationLevel: 'strict' | 'standard' | 'minimal';
     rosterMappingsValidated: number;
@@ -3578,15 +3573,15 @@ class MatchupService {
   }> {
     const validationId = `pre_validation_${Date.now()}`;
     console.log('🛡️ ROSTER MAPPING ENGINE: Starting pre-processing validation...');
-    
+
     const issues: ValidationError[] = [];
     const recommendedActions: string[] = [];
     let rosterMappingsValidated = 0;
-    
+
     try {
       // Step 1: Validate roster ID currency and correctness
       const currentMappings = await this.validateRosterIdCurrency(conferenceIds, options.bypassCache);
-      
+
       // Step 2: Check for stale or incorrect mappings
       const staleMappingCheck = await this.detectStaleMappings(conferenceIds);
       if (!staleMappingCheck.isValid) {
@@ -3598,7 +3593,7 @@ class MatchupService {
         });
         recommendedActions.push('Refresh stale roster mappings before proceeding');
       }
-      
+
       // Step 3: Ownership validation if enabled
       if (options.validateOwnership) {
         const ownershipValidation = await this.validateCurrentOwnership(conferenceIds);
@@ -3607,11 +3602,11 @@ class MatchupService {
           recommendedActions.push('Resolve ownership inconsistencies');
         }
       }
-      
+
       // Step 4: Mapping consistency verification
       const consistencyCheck = await this.verifyMappingConsistency(conferenceIds);
       rosterMappingsValidated = consistencyCheck.validatedCount;
-      
+
       if (!consistencyCheck.isValid) {
         issues.push({
           type: 'high',
@@ -3620,16 +3615,16 @@ class MatchupService {
           context: consistencyCheck.details
         });
       }
-      
-      const criticalIssues = issues.filter(i => i.type === 'critical').length;
-      const highIssues = issues.filter(i => i.type === 'high').length;
-      
+
+      const criticalIssues = issues.filter((i) => i.type === 'critical').length;
+      const highIssues = issues.filter((i) => i.type === 'high').length;
+
       const isValid = criticalIssues === 0 && (options.enforceStrictValidation ? highIssues === 0 : true);
       const canProceedWithCaution = criticalIssues === 0 && highIssues < 3;
-      
-      const validationLevel = options.enforceStrictValidation ? 'strict' : 
-                              (highIssues === 0 ? 'standard' : 'minimal');
-      
+
+      const validationLevel = options.enforceStrictValidation ? 'strict' :
+      highIssues === 0 ? 'standard' : 'minimal';
+
       console.log(`${isValid ? '✅' : '❌'} Pre-processing validation completed:`, {
         isValid,
         validationLevel,
@@ -3637,7 +3632,7 @@ class MatchupService {
         highIssues,
         rosterMappingsValidated
       });
-      
+
       return {
         isValid,
         validationLevel,
@@ -3646,7 +3641,7 @@ class MatchupService {
         recommendedActions,
         canProceedWithCaution
       };
-      
+
     } catch (error) {
       console.error('❌ Pre-processing validation failed:', error);
       issues.push({
@@ -3655,7 +3650,7 @@ class MatchupService {
         message: `Pre-processing validation system failure: ${error}`,
         context: { validationId, conferenceIds }
       });
-      
+
       return {
         isValid: false,
         validationLevel: 'minimal',
@@ -3666,16 +3661,16 @@ class MatchupService {
       };
     }
   }
-  
+
   /**
    * ROSTER MAPPING ENGINE REINFORCEMENT: Cross-Conference Verification
    * Implements validation for inter-conference matchups
    * Ensures teams from different conferences are correctly mapped
    */
   async performCrossConferenceVerification(
-    conferenceIds: number[],
-    enableInterConferenceSupport: boolean = true
-  ): Promise<{
+  conferenceIds: number[],
+  enableInterConferenceSupport: boolean = true)
+  : Promise<{
     isValid: boolean;
     interConferenceMatchupsFound: number;
     validationResults: any[];
@@ -3683,64 +3678,64 @@ class MatchupService {
     conflictResolutions: string[];
   }> {
     console.log('🌐 ROSTER MAPPING ENGINE: Cross-conference verification starting...');
-    
+
     const validationResults: any[] = [];
     const crossConferenceMappings = new Map<string, any>();
     const conflictResolutions: string[] = [];
     let interConferenceMatchupsFound = 0;
-    
+
     try {
       // Get all conferences and their mappings
       const conferences = await this.fetchConferences(conferenceIds);
       const allMappings = await this.buildComprehensiveConferenceMappings(conferences);
-      
+
       // Validate cross-conference team assignments
       for (const conference1 of conferences) {
         for (const conference2 of conferences) {
           if (conference1.id >= conference2.id) continue; // Avoid duplicates
-          
+
           const crossValidation = await this.validateConferencePairMappings(
             conference1,
             conference2,
             allMappings,
             enableInterConferenceSupport
           );
-          
+
           validationResults.push(crossValidation);
-          
+
           if (crossValidation.interConferenceMatchups > 0) {
             interConferenceMatchupsFound += crossValidation.interConferenceMatchups;
-            
+
             // Store cross-conference mappings
             crossValidation.mappings.forEach((mapping: any, key: string) => {
               crossConferenceMappings.set(key, mapping);
             });
           }
-          
+
           if (crossValidation.conflicts.length > 0) {
             conflictResolutions.push(...crossValidation.resolutions);
           }
         }
       }
-      
+
       // Store cross-conference verification results
       this.crossConferenceVerifier.set('last_verification', {
         timestamp: new Date(),
         conferenceIds,
         interConferenceMatchupsFound,
-        validationsPassed: validationResults.filter(v => v.isValid).length,
+        validationsPassed: validationResults.filter((v) => v.isValid).length,
         totalValidations: validationResults.length
       });
-      
-      const isValid = validationResults.every(v => v.isValid);
-      
+
+      const isValid = validationResults.every((v) => v.isValid);
+
       console.log(`${isValid ? '✅' : '❌'} Cross-conference verification completed:`, {
         isValid,
         interConferenceMatchupsFound,
         validationsPerformed: validationResults.length,
         conflictsResolved: conflictResolutions.length
       });
-      
+
       return {
         isValid,
         interConferenceMatchupsFound,
@@ -3748,7 +3743,7 @@ class MatchupService {
         crossConferenceMappings,
         conflictResolutions
       };
-      
+
     } catch (error) {
       console.error('❌ Cross-conference verification failed:', error);
       return {
@@ -3760,21 +3755,21 @@ class MatchupService {
       };
     }
   }
-  
+
   /**
    * ROSTER MAPPING ENGINE REINFORCEMENT: Dynamic Mapping Refresh
    * Ability to force-refresh team mappings when inconsistencies are detected
    */
   async performDynamicMappingRefresh(
-    triggeredBy: 'inconsistency_detected' | 'manual_request' | 'scheduled_maintenance' | 'validation_failure',
-    targetRosterIds: string[] = [],
-    options: {
-      fullRefresh?: boolean;
-      validateAfterRefresh?: boolean;
-      enableRollback?: boolean;
-      priority?: 'low' | 'normal' | 'high' | 'critical';
-    } = {}
-  ): Promise<{
+  triggeredBy: 'inconsistency_detected' | 'manual_request' | 'scheduled_maintenance' | 'validation_failure',
+  targetRosterIds: string[] = [],
+  options: {
+    fullRefresh?: boolean;
+    validateAfterRefresh?: boolean;
+    enableRollback?: boolean;
+    priority?: 'low' | 'normal' | 'high' | 'critical';
+  } = {})
+  : Promise<{
     success: boolean;
     refreshedMappings: number;
     validationsPassed: boolean;
@@ -3789,71 +3784,71 @@ class MatchupService {
       targetRosterIds: targetRosterIds.length,
       options
     });
-    
+
     const recommendations: string[] = [];
     let rollbackId: string | undefined;
-    
+
     try {
       // Create rollback point if enabled
       if (options.enableRollback) {
         rollbackId = await this.createMappingRollbackPoint(refreshId);
       }
-      
+
       // Add to refresh queue for batch processing
       this.dynamicMappingRefreshQueue.add(refreshId);
-      
+
       let refreshedMappings = 0;
       let refreshDetails: any = {};
-      
+
       if (options.fullRefresh || targetRosterIds.length === 0) {
         // Full system refresh
         console.log('🔄 Performing full mapping system refresh...');
-        
+
         // Clear all caches
         this.clearAllMappingCaches();
-        
+
         // Rebuild all mappings from scratch
         const rebuildResult = await this.rebuildAllMappingsFromSource();
         refreshedMappings = rebuildResult.mappingsCreated;
         refreshDetails = rebuildResult.details;
-        
+
         recommendations.push('Full system refresh completed - verify all team assignments');
-        
+
       } else {
         // Targeted refresh for specific rosters
         console.log(`🎯 Performing targeted refresh for ${targetRosterIds.length} rosters...`);
-        
+
         const targetedResult = await this.refreshSpecificRosterMappings(targetRosterIds);
         refreshedMappings = targetedResult.refreshedCount;
         refreshDetails = targetedResult.details;
-        
+
         recommendations.push(`Targeted refresh completed for ${refreshedMappings} roster mappings`);
       }
-      
+
       // Post-refresh validation if enabled
       let validationsPassed = true;
       if (options.validateAfterRefresh) {
         console.log('🔍 Performing post-refresh validation...');
         const validation = await this.validateRefreshedMappings(refreshId, targetRosterIds);
         validationsPassed = validation.isValid;
-        
+
         if (!validationsPassed) {
           recommendations.push('Post-refresh validation failed - manual review required');
-          
+
           if (rollbackId) {
             recommendations.push(`Rollback available: ${rollbackId}`);
           }
         }
       }
-      
+
       // Update refresh tracking
       this.mappingConsistencyTracker.set(refreshId, new Date());
-      
+
       // Remove from refresh queue
       this.dynamicMappingRefreshQueue.delete(refreshId);
-      
+
       const success = refreshedMappings > 0 && validationsPassed;
-      
+
       console.log(`${success ? '✅' : '❌'} Dynamic mapping refresh completed:`, {
         success,
         refreshedMappings,
@@ -3861,7 +3856,7 @@ class MatchupService {
         triggeredBy,
         priority: options.priority || 'normal'
       });
-      
+
       return {
         success,
         refreshedMappings,
@@ -3870,18 +3865,18 @@ class MatchupService {
         refreshDetails,
         recommendations
       };
-      
+
     } catch (error) {
       console.error('❌ Dynamic mapping refresh failed:', error);
-      
+
       // Attempt rollback if available
       if (rollbackId) {
         await this.performMappingRollback(rollbackId);
         recommendations.push(`Rollback performed due to refresh failure: ${rollbackId}`);
       }
-      
+
       this.dynamicMappingRefreshQueue.delete(refreshId);
-      
+
       return {
         success: false,
         refreshedMappings: 0,
@@ -3892,7 +3887,7 @@ class MatchupService {
       };
     }
   }
-  
+
   /**
    * Enhanced team-specific data fetching with validation for manual overrides
    */
@@ -4092,14 +4087,14 @@ class MatchupService {
    * Implements multiple validation layers with progressive fallback options
    */
   async performFallbackValidation(
-    primaryValidationResult: ValidationResult,
-    options: {
-      enableProgressiveFallback?: boolean;
-      maxFallbackLayers?: number;
-      fallbackStrategies?: string[];
-      emergencyMode?: boolean;
-    } = {}
-  ): Promise<{
+  primaryValidationResult: ValidationResult,
+  options: {
+    enableProgressiveFallback?: boolean;
+    maxFallbackLayers?: number;
+    fallbackStrategies?: string[];
+    emergencyMode?: boolean;
+  } = {})
+  : Promise<{
     finalValidationResult: ValidationResult;
     fallbackLayersUsed: number;
     fallbackStrategies: string[];
@@ -4107,19 +4102,19 @@ class MatchupService {
     recommendedRecoveryActions: string[];
   }> {
     console.log('🔄 ROSTER MAPPING ENGINE: Fallback validation initiated...');
-    
+
     const maxLayers = options.maxFallbackLayers || 3;
     const fallbackStrategies: string[] = [];
     const recommendedRecoveryActions: string[] = [];
     let fallbackLayersUsed = 0;
     let emergencyFallbackApplied = false;
     let currentValidationResult = primaryValidationResult;
-    
+
     try {
       // Layer 1: Cache-based fallback validation
       if (!currentValidationResult.isValid && fallbackLayersUsed < maxLayers) {
         console.log('🔄 Fallback Layer 1: Cache-based validation...');
-        
+
         const cacheValidation = await this.performCacheBasedValidation();
         if (cacheValidation.isValid) {
           currentValidationResult = cacheValidation;
@@ -4129,11 +4124,11 @@ class MatchupService {
           recommendedRecoveryActions.push('Clear and rebuild validation cache');
         }
       }
-      
+
       // Layer 2: Historical data fallback
       if (!currentValidationResult.isValid && fallbackLayersUsed < maxLayers) {
         console.log('🔄 Fallback Layer 2: Historical data validation...');
-        
+
         const historicalValidation = await this.performHistoricalDataValidation();
         if (historicalValidation.isValid) {
           currentValidationResult = historicalValidation;
@@ -4143,11 +4138,11 @@ class MatchupService {
           recommendedRecoveryActions.push('Review historical data consistency');
         }
       }
-      
+
       // Layer 3: Emergency mapping reconstruction
       if (!currentValidationResult.isValid && fallbackLayersUsed < maxLayers) {
         console.log('🔄 Fallback Layer 3: Emergency mapping reconstruction...');
-        
+
         const emergencyValidation = await this.performEmergencyMappingReconstruction();
         if (emergencyValidation.isValid) {
           currentValidationResult = emergencyValidation;
@@ -4158,19 +4153,19 @@ class MatchupService {
           recommendedRecoveryActions.push('Manual intervention required - system integrity compromised');
         }
       }
-      
+
       // Progressive fallback tracking
       if (options.enableProgressiveFallback) {
         this.fallbackValidationLayers.set(`fallback_${Date.now()}`, fallbackLayersUsed);
       }
-      
+
       console.log(`${currentValidationResult.isValid ? '✅' : '❌'} Fallback validation completed:`, {
         finalResult: currentValidationResult.isValid,
         fallbackLayersUsed,
         strategiesUsed: fallbackStrategies,
         emergencyFallbackApplied
       });
-      
+
       return {
         finalValidationResult: currentValidationResult,
         fallbackLayersUsed,
@@ -4178,10 +4173,10 @@ class MatchupService {
         emergencyFallbackApplied,
         recommendedRecoveryActions
       };
-      
+
     } catch (error) {
       console.error('❌ Fallback validation system failure:', error);
-      
+
       return {
         finalValidationResult: {
           isValid: false,
@@ -4203,21 +4198,21 @@ class MatchupService {
       };
     }
   }
-  
+
   /**
    * ROSTER MAPPING ENGINE REINFORCEMENT: Scoring Data Integrity
    * Verification that scoring data matches expected roster composition
    */
   async performScoringDataIntegrityCheck(
-    matchupData: any[],
-    teamMappings: Map<string, any>,
-    options: {
-      strictCompositionCheck?: boolean;
-      validatePlayerEligibility?: boolean;
-      checkStarterCompliance?: boolean;
-      enableDataCorrection?: boolean;
-    } = {}
-  ): Promise<{
+  matchupData: any[],
+  teamMappings: Map<string, any>,
+  options: {
+    strictCompositionCheck?: boolean;
+    validatePlayerEligibility?: boolean;
+    checkStarterCompliance?: boolean;
+    enableDataCorrection?: boolean;
+  } = {})
+  : Promise<{
     integrityPassed: boolean;
     validatedMatchups: number;
     integrityIssues: any[];
@@ -4225,11 +4220,11 @@ class MatchupService {
     complianceReport: any;
   }> {
     console.log('🎯 ROSTER MAPPING ENGINE: Scoring data integrity check...');
-    
+
     const integrityIssues: any[] = [];
     const dataCorrections: any[] = [];
     let validatedMatchups = 0;
-    
+
     try {
       for (const matchup of matchupData) {
         const integrity = await this.validateMatchupScoringIntegrity(
@@ -4237,9 +4232,9 @@ class MatchupService {
           teamMappings,
           options
         );
-        
+
         validatedMatchups++;
-        
+
         if (!integrity.isValid) {
           integrityIssues.push({
             matchupId: matchup.id || matchup.matchup_id,
@@ -4248,7 +4243,7 @@ class MatchupService {
             suggestedCorrections: integrity.corrections
           });
         }
-        
+
         if (options.enableDataCorrection && integrity.corrections.length > 0) {
           const corrections = await this.applyScoringDataCorrections(
             matchup,
@@ -4256,29 +4251,29 @@ class MatchupService {
           );
           dataCorrections.push(...corrections);
         }
-        
+
         // Track integrity check status
         this.scoringDataIntegrityChecks.set(
           `${matchup.id || matchup.matchup_id}`,
           integrity.isValid
         );
       }
-      
+
       const complianceReport = this.generateScoringComplianceReport(
         validatedMatchups,
         integrityIssues,
         dataCorrections
       );
-      
-      const integrityPassed = integrityIssues.filter(i => i.severity === 'critical').length === 0;
-      
+
+      const integrityPassed = integrityIssues.filter((i) => i.severity === 'critical').length === 0;
+
       console.log(`${integrityPassed ? '✅' : '❌'} Scoring data integrity check completed:`, {
         integrityPassed,
         validatedMatchups,
         issuesFound: integrityIssues.length,
         correctionsApplied: dataCorrections.length
       });
-      
+
       return {
         integrityPassed,
         validatedMatchups,
@@ -4286,7 +4281,7 @@ class MatchupService {
         dataCorrections,
         complianceReport
       };
-      
+
     } catch (error) {
       console.error('❌ Scoring data integrity check failed:', error);
       return {
@@ -4303,26 +4298,26 @@ class MatchupService {
       };
     }
   }
-  
+
   /**
    * ROSTER MAPPING ENGINE REINFORCEMENT: Manual Override Safeguards
    * Additional validation for manual overrides to prevent incorrect associations
    */
   async validateManualOverrideSafeguards(
-    overrideRequest: {
-      type: 'team_assignment' | 'scoring_override' | 'roster_mapping' | 'matchup_assignment';
-      targetId: string;
-      newValue: any;
-      reason: string;
-      requestedBy: string;
-    },
-    options: {
-      requireMultipleApprovals?: boolean;
-      enableSafetyChecks?: boolean;
-      validateDataConsistency?: boolean;
-      createAuditTrail?: boolean;
-    } = {}
-  ): Promise<{
+  overrideRequest: {
+    type: 'team_assignment' | 'scoring_override' | 'roster_mapping' | 'matchup_assignment';
+    targetId: string;
+    newValue: any;
+    reason: string;
+    requestedBy: string;
+  },
+  options: {
+    requireMultipleApprovals?: boolean;
+    enableSafetyChecks?: boolean;
+    validateDataConsistency?: boolean;
+    createAuditTrail?: boolean;
+  } = {})
+  : Promise<{
     approved: boolean;
     safeguardsTriggered: string[];
     consistencyChecks: any[];
@@ -4331,17 +4326,17 @@ class MatchupService {
     riskAssessment: 'low' | 'medium' | 'high' | 'critical';
   }> {
     console.log('🛡️ ROSTER MAPPING ENGINE: Manual override safeguards validation...');
-    
+
     const safeguardsTriggered: string[] = [];
     const consistencyChecks: any[] = [];
     const recommendedValidations: string[] = [];
     let approved = false;
     let riskAssessment: 'low' | 'medium' | 'high' | 'critical' = 'low';
-    
+
     try {
       // Risk assessment based on override type
       riskAssessment = this.assessOverrideRisk(overrideRequest);
-      
+
       // Safety check 1: Validate override scope and impact
       if (options.enableSafetyChecks) {
         const scopeValidation = await this.validateOverrideScope(overrideRequest);
@@ -4350,7 +4345,7 @@ class MatchupService {
           consistencyChecks.push(scopeValidation);
         }
       }
-      
+
       // Safety check 2: Data consistency validation
       if (options.validateDataConsistency) {
         const consistencyValidation = await this.validateOverrideConsistency(overrideRequest);
@@ -4359,14 +4354,14 @@ class MatchupService {
           consistencyChecks.push(consistencyValidation);
         }
       }
-      
+
       // Safety check 3: Historical impact analysis
       const historyCheck = await this.analyzeHistoricalImpact(overrideRequest);
       if (historyCheck.hasSignificantImpact) {
         safeguardsTriggered.push('significant_historical_impact');
         recommendedValidations.push('Review historical data implications');
       }
-      
+
       // Approval logic based on risk and safeguards
       if (riskAssessment === 'low' && safeguardsTriggered.length === 0) {
         approved = true;
@@ -4374,13 +4369,13 @@ class MatchupService {
         approved = true;
         recommendedValidations.push('Additional monitoring recommended');
       } else if (riskAssessment === 'high') {
-        approved = options.requireMultipleApprovals ? false : (safeguardsTriggered.length === 0);
+        approved = options.requireMultipleApprovals ? false : safeguardsTriggered.length === 0;
         recommendedValidations.push('Multiple approvals required for high-risk overrides');
       } else {
         approved = false;
         recommendedValidations.push('Critical risk - manual review required');
       }
-      
+
       // Store override validation in safeguards registry
       this.manualOverrideSafeguards.set(overrideRequest.targetId, {
         timestamp: new Date(),
@@ -4389,7 +4384,7 @@ class MatchupService {
         safeguardsTriggered,
         requestedBy: overrideRequest.requestedBy
       });
-      
+
       // Create audit trail if enabled
       let auditTrailId: string | undefined;
       if (options.createAuditTrail) {
@@ -4399,14 +4394,14 @@ class MatchupService {
           riskAssessment
         });
       }
-      
+
       console.log(`${approved ? '✅' : '❌'} Manual override safeguards completed:`, {
         approved,
         riskAssessment,
         safeguardsTriggered: safeguardsTriggered.length,
         overrideType: overrideRequest.type
       });
-      
+
       return {
         approved,
         safeguardsTriggered,
@@ -4415,7 +4410,7 @@ class MatchupService {
         recommendedValidations,
         riskAssessment
       };
-      
+
     } catch (error) {
       console.error('❌ Manual override safeguards failed:', error);
       return {
@@ -4427,7 +4422,7 @@ class MatchupService {
       };
     }
   }
-  
+
   /**
    * Get comprehensive validation status for debugging
    */
@@ -4962,20 +4957,20 @@ class MatchupService {
       recommendedActions
     };
   }
-  
+
   /**
    * ROSTER MAPPING ENGINE REINFORCEMENT: Data Source Verification
    * Validates that Sleeper data source matches expected conference and league
    */
   async performDataSourceVerification(
-    conferenceIds: number[],
-    expectedSources: { [conferenceId: number]: string },
-    options: {
-      strictSourceMatching?: boolean;
-      enableSourceCaching?: boolean;
-      validateApiConnectivity?: boolean;
-    } = {}
-  ): Promise<{
+  conferenceIds: number[],
+  expectedSources: {[conferenceId: number]: string;},
+  options: {
+    strictSourceMatching?: boolean;
+    enableSourceCaching?: boolean;
+    validateApiConnectivity?: boolean;
+  } = {})
+  : Promise<{
     verified: boolean;
     sourceValidations: any[];
     connectivityIssues: string[];
@@ -4983,32 +4978,32 @@ class MatchupService {
     recommendedActions: string[];
   }> {
     console.log('🔍 ROSTER MAPPING ENGINE: Data source verification...');
-    
+
     const sourceValidations: any[] = [];
     const connectivityIssues: string[] = [];
     const recommendedActions: string[] = [];
     let cachedSources = 0;
-    
+
     try {
       for (const conferenceId of conferenceIds) {
         const expectedSource = expectedSources[conferenceId];
-        
+
         // Verify conference data source
         const sourceVerification = await this.verifyConferenceDataSource(
           conferenceId,
           expectedSource,
           options
         );
-        
+
         sourceValidations.push(sourceVerification);
-        
+
         if (!sourceVerification.isValid) {
           if (sourceVerification.connectivityIssue) {
             connectivityIssues.push(sourceVerification.error);
           }
           recommendedActions.push(`Verify data source for conference ${conferenceId}`);
         }
-        
+
         // Cache verified source if enabled
         if (options.enableSourceCaching && sourceVerification.isValid) {
           this.dataSourceVerificationCache.set(`conference_${conferenceId}`, {
@@ -5019,16 +5014,16 @@ class MatchupService {
           cachedSources++;
         }
       }
-      
-      const verified = sourceValidations.every(v => v.isValid);
-      
+
+      const verified = sourceValidations.every((v) => v.isValid);
+
       console.log(`${verified ? '✅' : '❌'} Data source verification completed:`, {
         verified,
         validatedSources: sourceValidations.length,
         connectivityIssues: connectivityIssues.length,
         cachedSources
       });
-      
+
       return {
         verified,
         sourceValidations,
@@ -5036,7 +5031,7 @@ class MatchupService {
         cachedSources,
         recommendedActions
       };
-      
+
     } catch (error) {
       console.error('❌ Data source verification failed:', error);
       return {
@@ -5048,19 +5043,19 @@ class MatchupService {
       };
     }
   }
-  
+
   /**
    * ROSTER MAPPING ENGINE REINFORCEMENT: Team Assignment Conflict Detection
    * Detects conflicting team assignments and provides resolution strategies
    */
   async performTeamAssignmentConflictDetection(
-    conferenceIds: number[],
-    options: {
-      enableAutoResolution?: boolean;
-      conflictResolutionStrategy?: 'latest_wins' | 'manual_review' | 'source_priority';
-      generateResolutionPlan?: boolean;
-    } = {}
-  ): Promise<{
+  conferenceIds: number[],
+  options: {
+    enableAutoResolution?: boolean;
+    conflictResolutionStrategy?: 'latest_wins' | 'manual_review' | 'source_priority';
+    generateResolutionPlan?: boolean;
+  } = {})
+  : Promise<{
     conflictsDetected: number;
     conflictDetails: any[];
     autoResolutionsApplied: number;
@@ -5069,41 +5064,41 @@ class MatchupService {
     recommendedActions: string[];
   }> {
     console.log('⚠️ ROSTER MAPPING ENGINE: Team assignment conflict detection...');
-    
+
     const conflictDetails: any[] = [];
     const recommendedActions: string[] = [];
     let autoResolutionsApplied = 0;
     let criticalConflicts = 0;
-    
+
     try {
       // Get all team assignments for analysis
       const allAssignments = await this.getAllTeamAssignments(conferenceIds);
-      
+
       // Detect various types of conflicts
       const conflicts = await this.detectAssignmentConflicts(allAssignments);
-      
+
       for (const conflict of conflicts) {
         conflictDetails.push(conflict);
-        
+
         if (conflict.severity === 'critical') {
           criticalConflicts++;
           recommendedActions.push(`Critical conflict resolution required: ${conflict.description}`);
         }
-        
+
         // Auto-resolution if enabled
         if (options.enableAutoResolution && conflict.canAutoResolve) {
           const resolution = await this.applyConflictResolution(
             conflict,
             options.conflictResolutionStrategy || 'latest_wins'
           );
-          
+
           if (resolution.success) {
             autoResolutionsApplied++;
             conflict.resolved = true;
             conflict.resolutionMethod = resolution.method;
           }
         }
-        
+
         // Store conflict in registry
         const conflictKey = `${conflict.type}_${conflict.rosterId || conflict.teamId}`;
         if (!this.teamAssignmentConflictRegistry.has(conflictKey)) {
@@ -5111,29 +5106,29 @@ class MatchupService {
         }
         this.teamAssignmentConflictRegistry.get(conflictKey)!.push(conflict);
       }
-      
+
       // Generate resolution plan if requested
       let resolutionPlan: any = undefined;
       if (options.generateResolutionPlan) {
         resolutionPlan = this.generateConflictResolutionPlan(conflictDetails);
       }
-      
+
       const conflictsDetected = conflictDetails.length;
-      const unresolvedCritical = conflictDetails.filter(c => 
-        c.severity === 'critical' && !c.resolved
+      const unresolvedCritical = conflictDetails.filter((c) =>
+      c.severity === 'critical' && !c.resolved
       ).length;
-      
+
       if (unresolvedCritical > 0) {
         recommendedActions.push(`${unresolvedCritical} critical conflicts require immediate attention`);
       }
-      
+
       console.log(`${conflictsDetected === 0 ? '✅' : '⚠️'} Conflict detection completed:`, {
         conflictsDetected,
         criticalConflicts,
         autoResolutionsApplied,
         unresolvedCritical
       });
-      
+
       return {
         conflictsDetected,
         conflictDetails,
@@ -5142,7 +5137,7 @@ class MatchupService {
         criticalConflicts,
         recommendedActions
       };
-      
+
     } catch (error) {
       console.error('❌ Team assignment conflict detection failed:', error);
       return {
@@ -5154,7 +5149,7 @@ class MatchupService {
       };
     }
   }
-  
+
   /**
    * COMPREHENSIVE ROSTER MAPPING ENGINE STATUS
    * Get complete status of all reinforcement components
@@ -5203,24 +5198,24 @@ class MatchupService {
         activeConflicts: this.getActiveConflictCount()
       }
     };
-    
+
     // Calculate system health
     const healthMetrics = this.calculateSystemHealthMetrics();
     const systemHealth = this.determineSystemHealth(healthMetrics);
-    
+
     // Calculate cache efficiency
-    const totalCacheEntries = this.teamConferenceMap.size + 
-                              this.rosterValidationCache.size + 
-                              this.ownershipVerifications.size;
+    const totalCacheEntries = this.teamConferenceMap.size +
+    this.rosterValidationCache.size +
+    this.ownershipVerifications.size;
     const cacheHits = this.getCacheHitRate();
-    const cacheEfficiency = cacheHits > 0 ? Math.round((cacheHits / totalCacheEntries) * 100) : 0;
-    
+    const cacheEfficiency = cacheHits > 0 ? Math.round(cacheHits / totalCacheEntries * 100) : 0;
+
     // Generate maintenance recommendations
     const recommendedMaintenance = this.generateMaintenanceRecommendations(componentStatus, healthMetrics);
-    
-    const activeValidations = this.verificationBatchProcessor.size + 
-                           this.dynamicMappingRefreshQueue.size;
-    
+
+    const activeValidations = this.verificationBatchProcessor.size +
+    this.dynamicMappingRefreshQueue.size;
+
     return {
       systemHealth,
       componentStatus,
@@ -5230,39 +5225,39 @@ class MatchupService {
       lastFullValidation: this.getLastFullValidationTime()
     };
   }
-  
+
   // Helper methods for the reinforcement components
-  
+
   private async validateRosterIdCurrency(conferenceIds: number[], bypassCache: boolean = false): Promise<any> {
     // Implementation for validating roster ID currency
     return { isValid: true, details: {} };
   }
-  
+
   private async detectStaleMappings(conferenceIds: number[]): Promise<any> {
     // Implementation for detecting stale mappings
     return { isValid: true, staleCount: 0, details: {} };
   }
-  
+
   private async validateCurrentOwnership(conferenceIds: number[]): Promise<any> {
     // Implementation for validating current ownership
     return { isValid: true, errors: [] };
   }
-  
+
   private async verifyMappingConsistency(conferenceIds: number[]): Promise<any> {
     // Implementation for verifying mapping consistency
     return { isValid: true, validatedCount: 0, details: {} };
   }
-  
+
   private async buildComprehensiveConferenceMappings(conferences: Conference[]): Promise<Map<string, any>> {
     // Implementation for building comprehensive conference mappings
     return new Map();
   }
-  
+
   private async validateConferencePairMappings(conf1: Conference, conf2: Conference, mappings: Map<string, any>, enableInterConference: boolean): Promise<any> {
     // Implementation for validating conference pair mappings
     return { isValid: true, interConferenceMatchups: 0, mappings: new Map(), conflicts: [], resolutions: [] };
   }
-  
+
   private async createMappingRollbackPoint(refreshId: string): Promise<string> {
     // Implementation for creating mapping rollback point
     const rollbackId = `rollback_${refreshId}`;
@@ -5273,29 +5268,29 @@ class MatchupService {
     });
     return rollbackId;
   }
-  
+
   private clearAllMappingCaches(): void {
     this.teamConferenceMap.clear();
     this.rosterValidationCache.clear();
     this.mappingValidationEngine.clear();
     this.dataSourceVerificationCache.clear();
   }
-  
+
   private async rebuildAllMappingsFromSource(): Promise<any> {
     // Implementation for rebuilding all mappings from source
     return { mappingsCreated: 0, details: {} };
   }
-  
+
   private async refreshSpecificRosterMappings(rosterIds: string[]): Promise<any> {
     // Implementation for refreshing specific roster mappings
     return { refreshedCount: rosterIds.length, details: {} };
   }
-  
+
   private async validateRefreshedMappings(refreshId: string, rosterIds: string[]): Promise<any> {
     // Implementation for validating refreshed mappings
     return { isValid: true };
   }
-  
+
   private async performMappingRollback(rollbackId: string): Promise<boolean> {
     // Implementation for performing mapping rollback
     const rollbackData = this.rollbackStates.get(rollbackId);
@@ -5305,7 +5300,7 @@ class MatchupService {
     }
     return false;
   }
-  
+
   private async performCacheBasedValidation(): Promise<ValidationResult> {
     // Implementation for cache-based validation
     return {
@@ -5317,7 +5312,7 @@ class MatchupService {
       timestamp: new Date().toISOString()
     };
   }
-  
+
   private async performHistoricalDataValidation(): Promise<ValidationResult> {
     // Implementation for historical data validation
     return {
@@ -5329,7 +5324,7 @@ class MatchupService {
       timestamp: new Date().toISOString()
     };
   }
-  
+
   private async performEmergencyMappingReconstruction(): Promise<ValidationResult> {
     // Implementation for emergency mapping reconstruction
     return {
@@ -5341,95 +5336,95 @@ class MatchupService {
       timestamp: new Date().toISOString()
     };
   }
-  
+
   private async validateMatchupScoringIntegrity(matchup: any, teamMappings: Map<string, any>, options: any): Promise<any> {
     // Implementation for validating matchup scoring integrity
     return { isValid: true, issues: [], severity: 'low', corrections: [] };
   }
-  
+
   private async applyScoringDataCorrections(matchup: any, corrections: any[]): Promise<any[]> {
     // Implementation for applying scoring data corrections
     return [];
   }
-  
+
   private generateScoringComplianceReport(validated: number, issues: any[], corrections: any[]): any {
     // Implementation for generating scoring compliance report
     return { validated, issues: issues.length, corrections: corrections.length };
   }
-  
+
   private assessOverrideRisk(request: any): 'low' | 'medium' | 'high' | 'critical' {
     // Implementation for assessing override risk
     if (request.type === 'team_assignment') return 'high';
     if (request.type === 'scoring_override') return 'medium';
     return 'low';
   }
-  
+
   private async validateOverrideScope(request: any): Promise<any> {
     // Implementation for validating override scope
     return { isValid: true };
   }
-  
+
   private async validateOverrideConsistency(request: any): Promise<any> {
     // Implementation for validating override consistency
     return { isValid: true };
   }
-  
+
   private async analyzeHistoricalImpact(request: any): Promise<any> {
     // Implementation for analyzing historical impact
     return { hasSignificantImpact: false };
   }
-  
+
   private async createOverrideAuditEntry(request: any, result: any): Promise<string> {
     // Implementation for creating override audit entry
     const auditId = `override_${Date.now()}`;
     return auditId;
   }
-  
+
   private async verifyConferenceDataSource(conferenceId: number, expectedSource: string, options: any): Promise<any> {
     // Implementation for verifying conference data source
     return { isValid: true, actualSource: expectedSource, connectivityIssue: false, error: null };
   }
-  
+
   private async getAllTeamAssignments(conferenceIds: number[]): Promise<any[]> {
     // Implementation for getting all team assignments
     return [];
   }
-  
+
   private async detectAssignmentConflicts(assignments: any[]): Promise<any[]> {
     // Implementation for detecting assignment conflicts
     return [];
   }
-  
+
   private async applyConflictResolution(conflict: any, strategy: string): Promise<any> {
     // Implementation for applying conflict resolution
     return { success: true, method: strategy };
   }
-  
+
   private generateConflictResolutionPlan(conflicts: any[]): any {
     // Implementation for generating conflict resolution plan
     return { totalConflicts: conflicts.length, strategy: 'manual_review' };
   }
-  
+
   private getLastValidationTime(type: string): Date | undefined {
     // Implementation for getting last validation time
     return undefined;
   }
-  
+
   private getRecentSafeguardTriggers(): number {
     // Implementation for getting recent safeguard triggers
     return 0;
   }
-  
+
   private getActiveConflictCount(): number {
     // Implementation for getting active conflict count
     return 0;
   }
-  
+
   private calculateSystemHealthMetrics(): any {
     // Implementation for calculating system health metrics
     return { score: 85, issues: [] };
   }
-  
+
   private determineSystemHealth(metrics: any): 'excellent' | 'good' | 'degraded' | 'critical' {
     // Implementation for determining system health
     if (metrics.score >= 90) return 'excellent';
@@ -5437,27 +5432,27 @@ class MatchupService {
     if (metrics.score >= 50) return 'degraded';
     return 'critical';
   }
-  
+
   private getCacheHitRate(): number {
     // Implementation for getting cache hit rate
     return 0;
   }
-  
+
   private generateMaintenanceRecommendations(componentStatus: any, healthMetrics: any): string[] {
     // Implementation for generating maintenance recommendations
     const recommendations: string[] = [];
-    
+
     if (healthMetrics.score < 75) {
       recommendations.push('System health below optimal - schedule maintenance');
     }
-    
+
     if (this.dynamicMappingRefreshQueue.size > 10) {
       recommendations.push('High refresh queue - consider batch processing');
     }
-    
+
     return recommendations;
   }
-  
+
   private getLastFullValidationTime(): Date | undefined {
     // Implementation for getting last full validation time
     return undefined;
