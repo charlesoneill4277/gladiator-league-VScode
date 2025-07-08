@@ -8,8 +8,8 @@ const DebugPage: React.FC = () => {
         <h1 className="text-3xl font-bold">Debug Dashboard</h1>
       </div>
       <MatchupsDebugger />
-    </div>
-  );
+    </div>);
+
 };
 
 export default DebugPage;

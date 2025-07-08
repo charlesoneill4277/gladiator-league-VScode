@@ -60,19 +60,19 @@ class DatabaseMatchupService {
   private conferenceCache = new Map<number, Conference>();
 
   /**
-   * Fetch all database matchups for a specific week
+   * Fetch all database matchups for a specific week with proper deduplication
    */
   async fetchDatabaseMatchups(week: number, conferenceIds?: number[]): Promise<DatabaseMatchup[]> {
     try {
       console.log(`🗄️ Fetching database matchups for week ${week}...`);
 
       const filters = [
-      {
-        name: 'week',
-        op: 'Equal',
-        value: week
-      }];
-
+        {
+          name: 'week',
+          op: 'Equal',
+          value: week
+        }
+      ];
 
       // Add conference filter if specified
       if (conferenceIds && conferenceIds.length > 0) {
@@ -99,23 +99,94 @@ class DatabaseMatchupService {
       }
 
       let matchups = response.data.List as DatabaseMatchup[];
+      console.log(`📊 Raw database matchups fetched: ${matchups.length}`);
 
       // Filter by conference IDs if multiple conferences specified
       if (conferenceIds && conferenceIds.length > 1) {
         matchups = matchups.filter((m) => conferenceIds.includes(m.conference_id));
       }
 
-      console.log(`✅ Found ${matchups.length} database matchups for week ${week}`);
+      // **CRITICAL FIX: Deduplicate matchups to prevent showing duplicates**
+      const deduplicatedMatchups = this.deduplicateMatchups(matchups);
+      console.log(`🔄 After deduplication: ${deduplicatedMatchups.length} unique matchups`);
 
       // Identify inter-conference matchups
-      const interConferenceCount = await this.countInterConferenceMatchups(matchups);
+      const interConferenceCount = await this.countInterConferenceMatchups(deduplicatedMatchups);
       console.log(`🌐 Inter-conference matchups: ${interConferenceCount}`);
 
-      return matchups;
+      return deduplicatedMatchups;
     } catch (error) {
       console.error('❌ Error fetching database matchups:', error);
       throw error;
     }
+  }
+
+  /**
+   * Deduplicate matchups to ensure we only show each unique matchup once
+   * This is critical for inter-conference matchups which may appear in multiple conference contexts
+   */
+  private deduplicateMatchups(matchups: DatabaseMatchup[]): DatabaseMatchup[] {
+    const uniqueMatchups = new Map<string, DatabaseMatchup>();
+    const duplicateGroups = new Map<string, DatabaseMatchup[]>();
+
+    // Group matchups by their team pairing
+    matchups.forEach((matchup) => {
+      // Create a unique key for this matchup based on teams involved
+      // Sort team IDs to ensure consistent ordering (team1 vs team2 = team2 vs team1)
+      const teamIds = [matchup.team_1_id, matchup.team_2_id].sort((a, b) => a - b);
+      const matchupKey = `week_${matchup.week}_teams_${teamIds.join('_vs_')}`;
+
+      if (!duplicateGroups.has(matchupKey)) {
+        duplicateGroups.set(matchupKey, []);
+      }
+      duplicateGroups.get(matchupKey)!.push(matchup);
+    });
+
+    // For each group, select the best representative matchup
+    duplicateGroups.forEach((group, key) => {
+      if (group.length === 1) {
+        // No duplicates, use the single matchup
+        uniqueMatchups.set(key, group[0]);
+      } else {
+        // Multiple entries for the same matchup - select the best one
+        console.log(`🔍 Found ${group.length} duplicate entries for matchup: ${key}`);
+        
+        // Priority selection logic:
+        // 1. Manual override entries (most authoritative)
+        // 2. Entries with sleeper_matchup_id (connected to Sleeper API)
+        // 3. Most recently updated
+        // 4. Highest ID (most recent)
+        
+        const selectedMatchup = group.reduce((best, current) => {
+          // Prefer manual overrides
+          if (current.is_manual_override && !best.is_manual_override) {
+            return current;
+          }
+          if (best.is_manual_override && !current.is_manual_override) {
+            return best;
+          }
+          
+          // Prefer entries with Sleeper matchup ID
+          if (current.sleeper_matchup_id && !best.sleeper_matchup_id) {
+            return current;
+          }
+          if (best.sleeper_matchup_id && !current.sleeper_matchup_id) {
+            return best;
+          }
+          
+          // Prefer higher ID (more recent)
+          return current.id > best.id ? current : best;
+        });
+
+        uniqueMatchups.set(key, selectedMatchup);
+        console.log(`✅ Selected matchup ID ${selectedMatchup.id} as representative for ${key}`);
+      }
+    });
+
+    const result = Array.from(uniqueMatchups.values());
+    console.log(`🎯 Deduplication complete: ${matchups.length} → ${result.length} unique matchups`);
+    
+    return result;
   }
 
   /**
@@ -131,12 +202,12 @@ class DatabaseMatchupService {
         OrderByField: 'id',
         IsAsc: true,
         Filters: [
-        {
-          name: 'is_active',
-          op: 'Equal',
-          value: true
-        }]
-
+          {
+            name: 'is_active',
+            op: 'Equal',
+            value: true
+          }
+        ]
       });
 
       if (response.error) {
@@ -248,10 +319,10 @@ class DatabaseMatchupService {
    * Enhanced matchup processing with full database-to-Sleeper mapping
    */
   async processEnhancedMatchups(
-  databaseMatchups: DatabaseMatchup[],
-  teamMapping: Map<string, TeamConferenceJunction>,
-  teams: Team[])
-  : Promise<EnhancedMatchupData[]> {
+    databaseMatchups: DatabaseMatchup[],
+    teamMapping: Map<string, TeamConferenceJunction>,
+    teams: Team[]
+  ): Promise<EnhancedMatchupData[]> {
     console.log(`🚀 Processing ${databaseMatchups.length} enhanced matchups...`);
 
     const enhancedMatchups: EnhancedMatchupData[] = [];
@@ -334,7 +405,7 @@ class DatabaseMatchupService {
       const team2Mapping = this.teamConferenceCache.get(`team_${matchup.team_2_id}`);
 
       if (team1Mapping && team2Mapping &&
-      team1Mapping.conference_id !== team2Mapping.conference_id) {
+          team1Mapping.conference_id !== team2Mapping.conference_id) {
         interConferenceCount++;
       }
     }

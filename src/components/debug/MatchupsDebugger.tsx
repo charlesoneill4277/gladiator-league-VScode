@@ -60,12 +60,12 @@ const MatchupsDebugger: React.FC = () => {
         OrderByField: 'id',
         IsAsc: true,
         Filters: [
-          {
-            name: 'week',
-            op: 'Equal',
-            value: selectedWeek
-          }
-        ]
+        {
+          name: 'week',
+          op: 'Equal',
+          value: selectedWeek
+        }]
+
       });
 
       if (matchupsResponse.error) {
@@ -131,17 +131,17 @@ const MatchupsDebugger: React.FC = () => {
     // Check for duplicate matchups
     const matchupPairs = new Map<string, DatabaseMatchup[]>();
 
-    matchupsData.forEach(matchup => {
+    matchupsData.forEach((matchup) => {
       // Create unique key for matchup pair (order-independent)
       const team1 = Math.min(matchup.team_1_id, matchup.team_2_id);
       const team2 = Math.max(matchup.team_1_id, matchup.team_2_id);
       const key = `${team1}-${team2}-${matchup.week}`;
-      
+
       if (!matchupPairs.has(key)) {
         matchupPairs.set(key, []);
       }
       matchupPairs.get(key)!.push(matchup);
-      
+
       uniqueMatchups.add(key);
     });
 
@@ -154,18 +154,18 @@ const MatchupsDebugger: React.FC = () => {
     });
 
     // Check for other issues
-    matchupsData.forEach(matchup => {
-      const team1 = teamsData.find(t => t.id === matchup.team_1_id);
-      const team2 = teamsData.find(t => t.id === matchup.team_2_id);
-      
+    matchupsData.forEach((matchup) => {
+      const team1 = teamsData.find((t) => t.id === matchup.team_1_id);
+      const team2 = teamsData.find((t) => t.id === matchup.team_2_id);
+
       if (!team1) {
         issues.push(`Missing team 1 data for matchup ${matchup.id} (team_id: ${matchup.team_1_id})`);
       }
       if (!team2) {
         issues.push(`Missing team 2 data for matchup ${matchup.id} (team_id: ${matchup.team_2_id})`);
       }
-      
-      const conference = conferencesData.find(c => c.id === matchup.conference_id);
+
+      const conference = conferencesData.find((c) => c.id === matchup.conference_id);
       if (!conference) {
         issues.push(`Missing conference data for matchup ${matchup.id} (conference_id: ${matchup.conference_id})`);
       }
@@ -184,15 +184,15 @@ const MatchupsDebugger: React.FC = () => {
 
     try {
       setLoading(true);
-      
+
       // Group duplicates by matchup pair
       const duplicateGroups = new Map<string, DatabaseMatchup[]>();
-      
-      analysisResult.duplicates.forEach(matchup => {
+
+      analysisResult.duplicates.forEach((matchup) => {
         const team1 = Math.min(matchup.team_1_id, matchup.team_2_id);
         const team2 = Math.max(matchup.team_1_id, matchup.team_2_id);
         const key = `${team1}-${team2}-${matchup.week}`;
-        
+
         if (!duplicateGroups.has(key)) {
           duplicateGroups.set(key, []);
         }
@@ -202,7 +202,7 @@ const MatchupsDebugger: React.FC = () => {
       // Keep the first entry of each group, delete the rest
       for (const [key, group] of duplicateGroups) {
         const [keep, ...toDelete] = group.sort((a, b) => a.id - b.id);
-        
+
         for (const matchup of toDelete) {
           const response = await window.ezsite.apis.tableDelete('13329', { ID: matchup.id });
           if (response.error) {
@@ -239,12 +239,12 @@ const MatchupsDebugger: React.FC = () => {
   }, [selectedWeek]);
 
   const getTeamName = (teamId: number) => {
-    const team = teams.find(t => t.id === teamId);
+    const team = teams.find((t) => t.id === teamId);
     return team ? team.team_name : `Team ${teamId}`;
   };
 
   const getConferenceName = (conferenceId: number) => {
-    const conference = conferences.find(c => c.id === conferenceId);
+    const conference = conferences.find((c) => c.id === conferenceId);
     return conference ? conference.conference_name : `Conference ${conferenceId}`;
   };
 
@@ -258,11 +258,11 @@ const MatchupsDebugger: React.FC = () => {
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              {Array.from({ length: 18 }, (_, i) => i + 1).map((week) => (
-                <SelectItem key={week} value={week.toString()}>
+              {Array.from({ length: 18 }, (_, i) => i + 1).map((week) =>
+              <SelectItem key={week} value={week.toString()}>
                   Week {week}
                 </SelectItem>
-              ))}
+              )}
             </SelectContent>
           </Select>
           <Button onClick={fetchData} disabled={loading}>
@@ -273,8 +273,8 @@ const MatchupsDebugger: React.FC = () => {
       </div>
 
       {/* Analysis Summary */}
-      {analysisResult && (
-        <Card>
+      {analysisResult &&
+      <Card>
           <CardHeader>
             <CardTitle className="flex items-center space-x-2">
               <Database className="h-5 w-5" />
@@ -301,20 +301,20 @@ const MatchupsDebugger: React.FC = () => {
               </div>
             </div>
 
-            {analysisResult.duplicates.length > 0 && (
-              <div className="mt-4">
+            {analysisResult.duplicates.length > 0 &&
+          <div className="mt-4">
                 <Button onClick={removeDuplicates} disabled={loading} variant="destructive">
                   Remove Duplicates
                 </Button>
               </div>
-            )}
+          }
           </CardContent>
         </Card>
-      )}
+      }
 
       {/* Issues */}
-      {analysisResult?.issues.length > 0 && (
-        <Card>
+      {analysisResult?.issues.length > 0 &&
+      <Card>
           <CardHeader>
             <CardTitle className="flex items-center space-x-2">
               <AlertCircle className="h-5 w-5 text-red-500" />
@@ -323,15 +323,15 @@ const MatchupsDebugger: React.FC = () => {
           </CardHeader>
           <CardContent>
             <div className="space-y-2">
-              {analysisResult.issues.map((issue, index) => (
-                <div key={index} className="text-sm text-red-600 bg-red-50 p-2 rounded">
+              {analysisResult.issues.map((issue, index) =>
+            <div key={index} className="text-sm text-red-600 bg-red-50 p-2 rounded">
                   {issue}
                 </div>
-              ))}
+            )}
             </div>
           </CardContent>
         </Card>
-      )}
+      }
 
       {/* Matchups List */}
       <Card>
@@ -340,8 +340,8 @@ const MatchupsDebugger: React.FC = () => {
         </CardHeader>
         <CardContent>
           <div className="space-y-2">
-            {matchups.map((matchup) => (
-              <div key={matchup.id} className="flex items-center justify-between p-3 border rounded">
+            {matchups.map((matchup) =>
+            <div key={matchup.id} className="flex items-center justify-between p-3 border rounded">
                 <div className="flex items-center space-x-4">
                   <Badge variant="outline">#{matchup.id}</Badge>
                   <div>
@@ -354,21 +354,21 @@ const MatchupsDebugger: React.FC = () => {
                   </div>
                 </div>
                 <div className="flex items-center space-x-2">
-                  {matchup.is_manual_override && (
-                    <Badge variant="outline" className="text-orange-600">Override</Badge>
-                  )}
-                  {matchup.is_playoff && (
-                    <Badge variant="outline" className="text-purple-600">Playoff</Badge>
-                  )}
+                  {matchup.is_manual_override &&
+                <Badge variant="outline" className="text-orange-600">Override</Badge>
+                }
+                  {matchup.is_playoff &&
+                <Badge variant="outline" className="text-purple-600">Playoff</Badge>
+                }
                   <Badge variant="secondary">{matchup.status}</Badge>
                 </div>
               </div>
-            ))}
+            )}
           </div>
         </CardContent>
       </Card>
-    </div>
-  );
+    </div>);
+
 };
 
 export default MatchupsDebugger;

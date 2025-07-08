@@ -41,7 +41,6 @@ const App = () =>
                 <Route path="/rules" element={<LeagueRulesPage />} />
                 <Route path="/conferences" element={<ConferencesPage />} />
                 <Route path="/admin" element={<AdminPage />} />
-                <Route path="/debug" element={<DebugPage />} />
                 <Route path="*" element={<NotFound />} />
               </Routes>
             </main>

@@ -42,8 +42,7 @@ const Header: React.FC = () => {
   { path: '/players', label: 'Players', icon: UserCheck },
   { path: '/draft', label: 'Draft Results', icon: Shield },
   { path: '/rules', label: 'League Rules', icon: FileText },
-  { path: '/admin', label: 'Admin', icon: Cog },
-  { path: '/debug', label: 'Debug', icon: Settings }];
+  { path: '/admin', label: 'Admin', icon: Cog }];
 
 
   const isActivePath = (path: string) => {
@@ -64,14 +63,14 @@ const Header: React.FC = () => {
           key={item.path}
           to={item.path}
           onClick={() => isMobile && setIsMobileMenuOpen(false)}
-          className={`flex items-center space-x-2 px-3 py-2 rounded-md ${(item.path === '/admin' || item.path === '/debug') ? 'text-xs opacity-75' : 'text-sm'} font-medium transition-colors ${
+          className={`flex items-center space-x-2 px-3 py-2 rounded-md ${item.path === '/admin' ? 'text-xs opacity-75' : 'text-sm'} font-medium transition-colors ${
           isActive ?
           'bg-primary text-primary-foreground' :
           'text-muted-foreground hover:text-foreground hover:bg-accent'}`
           }>
 
-            <Icon className={(item.path === '/admin' || item.path === '/debug') ? 'h-3 w-3' : 'h-4 w-4'} />
-            <span className={(item.path === '/admin' || item.path === '/debug') ? 'text-xs' : ''}>{item.label}</span>
+            <Icon className={item.path === '/admin' ? 'h-3 w-3' : 'h-4 w-4'} />
+            <span className={item.path === '/admin' ? 'text-xs' : ''}>{item.label}</span>
           </Link>);
 
     })}

@@ -148,14 +148,10 @@ class EnhancedMatchupService {
 
       console.log(`✅ Processed ${enhancedMatchups.length} enhanced matchups`);
 
-      // Step 4.5: Deduplicate matchups to prevent showing duplicates
-      const deduplicatedMatchups = this.deduplicateMatchups(enhancedMatchups);
-      console.log(`🔄 Deduplicated ${enhancedMatchups.length} to ${deduplicatedMatchups.length} matchups`);
-
       // Step 5: Fetch Sleeper data for all matchups
       console.log('🎯 Step 5: Fetching Sleeper data...');
       const sleeperData = await crossConferenceSleeperService.fetchSleeperDataForMatchups(
-        deduplicatedMatchups,
+        enhancedMatchups,
         week,
         this.allPlayers
       );
