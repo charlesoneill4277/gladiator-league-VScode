@@ -67,19 +67,19 @@ class DatabaseMatchupService {
       console.log(`🗄️ Fetching database matchups for week ${week}...`);
 
       const filters = [
-        {
-          name: 'week',
-          op: 'Equal',
-          value: week
-        }
-      ];
+      {
+        name: 'week',
+        op: 'Equal',
+        value: week
+      }];
+
 
       // Add conference filter if specified
       if (conferenceIds && conferenceIds.length > 0) {
         if (conferenceIds.length === 1) {
           filters.push({
             name: 'conference_id',
-            op: 'Equal', 
+            op: 'Equal',
             value: conferenceIds[0]
           });
         }
@@ -102,11 +102,11 @@ class DatabaseMatchupService {
 
       // Filter by conference IDs if multiple conferences specified
       if (conferenceIds && conferenceIds.length > 1) {
-        matchups = matchups.filter(m => conferenceIds.includes(m.conference_id));
+        matchups = matchups.filter((m) => conferenceIds.includes(m.conference_id));
       }
 
       console.log(`✅ Found ${matchups.length} database matchups for week ${week}`);
-      
+
       // Identify inter-conference matchups
       const interConferenceCount = await this.countInterConferenceMatchups(matchups);
       console.log(`🌐 Inter-conference matchups: ${interConferenceCount}`);
@@ -131,12 +131,12 @@ class DatabaseMatchupService {
         OrderByField: 'id',
         IsAsc: true,
         Filters: [
-          {
-            name: 'is_active',
-            op: 'Equal',
-            value: true
-          }
-        ]
+        {
+          name: 'is_active',
+          op: 'Equal',
+          value: true
+        }]
+
       });
 
       if (response.error) {
@@ -146,7 +146,7 @@ class DatabaseMatchupService {
       const junctions = response.data.List as TeamConferenceJunction[];
       const mapping = new Map<string, TeamConferenceJunction>();
 
-      junctions.forEach(junction => {
+      junctions.forEach((junction) => {
         // Map both ways for easy lookup
         mapping.set(`team_${junction.team_id}`, junction);
         mapping.set(`roster_${junction.roster_id}`, junction);
@@ -182,9 +182,9 @@ class DatabaseMatchupService {
       }
 
       const teams = response.data.List as Team[];
-      
+
       // Cache teams for quick lookup
-      teams.forEach(team => {
+      teams.forEach((team) => {
         this.teamCache.set(team.id, team);
       });
 
@@ -228,11 +228,11 @@ class DatabaseMatchupService {
 
       // Filter by IDs if multiple conferences
       if (conferenceIds.length > 1) {
-        conferences = conferences.filter(c => conferenceIds.includes(c.id));
+        conferences = conferences.filter((c) => conferenceIds.includes(c.id));
       }
 
       // Cache conferences
-      conferences.forEach(conf => {
+      conferences.forEach((conf) => {
         this.conferenceCache.set(conf.id, conf);
       });
 
@@ -248,10 +248,10 @@ class DatabaseMatchupService {
    * Enhanced matchup processing with full database-to-Sleeper mapping
    */
   async processEnhancedMatchups(
-    databaseMatchups: DatabaseMatchup[],
-    teamMapping: Map<string, TeamConferenceJunction>,
-    teams: Team[]
-  ): Promise<EnhancedMatchupData[]> {
+  databaseMatchups: DatabaseMatchup[],
+  teamMapping: Map<string, TeamConferenceJunction>,
+  teams: Team[])
+  : Promise<EnhancedMatchupData[]> {
     console.log(`🚀 Processing ${databaseMatchups.length} enhanced matchups...`);
 
     const enhancedMatchups: EnhancedMatchupData[] = [];
@@ -261,8 +261,8 @@ class DatabaseMatchupService {
         console.log(`📋 Processing matchup ${dbMatchup.id}: Team ${dbMatchup.team_1_id} vs Team ${dbMatchup.team_2_id}`);
 
         // Get teams from database
-        const team1 = teams.find(t => t.id === dbMatchup.team_1_id);
-        const team2 = teams.find(t => t.id === dbMatchup.team_2_id);
+        const team1 = teams.find((t) => t.id === dbMatchup.team_1_id);
+        const team2 = teams.find((t) => t.id === dbMatchup.team_2_id);
 
         if (!team1 || !team2) {
           console.warn(`⚠️ Missing teams for matchup ${dbMatchup.id}`);
@@ -333,8 +333,8 @@ class DatabaseMatchupService {
       const team1Mapping = this.teamConferenceCache.get(`team_${matchup.team_1_id}`);
       const team2Mapping = this.teamConferenceCache.get(`team_${matchup.team_2_id}`);
 
-      if (team1Mapping && team2Mapping && 
-          team1Mapping.conference_id !== team2Mapping.conference_id) {
+      if (team1Mapping && team2Mapping &&
+      team1Mapping.conference_id !== team2Mapping.conference_id) {
         interConferenceCount++;
       }
     }
@@ -444,7 +444,7 @@ class DatabaseMatchupService {
       conferenceBreakdown: {} as Record<string, number>
     };
 
-    matchups.forEach(matchup => {
+    matchups.forEach((matchup) => {
       if (matchup.isInterConference) {
         stats.interConference++;
       } else {
@@ -462,7 +462,7 @@ class DatabaseMatchupService {
       // Track conference participation
       const conf1Name = matchup.team1Conference.conference_name;
       const conf2Name = matchup.team2Conference.conference_name;
-      
+
       stats.conferenceBreakdown[conf1Name] = (stats.conferenceBreakdown[conf1Name] || 0) + 1;
       if (conf1Name !== conf2Name) {
         stats.conferenceBreakdown[conf2Name] = (stats.conferenceBreakdown[conf2Name] || 0) + 1;

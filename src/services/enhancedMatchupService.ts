@@ -8,7 +8,7 @@ export interface EnhancedMatchupResult {
   status: 'upcoming' | 'live' | 'completed';
   isInterConference: boolean;
   isManualOverride: boolean;
-  
+
   // Team 1 data
   team1: {
     teamInfo: {
@@ -40,7 +40,7 @@ export interface EnhancedMatchupResult {
     };
     sleeperData?: any;
   };
-  
+
   // Team 2 data  
   team2: {
     teamInfo: {
@@ -76,7 +76,7 @@ export interface EnhancedMatchupResult {
   // Match result
   winner?: 'team1' | 'team2' | null;
   margin?: number;
-  
+
   // Data quality and validation
   dataQuality: {
     overallScore: number;
@@ -106,9 +106,9 @@ class EnhancedMatchupService {
    * Get enhanced matchups for a specific week
    */
   async getEnhancedMatchupsForWeek(
-    week: number, 
-    conferenceIds?: number[]
-  ): Promise<EnhancedMatchupResult[]> {
+  week: number,
+  conferenceIds?: number[])
+  : Promise<EnhancedMatchupResult[]> {
     console.log(`🚀 Getting enhanced matchups for week ${week}...`);
     console.log(`🎯 Conference filter: ${conferenceIds ? conferenceIds.join(', ') : 'All conferences'}`);
 
@@ -119,7 +119,7 @@ class EnhancedMatchupService {
       // Step 1: Fetch database matchups
       console.log('📋 Step 1: Fetching database matchups...');
       const databaseMatchups = await databaseMatchupService.fetchDatabaseMatchups(week, conferenceIds);
-      
+
       if (databaseMatchups.length === 0) {
         console.warn('⚠️ No database matchups found');
         return [];
@@ -132,26 +132,30 @@ class EnhancedMatchupService {
       // Step 3: Fetch team and conference data
       console.log('👥 Step 3: Fetching teams and conferences...');
       const [teams, allConferenceIds] = await Promise.all([
-        databaseMatchupService.fetchTeams(),
-        this.extractConferenceIds(databaseMatchups, teamMapping)
-      ]);
+      databaseMatchupService.fetchTeams(),
+      this.extractConferenceIds(databaseMatchups, teamMapping)]
+      );
 
       const conferences = await databaseMatchupService.fetchConferences(allConferenceIds);
 
       // Step 4: Process enhanced matchups (database + team/conference data)
       console.log('⚙️ Step 4: Processing enhanced matchups...');
       const enhancedMatchups = await databaseMatchupService.processEnhancedMatchups(
-        databaseMatchups, 
-        teamMapping, 
+        databaseMatchups,
+        teamMapping,
         teams
       );
 
       console.log(`✅ Processed ${enhancedMatchups.length} enhanced matchups`);
 
+      // Step 4.5: Deduplicate matchups to prevent showing duplicates
+      const deduplicatedMatchups = this.deduplicateMatchups(enhancedMatchups);
+      console.log(`🔄 Deduplicated ${enhancedMatchups.length} to ${deduplicatedMatchups.length} matchups`);
+
       // Step 5: Fetch Sleeper data for all matchups
       console.log('🎯 Step 5: Fetching Sleeper data...');
       const sleeperData = await crossConferenceSleeperService.fetchSleeperDataForMatchups(
-        enhancedMatchups,
+        deduplicatedMatchups,
         week,
         this.allPlayers
       );
@@ -176,10 +180,10 @@ class EnhancedMatchupService {
    */
   private async ensurePlayersData(): Promise<void> {
     const now = Date.now();
-    
-    if (Object.keys(this.allPlayers).length === 0 || 
-        (now - this.playersLastFetched) > this.PLAYERS_CACHE_MS) {
-      
+
+    if (Object.keys(this.allPlayers).length === 0 ||
+    now - this.playersLastFetched > this.PLAYERS_CACHE_MS) {
+
       console.log('🏈 Fetching current player data...');
       try {
         this.allPlayers = await SleeperApiService.fetchAllPlayers();
@@ -196,19 +200,19 @@ class EnhancedMatchupService {
    * Extract all conference IDs involved in matchups
    */
   private async extractConferenceIds(
-    databaseMatchups: DatabaseMatchup[],
-    teamMapping: Map<string, any>
-  ): Promise<number[]> {
+  databaseMatchups: DatabaseMatchup[],
+  teamMapping: Map<string, any>)
+  : Promise<number[]> {
     const conferenceIds = new Set<number>();
 
     // Add conference IDs from database matchups
-    databaseMatchups.forEach(matchup => {
+    databaseMatchups.forEach((matchup) => {
       conferenceIds.add(matchup.conference_id);
-      
+
       // Also get conferences for the teams involved (for inter-conference support)
       const team1Mapping = teamMapping.get(`team_${matchup.team_1_id}`);
       const team2Mapping = teamMapping.get(`team_${matchup.team_2_id}`);
-      
+
       if (team1Mapping) conferenceIds.add(team1Mapping.conference_id);
       if (team2Mapping) conferenceIds.add(team2Mapping.conference_id);
     });
@@ -220,9 +224,9 @@ class EnhancedMatchupService {
    * Combine enhanced matchup data with Sleeper data
    */
   private async combineMatchupData(
-    enhancedMatchups: EnhancedMatchupData[],
-    sleeperDataArray: CrossConferenceSleeperData[]
-  ): Promise<EnhancedMatchupResult[]> {
+  enhancedMatchups: EnhancedMatchupData[],
+  sleeperDataArray: CrossConferenceSleeperData[])
+  : Promise<EnhancedMatchupResult[]> {
     console.log(`🔄 Combining data for ${enhancedMatchups.length} matchups...`);
 
     const results: EnhancedMatchupResult[] = [];
@@ -248,9 +252,9 @@ class EnhancedMatchupService {
    * Create a single enhanced matchup result
    */
   private async createEnhancedMatchupResult(
-    enhanced: EnhancedMatchupData,
-    sleeperData: CrossConferenceSleeperData
-  ): Promise<EnhancedMatchupResult> {
+  enhanced: EnhancedMatchupData,
+  sleeperData: CrossConferenceSleeperData)
+  : Promise<EnhancedMatchupResult> {
     const { databaseMatchup } = enhanced;
 
     // Process team 1 data
@@ -305,12 +309,12 @@ class EnhancedMatchupService {
    * Process data for a single team
    */
   private processTeamData(
-    team: Team,
-    conference: any,
-    rosterId: string,
-    sleeperData: CrossConferenceSleeperData['team1SleeperData'],
-    teamLabel: string
-  ): EnhancedMatchupResult['team1'] {
+  team: Team,
+  conference: any,
+  rosterId: string,
+  sleeperData: CrossConferenceSleeperData['team1SleeperData'],
+  teamLabel: string)
+  : EnhancedMatchupResult['team1'] {
     console.log(`⚙️ Processing ${teamLabel} data: ${team.team_name}`);
 
     // Build team info
@@ -347,9 +351,9 @@ class EnhancedMatchupService {
    * Process lineup data for a team
    */
   private processLineupData(
-    sleeperData: CrossConferenceSleeperData['team1SleeperData'],
-    teamLabel: string
-  ): EnhancedMatchupResult['team1']['lineup'] {
+  sleeperData: CrossConferenceSleeperData['team1SleeperData'],
+  teamLabel: string)
+  : EnhancedMatchupResult['team1']['lineup'] {
     console.log(`📋 Processing lineup for ${teamLabel}...`);
 
     const starters: EnhancedMatchupResult['team1']['lineup']['starters'] = [];
@@ -365,11 +369,11 @@ class EnhancedMatchupService {
     expectedPositions.forEach((expectedPos, index) => {
       const playerId = sleeperStarters[index];
       const points = starterPoints[index] || playerPoints[playerId] || 0;
-      
+
       if (playerId && this.allPlayers[playerId]) {
         const player = this.allPlayers[playerId];
         const isValid = this.validatePlayerPosition(player.position, expectedPos);
-        
+
         starters.push({
           position: expectedPos,
           playerId,
@@ -411,7 +415,7 @@ class EnhancedMatchupService {
     switch (expectedPosition) {
       case 'QB':
       case 'RB':
-      case 'WR': 
+      case 'WR':
       case 'TE':
         return playerPosition === expectedPosition;
       case 'WRT': // Flex: RB/WR/TE
@@ -437,20 +441,20 @@ class EnhancedMatchupService {
    * Determine match status
    */
   private determineMatchStatus(
-    databaseMatchup: DatabaseMatchup,
-    sleeperData: CrossConferenceSleeperData
-  ): 'upcoming' | 'live' | 'completed' {
+  databaseMatchup: DatabaseMatchup,
+  sleeperData: CrossConferenceSleeperData)
+  : 'upcoming' | 'live' | 'completed' {
     if (databaseMatchup.status === 'complete' || databaseMatchup.status === 'completed') {
       return 'completed';
     }
 
     // Check if we have scoring data
     const hasScoring = sleeperData.dataQuality.scoringDataAvailable;
-    
+
     if (hasScoring) {
       const team1Points = sleeperData.team1SleeperData.matchup?.points || 0;
       const team2Points = sleeperData.team2SleeperData.matchup?.points || 0;
-      
+
       if (team1Points > 0 || team2Points > 0) {
         return databaseMatchup.status === 'complete' ? 'completed' : 'live';
       }
@@ -463,10 +467,10 @@ class EnhancedMatchupService {
    * Determine the winner of a matchup
    */
   private determineWinner(
-    team1Data: EnhancedMatchupResult['team1'],
-    team2Data: EnhancedMatchupResult['team2'],
-    databaseMatchup: DatabaseMatchup
-  ): 'team1' | 'team2' | null {
+  team1Data: EnhancedMatchupResult['team1'],
+  team2Data: EnhancedMatchupResult['team2'],
+  databaseMatchup: DatabaseMatchup)
+  : 'team1' | 'team2' | null {
     // Use database winner if available
     if (databaseMatchup.winner_id) {
       if (databaseMatchup.winner_id === team1Data.teamInfo.teamId) {
@@ -493,17 +497,17 @@ class EnhancedMatchupService {
    * Assess overall data quality
    */
   private assessOverallDataQuality(
-    enhanced: EnhancedMatchupData,
-    sleeperData: CrossConferenceSleeperData,
-    team1Data: EnhancedMatchupResult['team1'],
-    team2Data: EnhancedMatchupResult['team2']
-  ): EnhancedMatchupResult['dataQuality'] {
+  enhanced: EnhancedMatchupData,
+  sleeperData: CrossConferenceSleeperData,
+  team1Data: EnhancedMatchupResult['team1'],
+  team2Data: EnhancedMatchupResult['team2'])
+  : EnhancedMatchupResult['dataQuality'] {
     const issues: string[] = [];
     const warnings: string[] = [...sleeperData.warnings];
 
     // Check lineup validation
-    const team1LineupValid = team1Data.lineup.starters.every(s => s.isValid);
-    const team2LineupValid = team2Data.lineup.starters.every(s => s.isValid);
+    const team1LineupValid = team1Data.lineup.starters.every((s) => s.isValid);
+    const team2LineupValid = team2Data.lineup.starters.every((s) => s.isValid);
     const lineupValidationPassed = team1LineupValid && team2LineupValid;
 
     if (!team1LineupValid) {
@@ -544,24 +548,24 @@ class EnhancedMatchupService {
   private logMatchupSummary(results: EnhancedMatchupResult[], week: number): void {
     const stats = {
       total: results.length,
-      interConference: results.filter(r => r.isInterConference).length,
-      manualOverrides: results.filter(r => r.isManualOverride).length,
-      completed: results.filter(r => r.status === 'completed').length,
-      live: results.filter(r => r.status === 'live').length,
-      upcoming: results.filter(r => r.status === 'upcoming').length,
-      highQuality: results.filter(r => r.dataQuality.overallScore >= 90).length,
-      withIssues: results.filter(r => r.dataQuality.issues.length > 0).length
+      interConference: results.filter((r) => r.isInterConference).length,
+      manualOverrides: results.filter((r) => r.isManualOverride).length,
+      completed: results.filter((r) => r.status === 'completed').length,
+      live: results.filter((r) => r.status === 'live').length,
+      upcoming: results.filter((r) => r.status === 'upcoming').length,
+      highQuality: results.filter((r) => r.dataQuality.overallScore >= 90).length,
+      withIssues: results.filter((r) => r.dataQuality.issues.length > 0).length
     };
 
     console.log(`📊 Enhanced Matchup Summary for Week ${week}:`);
     console.log(`  📈 Total matchups: ${stats.total}`);
-    console.log(`  🌐 Inter-conference: ${stats.interConference} (${(stats.interConference/stats.total*100).toFixed(1)}%)`);
-    console.log(`  🔧 Manual overrides: ${stats.manualOverrides} (${(stats.manualOverrides/stats.total*100).toFixed(1)}%)`);
+    console.log(`  🌐 Inter-conference: ${stats.interConference} (${(stats.interConference / stats.total * 100).toFixed(1)}%)`);
+    console.log(`  🔧 Manual overrides: ${stats.manualOverrides} (${(stats.manualOverrides / stats.total * 100).toFixed(1)}%)`);
     console.log(`  ✅ Completed: ${stats.completed}`);
     console.log(`  🔴 Live: ${stats.live}`);
     console.log(`  ⏳ Upcoming: ${stats.upcoming}`);
-    console.log(`  💎 High quality (90%+): ${stats.highQuality} (${(stats.highQuality/stats.total*100).toFixed(1)}%)`);
-    console.log(`  ⚠️ With issues: ${stats.withIssues} (${(stats.withIssues/stats.total*100).toFixed(1)}%)`);
+    console.log(`  💎 High quality (90%+): ${stats.highQuality} (${(stats.highQuality / stats.total * 100).toFixed(1)}%)`);
+    console.log(`  ⚠️ With issues: ${stats.withIssues} (${(stats.withIssues / stats.total * 100).toFixed(1)}%)`);
   }
 
   /**

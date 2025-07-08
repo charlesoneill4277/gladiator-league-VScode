@@ -170,7 +170,7 @@ const MatchupsPage: React.FC = () => {
       if (useEnhancedPipeline) {
         // Use enhanced pipeline for database-driven matchups
         console.log('🎯 Using enhanced database-driven matchup pipeline...');
-        
+
         const conferenceIds = selectedConference ? [selectedConference] : undefined;
         const enhancedResults = await enhancedMatchupService.getEnhancedMatchupsForWeek(
           selectedWeek,
@@ -190,7 +190,7 @@ const MatchupsPage: React.FC = () => {
             conferenceId: result.team1.teamInfo.conferenceId,
             conferenceName: result.team1.teamInfo.conferenceName,
             totalPoints: result.team1.lineup.totalPoints,
-            starters: result.team1.lineup.starters.map(s => ({
+            starters: result.team1.lineup.starters.map((s) => ({
               position: s.position,
               playerName: s.playerName,
               points: s.points
@@ -202,7 +202,7 @@ const MatchupsPage: React.FC = () => {
             conferenceId: result.team2.teamInfo.conferenceId,
             conferenceName: result.team2.teamInfo.conferenceName,
             totalPoints: result.team2.lineup.totalPoints,
-            starters: result.team2.lineup.starters.map(s => ({
+            starters: result.team2.lineup.starters.map((s) => ({
               position: s.position,
               playerName: s.playerName,
               points: s.points
@@ -226,7 +226,7 @@ const MatchupsPage: React.FC = () => {
       } else {
         // Fallback to original pipeline
         console.log('🔄 Using fallback matchup pipeline...');
-        
+
         const processedMatchups = await matchupDataPipeline.getMatchupsForWeek(selectedWeek);
 
         // Convert to enhanced display format
@@ -242,7 +242,7 @@ const MatchupsPage: React.FC = () => {
             conferenceId: matchup.team1.teamInfo.conferenceId,
             conferenceName: matchup.team1.teamInfo.conferenceName,
             totalPoints: matchup.team1.totalPoints,
-            starters: matchup.team1.starters.map(s => ({
+            starters: matchup.team1.starters.map((s) => ({
               position: s.position || 'N/A',
               playerName: s.playerName,
               points: s.points
@@ -254,7 +254,7 @@ const MatchupsPage: React.FC = () => {
             conferenceId: matchup.team2.teamInfo.conferenceId,
             conferenceName: matchup.team2.teamInfo.conferenceName,
             totalPoints: matchup.team2.totalPoints,
-            starters: matchup.team2.starters.map(s => ({
+            starters: matchup.team2.starters.map((s) => ({
               position: s.position || 'N/A',
               playerName: s.playerName,
               points: s.points
@@ -276,8 +276,8 @@ const MatchupsPage: React.FC = () => {
 
       // Calculate data source statistics
       const sourceStats = {
-        database: enhancedMatchups.filter(m => m.dataSource === 'enhanced_database').length,
-        sleeper: enhancedMatchups.filter(m => m.dataSource === 'fallback_hybrid').length,
+        database: enhancedMatchups.filter((m) => m.dataSource === 'enhanced_database').length,
+        sleeper: enhancedMatchups.filter((m) => m.dataSource === 'fallback_hybrid').length,
         hybrid: enhancedMatchups.length
       };
 
@@ -290,8 +290,8 @@ const MatchupsPage: React.FC = () => {
         errors: [],
         weekStatus: status,
         dataSourceStats: sourceStats,
-        interConferenceCount: enhancedMatchups.filter(m => m.isInterConference).length,
-        manualOverrideCount: enhancedMatchups.filter(m => m.isManualOverride).length,
+        interConferenceCount: enhancedMatchups.filter((m) => m.isInterConference).length,
+        manualOverrideCount: enhancedMatchups.filter((m) => m.isManualOverride).length,
         pipelineUsed: useEnhancedPipeline ? 'enhanced_database' : 'fallback_hybrid',
         processedMatchups: enhancedMatchups.map((m) => ({
           id: m.matchupId,
@@ -309,8 +309,8 @@ const MatchupsPage: React.FC = () => {
       setRawApiData(debugData);
 
       console.log(`✅ Successfully loaded ${enhancedMatchups.length} matchups`);
-      console.log(`🌐 Inter-conference matchups: ${enhancedMatchups.filter(m => m.isInterConference).length}`);
-      console.log(`🔧 Manual overrides: ${enhancedMatchups.filter(m => m.isManualOverride).length}`);
+      console.log(`🌐 Inter-conference matchups: ${enhancedMatchups.filter((m) => m.isInterConference).length}`);
+      console.log(`🔧 Manual overrides: ${enhancedMatchups.filter((m) => m.isManualOverride).length}`);
       console.log('📊 Data source stats:', sourceStats);
 
     } catch (error) {
@@ -542,10 +542,10 @@ const MatchupsPage: React.FC = () => {
                     {useEnhancedPipeline ? 'Enhanced Cross-Conference Pipeline' : 'Legacy Matchup Pipeline'}
                   </div>
                   <div className="text-sm text-muted-foreground">
-                    {useEnhancedPipeline 
-                      ? 'Database matchup assignments + Cross-conference Sleeper API support'
-                      : 'Sleeper API only with basic processing'
-                    }
+                    {useEnhancedPipeline ?
+                  'Database matchup assignments + Cross-conference Sleeper API support' :
+                  'Sleeper API only with basic processing'
+                  }
                   </div>
                 </div>
               </div>
@@ -622,15 +622,15 @@ const MatchupsPage: React.FC = () => {
                 <summary className="cursor-pointer font-medium">Enhanced Pipeline Data</summary>
                 <pre className="mt-2 p-3 bg-gray-50 rounded text-xs overflow-x-auto max-h-96">
                   {JSON.stringify({
-                    ...rawApiData,
-                    pipelineType: useEnhancedPipeline ? 'enhanced_database' : 'fallback_hybrid',
-                    enhancedFeatures: useEnhancedPipeline ? [
-                      'Cross-conference support',
-                      'Database-driven team assignments', 
-                      'Position validation',
-                      'Data quality metrics'
-                    ] : ['Basic Sleeper API processing']
-                  }, null, 2)}
+                  ...rawApiData,
+                  pipelineType: useEnhancedPipeline ? 'enhanced_database' : 'fallback_hybrid',
+                  enhancedFeatures: useEnhancedPipeline ? [
+                  'Cross-conference support',
+                  'Database-driven team assignments',
+                  'Position validation',
+                  'Data quality metrics'] :
+                  ['Basic Sleeper API processing']
+                }, null, 2)}
                 </pre>
               </details>
             </div>
@@ -781,10 +781,10 @@ const MatchupsPage: React.FC = () => {
                             {matchup.team1.starters.map((starter, index) =>
                             <div key={index} className="flex justify-between items-center text-sm">
                                 <div className="flex items-center space-x-2">
-                                  <Badge 
-                                    variant="outline" 
-                                    className="text-xs min-w-[45px] text-center"
-                                  >
+                                  <Badge
+                                  variant="outline"
+                                  className="text-xs min-w-[45px] text-center">
+
                                     {starter.position}
                                   </Badge>
                                   <span>{starter.playerName}</span>
@@ -806,10 +806,10 @@ const MatchupsPage: React.FC = () => {
                             {matchup.team2.starters.map((starter, index) =>
                             <div key={index} className="flex justify-between items-center text-sm">
                                 <div className="flex items-center space-x-2">
-                                  <Badge 
-                                    variant="outline" 
-                                    className="text-xs min-w-[45px] text-center"
-                                  >
+                                  <Badge
+                                  variant="outline"
+                                  className="text-xs min-w-[45px] text-center">
+
                                     {starter.position}
                                   </Badge>
                                   <span>{starter.playerName}</span>
@@ -849,9 +849,9 @@ const MatchupsPage: React.FC = () => {
                             <div>
                               <div className="text-sm text-muted-foreground">Data Quality</div>
                               <div className={`text-xs font-medium ${
-                                matchup.dataQuality.overallScore >= 90 ? 'text-green-600' :
-                                matchup.dataQuality.overallScore >= 70 ? 'text-yellow-600' : 'text-red-600'
-                              }`}>
+                            matchup.dataQuality.overallScore >= 90 ? 'text-green-600' :
+                            matchup.dataQuality.overallScore >= 70 ? 'text-yellow-600' : 'text-red-600'}`
+                            }>
                                 {matchup.dataQuality.overallScore}%
                               </div>
                             </div>
@@ -859,16 +859,16 @@ const MatchupsPage: React.FC = () => {
                           
                           {/* Data Quality Details */}
                           {(matchup.dataQuality.issues.length > 0 || matchup.dataQuality.warnings.length > 0) &&
-                          <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                        <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
                               <div className="text-xs font-medium text-yellow-800 mb-1">Data Quality Notes:</div>
                               {matchup.dataQuality.issues.map((issue, index) =>
-                            <div key={index} className="text-xs text-red-600 mb-1">• {issue}</div>
-                            )}
+                          <div key={index} className="text-xs text-red-600 mb-1">• {issue}</div>
+                          )}
                               {matchup.dataQuality.warnings.map((warning, index) =>
-                            <div key={index} className="text-xs text-yellow-600 mb-1">• {warning}</div>
-                            )}
+                          <div key={index} className="text-xs text-yellow-600 mb-1">• {warning}</div>
+                          )}
                             </div>
-                          }
+                        }
                         </div>
                       }
                     </div>

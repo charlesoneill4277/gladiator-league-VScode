@@ -44,10 +44,10 @@ class CrossConferenceSleeperService {
    * Fetch Sleeper data for enhanced matchups with cross-conference support
    */
   async fetchSleeperDataForMatchups(
-    enhancedMatchups: EnhancedMatchupData[],
-    week: number,
-    allPlayers: Record<string, SleeperPlayer>
-  ): Promise<CrossConferenceSleeperData[]> {
+  enhancedMatchups: EnhancedMatchupData[],
+  week: number,
+  allPlayers: Record<string, SleeperPlayer>)
+  : Promise<CrossConferenceSleeperData[]> {
     console.log(`🎯 Fetching Sleeper data for ${enhancedMatchups.length} enhanced matchups (week ${week})...`);
 
     const results: CrossConferenceSleeperData[] = [];
@@ -66,7 +66,7 @@ class CrossConferenceSleeperService {
         results.push(sleeperData);
       } catch (error) {
         console.error(`❌ Error processing Sleeper data for matchup ${enhancedMatchup.databaseMatchup.id}:`, error);
-        
+
         // Create placeholder data for failed matchups
         const placeholderData = this.createPlaceholderSleeperData(enhancedMatchup);
         results.push(placeholderData);
@@ -83,12 +83,12 @@ class CrossConferenceSleeperService {
    * Process Sleeper data for a single enhanced matchup
    */
   private async processMatchupSleeperData(
-    enhancedMatchup: EnhancedMatchupData,
-    week: number,
-    allPlayers: Record<string, SleeperPlayer>
-  ): Promise<CrossConferenceSleeperData> {
-    const { databaseMatchup, team1, team2, team1Conference, team2Conference, 
-            team1RosterId, team2RosterId, isInterConference } = enhancedMatchup;
+  enhancedMatchup: EnhancedMatchupData,
+  week: number,
+  allPlayers: Record<string, SleeperPlayer>)
+  : Promise<CrossConferenceSleeperData> {
+    const { databaseMatchup, team1, team2, team1Conference, team2Conference,
+      team1RosterId, team2RosterId, isInterConference } = enhancedMatchup;
 
     console.log(`🔄 Processing Sleeper data for matchup ${databaseMatchup.id}...`);
     console.log(`  Team 1: ${team1.team_name} (Roster: ${team1RosterId}, League: ${team1Conference.league_id})`);
@@ -118,7 +118,7 @@ class CrossConferenceSleeperService {
     // Add warnings for inter-conference matchups
     if (isInterConference) {
       warnings.push(`Inter-conference matchup: ${team1Conference.conference_name} vs ${team2Conference.conference_name}`);
-      
+
       if (team1Conference.league_id === team2Conference.league_id) {
         warnings.push('Teams marked as inter-conference but in same Sleeper league');
       }
@@ -157,11 +157,11 @@ class CrossConferenceSleeperService {
    * Get Sleeper data for a specific team
    */
   private async getTeamSleeperData(
-    leagueId: string,
-    rosterId: string,
-    week: number,
-    teamDescription: string
-  ): Promise<CrossConferenceSleeperData['team1SleeperData']> {
+  leagueId: string,
+  rosterId: string,
+  week: number,
+  teamDescription: string)
+  : Promise<CrossConferenceSleeperData['team1SleeperData']> {
     console.log(`🎯 Getting Sleeper data for ${teamDescription} (League: ${leagueId}, Roster: ${rosterId})`);
 
     try {
@@ -174,9 +174,9 @@ class CrossConferenceSleeperService {
       }
 
       // Find specific roster and matchup data
-      const roster = leagueData.rosters.find(r => r.roster_id.toString() === rosterId);
-      const matchup = leagueData.matchups.find(m => m.roster_id.toString() === rosterId);
-      const user = leagueData.users.find(u => u.user_id === roster?.owner_id);
+      const roster = leagueData.rosters.find((r) => r.roster_id.toString() === rosterId);
+      const matchup = leagueData.matchups.find((m) => m.roster_id.toString() === rosterId);
+      const user = leagueData.users.find((u) => u.user_id === roster?.owner_id);
 
       console.log(`  Found data: Roster=${!!roster}, Matchup=${!!matchup}, User=${!!user}`);
 
@@ -199,12 +199,12 @@ class CrossConferenceSleeperService {
   private groupMatchupsByLeagues(enhancedMatchups: EnhancedMatchupData[]): Record<string, number> {
     const leagueGroups: Record<string, number> = {};
 
-    enhancedMatchups.forEach(matchup => {
+    enhancedMatchups.forEach((matchup) => {
       const team1League = matchup.team1Conference.league_id;
       const team2League = matchup.team2Conference.league_id;
 
       leagueGroups[team1League] = (leagueGroups[team1League] || 0) + 1;
-      
+
       // Only count team2 league if different from team1
       if (team1League !== team2League) {
         leagueGroups[team2League] = (leagueGroups[team2League] || 0) + 1;
@@ -245,7 +245,7 @@ class CrossConferenceSleeperService {
     const cached = this.leagueDataCache.get(cacheKey);
 
     // Return cached data if still valid
-    if (cached && (Date.now() - cached.timestamp) < this.cacheExpiryMs) {
+    if (cached && Date.now() - cached.timestamp < this.cacheExpiryMs) {
       console.log(`💾 Using cached data for league ${leagueId}`);
       return {
         matchups: cached.matchups,
@@ -259,10 +259,10 @@ class CrossConferenceSleeperService {
       console.log(`🌐 Fetching fresh data for league ${leagueId}, week ${week}...`);
 
       const [matchups, rosters, users] = await Promise.all([
-        SleeperApiService.fetchMatchups(leagueId, week),
-        SleeperApiService.fetchLeagueRosters(leagueId),
-        SleeperApiService.fetchLeagueUsers(leagueId)
-      ]);
+      SleeperApiService.fetchMatchups(leagueId, week),
+      SleeperApiService.fetchLeagueRosters(leagueId),
+      SleeperApiService.fetchLeagueUsers(leagueId)]
+      );
 
       // Cache the data
       this.leagueDataCache.set(cacheKey, {
@@ -286,23 +286,23 @@ class CrossConferenceSleeperService {
    * Assess data quality for a matchup
    */
   private assessDataQuality(
-    team1Data: CrossConferenceSleeperData['team1SleeperData'],
-    team2Data: CrossConferenceSleeperData['team2SleeperData'],
-    isInterConference: boolean
-  ): CrossConferenceSleeperData['dataQuality'] {
+  team1Data: CrossConferenceSleeperData['team1SleeperData'],
+  team2Data: CrossConferenceSleeperData['team2SleeperData'],
+  isInterConference: boolean)
+  : CrossConferenceSleeperData['dataQuality'] {
     const team1DataComplete = !!(team1Data.matchup && team1Data.roster && team1Data.user);
     const team2DataComplete = !!(team2Data.matchup && team2Data.roster && team2Data.user);
     const bothTeamsHaveData = team1DataComplete && team2DataComplete;
 
     const scoringDataAvailable = !!(
-      team1Data.matchup?.points !== undefined && 
-      team2Data.matchup?.points !== undefined
-    );
+    team1Data.matchup?.points !== undefined &&
+    team2Data.matchup?.points !== undefined);
+
 
     const starterDataAvailable = !!(
-      team1Data.matchup?.starters?.length && 
-      team2Data.matchup?.starters?.length
-    );
+    team1Data.matchup?.starters?.length &&
+    team2Data.matchup?.starters?.length);
+
 
     return {
       team1DataComplete,
@@ -341,29 +341,29 @@ class CrossConferenceSleeperService {
   private logDataQualityReport(results: CrossConferenceSleeperData[]): void {
     const stats = {
       total: results.length,
-      interConference: results.filter(r => r.isInterConference).length,
-      bothTeamsComplete: results.filter(r => r.dataQuality.bothTeamsHaveData).length,
-      scoringDataAvailable: results.filter(r => r.dataQuality.scoringDataAvailable).length,
-      starterDataAvailable: results.filter(r => r.dataQuality.starterDataAvailable).length,
-      withWarnings: results.filter(r => r.warnings.length > 0).length
+      interConference: results.filter((r) => r.isInterConference).length,
+      bothTeamsComplete: results.filter((r) => r.dataQuality.bothTeamsHaveData).length,
+      scoringDataAvailable: results.filter((r) => r.dataQuality.scoringDataAvailable).length,
+      starterDataAvailable: results.filter((r) => r.dataQuality.starterDataAvailable).length,
+      withWarnings: results.filter((r) => r.warnings.length > 0).length
     };
 
     console.log('📊 Cross-Conference Sleeper Data Quality Report:');
     console.log(`  📈 Total matchups: ${stats.total}`);
-    console.log(`  🌐 Inter-conference: ${stats.interConference} (${(stats.interConference/stats.total*100).toFixed(1)}%)`);
-    console.log(`  ✅ Both teams complete: ${stats.bothTeamsComplete} (${(stats.bothTeamsComplete/stats.total*100).toFixed(1)}%)`);
-    console.log(`  🎯 Scoring data: ${stats.scoringDataAvailable} (${(stats.scoringDataAvailable/stats.total*100).toFixed(1)}%)`);
-    console.log(`  👥 Starter data: ${stats.starterDataAvailable} (${(stats.starterDataAvailable/stats.total*100).toFixed(1)}%)`);
-    console.log(`  ⚠️ With warnings: ${stats.withWarnings} (${(stats.withWarnings/stats.total*100).toFixed(1)}%)`);
+    console.log(`  🌐 Inter-conference: ${stats.interConference} (${(stats.interConference / stats.total * 100).toFixed(1)}%)`);
+    console.log(`  ✅ Both teams complete: ${stats.bothTeamsComplete} (${(stats.bothTeamsComplete / stats.total * 100).toFixed(1)}%)`);
+    console.log(`  🎯 Scoring data: ${stats.scoringDataAvailable} (${(stats.scoringDataAvailable / stats.total * 100).toFixed(1)}%)`);
+    console.log(`  👥 Starter data: ${stats.starterDataAvailable} (${(stats.starterDataAvailable / stats.total * 100).toFixed(1)}%)`);
+    console.log(`  ⚠️ With warnings: ${stats.withWarnings} (${(stats.withWarnings / stats.total * 100).toFixed(1)}%)`);
   }
 
   /**
    * Get enhanced starting lineup data with position validation
    */
   getEnhancedStartingLineupData(
-    sleeperData: CrossConferenceSleeperData['team1SleeperData'] | CrossConferenceSleeperData['team2SleeperData'],
-    allPlayers: Record<string, SleeperPlayer>
-  ): {
+  sleeperData: CrossConferenceSleeperData['team1SleeperData'] | CrossConferenceSleeperData['team2SleeperData'],
+  allPlayers: Record<string, SleeperPlayer>)
+  : {
     starters: string[];
     starterPoints: number[];
     playerPoints: Record<string, number>;
@@ -390,7 +390,7 @@ class CrossConferenceSleeperService {
 
       const player = allPlayers[playerId];
       const expectedPos = expectedPositions[index];
-      
+
       // Position validation logic
       if (expectedPos === 'WRT' && !['RB', 'WR', 'TE'].includes(player.position)) {
         violations.push(`Position ${index + 1} (Flex): ${player.position} not eligible for WRT`);
@@ -431,10 +431,10 @@ class CrossConferenceSleeperService {
   } {
     const now = Date.now();
     const cacheEntries = Array.from(this.leagueDataCache.values());
-    
+
     let oldestCacheEntry = 0;
     if (cacheEntries.length > 0) {
-      oldestCacheEntry = Math.min(...cacheEntries.map(entry => now - entry.timestamp));
+      oldestCacheEntry = Math.min(...cacheEntries.map((entry) => now - entry.timestamp));
     }
 
     return {
