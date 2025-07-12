@@ -16,7 +16,6 @@ import DraftResultsPage from './pages/DraftResultsPage';
 import LeagueRulesPage from './pages/LeagueRulesPage';
 import ConferencesPage from './pages/ConferencesPage';
 import AdminPage from './pages/AdminPage';
-import DebugPage from './pages/DebugPage';
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
