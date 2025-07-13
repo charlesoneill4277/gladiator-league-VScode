@@ -705,29 +705,61 @@ const MatchupsManagement: React.FC = () => {
         // Step 2: If this is a manual override, create/update the override record
         if (matchup.is_manual_override) {
           try {
-            // Get roster IDs for the teams
+            console.log(`Looking up roster IDs for teams ${matchup.team_1_id} and ${matchup.team_2_id} (cross-conference support)`);
+            
+            // Get roster IDs for the teams - Remove conference_id filter to support cross-conference matchups
             const team1RosterResponse = await window.ezsite.apis.tablePage(12853, {
               PageNo: 1,
               PageSize: 10,
               Filters: [
-              { name: 'team_id', op: 'Equal', value: matchup.team_1_id },
-              { name: 'conference_id', op: 'Equal', value: matchup.conference_id }]
-
+                { name: 'team_id', op: 'Equal', value: matchup.team_1_id }
+              ]
             });
 
             const team2RosterResponse = await window.ezsite.apis.tablePage(12853, {
               PageNo: 1,
               PageSize: 10,
               Filters: [
-              { name: 'team_id', op: 'Equal', value: matchup.team_2_id },
-              { name: 'conference_id', op: 'Equal', value: matchup.conference_id }]
-
+                { name: 'team_id', op: 'Equal', value: matchup.team_2_id }
+              ]
             });
 
-            const team1RosterId = team1RosterResponse.data?.List?.[0]?.roster_id || '';
-            const team2RosterId = team2RosterResponse.data?.List?.[0]?.roster_id || '';
+            console.log(`Team 1 roster lookup result:`, team1RosterResponse.data?.List?.length || 0, 'entries found');
+            console.log(`Team 2 roster lookup result:`, team2RosterResponse.data?.List?.length || 0, 'entries found');
 
-            // Create override record
+            // For cross-conference scenarios, try to find roster ID for the current season
+            let team1RosterId = '';
+            let team2RosterId = '';
+
+            if (team1RosterResponse.data?.List?.length > 0) {
+              // If multiple entries, try to find one matching current season's conferences
+              const team1Entry = team1RosterResponse.data.List.find((entry: any) => 
+                conferences.some(c => c.id === entry.conference_id)
+              ) || team1RosterResponse.data.List[0];
+              team1RosterId = team1Entry?.roster_id || '';
+              console.log(`Team 1 (${matchup.team_1_id}) roster ID: ${team1RosterId} from conference ${team1Entry?.conference_id}`);
+            } else {
+              console.warn(`No roster entry found for team ${matchup.team_1_id}`);
+            }
+
+            if (team2RosterResponse.data?.List?.length > 0) {
+              // If multiple entries, try to find one matching current season's conferences
+              const team2Entry = team2RosterResponse.data.List.find((entry: any) => 
+                conferences.some(c => c.id === entry.conference_id)
+              ) || team2RosterResponse.data.List[0];
+              team2RosterId = team2Entry?.roster_id || '';
+              console.log(`Team 2 (${matchup.team_2_id}) roster ID: ${team2RosterId} from conference ${team2Entry?.conference_id}`);
+            } else {
+              console.warn(`No roster entry found for team ${matchup.team_2_id}`);
+            }
+
+            // Validate that we have roster IDs before proceeding
+            if (!team1RosterId || !team2RosterId) {
+              console.error(`Missing roster IDs - Team 1: ${team1RosterId}, Team 2: ${team2RosterId}`);
+              throw new Error(`Cannot create override: Missing roster IDs for teams ${matchup.team_1_id} and/or ${matchup.team_2_id}`);
+            }
+
+            // Create override record with comprehensive data
             const overrideData = {
               season_id: parseInt(selectedSeason),
               week: matchup.week,
@@ -739,18 +771,45 @@ const MatchupsManagement: React.FC = () => {
               team_2_roster_id: team2RosterId,
               is_active: true,
               created_by: 'admin',
-              notes: `Override created for matchup ${matchup.id}`
+              notes: `Override created for matchup ${matchup.id} - Teams: ${matchup.team_1_id} vs ${matchup.team_2_id}`
             };
 
             console.log(`Creating override for matchup ${matchup.id}:`, overrideData);
+            console.log(`Override validation - Season: ${selectedSeason}, Week: ${matchup.week}, Conference: ${matchup.conference_id}`);
+            console.log(`Roster mapping - Team ${matchup.team_1_id}: ${team1RosterId}, Team ${matchup.team_2_id}: ${team2RosterId}`);
+
+            // Check if override already exists and delete it first
+            const existingOverrideResponse = await window.ezsite.apis.tablePage(27780, {
+              PageNo: 1,
+              PageSize: 10,
+              Filters: [
+                { name: 'season_id', op: 'Equal', value: parseInt(selectedSeason) },
+                { name: 'week', op: 'Equal', value: matchup.week },
+                { name: 'matchup_id', op: 'Equal', value: matchup.id }
+              ]
+            });
+
+            if (existingOverrideResponse.data?.List?.length > 0) {
+              console.log(`Found existing override for matchup ${matchup.id}, deleting it first`);
+              for (const existingOverride of existingOverrideResponse.data.List) {
+                await window.ezsite.apis.tableDelete(27780, { ID: existingOverride.id });
+              }
+            }
 
             const { error: overrideError } = await window.ezsite.apis.tableCreate(27780, overrideData);
 
             if (overrideError) {
-              console.warn(`Failed to create override for matchup ${matchup.id}:`, overrideError);
-              // Don't fail the whole operation for this
+              console.error(`Failed to create override for matchup ${matchup.id}:`, overrideError);
+              console.error(`Override data that failed:`, overrideData);
+              // Don't fail the whole operation, but log the error prominently
+              toast({
+                title: 'Override Warning',
+                description: `Failed to create override record for matchup ${matchup.id}: ${overrideError}`,
+                variant: 'destructive',
+                duration: 5000
+              });
             } else {
-              console.log(`Successfully created override for matchup ${matchup.id}`);
+              console.log(`Successfully created override for matchup ${matchup.id} with roster mappings`);
             }
           } catch (overrideError) {
             console.warn(`Error creating override for matchup ${matchup.id}:`, overrideError);

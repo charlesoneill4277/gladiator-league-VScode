@@ -221,7 +221,7 @@ export class MatchupService {
             // We have database matchups - apply overrides and process
             console.log(`🎯 Processing ${dbMatchups.length} database matchups for ${conference.conference_name}`);
             const processedMatchups = this.applyOverridesToMatchups(dbMatchups, overrides);
-            
+
             for (const dbMatchup of processedMatchups) {
               try {
                 const organizedMatchup = await this.processDbMatchup(
@@ -232,7 +232,7 @@ export class MatchupService {
                   sleeperRosters,
                   sleeperUsers
                 );
-                
+
                 if (organizedMatchup) {
                   conferenceMatchups.push(organizedMatchup);
                 }
@@ -243,7 +243,7 @@ export class MatchupService {
           } else {
             // No database matchups - fallback to Sleeper API data
             console.log(`🔄 No database matchups found for ${conference.conference_name}, falling back to Sleeper API data`);
-            
+
             if (sleeperMatchups.length > 0) {
               const sleeperOrganizedMatchups = await this.processSleeperMatchups(
                 sleeperMatchups,
@@ -280,13 +280,13 @@ export class MatchupService {
    * Process a database matchup into an organized matchup
    */
   private static async processDbMatchup(
-    dbMatchup: DatabaseMatchup,
-    teams: Team[],
-    conference: Conference,
-    sleeperMatchups: any[],
-    sleeperRosters: any[],
-    sleeperUsers: any[]
-  ): Promise<OrganizedMatchup | null> {
+  dbMatchup: DatabaseMatchup,
+  teams: Team[],
+  conference: Conference,
+  sleeperMatchups: any[],
+  sleeperRosters: any[],
+  sleeperUsers: any[])
+  : Promise<OrganizedMatchup | null> {
     try {
       console.log(`⚔️ Processing DB matchup ${dbMatchup.id}: Team ${dbMatchup.team_1_id} vs Team ${dbMatchup.team_2_id}${dbMatchup.is_manual_override ? ' (OVERRIDDEN)' : ''}`);
 
@@ -369,13 +369,13 @@ export class MatchupService {
    * Process Sleeper matchups when no database matchups exist
    */
   private static async processSleeperMatchups(
-    sleeperMatchups: any[],
-    sleeperRosters: any[],
-    sleeperUsers: any[],
-    teams: Team[],
-    conference: Conference,
-    overrides: MatchupOverride[]
-  ): Promise<OrganizedMatchup[]> {
+  sleeperMatchups: any[],
+  sleeperRosters: any[],
+  sleeperUsers: any[],
+  teams: Team[],
+  conference: Conference,
+  overrides: MatchupOverride[])
+  : Promise<OrganizedMatchup[]> {
     try {
       console.log(`🏈 Processing ${sleeperMatchups.length} Sleeper matchups for ${conference.conference_name}`);
 
@@ -471,7 +471,7 @@ export class MatchupService {
     try {
       const teamId = await this.mapRosterToTeam(rosterId, conferenceId);
       if (!teamId) return null;
-      return teams.find(t => t.id === teamId) || null;
+      return teams.find((t) => t.id === teamId) || null;
     } catch (error) {
       console.error(`Error finding team for roster ${rosterId}:`, error);
       return null;
@@ -482,9 +482,9 @@ export class MatchupService {
    * Determine matchup status for Sleeper-only data
    */
   private static determineSleeperMatchupStatus(
-    team1Data: any,
-    team2Data: any
-  ): 'live' | 'completed' | 'upcoming' {
+  team1Data: any,
+  team2Data: any)
+  : 'live' | 'completed' | 'upcoming' {
     // Check if either team has points > 0
     const hasPoints = (team1Data?.points || 0) > 0 || (team2Data?.points || 0) > 0;
 
