@@ -706,22 +706,22 @@ const MatchupsManagement: React.FC = () => {
         if (matchup.is_manual_override) {
           try {
             console.log(`Looking up roster IDs for teams ${matchup.team_1_id} and ${matchup.team_2_id} (cross-conference support)`);
-            
+
             // Get roster IDs for the teams - Remove conference_id filter to support cross-conference matchups
             const team1RosterResponse = await window.ezsite.apis.tablePage(12853, {
               PageNo: 1,
               PageSize: 10,
               Filters: [
-                { name: 'team_id', op: 'Equal', value: matchup.team_1_id }
-              ]
+              { name: 'team_id', op: 'Equal', value: matchup.team_1_id }]
+
             });
 
             const team2RosterResponse = await window.ezsite.apis.tablePage(12853, {
               PageNo: 1,
               PageSize: 10,
               Filters: [
-                { name: 'team_id', op: 'Equal', value: matchup.team_2_id }
-              ]
+              { name: 'team_id', op: 'Equal', value: matchup.team_2_id }]
+
             });
 
             console.log(`Team 1 roster lookup result:`, team1RosterResponse.data?.List?.length || 0, 'entries found');
@@ -733,8 +733,8 @@ const MatchupsManagement: React.FC = () => {
 
             if (team1RosterResponse.data?.List?.length > 0) {
               // If multiple entries, try to find one matching current season's conferences
-              const team1Entry = team1RosterResponse.data.List.find((entry: any) => 
-                conferences.some(c => c.id === entry.conference_id)
+              const team1Entry = team1RosterResponse.data.List.find((entry: any) =>
+              conferences.some((c) => c.id === entry.conference_id)
               ) || team1RosterResponse.data.List[0];
               team1RosterId = team1Entry?.roster_id || '';
               console.log(`Team 1 (${matchup.team_1_id}) roster ID: ${team1RosterId} from conference ${team1Entry?.conference_id}`);
@@ -744,8 +744,8 @@ const MatchupsManagement: React.FC = () => {
 
             if (team2RosterResponse.data?.List?.length > 0) {
               // If multiple entries, try to find one matching current season's conferences
-              const team2Entry = team2RosterResponse.data.List.find((entry: any) => 
-                conferences.some(c => c.id === entry.conference_id)
+              const team2Entry = team2RosterResponse.data.List.find((entry: any) =>
+              conferences.some((c) => c.id === entry.conference_id)
               ) || team2RosterResponse.data.List[0];
               team2RosterId = team2Entry?.roster_id || '';
               console.log(`Team 2 (${matchup.team_2_id}) roster ID: ${team2RosterId} from conference ${team2Entry?.conference_id}`);
@@ -783,10 +783,10 @@ const MatchupsManagement: React.FC = () => {
               PageNo: 1,
               PageSize: 10,
               Filters: [
-                { name: 'season_id', op: 'Equal', value: parseInt(selectedSeason) },
-                { name: 'week', op: 'Equal', value: matchup.week },
-                { name: 'matchup_id', op: 'Equal', value: matchup.id }
-              ]
+              { name: 'season_id', op: 'Equal', value: parseInt(selectedSeason) },
+              { name: 'week', op: 'Equal', value: matchup.week },
+              { name: 'matchup_id', op: 'Equal', value: matchup.id }]
+
             });
 
             if (existingOverrideResponse.data?.List?.length > 0) {

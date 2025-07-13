@@ -344,13 +344,13 @@ const MatchupsPage: React.FC = () => {
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'live':
-        return <Badge className="bg-green-500 hover:bg-green-600">Live</Badge>;
+        return <Badge className="bg-green-500 hover:bg-green-600" data-id="e0dv5ji3x">Live</Badge>;
       case 'completed':
-        return <Badge variant="secondary">Final</Badge>;
+        return <Badge variant="secondary" data-id="wwntc78j7">Final</Badge>;
       case 'upcoming':
-        return <Badge variant="outline">Upcoming</Badge>;
+        return <Badge variant="outline" data-id="cpfo7mk27">Upcoming</Badge>;
       default:
-        return <Badge variant="secondary">{status}</Badge>;
+        return <Badge variant="secondary" data-id="ct7c4zhmj">{status}</Badge>;
     }
   };
 
@@ -367,15 +367,15 @@ const MatchupsPage: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="space-y-6">
-        <div className="flex items-center space-x-2">
-          <Swords className="h-6 w-6 text-primary" />
-          <h1 className="text-3xl font-bold">Matchups</h1>
+      <div className="space-y-6" data-id="tzz472nak">
+        <div className="flex items-center space-x-2" data-id="5elyljl9e">
+          <Swords className="h-6 w-6 text-primary" data-id="tipmf8dg5" />
+          <h1 className="text-3xl font-bold" data-id="8piimptxy">Matchups</h1>
         </div>
-        <Card>
-          <CardContent className="py-8 text-center">
-            <RefreshCw className="h-8 w-8 animate-spin mx-auto mb-4 text-primary" />
-            <p>Loading matchup data...</p>
+        <Card data-id="qwkzo4ylj">
+          <CardContent className="py-8 text-center" data-id="kf8rxws9c">
+            <RefreshCw className="h-8 w-8 animate-spin mx-auto mb-4 text-primary" data-id="p29kjp6x5" />
+            <p data-id="o8x1o4e4b">Loading matchup data...</p>
           </CardContent>
         </Card>
       </div>);
@@ -383,14 +383,14 @@ const MatchupsPage: React.FC = () => {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6" data-id="bznstvnjt">
       {/* Page Header */}
-      <div className="flex flex-col space-y-2">
-        <div className="flex items-center space-x-2">
-          <Swords className="h-6 w-6 text-primary" />
-          <h1 className="text-3xl font-bold">Matchups</h1>
+      <div className="flex flex-col space-y-2" data-id="w81qhwjz9">
+        <div className="flex items-center space-x-2" data-id="vtiz43b44">
+          <Swords className="h-6 w-6 text-primary" data-id="tz9d5dqwq" />
+          <h1 className="text-3xl font-bold" data-id="pmxrl2thl">Matchups</h1>
         </div>
-        <p className="text-muted-foreground">
+        <p className="text-muted-foreground" data-id="kl696l74a">
           {selectedSeason} Season • Week {selectedWeek} • {
           selectedConference ?
           currentSeasonConfig.conferences.find((c) => c.id === selectedConference)?.name || 'Selected Conference' :
@@ -400,18 +400,18 @@ const MatchupsPage: React.FC = () => {
       </div>
 
       {/* Controls */}
-      <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
-        <div className="flex items-center space-x-4">
-          <Select value={selectedWeek.toString()} onValueChange={(value) => setSelectedWeek(parseInt(value))}>
-            <SelectTrigger className="w-32">
-              <SelectValue />
+      <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between" data-id="f7xxssis8">
+        <div className="flex items-center space-x-4" data-id="125ys6wco">
+          <Select value={selectedWeek.toString()} onValueChange={(value) => setSelectedWeek(parseInt(value))} data-id="j3igcaiwp">
+            <SelectTrigger className="w-32" data-id="ss8s60vlp">
+              <SelectValue data-id="ig5sdnepw" />
             </SelectTrigger>
-            <SelectContent>
+            <SelectContent data-id="lhhtlvud7">
               {Array.from({ length: 18 }, (_, i) => i + 1).map((week) =>
-              <SelectItem key={week} value={week.toString()}>
-                  <div className="flex items-center space-x-2">
-                    <span>Week {week}</span>
-                    {week === currentWeek && <Badge variant="outline" className="text-xs">Current</Badge>}
+              <SelectItem key={week} value={week.toString()} data-id="1gkb8xwkq">
+                  <div className="flex items-center space-x-2" data-id="vha6m1iau">
+                    <span data-id="okxk86asi">Week {week}</span>
+                    {week === currentWeek && <Badge variant="outline" className="text-xs" data-id="cbpjev49a">Current</Badge>}
                   </div>
                 </SelectItem>
               )}
@@ -419,64 +419,64 @@ const MatchupsPage: React.FC = () => {
           </Select>
 
           {selectedWeek === currentWeek &&
-          <div className="flex items-center space-x-2 text-sm text-muted-foreground">
-              <Clock className="h-4 w-4" />
-              <span>Current week</span>
+          <div className="flex items-center space-x-2 text-sm text-muted-foreground" data-id="x9m7t3ckd">
+              <Clock className="h-4 w-4" data-id="5sp062vmj" />
+              <span data-id="li4ffhv05">Current week</span>
             </div>
           }
         </div>
 
-        <div className="flex items-center space-x-4">
+        <div className="flex items-center space-x-4" data-id="nn6k7tyf1">
           <Button
             variant="outline"
             size="sm"
             onClick={() => loadData(true)}
-            disabled={refreshing}>
+            disabled={refreshing} data-id="jrjw8rzfq">
 
-            <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} data-id="q3bfy7nzm" />
             Refresh
           </Button>
           
           <Button
             variant={debugMode ? "default" : "outline"}
             size="sm"
-            onClick={() => setDebugMode(!debugMode)}>
+            onClick={() => setDebugMode(!debugMode)} data-id="7rfvgv5vw">
 
-            <Bug className="h-4 w-4" />
+            <Bug className="h-4 w-4" data-id="sagck4sf7" />
             Debug {debugMode ? 'ON' : 'OFF'}
           </Button>
           
-          <div className="flex items-center space-x-2 text-sm text-muted-foreground">
-            <Users className="h-4 w-4" />
-            <span>{matchups.length} matchups</span>
+          <div className="flex items-center space-x-2 text-sm text-muted-foreground" data-id="kv6cp64ej">
+            <Users className="h-4 w-4" data-id="997m34tb6" />
+            <span data-id="dfpuz0sjp">{matchups.length} matchups</span>
           </div>
         </div>
       </div>
 
       {/* Week Status Indicator */}
       {weekStatus &&
-      <Card className="border-l-4 border-l-blue-500">
-          <CardContent className="py-3">
-            <div className="flex items-center space-x-3">
-              {weekStatus.status === 'future' && <Clock className="h-5 w-5 text-blue-500" />}
-              {weekStatus.status === 'current' && <Play className="h-5 w-5 text-green-500" />}
-              {weekStatus.status === 'live' && <Pause className="h-5 w-5 text-yellow-500" />}
-              {weekStatus.status === 'completed' && <CheckCircle className="h-5 w-5 text-gray-500" />}
-              <div>
-                <div className="font-medium">Week {weekStatus.week} Status</div>
-                <div className="text-sm text-muted-foreground">{weekStatus.description}</div>
+      <Card className="border-l-4 border-l-blue-500" data-id="jswil2o46">
+          <CardContent className="py-3" data-id="z922umab1">
+            <div className="flex items-center space-x-3" data-id="pt4wp2oaq">
+              {weekStatus.status === 'future' && <Clock className="h-5 w-5 text-blue-500" data-id="jzy8iwqd2" />}
+              {weekStatus.status === 'current' && <Play className="h-5 w-5 text-green-500" data-id="hefiq1xui" />}
+              {weekStatus.status === 'live' && <Pause className="h-5 w-5 text-yellow-500" data-id="l9rd0dfuw" />}
+              {weekStatus.status === 'completed' && <CheckCircle className="h-5 w-5 text-gray-500" data-id="5p1h2fq44" />}
+              <div data-id="pm52q6ppe">
+                <div className="font-medium" data-id="05f892apf">Week {weekStatus.week} Status</div>
+                <div className="text-sm text-muted-foreground" data-id="8293zd6ka">{weekStatus.description}</div>
                 {weekStatus.status === 'future' &&
-              <div className="text-xs text-muted-foreground mt-1">
+              <div className="text-xs text-muted-foreground mt-1" data-id="40aec8f5q">
                     ⚠️ Points will not be available until games begin
                   </div>
               }
                 {weekStatus.status === 'current' &&
-              <div className="text-xs text-muted-foreground mt-1">
+              <div className="text-xs text-muted-foreground mt-1" data-id="7o5uotyq5">
                     🔴 Points may update in real-time during games
                   </div>
               }
                 {weekStatus.status === 'completed' && selectedSeason < new Date().getFullYear() &&
-              <div className="text-xs text-muted-foreground mt-1">
+              <div className="text-xs text-muted-foreground mt-1" data-id="ju1g9hidc">
                     📊 Historical season data - All scores are final
                   </div>
               }
@@ -488,17 +488,17 @@ const MatchupsPage: React.FC = () => {
 
       {/* API Errors Display */}
       {apiErrors.length > 0 &&
-      <Card className="border-l-4 border-l-red-500">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm flex items-center space-x-2">
-              <AlertCircle className="h-4 w-4 text-red-500" />
-              <span>API Errors ({apiErrors.length})</span>
+      <Card className="border-l-4 border-l-red-500" data-id="hgbas33si">
+          <CardHeader className="pb-2" data-id="rt9omhj0i">
+            <CardTitle className="text-sm flex items-center space-x-2" data-id="6ou85qqug">
+              <AlertCircle className="h-4 w-4 text-red-500" data-id="oo55a03jo" />
+              <span data-id="3on9tazyg">API Errors ({apiErrors.length})</span>
             </CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="space-y-1">
+          <CardContent data-id="p3wq9xfjz">
+            <div className="space-y-1" data-id="e1b3s6cno">
               {apiErrors.map((error, index) =>
-            <div key={index} className="text-sm text-red-600 bg-red-50 p-2 rounded">
+            <div key={index} className="text-sm text-red-600 bg-red-50 p-2 rounded" data-id="do2bswc0a">
                   {error}
                 </div>
             )}
@@ -509,38 +509,38 @@ const MatchupsPage: React.FC = () => {
 
       {/* Debug Mode Display */}
       {debugMode && rawApiData &&
-      <Card className="border-l-4 border-l-purple-500">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm flex items-center space-x-2">
-              <Bug className="h-4 w-4 text-purple-500" />
-              <span>Debug Information</span>
+      <Card className="border-l-4 border-l-purple-500" data-id="pmbix7yr2">
+          <CardHeader className="pb-2" data-id="mnnkyi0wx">
+            <CardTitle className="text-sm flex items-center space-x-2" data-id="4xsg4dt9q">
+              <Bug className="h-4 w-4 text-purple-500" data-id="r1pac9195" />
+              <span data-id="i45kcmi6k">Debug Information</span>
             </CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              <div className="text-sm">
-                <strong>Week Status:</strong> {rawApiData.weekStatus?.status} - {rawApiData.weekStatus?.description}
+          <CardContent data-id="bahwsvjog">
+            <div className="space-y-4" data-id="819k7klab">
+              <div className="text-sm" data-id="p5e27g165">
+                <strong data-id="xuvfcvam7">Week Status:</strong> {rawApiData.weekStatus?.status} - {rawApiData.weekStatus?.description}
               </div>
-              <div className="text-sm">
-                <strong>Using Override Service:</strong> {rawApiData.useOverrideService ? 'Yes' : 'No'}
+              <div className="text-sm" data-id="snwx33r4x">
+                <strong data-id="ftxxk61ko">Using Override Service:</strong> {rawApiData.useOverrideService ? 'Yes' : 'No'}
               </div>
-              <div className="text-sm">
-                <strong>Total Conferences:</strong> {rawApiData.conferences.length}
+              <div className="text-sm" data-id="qx41kymn8">
+                <strong data-id="6wzfy346o">Total Conferences:</strong> {rawApiData.conferences.length}
               </div>
-              <div className="text-sm">
-                <strong>Total Matchups:</strong> {rawApiData.totalMatchups}
+              <div className="text-sm" data-id="ci26fmdo1">
+                <strong data-id="uy5ra6urw">Total Matchups:</strong> {rawApiData.totalMatchups}
               </div>
               {rawApiData.errors.length > 0 &&
-            <div className="text-sm">
-                  <strong>Errors:</strong>
-                  <pre className="mt-1 p-2 bg-red-50 rounded text-xs overflow-x-auto">
+            <div className="text-sm" data-id="i3x4axb2z">
+                  <strong data-id="d7t1i1fly">Errors:</strong>
+                  <pre className="mt-1 p-2 bg-red-50 rounded text-xs overflow-x-auto" data-id="069sjfp5w">
                     {JSON.stringify(rawApiData.errors, null, 2)}
                   </pre>
                 </div>
             }
-              <details className="text-sm">
-                <summary className="cursor-pointer font-medium">Raw API Data</summary>
-                <pre className="mt-2 p-3 bg-gray-50 rounded text-xs overflow-x-auto max-h-96">
+              <details className="text-sm" data-id="nlx157okq">
+                <summary className="cursor-pointer font-medium" data-id="rofm6x1nw">Raw API Data</summary>
+                <pre className="mt-2 p-3 bg-gray-50 rounded text-xs overflow-x-auto max-h-96" data-id="obx2pshih">
                   {JSON.stringify(rawApiData, null, 2)}
                 </pre>
               </details>
@@ -550,53 +550,53 @@ const MatchupsPage: React.FC = () => {
       }
 
       {/* Matchups Grid */}
-      <div className="grid gap-4">
+      <div className="grid gap-4" data-id="6sbslzdc9">
         {matchups.map((matchup) => {
           const [team1, team2] = matchup.teams;
           const winningTeam = getWinningTeam(matchup);
 
           return (
-            <Card key={`${matchup.conference.id}-${matchup.matchup_id}`} className="hover:shadow-md transition-shadow">
-              <Collapsible>
+            <Card key={`${matchup.conference.id}-${matchup.matchup_id}`} className="hover:shadow-md transition-shadow" data-id="etjc9zd97">
+              <Collapsible data-id="ip11rbs8u">
                 <CollapsibleTrigger
                   className="w-full"
-                  onClick={() => toggleMatchupExpansion(`${matchup.conference.id}-${matchup.matchup_id}`)}>
+                  onClick={() => toggleMatchupExpansion(`${matchup.conference.id}-${matchup.matchup_id}`)} data-id="ftdztcby7">
 
-                  <CardHeader className="pb-4">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center space-x-2">
-                        <CardTitle className="text-lg">
+                  <CardHeader className="pb-4" data-id="rds1l07iy">
+                    <div className="flex items-center justify-between" data-id="o4u785bg2">
+                      <div className="flex items-center space-x-2" data-id="e6nig3f8f">
+                        <CardTitle className="text-lg" data-id="ybx5fddvc">
                           {matchup.conference.conference_name}
                         </CardTitle>
                         {getStatusBadge(matchup.status)}
                         {matchup.rawData?.isOverride &&
-                        <Badge variant="outline" className="text-orange-600 border-orange-300">
+                        <Badge variant="outline" className="text-orange-600 border-orange-300" data-id="8a7una649">
                             Override
                           </Badge>
                         }
                       </div>
                       <ChevronDown className={`h-4 w-4 transition-transform ${
                       expandedMatchups.has(`${matchup.conference.id}-${matchup.matchup_id}`) ? 'rotate-180' : ''}`
-                      } />
+                      } data-id="j09kgv49h" />
                     </div>
                   </CardHeader>
                 </CollapsibleTrigger>
 
-                <CardContent className="pt-0">
+                <CardContent className="pt-0" data-id="40fe8n1fw">
                   {/* Matchup Summary */}
-                  <div className="grid grid-cols-3 gap-4 items-center">
+                  <div className="grid grid-cols-3 gap-4 items-center" data-id="i7q8pulrx">
                     {/* Team 1 */}
-                    <div className="text-right space-y-1">
-                      <div className="font-semibold">
+                    <div className="text-right space-y-1" data-id="wa0b8gv81">
+                      <div className="font-semibold" data-id="kcb10v9fd">
                         {team1.team?.team_name || team1.owner?.display_name || team1.owner?.username || 'Unknown Team'}
                       </div>
-                      <div className="text-sm text-muted-foreground">
+                      <div className="text-sm text-muted-foreground" data-id="uy0yc3u8h">
                         {team1.team?.owner_name || team1.owner?.display_name || 'Unknown Owner'}
                       </div>
-                      <div className={`text-2xl font-bold ${winningTeam?.roster_id === team1.roster_id ? 'text-green-600' : ''}`}>
+                      <div className={`text-2xl font-bold ${winningTeam?.roster_id === team1.roster_id ? 'text-green-600' : ''}`} data-id="arahbbp67">
                         {matchup.status === 'upcoming' && selectedSeason >= new Date().getFullYear() ? '--' : (team1.points ?? 0).toFixed(1)}
                         {debugMode &&
-                        <div className="text-xs text-muted-foreground mt-1">
+                        <div className="text-xs text-muted-foreground mt-1" data-id="yldshpkjb">
                             Raw: {team1.points ?? 'null'}
                           </div>
                         }
@@ -604,25 +604,25 @@ const MatchupsPage: React.FC = () => {
                     </div>
 
                     {/* VS Divider */}
-                    <div className="text-center">
-                      <div className="text-lg font-semibold text-muted-foreground">VS</div>
+                    <div className="text-center" data-id="ghtmrqiy4">
+                      <div className="text-lg font-semibold text-muted-foreground" data-id="0bcyb0odk">VS</div>
                       {matchup.status === 'completed' && winningTeam &&
-                      <Trophy className="h-6 w-6 mx-auto mt-2 text-yellow-500" />
+                      <Trophy className="h-6 w-6 mx-auto mt-2 text-yellow-500" data-id="jont2fp08" />
                       }
                     </div>
 
                     {/* Team 2 */}
-                    <div className="text-left space-y-1">
-                      <div className="font-semibold">
+                    <div className="text-left space-y-1" data-id="ahk41gwuq">
+                      <div className="font-semibold" data-id="v411eejl0">
                         {team2.team?.team_name || team2.owner?.display_name || team2.owner?.username || 'Unknown Team'}
                       </div>
-                      <div className="text-sm text-muted-foreground">
+                      <div className="text-sm text-muted-foreground" data-id="irjyowtcv">
                         {team2.team?.owner_name || team2.owner?.display_name || 'Unknown Owner'}
                       </div>
-                      <div className={`text-2xl font-bold ${winningTeam?.roster_id === team2.roster_id ? 'text-green-600' : ''}`}>
+                      <div className={`text-2xl font-bold ${winningTeam?.roster_id === team2.roster_id ? 'text-green-600' : ''}`} data-id="dhtjcdccu">
                         {matchup.status === 'upcoming' && selectedSeason >= new Date().getFullYear() ? '--' : (team2.points ?? 0).toFixed(1)}
                         {debugMode &&
-                        <div className="text-xs text-muted-foreground mt-1">
+                        <div className="text-xs text-muted-foreground mt-1" data-id="ai7hr0aw3">
                             Raw: {team2.points ?? 'null'}
                           </div>
                         }
@@ -631,10 +631,10 @@ const MatchupsPage: React.FC = () => {
                   </div>
 
                   {/* Expanded Content */}
-                  <CollapsibleContent className="mt-6">
-                    <div className="border-t pt-4 space-y-4">
+                  <CollapsibleContent className="mt-6" data-id="eerqsi8e1">
+                    <div className="border-t pt-4 space-y-4" data-id="46y5on6xp">
                       {/* Team Starting Lineups */}
-                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4" data-id="rd79ubuxt">
                         {/* Team 1 Starting Lineup */}
                         <StartingLineup
                           roster={team1.roster}
@@ -642,7 +642,7 @@ const MatchupsPage: React.FC = () => {
                           teamName={team1.team?.team_name || team1.owner?.display_name || 'Team 1'}
                           playerPoints={team1.players_points}
                           startersPoints={team1.starters_points}
-                          matchupStarters={team1.matchup_starters} />
+                          matchupStarters={team1.matchup_starters} data-id="a1jfe3js1" />
 
 
                         {/* Team 2 Starting Lineup */}
@@ -652,36 +652,36 @@ const MatchupsPage: React.FC = () => {
                           teamName={team2.team?.team_name || team2.owner?.display_name || 'Team 2'}
                           playerPoints={team2.players_points}
                           startersPoints={team2.starters_points}
-                          matchupStarters={team2.matchup_starters} />
+                          matchupStarters={team2.matchup_starters} data-id="ofxq25nn5" />
 
                       </div>
 
                       {/* Matchup Stats */}
                       {matchup.status !== 'upcoming' &&
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
-                          <div>
-                            <div className="text-sm text-muted-foreground">Total Points</div>
-                            <div className="font-semibold">
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center" data-id="eew7lcqqp">
+                          <div data-id="6xse4akid">
+                            <div className="text-sm text-muted-foreground" data-id="se7b3uxp3">Total Points</div>
+                            <div className="font-semibold" data-id="8k9ir30kv">
                               {((team1.points ?? 0) + (team2.points ?? 0)).toFixed(1)}
                             </div>
                           </div>
-                          <div>
-                            <div className="text-sm text-muted-foreground">Point Spread</div>
-                            <div className="font-semibold">
+                          <div data-id="eujoon99j">
+                            <div className="text-sm text-muted-foreground" data-id="k81fyu8m1">Point Spread</div>
+                            <div className="font-semibold" data-id="9ncd1rche">
                               {Math.abs((team1.points ?? 0) - (team2.points ?? 0)).toFixed(1)}
                             </div>
                           </div>
-                          <div>
-                            <div className="text-sm text-muted-foreground">High Score</div>
-                            <div className="font-semibold">
+                          <div data-id="0xf1lwujy">
+                            <div className="text-sm text-muted-foreground" data-id="xzaguxk92">High Score</div>
+                            <div className="font-semibold" data-id="57an52gtp">
                               {Math.max(team1.points ?? 0, team2.points ?? 0).toFixed(1)}
                             </div>
                           </div>
-                          <div>
-                            <div className="text-sm text-muted-foreground">Status</div>
-                            <div className="text-xs capitalize">{matchup.status}</div>
+                          <div data-id="e6kn23hu6">
+                            <div className="text-sm text-muted-foreground" data-id="r6uspzrkt">Status</div>
+                            <div className="text-xs capitalize" data-id="1jv06uokt">{matchup.status}</div>
                             {debugMode && matchup.rawData &&
-                          <div className="text-xs text-muted-foreground mt-1">
+                          <div className="text-xs text-muted-foreground mt-1" data-id="dltawp3fb">
                                 Override: {matchup.rawData.isOverride ? 'Yes' : 'No'}
                               </div>
                           }
@@ -697,12 +697,12 @@ const MatchupsPage: React.FC = () => {
         })}
 
         {matchups.length === 0 &&
-        <Card>
-            <CardContent className="py-8 text-center">
-              <AlertCircle className="h-8 w-8 mx-auto mb-4 text-muted-foreground" />
-              <p className="text-muted-foreground">No matchups found for the selected filters.</p>
+        <Card data-id="6v5zymbil">
+            <CardContent className="py-8 text-center" data-id="z15vlyvkx">
+              <AlertCircle className="h-8 w-8 mx-auto mb-4 text-muted-foreground" data-id="8yvlr2luc" />
+              <p className="text-muted-foreground" data-id="onosfwxm8">No matchups found for the selected filters.</p>
               {conferences.length === 0 &&
-            <p className="text-sm text-muted-foreground mt-2">
+            <p className="text-sm text-muted-foreground mt-2" data-id="hv7663xwo">
                   Make sure conferences are configured in the admin panel.
                 </p>
             }

@@ -295,7 +295,12 @@ export class MatchupService {
       const team2 = teams.find((t) => t.id === dbMatchup.team_2_id);
 
       if (!team1 || !team2) {
-        console.warn(`⚠️ Missing team data for matchup ${dbMatchup.id}: team1=${!!team1}, team2=${!!team2}`);
+        console.warn(`⚠️ Missing team data for matchup ${dbMatchup.id}:`);
+        console.warn(`   Team ${dbMatchup.team_1_id}: ${team1 ? '✅ Found' : '❌ Not Found'}`);
+        console.warn(`   Team ${dbMatchup.team_2_id}: ${team2 ? '✅ Found' : '❌ Not Found'}`);
+        console.warn(`   Available teams: [${teams.map(t => t.id).join(', ')}]`);
+        console.warn(`   Is override: ${dbMatchup.is_manual_override}`);
+        console.warn(`   Conference: ${conference.conference_name} (ID: ${conference.id})`);
         return null;
       }
 
@@ -304,7 +309,11 @@ export class MatchupService {
       const team2RosterId = await this.getRosterIdForTeam(team2.id, conference.id);
 
       if (!team1RosterId || !team2RosterId) {
-        console.warn(`⚠️ Missing roster IDs for matchup ${dbMatchup.id}: team1=${team1RosterId}, team2=${team2RosterId}`);
+        console.warn(`⚠️ Missing roster IDs for matchup ${dbMatchup.id}:`);
+        console.warn(`   Team ${team1.id} (${team1.team_name}): ${team1RosterId ? `✅ Roster ID ${team1RosterId}` : '❌ No Roster ID'}`);
+        console.warn(`   Team ${team2.id} (${team2.team_name}): ${team2RosterId ? `✅ Roster ID ${team2RosterId}` : '❌ No Roster ID'}`);
+        console.warn(`   Conference: ${conference.conference_name} (ID: ${conference.id})`);
+        console.warn(`   Is override: ${dbMatchup.is_manual_override}`);
         return null;
       }
 
@@ -536,26 +545,51 @@ export class MatchupService {
   }
 
   /**
-   * Get roster ID for a team in a specific conference
+   * Get roster ID for a team in a specific conference (with cross-conference fallback)
    */
   private static async getRosterIdForTeam(teamId: number, conferenceId: number): Promise<string | null> {
     try {
+      console.log(`🔍 Looking up roster ID for team ${teamId} in conference ${conferenceId}`);
+      
+      // First, try the specific conference
       const { data, error } = await window.ezsite.apis.tablePage(12853, {
         PageNo: 1,
         PageSize: 10,
         Filters: [
-        { name: 'team_id', op: 'Equal', value: teamId },
-        { name: 'conference_id', op: 'Equal', value: conferenceId }]
-
+          { name: 'team_id', op: 'Equal', value: teamId },
+          { name: 'conference_id', op: 'Equal', value: conferenceId }
+        ]
       });
 
-      if (error || !data.List || data.List.length === 0) {
+      if (!error && data.List && data.List.length > 0) {
+        console.log(`✅ Found roster ID ${data.List[0].roster_id} for team ${teamId} in conference ${conferenceId}`);
+        return data.List[0].roster_id;
+      }
+
+      // If not found in the specific conference, try a cross-conference lookup
+      // This is needed for overridden matchups where teams may be from different conferences
+      console.log(`🔄 Team ${teamId} not found in conference ${conferenceId}, trying cross-conference lookup...`);
+      
+      const crossConferenceResponse = await window.ezsite.apis.tablePage(12853, {
+        PageNo: 1,
+        PageSize: 50,
+        Filters: [
+          { name: 'team_id', op: 'Equal', value: teamId }
+        ]
+      });
+
+      if (crossConferenceResponse.error || !crossConferenceResponse.data.List || crossConferenceResponse.data.List.length === 0) {
+        console.warn(`⚠️ Team ${teamId} not found in any conference`);
         return null;
       }
 
-      return data.List[0].roster_id;
+      // Return the first match from any conference
+      const crossConferenceResult = crossConferenceResponse.data.List[0];
+      console.log(`✅ Found roster ID ${crossConferenceResult.roster_id} for team ${teamId} in conference ${crossConferenceResult.conference_id} (cross-conference)`);
+      return crossConferenceResult.roster_id;
+
     } catch (error) {
-      console.error('Error getting roster ID for team:', error);
+      console.error(`❌ Error getting roster ID for team ${teamId}:`, error);
       return null;
     }
   }
