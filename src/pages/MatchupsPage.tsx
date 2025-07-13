@@ -261,10 +261,10 @@ const MatchupsPage: React.FC = () => {
       console.log(`✅ MatchupService returned ${organizedMatchups.length} matchups`);
 
       const debugData = {
-        conferences: targetConferences.map(c => ({
+        conferences: targetConferences.map((c) => ({
           conference: c.conference_name,
           leagueId: c.league_id,
-          matchupsCount: organizedMatchups.filter(m => m.conference.id === c.id).length
+          matchupsCount: organizedMatchups.filter((m) => m.conference.id === c.id).length
         })),
         totalMatchups: organizedMatchups.length,
         errors: [],
@@ -281,7 +281,7 @@ const MatchupsPage: React.FC = () => {
     } catch (error) {
       const errorMsg = `Failed to fetch matchup data: ${error}`;
       console.error('❌ Error fetching matchup data:', error);
-      setApiErrors(prev => [...prev, errorMsg]);
+      setApiErrors((prev) => [...prev, errorMsg]);
 
       toast({
         title: 'API Error',
@@ -378,8 +378,8 @@ const MatchupsPage: React.FC = () => {
             <p>Loading matchup data...</p>
           </CardContent>
         </Card>
-      </div>
-    );
+      </div>);
+
   }
 
   return (
@@ -392,9 +392,9 @@ const MatchupsPage: React.FC = () => {
         </div>
         <p className="text-muted-foreground">
           {selectedSeason} Season • Week {selectedWeek} • {
-            selectedConference ?
-              currentSeasonConfig.conferences.find((c) => c.id === selectedConference)?.name || 'Selected Conference' :
-              conferences.length > 0 ? `${conferences.length} Conference${conferences.length !== 1 ? 's' : ''}` : 'All Conferences'
+          selectedConference ?
+          currentSeasonConfig.conferences.find((c) => c.id === selectedConference)?.name || 'Selected Conference' :
+          conferences.length > 0 ? `${conferences.length} Conference${conferences.length !== 1 ? 's' : ''}` : 'All Conferences'
           }
         </p>
       </div>
@@ -407,23 +407,23 @@ const MatchupsPage: React.FC = () => {
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              {Array.from({ length: 18 }, (_, i) => i + 1).map((week) => (
-                <SelectItem key={week} value={week.toString()}>
+              {Array.from({ length: 18 }, (_, i) => i + 1).map((week) =>
+              <SelectItem key={week} value={week.toString()}>
                   <div className="flex items-center space-x-2">
                     <span>Week {week}</span>
                     {week === currentWeek && <Badge variant="outline" className="text-xs">Current</Badge>}
                   </div>
                 </SelectItem>
-              ))}
+              )}
             </SelectContent>
           </Select>
 
-          {selectedWeek === currentWeek && (
-            <div className="flex items-center space-x-2 text-sm text-muted-foreground">
+          {selectedWeek === currentWeek &&
+          <div className="flex items-center space-x-2 text-sm text-muted-foreground">
               <Clock className="h-4 w-4" />
               <span>Current week</span>
             </div>
-          )}
+          }
         </div>
 
         <div className="flex items-center space-x-4">
@@ -431,8 +431,8 @@ const MatchupsPage: React.FC = () => {
             variant="outline"
             size="sm"
             onClick={() => loadData(true)}
-            disabled={refreshing}
-          >
+            disabled={refreshing}>
+
             <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
             Refresh
           </Button>
@@ -440,8 +440,8 @@ const MatchupsPage: React.FC = () => {
           <Button
             variant={debugMode ? "default" : "outline"}
             size="sm"
-            onClick={() => setDebugMode(!debugMode)}
-          >
+            onClick={() => setDebugMode(!debugMode)}>
+
             <Bug className="h-4 w-4" />
             Debug {debugMode ? 'ON' : 'OFF'}
           </Button>
@@ -454,8 +454,8 @@ const MatchupsPage: React.FC = () => {
       </div>
 
       {/* Week Status Indicator */}
-      {weekStatus && (
-        <Card className="border-l-4 border-l-blue-500">
+      {weekStatus &&
+      <Card className="border-l-4 border-l-blue-500">
           <CardContent className="py-3">
             <div className="flex items-center space-x-3">
               {weekStatus.status === 'future' && <Clock className="h-5 w-5 text-blue-500" />}
@@ -465,30 +465,30 @@ const MatchupsPage: React.FC = () => {
               <div>
                 <div className="font-medium">Week {weekStatus.week} Status</div>
                 <div className="text-sm text-muted-foreground">{weekStatus.description}</div>
-                {weekStatus.status === 'future' && (
-                  <div className="text-xs text-muted-foreground mt-1">
+                {weekStatus.status === 'future' &&
+              <div className="text-xs text-muted-foreground mt-1">
                     ⚠️ Points will not be available until games begin
                   </div>
-                )}
-                {weekStatus.status === 'current' && (
-                  <div className="text-xs text-muted-foreground mt-1">
+              }
+                {weekStatus.status === 'current' &&
+              <div className="text-xs text-muted-foreground mt-1">
                     🔴 Points may update in real-time during games
                   </div>
-                )}
-                {weekStatus.status === 'completed' && selectedSeason < new Date().getFullYear() && (
-                  <div className="text-xs text-muted-foreground mt-1">
+              }
+                {weekStatus.status === 'completed' && selectedSeason < new Date().getFullYear() &&
+              <div className="text-xs text-muted-foreground mt-1">
                     📊 Historical season data - All scores are final
                   </div>
-                )}
+              }
               </div>
             </div>
           </CardContent>
         </Card>
-      )}
+      }
 
       {/* API Errors Display */}
-      {apiErrors.length > 0 && (
-        <Card className="border-l-4 border-l-red-500">
+      {apiErrors.length > 0 &&
+      <Card className="border-l-4 border-l-red-500">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm flex items-center space-x-2">
               <AlertCircle className="h-4 w-4 text-red-500" />
@@ -497,19 +497,19 @@ const MatchupsPage: React.FC = () => {
           </CardHeader>
           <CardContent>
             <div className="space-y-1">
-              {apiErrors.map((error, index) => (
-                <div key={index} className="text-sm text-red-600 bg-red-50 p-2 rounded">
+              {apiErrors.map((error, index) =>
+            <div key={index} className="text-sm text-red-600 bg-red-50 p-2 rounded">
                   {error}
                 </div>
-              ))}
+            )}
             </div>
           </CardContent>
         </Card>
-      )}
+      }
 
       {/* Debug Mode Display */}
-      {debugMode && rawApiData && (
-        <Card className="border-l-4 border-l-purple-500">
+      {debugMode && rawApiData &&
+      <Card className="border-l-4 border-l-purple-500">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm flex items-center space-x-2">
               <Bug className="h-4 w-4 text-purple-500" />
@@ -530,14 +530,14 @@ const MatchupsPage: React.FC = () => {
               <div className="text-sm">
                 <strong>Total Matchups:</strong> {rawApiData.totalMatchups}
               </div>
-              {rawApiData.errors.length > 0 && (
-                <div className="text-sm">
+              {rawApiData.errors.length > 0 &&
+            <div className="text-sm">
                   <strong>Errors:</strong>
                   <pre className="mt-1 p-2 bg-red-50 rounded text-xs overflow-x-auto">
                     {JSON.stringify(rawApiData.errors, null, 2)}
                   </pre>
                 </div>
-              )}
+            }
               <details className="text-sm">
                 <summary className="cursor-pointer font-medium">Raw API Data</summary>
                 <pre className="mt-2 p-3 bg-gray-50 rounded text-xs overflow-x-auto max-h-96">
@@ -547,7 +547,7 @@ const MatchupsPage: React.FC = () => {
             </div>
           </CardContent>
         </Card>
-      )}
+      }
 
       {/* Matchups Grid */}
       <div className="grid gap-4">
@@ -560,8 +560,8 @@ const MatchupsPage: React.FC = () => {
               <Collapsible>
                 <CollapsibleTrigger
                   className="w-full"
-                  onClick={() => toggleMatchupExpansion(`${matchup.conference.id}-${matchup.matchup_id}`)}
-                >
+                  onClick={() => toggleMatchupExpansion(`${matchup.conference.id}-${matchup.matchup_id}`)}>
+
                   <CardHeader className="pb-4">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center space-x-2">
@@ -569,15 +569,15 @@ const MatchupsPage: React.FC = () => {
                           {matchup.conference.conference_name}
                         </CardTitle>
                         {getStatusBadge(matchup.status)}
-                        {matchup.rawData?.isOverride && (
-                          <Badge variant="outline" className="text-orange-600 border-orange-300">
+                        {matchup.rawData?.isOverride &&
+                        <Badge variant="outline" className="text-orange-600 border-orange-300">
                             Override
                           </Badge>
-                        )}
+                        }
                       </div>
                       <ChevronDown className={`h-4 w-4 transition-transform ${
-                        expandedMatchups.has(`${matchup.conference.id}-${matchup.matchup_id}`) ? 'rotate-180' : ''
-                      }`} />
+                      expandedMatchups.has(`${matchup.conference.id}-${matchup.matchup_id}`) ? 'rotate-180' : ''}`
+                      } />
                     </div>
                   </CardHeader>
                 </CollapsibleTrigger>
@@ -595,20 +595,20 @@ const MatchupsPage: React.FC = () => {
                       </div>
                       <div className={`text-2xl font-bold ${winningTeam?.roster_id === team1.roster_id ? 'text-green-600' : ''}`}>
                         {matchup.status === 'upcoming' && selectedSeason >= new Date().getFullYear() ? '--' : (team1.points ?? 0).toFixed(1)}
-                        {debugMode && (
-                          <div className="text-xs text-muted-foreground mt-1">
+                        {debugMode &&
+                        <div className="text-xs text-muted-foreground mt-1">
                             Raw: {team1.points ?? 'null'}
                           </div>
-                        )}
+                        }
                       </div>
                     </div>
 
                     {/* VS Divider */}
                     <div className="text-center">
                       <div className="text-lg font-semibold text-muted-foreground">VS</div>
-                      {matchup.status === 'completed' && winningTeam && (
-                        <Trophy className="h-6 w-6 mx-auto mt-2 text-yellow-500" />
-                      )}
+                      {matchup.status === 'completed' && winningTeam &&
+                      <Trophy className="h-6 w-6 mx-auto mt-2 text-yellow-500" />
+                      }
                     </div>
 
                     {/* Team 2 */}
@@ -621,11 +621,11 @@ const MatchupsPage: React.FC = () => {
                       </div>
                       <div className={`text-2xl font-bold ${winningTeam?.roster_id === team2.roster_id ? 'text-green-600' : ''}`}>
                         {matchup.status === 'upcoming' && selectedSeason >= new Date().getFullYear() ? '--' : (team2.points ?? 0).toFixed(1)}
-                        {debugMode && (
-                          <div className="text-xs text-muted-foreground mt-1">
+                        {debugMode &&
+                        <div className="text-xs text-muted-foreground mt-1">
                             Raw: {team2.points ?? 'null'}
                           </div>
-                        )}
+                        }
                       </div>
                     </div>
                   </div>
@@ -642,8 +642,8 @@ const MatchupsPage: React.FC = () => {
                           teamName={team1.team?.team_name || team1.owner?.display_name || 'Team 1'}
                           playerPoints={team1.players_points}
                           startersPoints={team1.starters_points}
-                          matchupStarters={team1.matchup_starters}
-                        />
+                          matchupStarters={team1.matchup_starters} />
+
 
                         {/* Team 2 Starting Lineup */}
                         <StartingLineup
@@ -652,13 +652,13 @@ const MatchupsPage: React.FC = () => {
                           teamName={team2.team?.team_name || team2.owner?.display_name || 'Team 2'}
                           playerPoints={team2.players_points}
                           startersPoints={team2.starters_points}
-                          matchupStarters={team2.matchup_starters}
-                        />
+                          matchupStarters={team2.matchup_starters} />
+
                       </div>
 
                       {/* Matchup Stats */}
-                      {matchup.status !== 'upcoming' && (
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
+                      {matchup.status !== 'upcoming' &&
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
                           <div>
                             <div className="text-sm text-muted-foreground">Total Points</div>
                             <div className="font-semibold">
@@ -680,38 +680,38 @@ const MatchupsPage: React.FC = () => {
                           <div>
                             <div className="text-sm text-muted-foreground">Status</div>
                             <div className="text-xs capitalize">{matchup.status}</div>
-                            {debugMode && matchup.rawData && (
-                              <div className="text-xs text-muted-foreground mt-1">
+                            {debugMode && matchup.rawData &&
+                          <div className="text-xs text-muted-foreground mt-1">
                                 Override: {matchup.rawData.isOverride ? 'Yes' : 'No'}
                               </div>
-                            )}
+                          }
                           </div>
                         </div>
-                      )}
+                      }
                     </div>
                   </CollapsibleContent>
                 </CardContent>
               </Collapsible>
-            </Card>
-          );
+            </Card>);
+
         })}
 
-        {matchups.length === 0 && (
-          <Card>
+        {matchups.length === 0 &&
+        <Card>
             <CardContent className="py-8 text-center">
               <AlertCircle className="h-8 w-8 mx-auto mb-4 text-muted-foreground" />
               <p className="text-muted-foreground">No matchups found for the selected filters.</p>
-              {conferences.length === 0 && (
-                <p className="text-sm text-muted-foreground mt-2">
+              {conferences.length === 0 &&
+            <p className="text-sm text-muted-foreground mt-2">
                   Make sure conferences are configured in the admin panel.
                 </p>
-              )}
+            }
             </CardContent>
           </Card>
-        )}
+        }
       </div>
-    </div>
-  );
+    </div>);
+
 };
 
 export default MatchupsPage;

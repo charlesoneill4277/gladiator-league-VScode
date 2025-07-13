@@ -710,18 +710,18 @@ const MatchupsManagement: React.FC = () => {
               PageNo: 1,
               PageSize: 10,
               Filters: [
-                { name: 'team_id', op: 'Equal', value: matchup.team_1_id },
-                { name: 'conference_id', op: 'Equal', value: matchup.conference_id }
-              ]
+              { name: 'team_id', op: 'Equal', value: matchup.team_1_id },
+              { name: 'conference_id', op: 'Equal', value: matchup.conference_id }]
+
             });
 
             const team2RosterResponse = await window.ezsite.apis.tablePage(12853, {
               PageNo: 1,
               PageSize: 10,
               Filters: [
-                { name: 'team_id', op: 'Equal', value: matchup.team_2_id },
-                { name: 'conference_id', op: 'Equal', value: matchup.conference_id }
-              ]
+              { name: 'team_id', op: 'Equal', value: matchup.team_2_id },
+              { name: 'conference_id', op: 'Equal', value: matchup.conference_id }]
+
             });
 
             const team1RosterId = team1RosterResponse.data?.List?.[0]?.roster_id || '';

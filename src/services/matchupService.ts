@@ -1,4 +1,3 @@
-
 // Service for handling matchup data routing with override functionality
 import SleeperApiService, { SleeperMatchup, SleeperRoster, SleeperUser, SleeperPlayer } from './sleeperApi';
 
@@ -194,7 +193,7 @@ export class MatchupService {
         try {
           console.log(`🏛️ Processing conference: ${conference.conference_name}`);
 
-          // Step 1: Get database matchups for this conference
+          // Step 1: Get database matchups for this conference (ALWAYS fetch these first)
           const dbMatchups = await this.getDatabaseMatchups(seasonId, week, conference.id);
           console.log(`📋 Found ${dbMatchups.length} database matchups for ${conference.conference_name}`);
 
@@ -215,23 +214,19 @@ export class MatchupService {
             users: sleeperUsers.length
           });
 
-          // Step 4: Process each database matchup
+          // Step 4: Apply overrides to database matchups (HYBRID PROCESSING)
+          const processedMatchups = this.applyOverridesToMatchups(dbMatchups, overrides);
+          console.log(`🎯 Processing ${processedMatchups.length} matchups for ${conference.conference_name}`);
+
           const conferenceMatchups: OrganizedMatchup[] = [];
 
-          // If we have overrides, use them; otherwise use database matchups
-          const matchupsToProcess = overrides.length > 0 ? 
-            this.convertOverridesToMatchups(overrides, conference.id) : 
-            dbMatchups;
-
-          console.log(`🎯 Processing ${matchupsToProcess.length} matchups for ${conference.conference_name}`);
-
-          for (const dbMatchup of matchupsToProcess) {
+          for (const dbMatchup of processedMatchups) {
             try {
-              console.log(`⚔️ Processing matchup ${dbMatchup.id || dbMatchup.matchup_id}: Team ${dbMatchup.team_1_id} vs Team ${dbMatchup.team_2_id}`);
+              console.log(`⚔️ Processing matchup ${dbMatchup.id}: Team ${dbMatchup.team_1_id} vs Team ${dbMatchup.team_2_id}${dbMatchup.is_manual_override ? ' (OVERRIDDEN)' : ''}`);
 
               // Find the teams in our database
-              const team1 = teams.find(t => t.id === dbMatchup.team_1_id);
-              const team2 = teams.find(t => t.id === dbMatchup.team_2_id);
+              const team1 = teams.find((t) => t.id === dbMatchup.team_1_id);
+              const team2 = teams.find((t) => t.id === dbMatchup.team_2_id);
 
               if (!team1 || !team2) {
                 console.warn(`⚠️ Missing team data for matchup ${dbMatchup.id}: team1=${!!team1}, team2=${!!team2}`);
@@ -248,19 +243,19 @@ export class MatchupService {
               }
 
               // Get Sleeper matchup data for these rosters
-              const team1SleeperData = sleeperMatchups.find(m => m.roster_id === parseInt(team1RosterId));
-              const team2SleeperData = sleeperMatchups.find(m => m.roster_id === parseInt(team2RosterId));
+              const team1SleeperData = sleeperMatchups.find((m) => m.roster_id === parseInt(team1RosterId));
+              const team2SleeperData = sleeperMatchups.find((m) => m.roster_id === parseInt(team2RosterId));
 
               // Get roster and user data
-              const team1Roster = sleeperRosters.find(r => r.roster_id === parseInt(team1RosterId));
-              const team2Roster = sleeperRosters.find(r => r.roster_id === parseInt(team2RosterId));
-              
-              const team1Owner = team1Roster ? sleeperUsers.find(u => u.user_id === team1Roster.owner_id) : null;
-              const team2Owner = team2Roster ? sleeperUsers.find(u => u.user_id === team2Roster.owner_id) : null;
+              const team1Roster = sleeperRosters.find((r) => r.roster_id === parseInt(team1RosterId));
+              const team2Roster = sleeperRosters.find((r) => r.roster_id === parseInt(team2RosterId));
+
+              const team1Owner = team1Roster ? sleeperUsers.find((u) => u.user_id === team1Roster.owner_id) : null;
+              const team2Owner = team2Roster ? sleeperUsers.find((u) => u.user_id === team2Roster.owner_id) : null;
 
               // Create organized matchup
               const organizedMatchup: OrganizedMatchup = {
-                matchup_id: dbMatchup.id || dbMatchup.matchup_id || Date.now(),
+                matchup_id: dbMatchup.id,
                 conference,
                 teams: [
                   {
@@ -291,12 +286,12 @@ export class MatchupService {
                   dbMatchup,
                   team1SleeperData,
                   team2SleeperData,
-                  isOverride: overrides.length > 0
+                  isOverride: dbMatchup.is_manual_override
                 }
               };
 
               conferenceMatchups.push(organizedMatchup);
-              console.log(`✅ Successfully processed matchup ${dbMatchup.id}`);
+              console.log(`✅ Successfully processed matchup ${dbMatchup.id}${dbMatchup.is_manual_override ? ' (OVERRIDE)' : ''}`);
 
             } catch (matchupError) {
               console.error(`❌ Error processing individual matchup ${dbMatchup.id}:`, matchupError);
@@ -318,6 +313,41 @@ export class MatchupService {
       console.error('❌ Critical error in fetchOrganizedMatchups:', error);
       throw error;
     }
+  }
+
+  /**
+   * Apply overrides to database matchups (HYBRID PROCESSING)
+   * This preserves all database matchup data while applying team assignment overrides
+   */
+  private static applyOverridesToMatchups(
+    dbMatchups: DatabaseMatchup[], 
+    overrides: MatchupOverride[]
+  ): DatabaseMatchup[] {
+    if (overrides.length === 0) {
+      return dbMatchups;
+    }
+
+    console.log(`🔀 Applying ${overrides.length} overrides to ${dbMatchups.length} database matchups`);
+
+    return dbMatchups.map(dbMatchup => {
+      // Check if this matchup has an override
+      const override = overrides.find(o => o.matchup_id === dbMatchup.id);
+      
+      if (override) {
+        console.log(`🔄 Applying override to matchup ${dbMatchup.id}: ${dbMatchup.team_1_id}→${override.team_1_id}, ${dbMatchup.team_2_id}→${override.team_2_id}`);
+        
+        // Apply override while preserving all other database data
+        return {
+          ...dbMatchup,
+          team_1_id: override.team_1_id,
+          team_2_id: override.team_2_id,
+          is_manual_override: true,
+          notes: override.notes || dbMatchup.notes
+        };
+      }
+
+      return dbMatchup;
+    });
   }
 
   /**
@@ -346,10 +376,12 @@ export class MatchupService {
   }
 
   /**
-   * Convert override data to matchup format
+   * Convert override data to matchup format (DEPRECATED - replaced by applyOverridesToMatchups)
+   * This method is kept for backward compatibility but should not be used
    */
   private static convertOverridesToMatchups(overrides: MatchupOverride[], conferenceId: number): DatabaseMatchup[] {
-    return overrides.map(override => ({
+    console.warn('⚠️ convertOverridesToMatchups is deprecated. Use applyOverridesToMatchups instead.');
+    return overrides.map((override) => ({
       id: override.matchup_id,
       conference_id: conferenceId,
       week: override.week,
@@ -375,7 +407,7 @@ export class MatchupService {
     teamPosition: 'team_1' | 'team_2',
     sleeperData?: SleeperMatchup
   ): number {
-    // If manual override exists, use database score
+    // If manual override exists and has valid scores, use database score
     if (dbMatchup.is_manual_override && (
       (teamPosition === 'team_1' && dbMatchup.team_1_score > 0) ||
       (teamPosition === 'team_2' && dbMatchup.team_2_score > 0)
@@ -402,7 +434,7 @@ export class MatchupService {
 
     // Check if either team has points > 0
     const hasPoints = (team1Data?.points || 0) > 0 || (team2Data?.points || 0) > 0;
-    
+
     if (hasPoints) {
       // If both teams have final scores, it's completed
       if ((team1Data?.points || 0) > 0 && (team2Data?.points || 0) > 0) {
