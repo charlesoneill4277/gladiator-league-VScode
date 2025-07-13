@@ -1249,7 +1249,7 @@ const DataSync: React.FC = () => {
             }
             
             <Tabs defaultValue={conferences.length > 0 ? "conferences" : "players"} className="space-y-6">
-              <TabsList className="grid w-full grid-cols-4">
+              <TabsList className="grid w-full grid-cols-5">
                 <TabsTrigger value="conferences" className="flex items-center gap-2">
                   <Trophy className="h-4 w-4" />
                   Conference Sync
@@ -1261,6 +1261,10 @@ const DataSync: React.FC = () => {
                 <TabsTrigger value="matchups" className="flex items-center gap-2">
                   <RefreshCw className="h-4 w-4" />
                   Matchups Sync
+                </TabsTrigger>
+                <TabsTrigger value="draft" className="flex items-center gap-2">
+                  <Target className="h-4 w-4" />
+                  Draft Sync
                 </TabsTrigger>
                 <TabsTrigger value="players" className="flex items-center gap-2">
                   <UserCheck className="h-4 w-4" />
@@ -1770,6 +1774,173 @@ const DataSync: React.FC = () => {
                   }
                 </div>
                 }
+              </TabsContent>
+
+              <TabsContent value="draft">
+                <div className="space-y-6">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-4">
+                      {lastDraftSyncTime &&
+                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                          <Clock className="h-4 w-4" />
+                          Last draft sync: {lastDraftSyncTime}
+                        </div>
+                      }
+                    </div>
+                    <Button
+                      onClick={syncDraftData}
+                      disabled={syncingDraft}>
+                      {syncingDraft ?
+                      <>
+                          <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                          Syncing...
+                        </> :
+                      <>
+                          <Target className="h-4 w-4 mr-2" />
+                          Sync Draft Results
+                        </>
+                      }
+                    </Button>
+                  </div>
+
+                  {syncingDraft &&
+                  <div>
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-sm font-medium">Synchronizing draft results...</span>
+                        <span className="text-sm text-muted-foreground">{Math.round(draftProgress)}%</span>
+                      </div>
+                      <Progress value={draftProgress} className="w-full" />
+                    </div>
+                  }
+
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-lg">
+                        Draft Results Synchronization
+                      </CardTitle>
+                      <CardDescription>
+                        Sync draft results from all conferences using Sleeper API. This will populate the draft_results table with pick data from all leagues.
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                        <div className="p-4 border rounded-lg">
+                          <div className="flex items-center gap-2 mb-2">
+                            <Target className="h-5 w-5 text-blue-600" />
+                            <h4 className="font-semibold">Draft Data</h4>
+                          </div>
+                          <p className="text-sm text-muted-foreground mb-2">
+                            Fetches and stores comprehensive draft information:
+                          </p>
+                          <ul className="text-sm text-muted-foreground space-y-1">
+                            <li>• Draft picks by round and position</li>
+                            <li>• Player information and positions</li>
+                            <li>• Team owner assignments</li>
+                            <li>• Pick numbers and draft slots</li>
+                          </ul>
+                        </div>
+                        <div className="p-4 border rounded-lg">
+                          <div className="flex items-center gap-2 mb-2">
+                            <Database className="h-5 w-5 text-green-600" />
+                            <h4 className="font-semibold">Multi-Conference</h4>
+                          </div>
+                          <p className="text-sm text-muted-foreground mb-2">
+                            Processes all conferences and seasons:
+                          </p>
+                          <ul className="text-sm text-muted-foreground space-y-1">
+                            <li>• Fetches drafts from all league IDs</li>
+                            <li>• Maps to correct seasons and conferences</li>
+                            <li>• Updates existing data or creates new records</li>
+                            <li>• Maintains data integrity across seasons</li>
+                          </ul>
+                        </div>
+                      </div>
+                      
+                      <div className="mb-4">
+                        <h4 className="font-semibold mb-2">Sync Process Overview:</h4>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                          <div className="p-3 bg-blue-50 border border-blue-200 rounded">
+                            <div className="text-sm font-medium text-blue-800">Step 1: Fetch Conferences</div>
+                            <div className="text-xs text-blue-600">Get all conference and season data</div>
+                          </div>
+                          <div className="p-3 bg-yellow-50 border border-yellow-200 rounded">
+                            <div className="text-sm font-medium text-yellow-800">Step 2: API Calls</div>
+                            <div className="text-xs text-yellow-600">Fetch draft data from each league</div>
+                          </div>
+                          <div className="p-3 bg-green-50 border border-green-200 rounded">
+                            <div className="text-sm font-medium text-green-800">Step 3: Store Results</div>
+                            <div className="text-xs text-green-600">Process and save to draft_results table</div>
+                          </div>
+                        </div>
+                      </div>
+                      
+                      <Alert>
+                        <AlertCircle className="h-4 w-4" />
+                        <AlertDescription>
+                          <strong>Note:</strong> This sync fetches draft results from all conferences across all seasons in the database. 
+                          Each league's draft data will be processed and stored in the draft_results table with proper season and conference mapping.
+                          Existing draft results for each conference/season will be replaced with fresh data.
+                        </AlertDescription>
+                      </Alert>
+                    </CardContent>
+                  </Card>
+
+                  {draftSyncResult &&
+                  <Card>
+                      <CardHeader>
+                        <CardTitle className="text-lg">Draft Sync Results</CardTitle>
+                        <CardDescription>
+                          Results from the last draft synchronization
+                        </CardDescription>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="p-3 border rounded-lg">
+                          <div className="flex items-center justify-between mb-2">
+                            <div className="flex items-center gap-3">
+                              {draftSyncResult.success ?
+                            <CheckCircle className="h-5 w-5 text-green-600" /> :
+                            <AlertCircle className="h-5 w-5 text-red-600" />
+                            }
+                              <span className="font-medium">Draft Results Synchronization</span>
+                            </div>
+                            <div className="text-sm">
+                              {draftSyncResult.success ?
+                            <span className="text-green-600">Success</span> :
+                            <span className="text-red-600">Failed</span>
+                            }
+                            </div>
+                          </div>
+                          <div className="text-sm text-muted-foreground mb-2">
+                            {draftSyncResult.message}
+                          </div>
+                          {draftSyncResult.success && draftSyncResult.data &&
+                          <div className="mt-3 space-y-2">
+                              <h5 className="font-medium text-sm">Conference Results:</h5>
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                                {draftSyncResult.data.map((result: any, index: number) =>
+                                <div key={index} className="p-2 bg-muted rounded text-xs">
+                                    <div className="font-medium">{result.conference}</div>
+                                    <div className="text-muted-foreground">
+                                      {result.error ? 
+                                        `Error: ${result.error}` : 
+                                        `${result.season}: ${result.picksProcessed} picks processed`
+                                      }
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          }
+                          {draftSyncResult.error &&
+                          <div className="text-sm text-red-600 mt-1">
+                              {draftSyncResult.error}
+                            </div>
+                          }
+                        </div>
+                      </CardContent>
+                    </Card>
+                  }
+                </div>
               </TabsContent>
 
               <TabsContent value="players">
