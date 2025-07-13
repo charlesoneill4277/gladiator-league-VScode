@@ -174,6 +174,64 @@ export class MatchupService {
   }
 
   /**
+   * Get the conference ID for a specific team
+   */
+  static async getTeamConference(teamId: number, seasonId: number): Promise<number | null> {
+    try {
+      console.log(`🔍 Looking up conference for team ${teamId} in season ${seasonId}`);
+      
+      const { data, error } = await window.ezsite.apis.tablePage(12853, {
+        PageNo: 1,
+        PageSize: 10,
+        Filters: [
+          { name: 'team_id', op: 'Equal', value: teamId },
+          { name: 'is_active', op: 'Equal', value: true }
+        ]
+      });
+
+      if (error || !data.List || data.List.length === 0) {
+        console.warn(`⚠️ Team ${teamId} not found in any active conference`);
+        return null;
+      }
+
+      // If multiple conferences, prioritize by season (if we have season context)
+      const teamConferences = data.List;
+      console.log(`✅ Found team ${teamId} in ${teamConferences.length} conference(s)`);
+      
+      // For now, return the first active conference
+      // TODO: Add season-specific filtering when available
+      return teamConferences[0].conference_id;
+    } catch (error) {
+      console.error(`❌ Error getting conference for team ${teamId}:`, error);
+      return null;
+    }
+  }
+
+  /**
+   * Get conference details by ID
+   */
+  static async getConferenceById(conferenceId: number): Promise<Conference | null> {
+    try {
+      const { data, error } = await window.ezsite.apis.tablePage(12820, {
+        PageNo: 1,
+        PageSize: 1,
+        Filters: [
+          { name: 'id', op: 'Equal', value: conferenceId }
+        ]
+      });
+
+      if (error || !data.List || data.List.length === 0) {
+        return null;
+      }
+
+      return data.List[0] as Conference;
+    } catch (error) {
+      console.error(`Error getting conference ${conferenceId}:`, error);
+      return null;
+    }
+  }
+
+  /**
    * Fetch and organize matchups with override support
    */
   static async fetchOrganizedMatchups(
@@ -277,7 +335,7 @@ export class MatchupService {
   }
 
   /**
-   * Process a database matchup into an organized matchup
+   * Process a database matchup into an organized matchup with cross-conference support
    */
   private static async processDbMatchup(
   dbMatchup: DatabaseMatchup,
@@ -298,43 +356,121 @@ export class MatchupService {
         console.warn(`⚠️ Missing team data for matchup ${dbMatchup.id}:`);
         console.warn(`   Team ${dbMatchup.team_1_id}: ${team1 ? '✅ Found' : '❌ Not Found'}`);
         console.warn(`   Team ${dbMatchup.team_2_id}: ${team2 ? '✅ Found' : '❌ Not Found'}`);
-        console.warn(`   Available teams: [${teams.map(t => t.id).join(', ')}]`);
+        console.warn(`   Available teams: [${teams.map((t) => t.id).join(', ')}]`);
         console.warn(`   Is override: ${dbMatchup.is_manual_override}`);
         console.warn(`   Conference: ${conference.conference_name} (ID: ${conference.id})`);
         return null;
       }
 
-      // Map teams to their roster IDs and get Sleeper data
-      const team1RosterId = await this.getRosterIdForTeam(team1.id, conference.id);
-      const team2RosterId = await this.getRosterIdForTeam(team2.id, conference.id);
+      // For overridden matchups, determine each team's actual conference
+      let team1Conference = conference;
+      let team2Conference = conference;
+      let team1SleeperData = null;
+      let team2SleeperData = null;
+      let team1Roster = null;
+      let team2Roster = null;
+      let team1Owner = null;
+      let team2Owner = null;
 
-      if (!team1RosterId || !team2RosterId) {
-        console.warn(`⚠️ Missing roster IDs for matchup ${dbMatchup.id}:`);
-        console.warn(`   Team ${team1.id} (${team1.team_name}): ${team1RosterId ? `✅ Roster ID ${team1RosterId}` : '❌ No Roster ID'}`);
-        console.warn(`   Team ${team2.id} (${team2.team_name}): ${team2RosterId ? `✅ Roster ID ${team2RosterId}` : '❌ No Roster ID'}`);
-        console.warn(`   Conference: ${conference.conference_name} (ID: ${conference.id})`);
-        console.warn(`   Is override: ${dbMatchup.is_manual_override}`);
-        return null;
+      if (dbMatchup.is_manual_override) {
+        console.log(`🔄 Processing override matchup - determining team conferences...`);
+        
+        // Get actual conferences for each team
+        const team1ConferenceId = await this.getTeamConference(team1.id, conference.season_id);
+        const team2ConferenceId = await this.getTeamConference(team2.id, conference.season_id);
+        
+        if (team1ConferenceId) {
+          const team1ConferenceData = await this.getConferenceById(team1ConferenceId);
+          if (team1ConferenceData) {
+            team1Conference = team1ConferenceData;
+            console.log(`✅ Team ${team1.id} belongs to conference ${team1Conference.conference_name}`);
+          }
+        }
+        
+        if (team2ConferenceId) {
+          const team2ConferenceData = await this.getConferenceById(team2ConferenceId);
+          if (team2ConferenceData) {
+            team2Conference = team2ConferenceData;
+            console.log(`✅ Team ${team2.id} belongs to conference ${team2Conference.conference_name}`);
+          }
+        }
+
+        // Fetch Sleeper data for each team's actual conference
+        const [team1SleeperMatchups, team1SleeperRosters, team1SleeperUsers] = team1Conference.league_id === conference.league_id 
+          ? [sleeperMatchups, sleeperRosters, sleeperUsers]
+          : await Promise.all([
+              SleeperApiService.fetchMatchups(team1Conference.league_id, dbMatchup.week),
+              SleeperApiService.fetchLeagueRosters(team1Conference.league_id),
+              SleeperApiService.fetchLeagueUsers(team1Conference.league_id)
+            ]);
+
+        const [team2SleeperMatchups, team2SleeperRosters, team2SleeperUsers] = team2Conference.league_id === conference.league_id 
+          ? [sleeperMatchups, sleeperRosters, sleeperUsers]
+          : team2Conference.league_id === team1Conference.league_id
+            ? [team1SleeperMatchups, team1SleeperRosters, team1SleeperUsers]
+            : await Promise.all([
+                SleeperApiService.fetchMatchups(team2Conference.league_id, dbMatchup.week),
+                SleeperApiService.fetchLeagueRosters(team2Conference.league_id),
+                SleeperApiService.fetchLeagueUsers(team2Conference.league_id)
+              ]);
+
+        // Get roster IDs using team-specific conferences
+        const team1RosterId = await this.getRosterIdForTeam(team1.id, team1Conference.id);
+        const team2RosterId = await this.getRosterIdForTeam(team2.id, team2Conference.id);
+
+        if (!team1RosterId || !team2RosterId) {
+          console.warn(`⚠️ Missing roster IDs for override matchup ${dbMatchup.id}:`);
+          console.warn(`   Team ${team1.id} in conference ${team1Conference.conference_name}: ${team1RosterId ? `✅ ${team1RosterId}` : '❌ Not Found'}`);
+          console.warn(`   Team ${team2.id} in conference ${team2Conference.conference_name}: ${team2RosterId ? `✅ ${team2RosterId}` : '❌ Not Found'}`);
+          return null;
+        }
+
+        // Get Sleeper data using team-specific roster IDs and conference data
+        team1SleeperData = team1SleeperMatchups.find((m) => m.roster_id === parseInt(team1RosterId));
+        team2SleeperData = team2SleeperMatchups.find((m) => m.roster_id === parseInt(team2RosterId));
+
+        team1Roster = team1SleeperRosters.find((r) => r.roster_id === parseInt(team1RosterId));
+        team2Roster = team2SleeperRosters.find((r) => r.roster_id === parseInt(team2RosterId));
+
+        team1Owner = team1Roster ? team1SleeperUsers.find((u) => u.user_id === team1Roster.owner_id) : null;
+        team2Owner = team2Roster ? team2SleeperUsers.find((u) => u.user_id === team2Roster.owner_id) : null;
+
+        console.log(`🎯 Override matchup data retrieved:`);
+        console.log(`   Team ${team1.id}: Sleeper data ${team1SleeperData ? '✅' : '❌'}, Roster ${team1Roster ? '✅' : '❌'}, Owner ${team1Owner ? '✅' : '❌'}`);
+        console.log(`   Team ${team2.id}: Sleeper data ${team2SleeperData ? '✅' : '❌'}, Roster ${team2Roster ? '✅' : '❌'}, Owner ${team2Owner ? '✅' : '❌'}`);
+
+      } else {
+        // Standard matchup - use provided conference data
+        const team1RosterId = await this.getRosterIdForTeam(team1.id, conference.id);
+        const team2RosterId = await this.getRosterIdForTeam(team2.id, conference.id);
+
+        if (!team1RosterId || !team2RosterId) {
+          console.warn(`⚠️ Missing roster IDs for standard matchup ${dbMatchup.id}:`);
+          console.warn(`   Team ${team1.id} (${team1.team_name}): ${team1RosterId ? `✅ Roster ID ${team1RosterId}` : '❌ No Roster ID'}`);
+          console.warn(`   Team ${team2.id} (${team2.team_name}): ${team2RosterId ? `✅ Roster ID ${team2RosterId}` : '❌ No Roster ID'}`);
+          console.warn(`   Conference: ${conference.conference_name} (ID: ${conference.id})`);
+          return null;
+        }
+
+        // Get Sleeper matchup data for these rosters
+        team1SleeperData = sleeperMatchups.find((m) => m.roster_id === parseInt(team1RosterId));
+        team2SleeperData = sleeperMatchups.find((m) => m.roster_id === parseInt(team2RosterId));
+
+        // Get roster and user data
+        team1Roster = sleeperRosters.find((r) => r.roster_id === parseInt(team1RosterId));
+        team2Roster = sleeperRosters.find((r) => r.roster_id === parseInt(team2RosterId));
+
+        team1Owner = team1Roster ? sleeperUsers.find((u) => u.user_id === team1Roster.owner_id) : null;
+        team2Owner = team2Roster ? sleeperUsers.find((u) => u.user_id === team2Roster.owner_id) : null;
       }
-
-      // Get Sleeper matchup data for these rosters
-      const team1SleeperData = sleeperMatchups.find((m) => m.roster_id === parseInt(team1RosterId));
-      const team2SleeperData = sleeperMatchups.find((m) => m.roster_id === parseInt(team2RosterId));
-
-      // Get roster and user data
-      const team1Roster = sleeperRosters.find((r) => r.roster_id === parseInt(team1RosterId));
-      const team2Roster = sleeperRosters.find((r) => r.roster_id === parseInt(team2RosterId));
-
-      const team1Owner = team1Roster ? sleeperUsers.find((u) => u.user_id === team1Roster.owner_id) : null;
-      const team2Owner = team2Roster ? sleeperUsers.find((u) => u.user_id === team2Roster.owner_id) : null;
 
       // Create organized matchup
       const organizedMatchup: OrganizedMatchup = {
         matchup_id: dbMatchup.id,
-        conference,
+        conference: dbMatchup.is_manual_override ? team1Conference : conference,
         teams: [
         {
-          roster_id: parseInt(team1RosterId),
+          roster_id: team1Roster?.roster_id || 0,
           points: this.getTeamScore(dbMatchup, 'team_1', team1SleeperData),
           projected_points: team1SleeperData?.custom_points,
           owner: team1Owner,
@@ -345,7 +481,7 @@ export class MatchupService {
           matchup_starters: team1SleeperData?.starters || []
         },
         {
-          roster_id: parseInt(team2RosterId),
+          roster_id: team2Roster?.roster_id || 0,
           points: this.getTeamScore(dbMatchup, 'team_2', team2SleeperData),
           projected_points: team2SleeperData?.custom_points,
           owner: team2Owner,
@@ -361,7 +497,9 @@ export class MatchupService {
           dbMatchup,
           team1SleeperData,
           team2SleeperData,
-          isOverride: dbMatchup.is_manual_override
+          isOverride: dbMatchup.is_manual_override,
+          team1Conference: team1Conference,
+          team2Conference: team2Conference
         }
       };
 
@@ -545,19 +683,20 @@ export class MatchupService {
   }
 
   /**
-   * Get roster ID for a team in a specific conference (with cross-conference fallback)
+   * Get roster ID for a team in a specific conference (optimized for cross-conference support)
    */
   private static async getRosterIdForTeam(teamId: number, conferenceId: number): Promise<string | null> {
     try {
       console.log(`🔍 Looking up roster ID for team ${teamId} in conference ${conferenceId}`);
-      
-      // First, try the specific conference
+
+      // Primary lookup: try the specific conference first
       const { data, error } = await window.ezsite.apis.tablePage(12853, {
         PageNo: 1,
         PageSize: 10,
         Filters: [
           { name: 'team_id', op: 'Equal', value: teamId },
-          { name: 'conference_id', op: 'Equal', value: conferenceId }
+          { name: 'conference_id', op: 'Equal', value: conferenceId },
+          { name: 'is_active', op: 'Equal', value: true }
         ]
       });
 
@@ -566,24 +705,24 @@ export class MatchupService {
         return data.List[0].roster_id;
       }
 
-      // If not found in the specific conference, try a cross-conference lookup
-      // This is needed for overridden matchups where teams may be from different conferences
+      // Fallback: cross-conference lookup for overridden matchups
       console.log(`🔄 Team ${teamId} not found in conference ${conferenceId}, trying cross-conference lookup...`);
-      
+
       const crossConferenceResponse = await window.ezsite.apis.tablePage(12853, {
         PageNo: 1,
         PageSize: 50,
         Filters: [
-          { name: 'team_id', op: 'Equal', value: teamId }
+          { name: 'team_id', op: 'Equal', value: teamId },
+          { name: 'is_active', op: 'Equal', value: true }
         ]
       });
 
       if (crossConferenceResponse.error || !crossConferenceResponse.data.List || crossConferenceResponse.data.List.length === 0) {
-        console.warn(`⚠️ Team ${teamId} not found in any conference`);
+        console.warn(`⚠️ Team ${teamId} not found in any active conference`);
         return null;
       }
 
-      // Return the first match from any conference
+      // Return the first active match from any conference
       const crossConferenceResult = crossConferenceResponse.data.List[0];
       console.log(`✅ Found roster ID ${crossConferenceResult.roster_id} for team ${teamId} in conference ${crossConferenceResult.conference_id} (cross-conference)`);
       return crossConferenceResult.roster_id;
