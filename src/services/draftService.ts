@@ -168,7 +168,7 @@ export class DraftService {
       for (const pick of draftPicks) {
         // Map Sleeper owner_id to team ID
         const teamId = await this.getTeamIdFromOwnerMatcher(pick.picked_by);
-        
+
         if (!teamId) {
           console.warn(`Skipping pick ${pick.pick_no} - no team found for owner ${pick.picked_by}`);
           continue;
