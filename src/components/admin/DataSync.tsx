@@ -1153,7 +1153,7 @@ const DataSync: React.FC = () => {
 
       // Call the draft service to fetch and store draft results
       const result = await DraftService.fetchAndStoreDraftResults();
-      
+
       setDraftProgress(90);
 
       setDraftSyncResult(result);
@@ -1178,7 +1178,7 @@ const DataSync: React.FC = () => {
         message: `Draft sync failed: ${error.message}`,
         error: error.toString()
       };
-      
+
       setDraftSyncResult(errorResult);
 
       toast({
@@ -1914,28 +1914,28 @@ const DataSync: React.FC = () => {
                             {draftSyncResult.message}
                           </div>
                           {draftSyncResult.success && draftSyncResult.data &&
-                          <div className="mt-3 space-y-2">
+                        <div className="mt-3 space-y-2">
                               <h5 className="font-medium text-sm">Conference Results:</h5>
                               <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                                 {draftSyncResult.data.map((result: any, index: number) =>
-                                <div key={index} className="p-2 bg-muted rounded text-xs">
+                            <div key={index} className="p-2 bg-muted rounded text-xs">
                                     <div className="font-medium">{result.conference}</div>
                                     <div className="text-muted-foreground">
-                                      {result.error ? 
-                                        `Error: ${result.error}` : 
-                                        `${result.season}: ${result.picksProcessed} picks processed`
-                                      }
+                                      {result.error ?
+                                `Error: ${result.error}` :
+                                `${result.season}: ${result.picksProcessed} picks processed`
+                                }
                                     </div>
                                   </div>
-                                )}
+                            )}
                               </div>
                             </div>
-                          }
+                        }
                           {draftSyncResult.error &&
-                          <div className="text-sm text-red-600 mt-1">
+                        <div className="text-sm text-red-600 mt-1">
                               {draftSyncResult.error}
                             </div>
-                          }
+                        }
                         </div>
                       </CardContent>
                     </Card>

@@ -45,7 +45,7 @@ interface ProcessedDraftPick extends DraftPick {
 const DraftResultsPage: React.FC = () => {
   const { selectedSeason, selectedConference } = useApp();
   const { toast } = useToast();
-  
+
   const [selectedRound, setSelectedRound] = useState<number>(1);
   const [viewMode, setViewMode] = useState<'board' | 'team'>('board');
   const [loading, setLoading] = useState(true);
@@ -133,7 +133,7 @@ const DraftResultsPage: React.FC = () => {
       console.log(`Loading draft data for season ${selectedSeason}, conference: ${selectedConference || 'all'}`);
 
       // Get the season ID for the selected season year
-      const season = seasons.find(s => s.season_year === selectedSeason);
+      const season = seasons.find((s) => s.season_year === selectedSeason);
       if (!season) {
         console.warn(`Season ${selectedSeason} not found in database`);
         setDraftPicks([]);
@@ -142,21 +142,21 @@ const DraftResultsPage: React.FC = () => {
 
       // Build filters
       const filters = [
-        { name: "season_id", op: "Equal", value: season.id }
-      ];
+      { name: "season_id", op: "Equal", value: season.id }];
+
 
       // Add conference filter if specific conference is selected
       if (selectedConference) {
         const contextConferenceMap = {
           'mars': 'The Legions of Mars',
-          'jupiter': 'The Guardians of Jupiter', 
+          'jupiter': 'The Guardians of Jupiter',
           'vulcan': "Vulcan's Oathsworn"
         };
-        
+
         const targetConferenceName = contextConferenceMap[selectedConference];
         if (targetConferenceName) {
-          const conference = conferences.find(c => 
-            c.season_id === season.id && c.conference_name === targetConferenceName
+          const conference = conferences.find((c) =>
+          c.season_id === season.id && c.conference_name === targetConferenceName
           );
           if (conference) {
             filters.push({ name: "conference_id", op: "Equal", value: conference.id });
@@ -183,13 +183,13 @@ const DraftResultsPage: React.FC = () => {
       const picks = draftData?.List || [];
       const processedPicks = picks.map((pick: DraftPick) => {
         // Find conference name
-        const conference = conferences.find(c => c.id === pick.conference_id);
-        
+        const conference = conferences.find((c) => c.id === pick.conference_id);
+
         // Find player information
         const player = allPlayers[pick.player_id];
-        
+
         // Find team/owner information
-        const team = teams.find(t => t.owner_id === pick.owner_id);
+        const team = teams.find((t) => t.owner_id === pick.owner_id);
 
         return {
           ...pick,
@@ -220,28 +220,28 @@ const DraftResultsPage: React.FC = () => {
   const getConferencesToShow = () => {
     if (!selectedConference) {
       // Show all conferences for the selected season
-      const season = seasons.find(s => s.season_year === selectedSeason);
+      const season = seasons.find((s) => s.season_year === selectedSeason);
       if (!season) return [];
-      return conferences.filter(c => c.season_id === season.id);
+      return conferences.filter((c) => c.season_id === season.id);
     }
-    
+
     // Map the string conference ID from context to database conference
     // The context uses string IDs like 'mars', 'jupiter', 'vulcan'
     // We need to find the corresponding database conference by matching the conference name
     const contextConferenceMap = {
       'mars': 'The Legions of Mars',
-      'jupiter': 'The Guardians of Jupiter', 
+      'jupiter': 'The Guardians of Jupiter',
       'vulcan': "Vulcan's Oathsworn"
     };
-    
+
     const targetConferenceName = contextConferenceMap[selectedConference];
     if (!targetConferenceName) return [];
-    
-    const season = seasons.find(s => s.season_year === selectedSeason);
+
+    const season = seasons.find((s) => s.season_year === selectedSeason);
     if (!season) return [];
-    
-    const conference = conferences.find(c => 
-      c.season_id === season.id && c.conference_name === targetConferenceName
+
+    const conference = conferences.find((c) =>
+    c.season_id === season.id && c.conference_name === targetConferenceName
     );
     return conference ? [conference] : [];
   };
@@ -266,8 +266,8 @@ const DraftResultsPage: React.FC = () => {
   };
 
   const renderDraftBoard = (conference: Conference) => {
-    const conferencePicks = draftPicks.filter(pick => pick.conference_id === conference.id);
-    const roundPicks = conferencePicks.filter(pick => pick.round === selectedRound);
+    const conferencePicks = draftPicks.filter((pick) => pick.conference_id === conference.id);
+    const roundPicks = conferencePicks.filter((pick) => pick.round === selectedRound);
 
     return (
       <Card key={conference.id}>
@@ -294,9 +294,9 @@ const DraftResultsPage: React.FC = () => {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {roundPicks.length > 0 ? (
-                  roundPicks.map((pick) => (
-                    <TableRow key={`${conference.id}-${pick.pick_number}`}>
+                {roundPicks.length > 0 ?
+                roundPicks.map((pick) =>
+                <TableRow key={`${conference.id}-${pick.pick_number}`}>
                       <TableCell className="font-medium">{pick.draft_slot}</TableCell>
                       <TableCell className="font-medium">{pick.pick_number}</TableCell>
                       <TableCell className="font-semibold">{pick.player_name}</TableCell>
@@ -313,33 +313,33 @@ const DraftResultsPage: React.FC = () => {
                         </div>
                       </TableCell>
                     </TableRow>
-                  ))
-                ) : (
-                  <TableRow>
+                ) :
+
+                <TableRow>
                     <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
                       No picks found for round {selectedRound}
                     </TableCell>
                   </TableRow>
-                )}
+                }
               </TableBody>
             </Table>
           </div>
         </CardContent>
-      </Card>
-    );
+      </Card>);
+
   };
 
   const renderTeamView = () => {
     const conferencesToShow = getConferencesToShow();
-    
+
     return (
       <div className="space-y-6">
         {conferencesToShow.map((conference) => {
-          const conferencePicks = draftPicks.filter(pick => pick.conference_id === conference.id);
-          
+          const conferencePicks = draftPicks.filter((pick) => pick.conference_id === conference.id);
+
           // Group picks by team/owner
           const teamPicksMap = new Map();
-          conferencePicks.forEach(pick => {
+          conferencePicks.forEach((pick) => {
             const key = pick.owner_id;
             if (!teamPicksMap.has(key)) {
               teamPicksMap.set(key, {
@@ -364,8 +364,8 @@ const DraftResultsPage: React.FC = () => {
               </CardHeader>
               <CardContent>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {teamPicks.map((team) => (
-                    <Card key={team.owner_id}>
+                  {teamPicks.map((team) =>
+                  <Card key={team.owner_id}>
                       <CardHeader className="pb-2">
                         <CardTitle className="text-lg">{team.team_name}</CardTitle>
                         <CardDescription>
@@ -374,8 +374,8 @@ const DraftResultsPage: React.FC = () => {
                       </CardHeader>
                       <CardContent>
                         <div className="space-y-2">
-                          {team.picks.slice(0, 8).map((pick) => (
-                            <div key={pick.pick_number} className="flex items-center justify-between p-2 rounded-md bg-accent/50">
+                          {team.picks.slice(0, 8).map((pick) =>
+                        <div key={pick.pick_number} className="flex items-center justify-between p-2 rounded-md bg-accent/50">
                               <div className="flex items-center space-x-2">
                                 <Badge variant="outline" className="text-xs">
                                   R{pick.round}
@@ -387,48 +387,48 @@ const DraftResultsPage: React.FC = () => {
                               </div>
                               <span className="text-xs text-muted-foreground">#{pick.pick_number}</span>
                             </div>
-                          ))}
-                          {team.picks.length > 8 && (
-                            <p className="text-xs text-muted-foreground text-center pt-2">
+                        )}
+                          {team.picks.length > 8 &&
+                        <p className="text-xs text-muted-foreground text-center pt-2">
                               +{team.picks.length - 8} more picks
                             </p>
-                          )}
+                        }
                         </div>
                       </CardContent>
                     </Card>
-                  ))}
+                  )}
                 </div>
                 
-                {teamPicks.length === 0 && (
-                  <div className="text-center text-muted-foreground py-8">
+                {teamPicks.length === 0 &&
+                <div className="text-center text-muted-foreground py-8">
                     <AlertCircle className="h-8 w-8 mx-auto mb-2" />
                     <p>No draft picks found for this conference</p>
                     <p className="text-sm">Try syncing draft data from the Admin panel</p>
                   </div>
-                )}
+                }
               </CardContent>
-            </Card>
-          );
+            </Card>);
+
         })}
-      </div>
-    );
+      </div>);
+
   };
 
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
         <div className="animate-spin h-8 w-8 border-b-2 border-blue-600 rounded-full"></div>
-      </div>
-    );
+      </div>);
+
   }
 
   const conferencesToShow = getConferencesToShow();
   const totalTeams = conferencesToShow.reduce((sum, conf) => {
-    const confTeams = new Set(draftPicks.filter(p => p.conference_id === conf.id).map(p => p.owner_id));
+    const confTeams = new Set(draftPicks.filter((p) => p.conference_id === conf.id).map((p) => p.owner_id));
     return sum + confTeams.size;
   }, 0);
 
-  const maxRounds = Math.max(...draftPicks.map(pick => pick.round), 1);
+  const maxRounds = Math.max(...draftPicks.map((pick) => pick.round), 1);
 
   return (
     <div className="space-y-6">
@@ -449,13 +449,13 @@ const DraftResultsPage: React.FC = () => {
             variant="outline"
             size="sm"
             onClick={loadDraftData}
-            disabled={refreshing}
-          >
-            {refreshing ? (
-              <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-            ) : (
-              <RefreshCw className="h-4 w-4 mr-2" />
-            )}
+            disabled={refreshing}>
+
+            {refreshing ?
+            <RefreshCw className="h-4 w-4 mr-2 animate-spin" /> :
+
+            <RefreshCw className="h-4 w-4 mr-2" />
+            }
             Refresh
           </Button>
         </div>
@@ -492,8 +492,8 @@ const DraftResultsPage: React.FC = () => {
         </Card>
       </div>
 
-      {draftPicks.length === 0 ? (
-        <Card>
+      {draftPicks.length === 0 ?
+      <Card>
           <CardContent className="flex flex-col items-center justify-center py-12">
             <AlertCircle className="h-12 w-12 text-muted-foreground mb-4" />
             <h3 className="text-lg font-semibold mb-2">No Draft Results Found</h3>
@@ -504,9 +504,9 @@ const DraftResultsPage: React.FC = () => {
               Try syncing draft data from the Admin → Data Sync → Draft Sync panel.
             </p>
           </CardContent>
-        </Card>
-      ) : (
-        <>
+        </Card> :
+
+      <>
           {/* Controls */}
           <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
             <div className="flex items-center space-x-4">
@@ -515,11 +515,11 @@ const DraftResultsPage: React.FC = () => {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {Array.from({ length: maxRounds }, (_, i) => (
-                    <SelectItem key={i + 1} value={(i + 1).toString()}>
+                  {Array.from({ length: maxRounds }, (_, i) =>
+                <SelectItem key={i + 1} value={(i + 1).toString()}>
                       Round {i + 1}
                     </SelectItem>
-                  ))}
+                )}
                 </SelectContent>
               </Select>
             </div>
@@ -556,19 +556,19 @@ const DraftResultsPage: React.FC = () => {
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="text-center p-4 border rounded-lg">
                   <p className="text-2xl font-bold text-green-600">
-                    {draftPicks.filter(p => p.position === 'RB').length}
+                    {draftPicks.filter((p) => p.position === 'RB').length}
                   </p>
                   <p className="text-sm text-muted-foreground">Running Backs Drafted</p>
                 </div>
                 <div className="text-center p-4 border rounded-lg">
                   <p className="text-2xl font-bold">
-                    {draftPicks.filter(p => p.position === 'QB').length}
+                    {draftPicks.filter((p) => p.position === 'QB').length}
                   </p>
                   <p className="text-sm text-muted-foreground">Quarterbacks Drafted</p>
                 </div>
                 <div className="text-center p-4 border rounded-lg">
                   <p className="text-2xl font-bold">
-                    {draftPicks.filter(p => p.position === 'WR').length}
+                    {draftPicks.filter((p) => p.position === 'WR').length}
                   </p>
                   <p className="text-sm text-muted-foreground">Wide Receivers Drafted</p>
                 </div>
@@ -576,9 +576,9 @@ const DraftResultsPage: React.FC = () => {
             </CardContent>
           </Card>
         </>
-      )}
-    </div>
-  );
+      }
+    </div>);
+
 };
 
 export default DraftResultsPage;

@@ -67,7 +67,7 @@ export interface ProcessedDraftPick {
   round: number;
   draft_slot: number;
   pick_number: number;
-  owner_id: string;
+  owner_id: string; // Team ID as string
   player_id: string;
   player_name: string;
   position: string;
@@ -121,31 +121,75 @@ export class DraftService {
   }
 
   /**
+   * Get team ID from Sleeper owner ID
+   */
+  static async getTeamIdFromOwnerMatcher(sleeperOwnerId: string): Promise<number | null> {
+    try {
+      const { data, error } = await window.ezsite.apis.tablePage(12852, {
+        PageNo: 1,
+        PageSize: 1,
+        Filters: [{
+          name: 'owner_id',
+          op: 'Equal',
+          value: sleeperOwnerId
+        }]
+      });
+
+      if (error) {
+        console.error(`Error finding team for owner_id ${sleeperOwnerId}:`, error);
+        return null;
+      }
+
+      if (data?.List?.length > 0) {
+        return data.List[0].id;
+      }
+
+      console.warn(`No team found for Sleeper owner_id ${sleeperOwnerId}`);
+      return null;
+    } catch (error) {
+      console.error('Error in getTeamIdFromOwnerMatcher:', error);
+      return null;
+    }
+  }
+
+  /**
    * Process draft picks and prepare them for database insertion
    */
   static async processDraftPicksForDatabase(
-    conferenceId: number,
-    seasonId: number,
-    draftPicks: SleeperDraftPick[]
-  ): Promise<ProcessedDraftPick[]> {
+  conferenceId: number,
+  seasonId: number,
+  draftPicks: SleeperDraftPick[])
+  : Promise<ProcessedDraftPick[]> {
     try {
       console.log(`Processing ${draftPicks.length} draft picks for conference ${conferenceId}, season ${seasonId}`);
-      
-      const processedPicks: ProcessedDraftPick[] = draftPicks.map((pick) => ({
-        season_id: seasonId,
-        conference_id: conferenceId,
-        round: pick.round,
-        draft_slot: pick.draft_slot,
-        pick_number: pick.pick_no,
-        owner_id: pick.picked_by, // This is the Sleeper user ID
-        player_id: pick.player_id,
-        player_name: pick.metadata ? `${pick.metadata.first_name || ''} ${pick.metadata.last_name || ''}`.trim() : 'Unknown Player',
-        position: pick.metadata?.position || 'UNK',
-        nfl_team: pick.metadata?.team || 'UNK',
-        draft_id: pick.draft_id
-      }));
 
-      console.log(`Processed ${processedPicks.length} draft picks`);
+      const processedPicks: ProcessedDraftPick[] = [];
+
+      for (const pick of draftPicks) {
+        // Map Sleeper owner_id to team ID
+        const teamId = await this.getTeamIdFromOwnerMatcher(pick.picked_by);
+        
+        if (!teamId) {
+          console.warn(`Skipping pick ${pick.pick_no} - no team found for owner ${pick.picked_by}`);
+          continue;
+        }
+
+        processedPicks.push({
+          season_id: seasonId,
+          conference_id: conferenceId,
+          round: pick.round,
+          draft_slot: pick.draft_slot,
+          pick_number: pick.pick_no,
+          owner_id: teamId.toString(), // Use team ID instead of Sleeper owner ID
+          player_id: pick.player_id,
+          player_name: pick.metadata ? `${pick.metadata.first_name || ''} ${pick.metadata.last_name || ''}`.trim() : 'Unknown Player',
+          position: pick.metadata?.position || 'UNK',
+          nfl_team: pick.metadata?.team || 'UNK',
+          draft_id: pick.draft_id
+        });
+      }
+
+      console.log(`Processed ${processedPicks.length} draft picks (${draftPicks.length - processedPicks.length} skipped due to missing team mapping)`);
       return processedPicks;
     } catch (error) {
       console.error('Error processing draft picks:', error);
@@ -156,7 +200,7 @@ export class DraftService {
   /**
    * Fetch and store draft results for all conferences
    */
-  static async fetchAndStoreDraftResults(): Promise<{ success: boolean; message: string; data?: any }> {
+  static async fetchAndStoreDraftResults(): Promise<{success: boolean;message: string;data?: any;}> {
     try {
       console.log('🏈 Starting draft results sync for all conferences...');
 
@@ -199,7 +243,7 @@ export class DraftService {
           console.log(`\n📋 Processing conference: ${conference.conference_name} (League ID: ${conference.league_id})`);
 
           // Find the season for this conference
-          const season = seasons.find(s => s.id === conference.season_id);
+          const season = seasons.find((s) => s.id === conference.season_id);
           if (!season) {
             console.warn(`⚠️ Season not found for conference ${conference.conference_name}`);
             continue;
@@ -207,7 +251,7 @@ export class DraftService {
 
           // Fetch drafts for this league
           const drafts = await this.fetchLeagueDrafts(conference.league_id);
-          
+
           if (drafts.length === 0) {
             console.warn(`⚠️ No drafts found for league ${conference.league_id}`);
             continue;
@@ -219,7 +263,7 @@ export class DraftService {
 
             // Fetch all picks for this draft
             const draftPicks = await this.fetchDraftPicks(draft.draft_id);
-            
+
             if (draftPicks.length === 0) {
               console.warn(`⚠️ No picks found for draft ${draft.draft_id}`);
               continue;
@@ -234,15 +278,15 @@ export class DraftService {
 
             // Clear existing draft results for this conference and season
             console.log(`🗑️ Clearing existing draft results for conference ${conference.id}, season ${season.id}`);
-            
+
             // Get existing draft results to delete
             const { data: existingData, error: existingError } = await window.ezsite.apis.tablePage(27845, {
               PageNo: 1,
               PageSize: 1000,
               Filters: [
-                { name: "conference_id", op: "Equal", value: conference.id },
-                { name: "season_id", op: "Equal", value: season.id }
-              ]
+              { name: "conference_id", op: "Equal", value: conference.id },
+              { name: "season_id", op: "Equal", value: season.id }]
+
             });
 
             if (!existingError && existingData?.List) {
@@ -253,7 +297,7 @@ export class DraftService {
 
             // Insert new draft results
             console.log(`💾 Inserting ${processedPicks.length} draft picks into database...`);
-            
+
             for (const pick of processedPicks) {
               const { error: insertError } = await window.ezsite.apis.tableCreate(27845, {
                 season_id: pick.season_id,
@@ -289,7 +333,7 @@ export class DraftService {
       }
 
       console.log(`\n✅ Draft sync completed! Total picks processed: ${totalPicksProcessed}`);
-      
+
       return {
         success: true,
         message: `Successfully processed ${totalPicksProcessed} draft picks across ${results.length} conference/season combinations`,
