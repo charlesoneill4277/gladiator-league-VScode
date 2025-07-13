@@ -8,7 +8,8 @@ import { Progress } from '@/components/ui/progress';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
-import { RefreshCw, Download, CheckCircle, AlertCircle, Clock, Database, Users, Trophy, UserCheck } from 'lucide-react';
+import { RefreshCw, Download, CheckCircle, AlertCircle, Clock, Database, Users, Trophy, UserCheck, Target } from 'lucide-react';
+import DraftService from '@/services/draftService';
 
 interface Season {
   id: number;
@@ -70,6 +71,13 @@ interface MatchupSyncResult {
   weeks_processed: number;
 }
 
+interface DraftSyncResult {
+  success: boolean;
+  error?: string;
+  message: string;
+  data?: any;
+}
+
 const DataSync: React.FC = () => {
   const [seasons, setSeasons] = useState<Season[]>([]);
   const [conferences, setConferences] = useState<Conference[]>([]);
@@ -79,18 +87,22 @@ const DataSync: React.FC = () => {
   const [syncingTeams, setSyncingTeams] = useState(false);
   const [syncingPlayers, setSyncingPlayers] = useState(false);
   const [syncingMatchups, setSyncingMatchups] = useState(false);
+  const [syncingDraft, setSyncingDraft] = useState(false);
   const [progress, setProgress] = useState(0);
   const [teamsProgress, setTeamsProgress] = useState(0);
   const [playersProgress, setPlayersProgress] = useState(0);
   const [matchupsProgress, setMatchupsProgress] = useState(0);
+  const [draftProgress, setDraftProgress] = useState(0);
   const [syncResults, setSyncResults] = useState<SyncResult[]>([]);
   const [teamsSyncResults, setTeamsSyncResults] = useState<TeamSyncResult[]>([]);
   const [playersSyncResult, setPlayersSyncResult] = useState<PlayerSyncResult | null>(null);
   const [matchupsSyncResult, setMatchupsSyncResult] = useState<MatchupSyncResult | null>(null);
+  const [draftSyncResult, setDraftSyncResult] = useState<DraftSyncResult | null>(null);
   const [lastSyncTime, setLastSyncTime] = useState<string | null>(null);
   const [lastTeamsSyncTime, setLastTeamsSyncTime] = useState<string | null>(null);
   const [lastPlayersSyncTime, setLastPlayersSyncTime] = useState<string | null>(null);
   const [lastMatchupsSyncTime, setLastMatchupsSyncTime] = useState<string | null>(null);
+  const [lastDraftSyncTime, setLastDraftSyncTime] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   // Player sync filters
@@ -106,6 +118,7 @@ const DataSync: React.FC = () => {
     loadLastTeamsSyncTime();
     loadLastPlayersSyncTime();
     loadLastMatchupsSyncTime();
+    loadLastDraftSyncTime();
     loadTeams();
   }, []);
 
@@ -203,6 +216,13 @@ const DataSync: React.FC = () => {
     const lastSync = localStorage.getItem('last_matchups_sync');
     if (lastSync) {
       setLastMatchupsSyncTime(new Date(lastSync).toLocaleString());
+    }
+  };
+
+  const loadLastDraftSyncTime = () => {
+    const lastSync = localStorage.getItem('last_draft_sync');
+    if (lastSync) {
+      setLastDraftSyncTime(new Date(lastSync).toLocaleString());
     }
   };
 
@@ -1119,6 +1139,56 @@ const DataSync: React.FC = () => {
     } catch (error) {
       console.error(`Error in getTeamIdFromRosterId:`, error);
       return null;
+    }
+  };
+
+  const syncDraftData = async () => {
+    setSyncingDraft(true);
+    setDraftProgress(0);
+    setDraftSyncResult(null);
+
+    try {
+      console.log('🏈 Starting draft results sync...');
+      setDraftProgress(10);
+
+      // Call the draft service to fetch and store draft results
+      const result = await DraftService.fetchAndStoreDraftResults();
+      
+      setDraftProgress(90);
+
+      setDraftSyncResult(result);
+
+      // Update last sync time
+      const now = new Date().toISOString();
+      localStorage.setItem('last_draft_sync', now);
+      setLastDraftSyncTime(new Date(now).toLocaleString());
+
+      toast({
+        title: result.success ? "Draft Sync Complete" : "Draft Sync Failed",
+        description: result.message,
+        variant: result.success ? "default" : "destructive"
+      });
+
+      console.log('✅ Draft sync completed:', result);
+
+    } catch (error) {
+      console.error('❌ Error syncing draft data:', error);
+      const errorResult = {
+        success: false,
+        message: `Draft sync failed: ${error.message}`,
+        error: error.toString()
+      };
+      
+      setDraftSyncResult(errorResult);
+
+      toast({
+        title: "Draft Sync Failed",
+        description: errorResult.message,
+        variant: "destructive"
+      });
+    } finally {
+      setSyncingDraft(false);
+      setDraftProgress(100);
     }
   };
 

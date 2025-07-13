@@ -712,18 +712,18 @@ const MatchupsManagement: React.FC = () => {
               PageNo: 1,
               PageSize: 50,
               Filters: [
-                { name: 'team_id', op: 'Equal', value: matchup.team_1_id },
-                { name: 'is_active', op: 'Equal', value: true }
-              ]
+              { name: 'team_id', op: 'Equal', value: matchup.team_1_id },
+              { name: 'is_active', op: 'Equal', value: true }]
+
             });
 
             const team2RosterResponse = await window.ezsite.apis.tablePage(12853, {
               PageNo: 1,
               PageSize: 50,
               Filters: [
-                { name: 'team_id', op: 'Equal', value: matchup.team_2_id },
-                { name: 'is_active', op: 'Equal', value: true }
-              ]
+              { name: 'team_id', op: 'Equal', value: matchup.team_2_id },
+              { name: 'is_active', op: 'Equal', value: true }]
+
             });
 
             console.log(`Team 1 roster lookup result:`, team1RosterResponse.data?.List?.length || 0, 'active entries found');
@@ -738,13 +738,13 @@ const MatchupsManagement: React.FC = () => {
             if (team1RosterResponse.data?.List?.length > 0) {
               // Try to find roster entry matching current season's conferences first
               const preferredTeam1Entry = team1RosterResponse.data.List.find((entry: any) =>
-                conferences.some((c) => c.id === entry.conference_id)
+              conferences.some((c) => c.id === entry.conference_id)
               );
-              
+
               const team1Entry = preferredTeam1Entry || team1RosterResponse.data.List[0];
               team1RosterId = team1Entry?.roster_id || '';
               team1ConferenceId = team1Entry?.conference_id || matchup.conference_id;
-              
+
               console.log(`Team 1 (${matchup.team_1_id}) roster ID: ${team1RosterId} from conference ${team1ConferenceId}${preferredTeam1Entry ? ' (preferred)' : ' (fallback)'}`);
             } else {
               console.warn(`No active roster entry found for team ${matchup.team_1_id}`);
@@ -753,13 +753,13 @@ const MatchupsManagement: React.FC = () => {
             if (team2RosterResponse.data?.List?.length > 0) {
               // Try to find roster entry matching current season's conferences first
               const preferredTeam2Entry = team2RosterResponse.data.List.find((entry: any) =>
-                conferences.some((c) => c.id === entry.conference_id)
+              conferences.some((c) => c.id === entry.conference_id)
               );
-              
+
               const team2Entry = preferredTeam2Entry || team2RosterResponse.data.List[0];
               team2RosterId = team2Entry?.roster_id || '';
               team2ConferenceId = team2Entry?.conference_id || matchup.conference_id;
-              
+
               console.log(`Team 2 (${matchup.team_2_id}) roster ID: ${team2RosterId} from conference ${team2ConferenceId}${preferredTeam2Entry ? ' (preferred)' : ' (fallback)'}`);
             } else {
               console.warn(`No active roster entry found for team ${matchup.team_2_id}`);

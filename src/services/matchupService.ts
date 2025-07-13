@@ -179,14 +179,14 @@ export class MatchupService {
   static async getTeamConference(teamId: number, seasonId: number): Promise<number | null> {
     try {
       console.log(`🔍 Looking up conference for team ${teamId} in season ${seasonId}`);
-      
+
       const { data, error } = await window.ezsite.apis.tablePage(12853, {
         PageNo: 1,
         PageSize: 10,
         Filters: [
-          { name: 'team_id', op: 'Equal', value: teamId },
-          { name: 'is_active', op: 'Equal', value: true }
-        ]
+        { name: 'team_id', op: 'Equal', value: teamId },
+        { name: 'is_active', op: 'Equal', value: true }]
+
       });
 
       if (error || !data.List || data.List.length === 0) {
@@ -197,7 +197,7 @@ export class MatchupService {
       // If multiple conferences, prioritize by season (if we have season context)
       const teamConferences = data.List;
       console.log(`✅ Found team ${teamId} in ${teamConferences.length} conference(s)`);
-      
+
       // For now, return the first active conference
       // TODO: Add season-specific filtering when available
       return teamConferences[0].conference_id;
@@ -216,8 +216,8 @@ export class MatchupService {
         PageNo: 1,
         PageSize: 1,
         Filters: [
-          { name: 'id', op: 'Equal', value: conferenceId }
-        ]
+        { name: 'id', op: 'Equal', value: conferenceId }]
+
       });
 
       if (error || !data.List || data.List.length === 0) {
@@ -374,11 +374,11 @@ export class MatchupService {
 
       if (dbMatchup.is_manual_override) {
         console.log(`🔄 Processing override matchup - determining team conferences...`);
-        
+
         // Get actual conferences for each team
         const team1ConferenceId = await this.getTeamConference(team1.id, conference.season_id);
         const team2ConferenceId = await this.getTeamConference(team2.id, conference.season_id);
-        
+
         if (team1ConferenceId) {
           const team1ConferenceData = await this.getConferenceById(team1ConferenceId);
           if (team1ConferenceData) {
@@ -386,7 +386,7 @@ export class MatchupService {
             console.log(`✅ Team ${team1.id} belongs to conference ${team1Conference.conference_name}`);
           }
         }
-        
+
         if (team2ConferenceId) {
           const team2ConferenceData = await this.getConferenceById(team2ConferenceId);
           if (team2ConferenceData) {
@@ -396,23 +396,23 @@ export class MatchupService {
         }
 
         // Fetch Sleeper data for each team's actual conference
-        const [team1SleeperMatchups, team1SleeperRosters, team1SleeperUsers] = team1Conference.league_id === conference.league_id 
-          ? [sleeperMatchups, sleeperRosters, sleeperUsers]
-          : await Promise.all([
-              SleeperApiService.fetchMatchups(team1Conference.league_id, dbMatchup.week),
-              SleeperApiService.fetchLeagueRosters(team1Conference.league_id),
-              SleeperApiService.fetchLeagueUsers(team1Conference.league_id)
-            ]);
+        const [team1SleeperMatchups, team1SleeperRosters, team1SleeperUsers] = team1Conference.league_id === conference.league_id ?
+        [sleeperMatchups, sleeperRosters, sleeperUsers] :
+        await Promise.all([
+        SleeperApiService.fetchMatchups(team1Conference.league_id, dbMatchup.week),
+        SleeperApiService.fetchLeagueRosters(team1Conference.league_id),
+        SleeperApiService.fetchLeagueUsers(team1Conference.league_id)]
+        );
 
-        const [team2SleeperMatchups, team2SleeperRosters, team2SleeperUsers] = team2Conference.league_id === conference.league_id 
-          ? [sleeperMatchups, sleeperRosters, sleeperUsers]
-          : team2Conference.league_id === team1Conference.league_id
-            ? [team1SleeperMatchups, team1SleeperRosters, team1SleeperUsers]
-            : await Promise.all([
-                SleeperApiService.fetchMatchups(team2Conference.league_id, dbMatchup.week),
-                SleeperApiService.fetchLeagueRosters(team2Conference.league_id),
-                SleeperApiService.fetchLeagueUsers(team2Conference.league_id)
-              ]);
+        const [team2SleeperMatchups, team2SleeperRosters, team2SleeperUsers] = team2Conference.league_id === conference.league_id ?
+        [sleeperMatchups, sleeperRosters, sleeperUsers] :
+        team2Conference.league_id === team1Conference.league_id ?
+        [team1SleeperMatchups, team1SleeperRosters, team1SleeperUsers] :
+        await Promise.all([
+        SleeperApiService.fetchMatchups(team2Conference.league_id, dbMatchup.week),
+        SleeperApiService.fetchLeagueRosters(team2Conference.league_id),
+        SleeperApiService.fetchLeagueUsers(team2Conference.league_id)]
+        );
 
         // Get roster IDs using team-specific conferences
         const team1RosterId = await this.getRosterIdForTeam(team1.id, team1Conference.id);
@@ -694,10 +694,10 @@ export class MatchupService {
         PageNo: 1,
         PageSize: 10,
         Filters: [
-          { name: 'team_id', op: 'Equal', value: teamId },
-          { name: 'conference_id', op: 'Equal', value: conferenceId },
-          { name: 'is_active', op: 'Equal', value: true }
-        ]
+        { name: 'team_id', op: 'Equal', value: teamId },
+        { name: 'conference_id', op: 'Equal', value: conferenceId },
+        { name: 'is_active', op: 'Equal', value: true }]
+
       });
 
       if (!error && data.List && data.List.length > 0) {
@@ -712,9 +712,9 @@ export class MatchupService {
         PageNo: 1,
         PageSize: 50,
         Filters: [
-          { name: 'team_id', op: 'Equal', value: teamId },
-          { name: 'is_active', op: 'Equal', value: true }
-        ]
+        { name: 'team_id', op: 'Equal', value: teamId },
+        { name: 'is_active', op: 'Equal', value: true }]
+
       });
 
       if (crossConferenceResponse.error || !crossConferenceResponse.data.List || crossConferenceResponse.data.List.length === 0) {
