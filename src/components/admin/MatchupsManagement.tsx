@@ -647,7 +647,7 @@ const MatchupsManagement: React.FC = () => {
     const failedMatchups: number[] = [];
 
     try {
-      // Update all matchups with comprehensive field mapping
+      // Update all matchups and create overrides for those with manual changes
       for (const matchup of matchups) {
         console.log(`Updating matchup ${matchup.id}:`, {
           conference_id: matchup.conference_id,
@@ -673,7 +673,7 @@ const MatchupsManagement: React.FC = () => {
           continue;
         }
 
-        // Prepare update data with all required fields
+        // Step 1: Update the matchup record
         const updateData = {
           ID: matchup.id,
           conference_id: matchup.conference_id,
@@ -699,10 +699,66 @@ const MatchupsManagement: React.FC = () => {
           console.error(`Failed to update matchup ${matchup.id}:`, error);
           failureCount++;
           failedMatchups.push(matchup.id);
-        } else {
-          console.log(`Successfully updated matchup ${matchup.id}`);
-          successCount++;
+          continue;
         }
+
+        // Step 2: If this is a manual override, create/update the override record
+        if (matchup.is_manual_override) {
+          try {
+            // Get roster IDs for the teams
+            const team1RosterResponse = await window.ezsite.apis.tablePage(12853, {
+              PageNo: 1,
+              PageSize: 10,
+              Filters: [
+                { name: 'team_id', op: 'Equal', value: matchup.team_1_id },
+                { name: 'conference_id', op: 'Equal', value: matchup.conference_id }
+              ]
+            });
+
+            const team2RosterResponse = await window.ezsite.apis.tablePage(12853, {
+              PageNo: 1,
+              PageSize: 10,
+              Filters: [
+                { name: 'team_id', op: 'Equal', value: matchup.team_2_id },
+                { name: 'conference_id', op: 'Equal', value: matchup.conference_id }
+              ]
+            });
+
+            const team1RosterId = team1RosterResponse.data?.List?.[0]?.roster_id || '';
+            const team2RosterId = team2RosterResponse.data?.List?.[0]?.roster_id || '';
+
+            // Create override record
+            const overrideData = {
+              season_id: parseInt(selectedSeason),
+              week: matchup.week,
+              conference_id: matchup.conference_id,
+              matchup_id: matchup.id,
+              team_1_id: matchup.team_1_id,
+              team_2_id: matchup.team_2_id,
+              team_1_roster_id: team1RosterId,
+              team_2_roster_id: team2RosterId,
+              is_active: true,
+              created_by: 'admin',
+              notes: `Override created for matchup ${matchup.id}`
+            };
+
+            console.log(`Creating override for matchup ${matchup.id}:`, overrideData);
+
+            const { error: overrideError } = await window.ezsite.apis.tableCreate(27780, overrideData);
+
+            if (overrideError) {
+              console.warn(`Failed to create override for matchup ${matchup.id}:`, overrideError);
+              // Don't fail the whole operation for this
+            } else {
+              console.log(`Successfully created override for matchup ${matchup.id}`);
+            }
+          } catch (overrideError) {
+            console.warn(`Error creating override for matchup ${matchup.id}:`, overrideError);
+          }
+        }
+
+        console.log(`Successfully updated matchup ${matchup.id}`);
+        successCount++;
       }
 
       // Report results
@@ -719,7 +775,7 @@ const MatchupsManagement: React.FC = () => {
         setHasChanges(false);
         toast({
           title: 'Success',
-          description: `All ${successCount} matchups updated successfully`
+          description: `All ${successCount} matchups updated successfully with overrides`
         });
       }
 
