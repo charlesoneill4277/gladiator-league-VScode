@@ -67,7 +67,7 @@ export interface ProcessedDraftPick {
   round: number;
   draft_slot: number;
   pick_number: number;
-  owner_id: string; // Team ID as string
+  team_id: number; // Team ID from database
   player_id: string;
   player_name: string;
   position: string;
@@ -121,10 +121,29 @@ export class DraftService {
   }
 
   /**
-   * Get team ID from Sleeper owner ID
+   * Get team ID from Sleeper owner ID using junction table
    */
-  static async getTeamIdFromOwnerMatcher(sleeperOwnerId: string): Promise<number | null> {
+  static async getTeamIdFromOwnerMatcher(sleeperOwnerId: string, conferenceId: number): Promise<number | null> {
     try {
+      // First, try to find the team using the junction table (roster_id mapping)
+      // The picked_by field from Sleeper API contains the roster_id
+      const { data: junctionData, error: junctionError } = await window.ezsite.apis.tablePage(12853, {
+        PageNo: 1,
+        PageSize: 1,
+        Filters: [
+          { name: 'roster_id', op: 'Equal', value: sleeperOwnerId },
+          { name: 'conference_id', op: 'Equal', value: conferenceId },
+          { name: 'is_active', op: 'Equal', value: true }
+        ]
+      });
+
+      if (!junctionError && junctionData?.List?.length > 0) {
+        const teamId = junctionData.List[0].team_id;
+        console.log(`Found team ID ${teamId} for roster_id ${sleeperOwnerId} in conference ${conferenceId}`);
+        return teamId;
+      }
+
+      // Fallback: try to find by owner_id directly (for legacy data)
       const { data, error } = await window.ezsite.apis.tablePage(12852, {
         PageNo: 1,
         PageSize: 1,
@@ -141,10 +160,11 @@ export class DraftService {
       }
 
       if (data?.List?.length > 0) {
+        console.log(`Found team ID ${data.List[0].id} for owner_id ${sleeperOwnerId} (legacy mapping)`);
         return data.List[0].id;
       }
 
-      console.warn(`No team found for Sleeper owner_id ${sleeperOwnerId}`);
+      console.warn(`No team found for Sleeper roster_id/owner_id ${sleeperOwnerId} in conference ${conferenceId}`);
       return null;
     } catch (error) {
       console.error('Error in getTeamIdFromOwnerMatcher:', error);
@@ -156,21 +176,21 @@ export class DraftService {
    * Process draft picks and prepare them for database insertion
    */
   static async processDraftPicksForDatabase(
-  conferenceId: number,
-  seasonId: number,
-  draftPicks: SleeperDraftPick[])
-  : Promise<ProcessedDraftPick[]> {
+    conferenceId: number,
+    seasonId: number,
+    draftPicks: SleeperDraftPick[]
+  ): Promise<ProcessedDraftPick[]> {
     try {
       console.log(`Processing ${draftPicks.length} draft picks for conference ${conferenceId}, season ${seasonId}`);
 
       const processedPicks: ProcessedDraftPick[] = [];
 
       for (const pick of draftPicks) {
-        // Map Sleeper owner_id to team ID
-        const teamId = await this.getTeamIdFromOwnerMatcher(pick.picked_by);
+        // Map Sleeper picked_by (which contains roster_id) to team ID
+        const teamId = await this.getTeamIdFromOwnerMatcher(pick.picked_by, conferenceId);
 
         if (!teamId) {
-          console.warn(`Skipping pick ${pick.pick_no} - no team found for owner ${pick.picked_by}`);
+          console.warn(`Skipping pick ${pick.pick_no} - no team found for roster_id ${pick.picked_by}`);
           continue;
         }
 
@@ -180,7 +200,7 @@ export class DraftService {
           round: pick.round,
           draft_slot: pick.draft_slot,
           pick_number: pick.pick_no,
-          owner_id: teamId.toString(), // Use team ID instead of Sleeper owner ID
+          team_id: teamId, // Use team ID from database
           player_id: pick.player_id,
           player_name: pick.metadata ? `${pick.metadata.first_name || ''} ${pick.metadata.last_name || ''}`.trim() : 'Unknown Player',
           position: pick.metadata?.position || 'UNK',
@@ -284,9 +304,9 @@ export class DraftService {
               PageNo: 1,
               PageSize: 1000,
               Filters: [
-              { name: "conference_id", op: "Equal", value: conference.id },
-              { name: "season_id", op: "Equal", value: season.id }]
-
+                { name: "conference_id", op: "Equal", value: conference.id },
+                { name: "season_id", op: "Equal", value: season.id }
+              ]
             });
 
             if (!existingError && existingData?.List) {
@@ -305,7 +325,7 @@ export class DraftService {
                 round: pick.round,
                 draft_slot: pick.draft_slot,
                 pick_number: pick.pick_number,
-                owner_id: pick.owner_id,
+                team_id: pick.team_id,
                 player_id: pick.player_id
               });
 
