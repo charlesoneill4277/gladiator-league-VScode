@@ -202,6 +202,10 @@ const AdminPage: React.FC = () => {
         <TabsContent value="matchups-management">
           <MatchupsManagement />
         </TabsContent>
+
+        <TabsContent value="database-manager">
+          <DatabaseManager />
+        </TabsContent>
       </Tabs>
     </div>);
 
