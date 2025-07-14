@@ -50,12 +50,25 @@ export interface StandingsData {
   is_conference_champion: boolean;
 }
 
+export interface TeamConferenceJunction {
+  id: number;
+  team_id: number;
+  conference_id: number;
+  roster_id: string;
+  is_active: boolean;
+  joined_date: string;
+}
+
 class TeamRecordsService {
   private readonly TEAM_RECORDS_TABLE_ID = 13768;
   private readonly MATCHUPS_TABLE_ID = 13329;
   private readonly TEAMS_TABLE_ID = 12852;
   private readonly CONFERENCES_TABLE_ID = 12820;
   private readonly SEASONS_TABLE_ID = 12818;
+  private readonly TEAM_CONFERENCES_JUNCTION_TABLE_ID = 12853;
+
+  // Auto-sync flag to prevent infinite loops
+  private isAutoSyncing = false;
 
   /**
    * Get team records for a specific season and conference
@@ -63,8 +76,8 @@ class TeamRecordsService {
   async getTeamRecords(seasonId: number, conferenceId?: number): Promise<TeamRecord[]> {
     try {
       const filters = [
-      { name: 'season_id', op: 'Equal', value: seasonId }];
-
+        { name: 'season_id', op: 'Equal', value: seasonId }
+      ];
 
       if (conferenceId) {
         filters.push({ name: 'conference_id', op: 'Equal', value: conferenceId });
@@ -90,15 +103,56 @@ class TeamRecordsService {
   }
 
   /**
-   * Calculate team records from matchup results
+   * Get team-conference junction data
    */
-  async calculateTeamRecords(seasonId: number, conferenceId?: number): Promise<void> {
+  async getTeamConferenceJunctions(conferenceId?: number): Promise<TeamConferenceJunction[]> {
     try {
+      const filters = [
+        { name: 'is_active', op: 'Equal', value: true }
+      ];
+
+      if (conferenceId) {
+        filters.push({ name: 'conference_id', op: 'Equal', value: conferenceId });
+      }
+
+      const { data, error } = await window.ezsite.apis.tablePage(
+        this.TEAM_CONFERENCES_JUNCTION_TABLE_ID,
+        {
+          PageNo: 1,
+          PageSize: 100,
+          OrderByField: 'id',
+          IsAsc: true,
+          Filters: filters
+        }
+      );
+
+      if (error) throw error;
+      return data.List || [];
+    } catch (error) {
+      console.error('Error fetching team-conference junctions:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Calculate team records from matchup results with automatic syncing
+   */
+  async calculateTeamRecords(seasonId: number, conferenceId?: number, autoSync: boolean = true): Promise<void> {
+    try {
+      // Prevent infinite loops during auto-sync
+      if (autoSync && this.isAutoSyncing) {
+        return;
+      }
+
+      if (autoSync) {
+        this.isAutoSyncing = true;
+      }
+
       // Get all completed matchups for the season
       const matchups = await this.getCompletedMatchups(seasonId, conferenceId);
 
-      // Get all teams for the season/conference
-      const teams = await this.getTeams(conferenceId);
+      // Get team-conference junctions
+      const teamConferenceJunctions = await this.getTeamConferenceJunctions(conferenceId);
 
       // Calculate records for each team
       const teamRecords = new Map<number, {
@@ -110,15 +164,15 @@ class TeamRecordsService {
         conference_id: number;
       }>();
 
-      // Initialize records for all teams
-      teams.forEach((team) => {
-        teamRecords.set(team.id, {
+      // Initialize records for all teams in the conference(s)
+      teamConferenceJunctions.forEach((junction) => {
+        teamRecords.set(junction.team_id, {
           wins: 0,
           losses: 0,
           ties: 0,
           points_for: 0,
           points_against: 0,
-          conference_id: team.conference_id
+          conference_id: junction.conference_id
         });
       });
 
@@ -129,10 +183,10 @@ class TeamRecordsService {
 
         if (team1Record && team2Record) {
           // Update points
-          team1Record.points_for += matchup.team_1_score;
-          team1Record.points_against += matchup.team_2_score;
-          team2Record.points_for += matchup.team_2_score;
-          team2Record.points_against += matchup.team_1_score;
+          team1Record.points_for += matchup.team_1_score || 0;
+          team1Record.points_against += matchup.team_2_score || 0;
+          team2Record.points_for += matchup.team_2_score || 0;
+          team2Record.points_against += matchup.team_1_score || 0;
 
           // Update win/loss/tie records
           if (matchup.winner_id === matchup.team_1_id) {
@@ -141,8 +195,8 @@ class TeamRecordsService {
           } else if (matchup.winner_id === matchup.team_2_id) {
             team2Record.wins++;
             team1Record.losses++;
-          } else {
-            // Tie
+          } else if (matchup.team_1_score === matchup.team_2_score && matchup.team_1_score > 0) {
+            // Tie (both teams have same score and it's not 0)
             team1Record.ties++;
             team2Record.ties++;
           }
@@ -155,18 +209,26 @@ class TeamRecordsService {
       // Calculate and update rankings
       await this.updateTeamRankings(seasonId, conferenceId);
 
-      toast({
-        title: 'Success',
-        description: 'Team records calculated and updated successfully'
-      });
+      if (!autoSync) {
+        toast({
+          title: 'Success',
+          description: 'Team records calculated and updated successfully'
+        });
+      }
     } catch (error) {
       console.error('Error calculating team records:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to calculate team records',
-        variant: 'destructive'
-      });
+      if (!autoSync) {
+        toast({
+          title: 'Error',
+          description: 'Failed to calculate team records',
+          variant: 'destructive'
+        });
+      }
       throw error;
+    } finally {
+      if (autoSync) {
+        this.isAutoSyncing = false;
+      }
     }
   }
 
@@ -176,8 +238,8 @@ class TeamRecordsService {
   private async getCompletedMatchups(seasonId: number, conferenceId?: number): Promise<MatchupResult[]> {
     try {
       const filters = [
-      { name: 'status', op: 'Equal', value: 'complete' }];
-
+        { name: 'status', op: 'Equal', value: 'complete' }
+      ];
 
       if (conferenceId) {
         filters.push({ name: 'conference_id', op: 'Equal', value: conferenceId });
@@ -203,45 +265,19 @@ class TeamRecordsService {
   }
 
   /**
-   * Get teams for record calculation
-   */
-  private async getTeams(conferenceId?: number): Promise<Array<{id: number;conference_id: number;}>> {
-    try {
-      // This would need to join with team_conferences_junction table
-      // For now, assuming teams have conference_id
-      const { data, error } = await window.ezsite.apis.tablePage(
-        this.TEAMS_TABLE_ID,
-        {
-          PageNo: 1,
-          PageSize: 100,
-          OrderByField: 'id',
-          IsAsc: true,
-          Filters: conferenceId ? [{ name: 'conference_id', op: 'Equal', value: conferenceId }] : []
-        }
-      );
-
-      if (error) throw error;
-      return data.List || [];
-    } catch (error) {
-      console.error('Error fetching teams:', error);
-      throw error;
-    }
-  }
-
-  /**
    * Update team records in database
    */
   private async updateTeamRecordsInDatabase(
-  seasonId: number,
-  teamRecords: Map<number, {
-    wins: number;
-    losses: number;
-    ties: number;
-    points_for: number;
-    points_against: number;
-    conference_id: number;
-  }>)
-  : Promise<void> {
+    seasonId: number,
+    teamRecords: Map<number, {
+      wins: number;
+      losses: number;
+      ties: number;
+      points_for: number;
+      points_against: number;
+      conference_id: number;
+    }>
+  ): Promise<void> {
     try {
       for (const [teamId, record] of teamRecords.entries()) {
         const totalGames = record.wins + record.losses + record.ties;
@@ -293,10 +329,10 @@ class TeamRecordsService {
           PageNo: 1,
           PageSize: 1,
           Filters: [
-          { name: 'team_id', op: 'Equal', value: teamId },
-          { name: 'season_id', op: 'Equal', value: seasonId },
-          { name: 'conference_id', op: 'Equal', value: conferenceId }]
-
+            { name: 'team_id', op: 'Equal', value: teamId },
+            { name: 'season_id', op: 'Equal', value: seasonId },
+            { name: 'conference_id', op: 'Equal', value: conferenceId }
+          ]
         }
       );
 
@@ -326,7 +362,7 @@ class TeamRecordsService {
       });
 
       // Sort and rank within conferences
-      conferenceGroups.forEach(async (records, confId) => {
+      for (const [confId, records] of conferenceGroups.entries()) {
         records.sort((a, b) => {
           if (a.win_percentage !== b.win_percentage) {
             return b.win_percentage - a.win_percentage;
@@ -343,7 +379,7 @@ class TeamRecordsService {
             playoff_eligible: i < 4 // Top 4 teams are playoff eligible
           });
         }
-      });
+      }
 
       // Calculate overall rankings across all conferences
       const allRecords = Array.from(conferenceGroups.values()).flat();
@@ -369,7 +405,7 @@ class TeamRecordsService {
   }
 
   /**
-   * Complete a matchup and update records
+   * Complete a matchup and automatically trigger record updates
    */
   async completeMatchup(matchupId: number, team1Score: number, team2Score: number, isManualOverride: boolean = false): Promise<void> {
     try {
@@ -407,12 +443,15 @@ class TeamRecordsService {
         status: 'complete'
       });
 
-      // Recalculate records for affected teams' conference
-      await this.calculateTeamRecords(matchup.season_id, matchup.conference_id);
+      // Get current season for auto-sync
+      const currentSeason = await this.getCurrentSeason();
+      
+      // Automatically recalculate records for affected teams' conference
+      await this.calculateTeamRecords(currentSeason?.id || 1, matchup.conference_id, true);
 
       toast({
         title: 'Success',
-        description: 'Matchup completed and records updated'
+        description: 'Matchup completed and records updated automatically'
       });
     } catch (error) {
       console.error('Error completing matchup:', error);
@@ -426,12 +465,68 @@ class TeamRecordsService {
   }
 
   /**
+   * Get current season
+   */
+  async getCurrentSeason(): Promise<any> {
+    try {
+      const { data, error } = await window.ezsite.apis.tablePage(
+        this.SEASONS_TABLE_ID,
+        {
+          PageNo: 1,
+          PageSize: 1,
+          OrderByField: 'season_year',
+          IsAsc: false,
+          Filters: [{ name: 'is_current_season', op: 'Equal', value: true }]
+        }
+      );
+
+      if (error) throw error;
+      return data.List?.[0] || { id: 1, season_year: 2024 };
+    } catch (error) {
+      console.error('Error fetching current season:', error);
+      return { id: 1, season_year: 2024 };
+    }
+  }
+
+  /**
+   * Initialize automatic sync for existing completed matchups
+   */
+  async initializeAutoSync(): Promise<void> {
+    try {
+      const currentSeason = await this.getCurrentSeason();
+      
+      // Get all conferences
+      const { data: conferencesData, error: conferencesError } = await window.ezsite.apis.tablePage(
+        this.CONFERENCES_TABLE_ID,
+        {
+          PageNo: 1,
+          PageSize: 100,
+          OrderByField: 'id',
+          IsAsc: true,
+          Filters: []
+        }
+      );
+
+      if (conferencesError) throw conferencesError;
+      const conferences = conferencesData.List || [];
+
+      // Calculate records for each conference
+      for (const conference of conferences) {
+        await this.calculateTeamRecords(currentSeason.id, conference.id, true);
+      }
+
+      console.log('Auto-sync initialized successfully');
+    } catch (error) {
+      console.error('Error initializing auto-sync:', error);
+    }
+  }
+
+  /**
    * Get standings data with team information
    */
   async getStandingsData(seasonId: number, conferenceId?: number): Promise<StandingsData[]> {
     try {
-      // This would ideally be a database view or join query
-      // For now, we'll fetch records and teams separately and combine them
+      // Get team records
       const teamRecords = await this.getTeamRecords(seasonId, conferenceId);
 
       // Get team details
@@ -494,6 +589,14 @@ class TeamRecordsService {
     try {
       const teamRecords = await this.getTeamRecords(seasonId);
 
+      // Reset all championship flags first
+      for (const record of teamRecords) {
+        await window.ezsite.apis.tableUpdate(this.TEAM_RECORDS_TABLE_ID, {
+          ID: record.id,
+          is_conference_champion: false
+        });
+      }
+
       // Group by conference and find champions (rank 1 in each conference)
       const conferenceGroups = new Map<number, TeamRecord[]>();
       teamRecords.forEach((record) => {
@@ -528,6 +631,94 @@ class TeamRecordsService {
       throw error;
     }
   }
+
+  /**
+   * Reset all team records for a season
+   */
+  async resetTeamRecords(seasonId: number, conferenceId?: number): Promise<void> {
+    try {
+      const teamRecords = await this.getTeamRecords(seasonId, conferenceId);
+
+      for (const record of teamRecords) {
+        await window.ezsite.apis.tableDelete(this.TEAM_RECORDS_TABLE_ID, { ID: record.id });
+      }
+
+      toast({
+        title: 'Success',
+        description: 'Team records reset successfully'
+      });
+    } catch (error) {
+      console.error('Error resetting team records:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to reset team records',
+        variant: 'destructive'
+      });
+      throw error;
+    }
+  }
+
+  /**
+   * Get team records summary
+   */
+  async getRecordsSummary(seasonId: number): Promise<{
+    totalTeams: number;
+    totalMatchups: number;
+    completedMatchups: number;
+    pendingMatchups: number;
+    recordsLastUpdated: string;
+  }> {
+    try {
+      const [teamRecords, allMatchups, completedMatchups] = await Promise.all([
+        this.getTeamRecords(seasonId),
+        this.getAllMatchups(seasonId),
+        this.getCompletedMatchups(seasonId)
+      ]);
+
+      const lastUpdated = teamRecords.reduce((latest, record) => {
+        const recordDate = new Date(record.last_updated);
+        return recordDate > latest ? recordDate : latest;
+      }, new Date(0));
+
+      return {
+        totalTeams: teamRecords.length,
+        totalMatchups: allMatchups.length,
+        completedMatchups: completedMatchups.length,
+        pendingMatchups: allMatchups.length - completedMatchups.length,
+        recordsLastUpdated: lastUpdated.toISOString()
+      };
+    } catch (error) {
+      console.error('Error getting records summary:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get all matchups for a season
+   */
+  private async getAllMatchups(seasonId: number): Promise<MatchupResult[]> {
+    try {
+      const { data, error } = await window.ezsite.apis.tablePage(
+        this.MATCHUPS_TABLE_ID,
+        {
+          PageNo: 1,
+          PageSize: 1000,
+          OrderByField: 'week',
+          IsAsc: true,
+          Filters: []
+        }
+      );
+
+      if (error) throw error;
+      return data.List || [];
+    } catch (error) {
+      console.error('Error fetching all matchups:', error);
+      throw error;
+    }
+  }
 }
 
 export const teamRecordsService = new TeamRecordsService();
+
+// Initialize auto-sync on service load
+teamRecordsService.initializeAutoSync();

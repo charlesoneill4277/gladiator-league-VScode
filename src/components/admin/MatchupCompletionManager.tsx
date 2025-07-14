@@ -12,6 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { useToast } from '@/hooks/use-toast';
 import { CheckCircle, Clock, Edit, Calculator, Trophy, AlertCircle } from 'lucide-react';
 import { teamRecordsService } from '@/services/teamRecordsService';
+import TeamRecordsDashboard from './TeamRecordsDashboard';
 
 interface Matchup {
   id: number;
@@ -413,34 +414,7 @@ const MatchupCompletionManager: React.FC = () => {
           </TabsContent>
           
           <TabsContent value="records" className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <Button
-                onClick={handleRecalculateRecords}
-                disabled={isSubmitting}
-                className="flex items-center gap-2">
-
-                <Calculator className="w-4 h-4" />
-                Recalculate Team Records
-              </Button>
-              
-              <Button
-                onClick={handleMarkConferenceChampions}
-                disabled={isSubmitting}
-                variant="outline"
-                className="flex items-center gap-2">
-
-                <Trophy className="w-4 h-4" />
-                Mark Conference Champions
-              </Button>
-            </div>
-            
-            <Alert>
-              <AlertCircle className="h-4 w-4" />
-              <AlertDescription>
-                Use these tools to recalculate team records from matchup results and mark conference champions.
-                Records are automatically updated when matchups are completed.
-              </AlertDescription>
-            </Alert>
+            <TeamRecordsDashboard />
           </TabsContent>
         </Tabs>
 

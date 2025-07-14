@@ -143,13 +143,13 @@ const SortableTeamCell: React.FC<SortableTeamCellProps> = ({
         ${isWinner ? 'bg-green-50 border border-green-200' : ''}
       `}>
       <GripVertical className="h-3 w-3 text-gray-400" />
-      {team?.team_logo_url && (
-        <img
-          src={team.team_logo_url}
-          alt={team.team_name}
-          className="w-5 h-5 rounded-full"
-        />
-      )}
+      {team?.team_logo_url &&
+      <img
+        src={team.team_logo_url}
+        alt={team.team_name}
+        className="w-5 h-5 rounded-full" />
+
+      }
       <div className="flex-1 min-w-0">
         <div className="text-sm font-medium truncate">
           {team?.team_name || `Team ${teamPosition === 'team1' ? '1' : '2'}`}
@@ -158,8 +158,8 @@ const SortableTeamCell: React.FC<SortableTeamCellProps> = ({
           {team?.owner_name}
         </div>
       </div>
-    </div>
-  );
+    </div>);
+
 };
 
 const CompactMatchupRow: React.FC<CompactMatchupRowProps> = ({
@@ -193,23 +193,23 @@ const CompactMatchupRow: React.FC<CompactMatchupRowProps> = ({
 
   return (
     <TableRow className={`transition-colors ${
-      matchup.is_manual_override ? 'bg-orange-50 border-orange-200' : ''
-    }`}>
+    matchup.is_manual_override ? 'bg-orange-50 border-orange-200' : ''}`
+    }>
       {/* Matchup Info */}
       <TableCell className="w-24">
         <div className="flex items-center gap-2">
           <span className="text-sm font-medium">#{matchup.id}</span>
           <div className="flex flex-col gap-1">
-            {matchup.is_manual_override && (
-              <Badge variant="outline" className="text-xs text-orange-600 border-orange-300 px-1 py-0">
+            {matchup.is_manual_override &&
+            <Badge variant="outline" className="text-xs text-orange-600 border-orange-300 px-1 py-0">
                 Override
               </Badge>
-            )}
-            {matchup.is_playoff && (
-              <Badge variant="default" className="text-xs bg-purple-600 px-1 py-0">
+            }
+            {matchup.is_playoff &&
+            <Badge variant="default" className="text-xs bg-purple-600 px-1 py-0">
                 Playoff
               </Badge>
-            )}
+            }
           </div>
         </div>
       </TableCell>
@@ -220,50 +220,50 @@ const CompactMatchupRow: React.FC<CompactMatchupRowProps> = ({
           team={team1}
           matchupId={matchup.id}
           teamPosition="team1"
-          isWinner={isTeam1Winner}
-        />
+          isWinner={isTeam1Winner} />
+
       </TableCell>
 
       {/* Score */}
       <TableCell className="w-32 text-center">
-        {editingScores ? (
-          <div className="flex items-center gap-1 justify-center">
+        {editingScores ?
+        <div className="flex items-center gap-1 justify-center">
             <Input
-              type="number"
-              value={team1Score}
-              onChange={(e) => setTeam1Score(parseFloat(e.target.value) || 0)}
-              className="w-12 h-6 text-xs text-center px-1"
-              step="0.1"
-            />
+            type="number"
+            value={team1Score}
+            onChange={(e) => setTeam1Score(parseFloat(e.target.value) || 0)}
+            className="w-12 h-6 text-xs text-center px-1"
+            step="0.1" />
+
             <span className="text-xs text-gray-400">-</span>
             <Input
-              type="number"
-              value={team2Score}
-              onChange={(e) => setTeam2Score(parseFloat(e.target.value) || 0)}
-              className="w-12 h-6 text-xs text-center px-1"
-              step="0.1"
-            />
+            type="number"
+            value={team2Score}
+            onChange={(e) => setTeam2Score(parseFloat(e.target.value) || 0)}
+            className="w-12 h-6 text-xs text-center px-1"
+            step="0.1" />
+
             <Button
-              size="sm"
-              onClick={handleSaveScores}
-              className="h-6 w-6 p-0"
-            >
+            size="sm"
+            onClick={handleSaveScores}
+            className="h-6 w-6 p-0">
+
               <Check className="h-3 w-3" />
             </Button>
             <Button
-              size="sm"
-              variant="ghost"
-              onClick={handleCancelEdit}
-              className="h-6 w-6 p-0"
-            >
+            size="sm"
+            variant="ghost"
+            onClick={handleCancelEdit}
+            className="h-6 w-6 p-0">
+
               <X className="h-3 w-3" />
             </Button>
-          </div>
-        ) : (
-          <div
-            className="flex items-center gap-1 justify-center cursor-pointer hover:bg-gray-100 px-2 py-1 rounded"
-            onClick={() => setEditingScores(true)}
-          >
+          </div> :
+
+        <div
+          className="flex items-center gap-1 justify-center cursor-pointer hover:bg-gray-100 px-2 py-1 rounded"
+          onClick={() => setEditingScores(true)}>
+
             <span className={`text-sm font-bold ${isTeam1Winner ? 'text-green-600' : ''}`}>
               {matchup.team_1_score}
             </span>
@@ -273,7 +273,7 @@ const CompactMatchupRow: React.FC<CompactMatchupRowProps> = ({
             </span>
             <Edit className="h-3 w-3 text-gray-400 ml-1" />
           </div>
-        )}
+        }
       </TableCell>
 
       {/* Team 2 */}
@@ -282,8 +282,8 @@ const CompactMatchupRow: React.FC<CompactMatchupRowProps> = ({
           team={team2}
           matchupId={matchup.id}
           teamPosition="team2"
-          isWinner={isTeam2Winner}
-        />
+          isWinner={isTeam2Winner} />
+
       </TableCell>
 
       {/* Status */}
@@ -299,13 +299,13 @@ const CompactMatchupRow: React.FC<CompactMatchupRowProps> = ({
           variant="ghost"
           size="sm"
           onClick={() => onToggleOverride(matchup.id)}
-          className="h-6 px-2 text-xs"
-        >
+          className="h-6 px-2 text-xs">
+
           <Edit className="h-3 w-3" />
         </Button>
       </TableCell>
-    </TableRow>
-  );
+    </TableRow>);
+
 };
 
 const MatchupsManagement: React.FC = () => {
@@ -940,58 +940,58 @@ const MatchupsManagement: React.FC = () => {
                 </div>
                 <div className="flex items-center gap-1">
                   <div className="w-2 h-2 bg-orange-500 rounded-full"></div>
-                  <span>{matchups.filter(m => m.is_manual_override).length} Override</span>
+                  <span>{matchups.filter((m) => m.is_manual_override).length} Override</span>
                 </div>
               </div>
             </div>
 
             <div className="space-y-2 flex items-end">
-              {hasChanges && (
-                <div className="flex gap-2">
+              {hasChanges &&
+              <div className="flex gap-2">
                   <Button
-                    onClick={handleSaveChanges}
-                    disabled={saving}
-                    className="flex items-center gap-2">
+                  onClick={handleSaveChanges}
+                  disabled={saving}
+                  className="flex items-center gap-2">
                     {saving ?
-                    <Loader2 className="h-4 w-4 animate-spin" /> :
-                    <Save className="h-4 w-4" />
-                    }
+                  <Loader2 className="h-4 w-4 animate-spin" /> :
+                  <Save className="h-4 w-4" />
+                  }
                     Save
                   </Button>
                   <Button
-                    variant="outline"
-                    onClick={handleResetChanges}
-                    className="flex items-center gap-2">
+                  variant="outline"
+                  onClick={handleResetChanges}
+                  className="flex items-center gap-2">
                     <RotateCcw className="h-4 w-4" />
                     Reset
                   </Button>
                 </div>
-              )}
+              }
             </div>
           </div>
 
-          {hasChanges && (
-            <Alert className="mb-4">
+          {hasChanges &&
+          <Alert className="mb-4">
               <AlertTriangle className="h-4 w-4" />
               <AlertDescription>
                 You have unsaved changes. Remember to save your modifications.
               </AlertDescription>
             </Alert>
-          )}
+          }
         </CardContent>
       </Card>
 
-      {loading ? (
-        <Card>
+      {loading ?
+      <Card>
           <CardContent className="flex items-center justify-center py-12">
             <div className="flex items-center gap-2">
               <Loader2 className="h-6 w-6 animate-spin" />
               <span>Loading matchups...</span>
             </div>
           </CardContent>
-        </Card>
-      ) : matchups.length === 0 && selectedWeek ? (
-        <Card>
+        </Card> :
+      matchups.length === 0 && selectedWeek ?
+      <Card>
           <CardContent className="flex items-center justify-center py-12">
             <div className="text-center">
               <Users className="h-12 w-12 text-gray-400 mx-auto mb-4" />
@@ -1001,22 +1001,22 @@ const MatchupsManagement: React.FC = () => {
               </p>
             </div>
           </CardContent>
-        </Card>
-      ) : matchups.length > 0 ? (
-        <Card>
+        </Card> :
+      matchups.length > 0 ?
+      <Card>
           <CardContent className="p-0">
             <DndContext
-              sensors={sensors}
-              collisionDetection={closestCenter}
-              onDragStart={handleDragStart}
-              onDragEnd={handleDragEnd}>
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            onDragStart={handleDragStart}
+            onDragEnd={handleDragEnd}>
 
               <SortableContext
-                items={matchups.flatMap((m) => [
-                `${m.id}-team1`,
-                `${m.id}-team2`]
-                )}
-                strategy={rectSortingStrategy}>
+              items={matchups.flatMap((m) => [
+              `${m.id}-team1`,
+              `${m.id}-team2`]
+              )}
+              strategy={rectSortingStrategy}>
 
                 <Table>
                   <TableHeader>
@@ -1031,11 +1031,11 @@ const MatchupsManagement: React.FC = () => {
                   </TableHeader>
                   <TableBody>
                     {conferences.map((conference) => {
-                      const conferenceMatchups = matchups.filter((m) => m.conference_id === conference.id);
-                      if (conferenceMatchups.length === 0) return null;
+                    const conferenceMatchups = matchups.filter((m) => m.conference_id === conference.id);
+                    if (conferenceMatchups.length === 0) return null;
 
-                      return (
-                        <React.Fragment key={conference.id}>
+                    return (
+                      <React.Fragment key={conference.id}>
                           <TableRow>
                             <TableCell colSpan={6} className="bg-gray-50 font-medium text-sm py-2">
                               <div className="flex items-center gap-2">
@@ -1047,39 +1047,39 @@ const MatchupsManagement: React.FC = () => {
                               </div>
                             </TableCell>
                           </TableRow>
-                          {conferenceMatchups.map((matchup) => (
-                            <CompactMatchupRow
-                              key={matchup.id}
-                              matchup={matchup}
-                              teams={teams}
-                              conferences={conferences}
-                              onToggleOverride={handleToggleOverride}
-                              onUpdateScores={handleUpdateScores}
-                            />
-                          ))}
-                        </React.Fragment>
-                      );
-                    })}
+                          {conferenceMatchups.map((matchup) =>
+                        <CompactMatchupRow
+                          key={matchup.id}
+                          matchup={matchup}
+                          teams={teams}
+                          conferences={conferences}
+                          onToggleOverride={handleToggleOverride}
+                          onUpdateScores={handleUpdateScores} />
+
+                        )}
+                        </React.Fragment>);
+
+                  })}
                   </TableBody>
                 </Table>
               </SortableContext>
               <DragOverlay>
-                {activeId ? (
-                  <div className="bg-white p-2 rounded-lg border-2 border-blue-400 shadow-lg">
+                {activeId ?
+              <div className="bg-white p-2 rounded-lg border-2 border-blue-400 shadow-lg">
                     <div className="flex items-center gap-2">
                       <div className="w-4 h-4 bg-blue-100 rounded-full flex items-center justify-center">
                         <Users className="h-2 w-2 text-blue-600" />
                       </div>
                       <span className="text-xs font-medium">Moving team...</span>
                     </div>
-                  </div>
-                ) : null}
+                  </div> :
+              null}
               </DragOverlay>
             </DndContext>
           </CardContent>
-        </Card>
-      ) : (
-        <Card>
+        </Card> :
+
+      <Card>
           <CardContent className="flex items-center justify-center py-12">
             <div className="text-center">
               <Calendar className="h-12 w-12 text-gray-400 mx-auto mb-4" />
@@ -1090,9 +1090,9 @@ const MatchupsManagement: React.FC = () => {
             </div>
           </CardContent>
         </Card>
-      )}
-    </div>
-  );
+      }
+    </div>);
+
 };
 
 export default MatchupsManagement;
