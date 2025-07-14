@@ -306,53 +306,53 @@ const DraftResultsPage: React.FC = () => {
     const roundPicks = conferencePicks.filter((pick) => pick.round === selectedRound);
 
     return (
-      <Card key={conference.id} data-id="pq8khocx8">
-        <CardHeader data-id="4hssq88yu">
-          <CardTitle className="flex items-center space-x-2" data-id="36qn2grc3">
-            <Shield className="h-5 w-5" data-id="oqu3ov7aw" />
-            <span data-id="6am2d3176">{conference.conference_name}</span>
+      <Card key={conference.id}>
+        <CardHeader>
+          <CardTitle className="flex items-center space-x-2">
+            <Shield className="h-5 w-5" />
+            <span>{conference.conference_name}</span>
           </CardTitle>
-          <CardDescription data-id="g8c8xn2qz">
+          <CardDescription>
             Round {selectedRound} • {roundPicks.length} picks
           </CardDescription>
         </CardHeader>
-        <CardContent data-id="pf67bf6or">
-          <div className="rounded-md border" data-id="z3c5wlfda">
-            <Table data-id="v46hwu6bd">
-              <TableHeader data-id="c80l2n64s">
-                <TableRow data-id="loiyxjzlp">
-                  <TableHead className="w-16" data-id="w8kav17qv">Pick</TableHead>
-                  <TableHead className="w-16" data-id="h4sqsp1nk">Overall</TableHead>
-                  <TableHead data-id="ur6e8xe5o">Player</TableHead>
-                  <TableHead data-id="d5v8gqnd0">Position</TableHead>
-                  <TableHead className="hidden sm:table-cell" data-id="d6qxbnctz">NFL Team</TableHead>
-                  <TableHead data-id="r83a6fc0u">Drafted By</TableHead>
+        <CardContent>
+          <div className="rounded-md border">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-16">Pick</TableHead>
+                  <TableHead className="w-16">Overall</TableHead>
+                  <TableHead>Player</TableHead>
+                  <TableHead>Position</TableHead>
+                  <TableHead className="hidden sm:table-cell">NFL Team</TableHead>
+                  <TableHead>Drafted By</TableHead>
                 </TableRow>
               </TableHeader>
-              <TableBody data-id="ji5err407">
+              <TableBody>
                 {roundPicks.length > 0 ?
                 roundPicks.map((pick) =>
-                <TableRow key={`${conference.id}-${pick.pick_number}`} data-id="u2y6whl18">
-                      <TableCell className="font-medium" data-id="d4a1y1ka1">{pick.draft_slot}</TableCell>
-                      <TableCell className="font-medium" data-id="zinic15tu">{pick.pick_number}</TableCell>
-                      <TableCell className="font-semibold" data-id="3qxekoh9t">{pick.player_name}</TableCell>
-                      <TableCell data-id="rblldu2sr">
-                        <Badge className={getPositionColor(pick.position)} data-id="x78dqwakm">
+                <TableRow key={`${conference.id}-${pick.pick_number}`}>
+                      <TableCell className="font-medium">{pick.draft_slot}</TableCell>
+                      <TableCell className="font-medium">{pick.pick_number}</TableCell>
+                      <TableCell className="font-semibold">{pick.player_name}</TableCell>
+                      <TableCell>
+                        <Badge className={getPositionColor(pick.position)}>
                           {pick.position}
                         </Badge>
                       </TableCell>
-                      <TableCell className="hidden sm:table-cell" data-id="kah33qsbn">{pick.nfl_team}</TableCell>
-                      <TableCell data-id="d6z3pl4g3">
-                        <div className="text-sm" data-id="tiq91klqk">
-                          <div className="font-medium" data-id="ag1htq1x7">{pick.team_name}</div>
-                          <div className="text-muted-foreground" data-id="o1c84ofbw">{pick.owner_name}</div>
+                      <TableCell className="hidden sm:table-cell">{pick.nfl_team}</TableCell>
+                      <TableCell>
+                        <div className="text-sm">
+                          <div className="font-medium">{pick.team_name}</div>
+                          <div className="text-muted-foreground">{pick.owner_name}</div>
                         </div>
                       </TableCell>
                     </TableRow>
                 ) :
 
-                <TableRow data-id="amvel7dwa">
-                    <TableCell colSpan={6} className="text-center text-muted-foreground py-8" data-id="mizub16on">
+                <TableRow>
+                    <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
                       No picks found for round {selectedRound}
                     </TableCell>
                   </TableRow>
@@ -369,7 +369,7 @@ const DraftResultsPage: React.FC = () => {
     const conferencesToShow = getConferencesToShow();
 
     return (
-      <div className="space-y-6" data-id="7ie37nz04">
+      <div className="space-y-6">
         {conferencesToShow.map((conference) => {
           const conferencePicks = draftPicks.filter((pick) => pick.conference_id === conference.id);
 
@@ -391,78 +391,78 @@ const DraftResultsPage: React.FC = () => {
           const teamPicks = Array.from(teamPicksMap.values());
 
           return (
-            <Card key={conference.id} data-id="4cgh09wed">
-              <CardHeader data-id="vtqxqao1c">
-                <CardTitle className="flex items-center space-x-2" data-id="85f08ztek">
-                  <Users className="h-5 w-5" data-id="y730ji3sx" />
-                  <span data-id="q4ce7up2g">{conference.conference_name} - Team Draft Summary</span>
+            <Card key={conference.id}>
+              <CardHeader>
+                <CardTitle className="flex items-center space-x-2">
+                  <Users className="h-5 w-5" />
+                  <span>{conference.conference_name} - Team Draft Summary</span>
                 </CardTitle>
               </CardHeader>
-              <CardContent data-id="icu6x870e">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4" data-id="gzolrnhxb">
+              <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {teamPicks.map((team) => {
                     const isExpanded = expandedTeams.has(team.team_id);
                     const displayPicks = isExpanded ? team.picks : team.picks.slice(0, 8);
-                    
+
                     return (
-                      <Card key={team.team_id} data-id="ov08445nd">
-                        <CardHeader className="pb-2" data-id="jam3l5pyg">
-                          <CardTitle className="text-lg" data-id="nqqp432c6">{team.team_name}</CardTitle>
-                          <CardDescription data-id="kipgiyr1k">
+                      <Card key={team.team_id}>
+                        <CardHeader className="pb-2">
+                          <CardTitle className="text-lg">{team.team_name}</CardTitle>
+                          <CardDescription>
                             {team.owner_name} • {team.picks.length} picks
                           </CardDescription>
                         </CardHeader>
-                        <CardContent data-id="9vjrm5luu">
-                          <div className="space-y-2" data-id="wuggh9vx7">
+                        <CardContent>
+                          <div className="space-y-2">
                             {displayPicks.map((pick) =>
-                              <div key={pick.pick_number} className="flex items-center justify-between p-2 rounded-md bg-accent/50" data-id="lvohey335">
-                                <div className="flex items-center space-x-2" data-id="6rt38drxz">
-                                  <Badge variant="outline" className="text-xs" data-id="cxvjz843t">
+                            <div key={pick.pick_number} className="flex items-center justify-between p-2 rounded-md bg-accent/50">
+                                <div className="flex items-center space-x-2">
+                                  <Badge variant="outline" className="text-xs">
                                     R{pick.round}
                                   </Badge>
-                                  <span className="font-medium text-sm" data-id="cg7hlkzmr">{pick.player_name}</span>
-                                  <Badge className={`${getPositionColor(pick.position)} text-xs`} data-id="wxn5h38mt">
+                                  <span className="font-medium text-sm">{pick.player_name}</span>
+                                  <Badge className={`${getPositionColor(pick.position)} text-xs`}>
                                     {pick.position}
                                   </Badge>
                                 </div>
-                                <span className="text-xs text-muted-foreground" data-id="j7d4fknvp">#{pick.pick_number}</span>
+                                <span className="text-xs text-muted-foreground">#{pick.pick_number}</span>
                               </div>
                             )}
                             
-                            {team.picks.length > 8 && (
-                              <div className="flex justify-center pt-2">
+                            {team.picks.length > 8 &&
+                            <div className="flex justify-center pt-2">
                                 <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => toggleTeamExpansion(team.team_id)}
-                                  className="text-xs"
-                                >
-                                  {isExpanded ? (
-                                    <>
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => toggleTeamExpansion(team.team_id)}
+                                className="text-xs">
+
+                                  {isExpanded ?
+                                <>
                                       <ChevronUp className="h-3 w-3 mr-1" />
                                       Show Less
-                                    </>
-                                  ) : (
-                                    <>
+                                    </> :
+
+                                <>
                                       <ChevronDown className="h-3 w-3 mr-1" />
                                       Show All {team.picks.length} Picks
                                     </>
-                                  )}
+                                }
                                 </Button>
                               </div>
-                            )}
+                            }
                           </div>
                         </CardContent>
-                      </Card>
-                    );
+                      </Card>);
+
                   })}
                 </div>
                 
                 {teamPicks.length === 0 &&
-                <div className="text-center text-muted-foreground py-8" data-id="kbchkv4gy">
-                    <AlertCircle className="h-8 w-8 mx-auto mb-2" data-id="81ak2w0ja" />
-                    <p data-id="iluudtgdv">No draft picks found for this conference</p>
-                    <p className="text-sm" data-id="1i6x5onjs">Try syncing draft data from the Admin panel</p>
+                <div className="text-center text-muted-foreground py-8">
+                    <AlertCircle className="h-8 w-8 mx-auto mb-2" />
+                    <p>No draft picks found for this conference</p>
+                    <p className="text-sm">Try syncing draft data from the Admin panel</p>
                   </div>
                 }
               </CardContent>
@@ -475,8 +475,8 @@ const DraftResultsPage: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-[400px]" data-id="8u40qarcp">
-        <div className="animate-spin h-8 w-8 border-b-2 border-blue-600 rounded-full" data-id="m8lxemayo"></div>
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="animate-spin h-8 w-8 border-b-2 border-blue-600 rounded-full"></div>
       </div>);
 
   }
@@ -490,15 +490,15 @@ const DraftResultsPage: React.FC = () => {
   const maxRounds = Math.max(...draftPicks.map((pick) => pick.round), 1);
 
   return (
-    <div className="space-y-6" data-id="3wz9f493h">
+    <div className="space-y-6">
       {/* Page Header */}
-      <div className="flex flex-col space-y-2" data-id="0jxj1eikw">
-        <div className="flex items-center space-x-2" data-id="9b6t0xaqv">
-          <Target className="h-6 w-6 text-primary" data-id="8kr3lz6zn" />
-          <h1 className="text-3xl font-bold" data-id="a86f7wb5m">Draft Results</h1>
+      <div className="flex flex-col space-y-2">
+        <div className="flex items-center space-x-2">
+          <Target className="h-6 w-6 text-primary" />
+          <h1 className="text-3xl font-bold">Draft Results</h1>
         </div>
-        <div className="flex items-center justify-between" data-id="ix1ui274p">
-          <p className="text-muted-foreground" data-id="ajg5l4pbp">
+        <div className="flex items-center justify-between">
+          <p className="text-muted-foreground">
             {selectedSeason} Season • {selectedConference ?
             conferencesToShow[0]?.conference_name || 'Conference' :
             'All Conferences'
@@ -508,12 +508,12 @@ const DraftResultsPage: React.FC = () => {
             variant="outline"
             size="sm"
             onClick={loadDraftData}
-            disabled={refreshing} data-id="uocztb7ex">
+            disabled={refreshing}>
 
             {refreshing ?
-            <RefreshCw className="h-4 w-4 mr-2 animate-spin" data-id="5egx7dxa4" /> :
+            <RefreshCw className="h-4 w-4 mr-2 animate-spin" /> :
 
-            <RefreshCw className="h-4 w-4 mr-2" data-id="anjbrq2r7" />
+            <RefreshCw className="h-4 w-4 mr-2" />
             }
             Refresh
           </Button>
@@ -521,45 +521,45 @@ const DraftResultsPage: React.FC = () => {
       </div>
 
       {/* Summary Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4" data-id="zkuar79ei">
-        <Card data-id="viw5dfs8k">
-          <CardHeader className="pb-2" data-id="hy4x5iqgp">
-            <CardDescription data-id="5w7dj0t66">Total Conferences</CardDescription>
-            <CardTitle className="text-2xl" data-id="cngxdw92y">{conferencesToShow.length}</CardTitle>
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <Card>
+          <CardHeader className="pb-2">
+            <CardDescription>Total Conferences</CardDescription>
+            <CardTitle className="text-2xl">{conferencesToShow.length}</CardTitle>
           </CardHeader>
         </Card>
         
-        <Card data-id="p17422s46">
-          <CardHeader className="pb-2" data-id="1e133uw4e">
-            <CardDescription data-id="06rlfpz08">Total Teams</CardDescription>
-            <CardTitle className="text-2xl" data-id="7am9x92ux">{totalTeams}</CardTitle>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardDescription>Total Teams</CardDescription>
+            <CardTitle className="text-2xl">{totalTeams}</CardTitle>
           </CardHeader>
         </Card>
 
-        <Card data-id="yso30l6wi">
-          <CardHeader className="pb-2" data-id="sqkh2coyx">
-            <CardDescription data-id="31j1xs6al">Total Picks</CardDescription>
-            <CardTitle className="text-2xl" data-id="gdsi1tunl">{draftPicks.length}</CardTitle>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardDescription>Total Picks</CardDescription>
+            <CardTitle className="text-2xl">{draftPicks.length}</CardTitle>
           </CardHeader>
         </Card>
 
-        <Card data-id="fpovhxdr0">
-          <CardHeader className="pb-2" data-id="yrcyqe2d2">
-            <CardDescription data-id="bru1ou1mw">Max Rounds</CardDescription>
-            <CardTitle className="text-2xl" data-id="thfft8qyn">{maxRounds}</CardTitle>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardDescription>Max Rounds</CardDescription>
+            <CardTitle className="text-2xl">{maxRounds}</CardTitle>
           </CardHeader>
         </Card>
       </div>
 
       {draftPicks.length === 0 ?
-      <Card data-id="ama4qyumz">
-          <CardContent className="flex flex-col items-center justify-center py-12" data-id="f0npomy8m">
-            <AlertCircle className="h-12 w-12 text-muted-foreground mb-4" data-id="h37cqb9yq" />
-            <h3 className="text-lg font-semibold mb-2" data-id="v1v5z7uay">No Draft Results Found</h3>
-            <p className="text-muted-foreground text-center mb-4" data-id="fmpeoismp">
+      <Card>
+          <CardContent className="flex flex-col items-center justify-center py-12">
+            <AlertCircle className="h-12 w-12 text-muted-foreground mb-4" />
+            <h3 className="text-lg font-semibold mb-2">No Draft Results Found</h3>
+            <p className="text-muted-foreground text-center mb-4">
               No draft picks found for the selected season and conference.
             </p>
-            <p className="text-sm text-muted-foreground text-center" data-id="3zezru179">
+            <p className="text-sm text-muted-foreground text-center">
               Try syncing draft data from the Admin → Data Sync → Draft Sync panel.
             </p>
           </CardContent>
@@ -567,15 +567,15 @@ const DraftResultsPage: React.FC = () => {
 
       <>
           {/* Controls */}
-          <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between" data-id="eso1u47t9">
-            <div className="flex items-center space-x-4" data-id="wa7rcuaqh">
-              <Select value={selectedRound.toString()} onValueChange={(value) => setSelectedRound(parseInt(value))} data-id="wd2k3mhd7">
-                <SelectTrigger className="w-32" data-id="71nltbor1">
-                  <SelectValue data-id="st46019mq" />
+          <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
+            <div className="flex items-center space-x-4">
+              <Select value={selectedRound.toString()} onValueChange={(value) => setSelectedRound(parseInt(value))}>
+                <SelectTrigger className="w-32">
+                  <SelectValue />
                 </SelectTrigger>
-                <SelectContent data-id="4gj7fkk1l">
+                <SelectContent>
                   {Array.from({ length: maxRounds }, (_, i) =>
-                <SelectItem key={i + 1} value={(i + 1).toString()} data-id="o27pgp4ux">
+                <SelectItem key={i + 1} value={(i + 1).toString()}>
                       Round {i + 1}
                     </SelectItem>
                 )}
@@ -585,51 +585,51 @@ const DraftResultsPage: React.FC = () => {
           </div>
 
           {/* Draft Results Tabs */}
-          <Tabs value={viewMode} onValueChange={(value) => setViewMode(value as 'board' | 'team')} className="w-full" data-id="t0seoz8xb">
-            <TabsList data-id="g8di0j6fq">
-              <TabsTrigger value="board" data-id="qn4nl4nj0">Draft Board</TabsTrigger>
-              <TabsTrigger value="team" data-id="gpqj4c0j0">Team View</TabsTrigger>
+          <Tabs value={viewMode} onValueChange={(value) => setViewMode(value as 'board' | 'team')} className="w-full">
+            <TabsList>
+              <TabsTrigger value="board">Draft Board</TabsTrigger>
+              <TabsTrigger value="team">Team View</TabsTrigger>
             </TabsList>
 
-            <TabsContent value="board" className="space-y-6" data-id="q5uim44q8">
+            <TabsContent value="board" className="space-y-6">
               {conferencesToShow.map((conference) => renderDraftBoard(conference))}
             </TabsContent>
 
-            <TabsContent value="team" className="space-y-6" data-id="wsq7xm6bp">
+            <TabsContent value="team" className="space-y-6">
               {renderTeamView()}
             </TabsContent>
           </Tabs>
 
           {/* Draft Analysis */}
-          <Card data-id="75106j9ni">
-            <CardHeader data-id="xab3n7czh">
-              <CardTitle className="flex items-center space-x-2" data-id="s2kbla0r9">
-                <Trophy className="h-5 w-5" data-id="ujcb4mef4" />
-                <span data-id="qfjwuaeiy">Draft Analysis</span>
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center space-x-2">
+                <Trophy className="h-5 w-5" />
+                <span>Draft Analysis</span>
               </CardTitle>
-              <CardDescription data-id="su8ejw7nw">
+              <CardDescription>
                 Draft insights and position trends
               </CardDescription>
             </CardHeader>
-            <CardContent data-id="30mlgmoxy">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4" data-id="1vv5kf4ce">
-                <div className="text-center p-4 border rounded-lg" data-id="gzy3kqxvp">
-                  <p className="text-2xl font-bold text-green-600" data-id="ljmtju4vi">
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="text-center p-4 border rounded-lg">
+                  <p className="text-2xl font-bold text-green-600">
                     {draftPicks.filter((p) => p.position === 'RB').length}
                   </p>
-                  <p className="text-sm text-muted-foreground" data-id="i4hg14fin">Running Backs Drafted</p>
+                  <p className="text-sm text-muted-foreground">Running Backs Drafted</p>
                 </div>
-                <div className="text-center p-4 border rounded-lg" data-id="19re3pp2y">
-                  <p className="text-2xl font-bold" data-id="s8l98a4et">
+                <div className="text-center p-4 border rounded-lg">
+                  <p className="text-2xl font-bold">
                     {draftPicks.filter((p) => p.position === 'QB').length}
                   </p>
-                  <p className="text-sm text-muted-foreground" data-id="ouuhwtop1">Quarterbacks Drafted</p>
+                  <p className="text-sm text-muted-foreground">Quarterbacks Drafted</p>
                 </div>
-                <div className="text-center p-4 border rounded-lg" data-id="pzyjvb52a">
-                  <p className="text-2xl font-bold" data-id="v97db79nu">
+                <div className="text-center p-4 border rounded-lg">
+                  <p className="text-2xl font-bold">
                     {draftPicks.filter((p) => p.position === 'WR').length}
                   </p>
-                  <p className="text-sm text-muted-foreground" data-id="zos34cxwj">Wide Receivers Drafted</p>
+                  <p className="text-sm text-muted-foreground">Wide Receivers Drafted</p>
                 </div>
               </div>
             </CardContent>
