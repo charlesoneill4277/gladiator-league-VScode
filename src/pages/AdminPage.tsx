@@ -7,11 +7,12 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useToast } from '@/hooks/use-toast';
-import { Shield, Lock, Settings, Database, Clock, Activity, Calendar } from 'lucide-react';
+import { Shield, Lock, Settings, Database, Clock, Activity, Calendar, Bot } from 'lucide-react';
 import LeagueManager from '@/components/admin/LeagueManager';
 import DataSync from '@/components/admin/DataSync';
 import MatchupsManagement from '@/components/admin/MatchupsManagement';
 import MatchupCompletionManager from '@/components/admin/MatchupCompletionManager';
+import AutoSyncManager from '@/components/admin/AutoSyncManager';
 
 const AdminPage: React.FC = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -172,7 +173,7 @@ const AdminPage: React.FC = () => {
       </div>
 
       <Tabs defaultValue="league-manager" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className="grid w-full grid-cols-5">
           <TabsTrigger value="league-manager" className="flex items-center gap-2">
             <Settings className="h-4 w-4" />
             League Manager
@@ -188,6 +189,10 @@ const AdminPage: React.FC = () => {
           <TabsTrigger value="records-management" className="flex items-center gap-2">
             <Activity className="h-4 w-4" />
             Records
+          </TabsTrigger>
+          <TabsTrigger value="auto-sync" className="flex items-center gap-2">
+            <Bot className="h-4 w-4" />
+            Auto-Sync
           </TabsTrigger>
         </TabsList>
 
@@ -205,6 +210,10 @@ const AdminPage: React.FC = () => {
 
         <TabsContent value="records-management">
           <MatchupCompletionManager />
+        </TabsContent>
+
+        <TabsContent value="auto-sync">
+          <AutoSyncManager />
         </TabsContent>
       </Tabs>
     </div>);

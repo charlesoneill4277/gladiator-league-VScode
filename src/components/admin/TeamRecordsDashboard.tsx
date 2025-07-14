@@ -6,16 +6,16 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
-import { 
-  Trophy, 
-  Calculator, 
-  RotateCcw, 
-  TrendingUp, 
-  Clock, 
+import {
+  Trophy,
+  Calculator,
+  RotateCcw,
+  TrendingUp,
+  Clock,
   CheckCircle,
   AlertCircle,
-  Activity
-} from 'lucide-react';
+  Activity } from
+'lucide-react';
 import { teamRecordsService, TeamRecord, StandingsData } from '@/services/teamRecordsService';
 
 const TeamRecordsDashboard: React.FC = () => {
@@ -35,12 +35,12 @@ const TeamRecordsDashboard: React.FC = () => {
   const loadDashboardData = async () => {
     try {
       setIsLoading(true);
-      
+
       const [records, standings, summary] = await Promise.all([
-        teamRecordsService.getTeamRecords(currentSeasonId),
-        teamRecordsService.getStandingsData(currentSeasonId),
-        teamRecordsService.getRecordsSummary(currentSeasonId)
-      ]);
+      teamRecordsService.getTeamRecords(currentSeasonId),
+      teamRecordsService.getStandingsData(currentSeasonId),
+      teamRecordsService.getRecordsSummary(currentSeasonId)]
+      );
 
       setTeamRecords(records);
       setStandingsData(standings);
@@ -62,7 +62,7 @@ const TeamRecordsDashboard: React.FC = () => {
       setIsProcessing(true);
       await teamRecordsService.calculateTeamRecords(currentSeasonId, undefined, false);
       await loadDashboardData();
-      
+
       toast({
         title: 'Success',
         description: 'Team records recalculated successfully'
@@ -84,7 +84,7 @@ const TeamRecordsDashboard: React.FC = () => {
       setIsProcessing(true);
       await teamRecordsService.markConferenceChampions(currentSeasonId);
       await loadDashboardData();
-      
+
       toast({
         title: 'Success',
         description: 'Conference champions marked successfully'
@@ -110,7 +110,7 @@ const TeamRecordsDashboard: React.FC = () => {
       setIsProcessing(true);
       await teamRecordsService.resetTeamRecords(currentSeasonId);
       await loadDashboardData();
-      
+
       toast({
         title: 'Success',
         description: 'Team records reset successfully'
@@ -151,8 +151,8 @@ const TeamRecordsDashboard: React.FC = () => {
             <div className="animate-spin h-8 w-8 border-b-2 border-blue-600 rounded-full"></div>
           </div>
         </CardContent>
-      </Card>
-    );
+      </Card>);
+
   }
 
   return (
@@ -173,8 +173,8 @@ const TeamRecordsDashboard: React.FC = () => {
           
           <TabsContent value="overview" className="space-y-4">
             {/* Summary Stats */}
-            {recordsSummary && (
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            {recordsSummary &&
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                 <Card>
                   <CardContent className="p-4">
                     <div className="flex items-center justify-between">
@@ -223,18 +223,18 @@ const TeamRecordsDashboard: React.FC = () => {
                   </CardContent>
                 </Card>
               </div>
-            )}
+            }
 
             {/* Auto-Sync Status */}
             <Alert>
               <CheckCircle className="h-4 w-4" />
               <AlertDescription>
                 Auto-sync is enabled. Team records are automatically updated when matchups are completed.
-                {recordsSummary && recordsSummary.recordsLastUpdated && (
-                  <span className="block mt-1 text-sm text-muted-foreground">
+                {recordsSummary && recordsSummary.recordsLastUpdated &&
+                <span className="block mt-1 text-sm text-muted-foreground">
                     Last updated: {formatDate(recordsSummary.recordsLastUpdated)}
                   </span>
-                )}
+                }
               </AlertDescription>
             </Alert>
           </TabsContent>
@@ -255,14 +255,14 @@ const TeamRecordsDashboard: React.FC = () => {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {standingsData.map((team) => (
-                    <TableRow key={team.team_id}>
+                  {standingsData.map((team) =>
+                  <TableRow key={team.team_id}>
                       <TableCell>
                         <div className="flex items-center gap-2">
                           <span className="font-medium">#{team.overall_rank}</span>
-                          {team.is_conference_champion && (
-                            <Trophy className="w-4 h-4 text-yellow-500" />
-                          )}
+                          {team.is_conference_champion &&
+                        <Trophy className="w-4 h-4 text-yellow-500" />
+                        }
                         </div>
                       </TableCell>
                       <TableCell>
@@ -289,20 +289,20 @@ const TeamRecordsDashboard: React.FC = () => {
                       <TableCell>{team.points_against.toFixed(1)}</TableCell>
                       <TableCell>
                         <div className="flex flex-col gap-1">
-                          {team.playoff_eligible && (
-                            <Badge variant="secondary" className="text-xs">
+                          {team.playoff_eligible &&
+                        <Badge variant="secondary" className="text-xs">
                               Playoff Eligible
                             </Badge>
-                          )}
-                          {team.is_conference_champion && (
-                            <Badge variant="default" className="text-xs bg-yellow-500">
+                        }
+                          {team.is_conference_champion &&
+                        <Badge variant="default" className="text-xs bg-yellow-500">
                               Conference Champion
                             </Badge>
-                          )}
+                        }
                         </div>
                       </TableCell>
                     </TableRow>
-                  ))}
+                  )}
                 </TableBody>
               </Table>
             </div>
@@ -313,8 +313,8 @@ const TeamRecordsDashboard: React.FC = () => {
               <Button
                 onClick={handleRecalculateRecords}
                 disabled={isProcessing}
-                className="flex items-center gap-2 h-20 text-left flex-col justify-center"
-              >
+                className="flex items-center gap-2 h-20 text-left flex-col justify-center">
+
                 <Calculator className="w-6 h-6" />
                 <span>Recalculate Records</span>
               </Button>
@@ -323,8 +323,8 @@ const TeamRecordsDashboard: React.FC = () => {
                 onClick={handleMarkChampions}
                 disabled={isProcessing}
                 variant="outline"
-                className="flex items-center gap-2 h-20 text-left flex-col justify-center"
-              >
+                className="flex items-center gap-2 h-20 text-left flex-col justify-center">
+
                 <Trophy className="w-6 h-6" />
                 <span>Mark Champions</span>
               </Button>
@@ -333,8 +333,8 @@ const TeamRecordsDashboard: React.FC = () => {
                 onClick={handleResetRecords}
                 disabled={isProcessing}
                 variant="destructive"
-                className="flex items-center gap-2 h-20 text-left flex-col justify-center"
-              >
+                className="flex items-center gap-2 h-20 text-left flex-col justify-center">
+
                 <RotateCcw className="w-6 h-6" />
                 <span>Reset Records</span>
               </Button>
@@ -366,8 +366,8 @@ const TeamRecordsDashboard: React.FC = () => {
           </TabsContent>
         </Tabs>
       </CardContent>
-    </Card>
-  );
+    </Card>);
+
 };
 
 export default TeamRecordsDashboard;

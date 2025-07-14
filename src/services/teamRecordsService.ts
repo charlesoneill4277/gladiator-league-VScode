@@ -76,8 +76,8 @@ class TeamRecordsService {
   async getTeamRecords(seasonId: number, conferenceId?: number): Promise<TeamRecord[]> {
     try {
       const filters = [
-        { name: 'season_id', op: 'Equal', value: seasonId }
-      ];
+      { name: 'season_id', op: 'Equal', value: seasonId }];
+
 
       if (conferenceId) {
         filters.push({ name: 'conference_id', op: 'Equal', value: conferenceId });
@@ -108,8 +108,8 @@ class TeamRecordsService {
   async getTeamConferenceJunctions(conferenceId?: number): Promise<TeamConferenceJunction[]> {
     try {
       const filters = [
-        { name: 'is_active', op: 'Equal', value: true }
-      ];
+      { name: 'is_active', op: 'Equal', value: true }];
+
 
       if (conferenceId) {
         filters.push({ name: 'conference_id', op: 'Equal', value: conferenceId });
@@ -238,8 +238,8 @@ class TeamRecordsService {
   private async getCompletedMatchups(seasonId: number, conferenceId?: number): Promise<MatchupResult[]> {
     try {
       const filters = [
-        { name: 'status', op: 'Equal', value: 'complete' }
-      ];
+      { name: 'status', op: 'Equal', value: 'complete' }];
+
 
       if (conferenceId) {
         filters.push({ name: 'conference_id', op: 'Equal', value: conferenceId });
@@ -268,16 +268,16 @@ class TeamRecordsService {
    * Update team records in database
    */
   private async updateTeamRecordsInDatabase(
-    seasonId: number,
-    teamRecords: Map<number, {
-      wins: number;
-      losses: number;
-      ties: number;
-      points_for: number;
-      points_against: number;
-      conference_id: number;
-    }>
-  ): Promise<void> {
+  seasonId: number,
+  teamRecords: Map<number, {
+    wins: number;
+    losses: number;
+    ties: number;
+    points_for: number;
+    points_against: number;
+    conference_id: number;
+  }>)
+  : Promise<void> {
     try {
       for (const [teamId, record] of teamRecords.entries()) {
         const totalGames = record.wins + record.losses + record.ties;
@@ -329,10 +329,10 @@ class TeamRecordsService {
           PageNo: 1,
           PageSize: 1,
           Filters: [
-            { name: 'team_id', op: 'Equal', value: teamId },
-            { name: 'season_id', op: 'Equal', value: seasonId },
-            { name: 'conference_id', op: 'Equal', value: conferenceId }
-          ]
+          { name: 'team_id', op: 'Equal', value: teamId },
+          { name: 'season_id', op: 'Equal', value: seasonId },
+          { name: 'conference_id', op: 'Equal', value: conferenceId }]
+
         }
       );
 
@@ -445,7 +445,7 @@ class TeamRecordsService {
 
       // Get current season for auto-sync
       const currentSeason = await this.getCurrentSeason();
-      
+
       // Automatically recalculate records for affected teams' conference
       await this.calculateTeamRecords(currentSeason?.id || 1, matchup.conference_id, true);
 
@@ -494,7 +494,7 @@ class TeamRecordsService {
   async initializeAutoSync(): Promise<void> {
     try {
       const currentSeason = await this.getCurrentSeason();
-      
+
       // Get all conferences
       const { data: conferencesData, error: conferencesError } = await window.ezsite.apis.tablePage(
         this.CONFERENCES_TABLE_ID,
@@ -670,10 +670,10 @@ class TeamRecordsService {
   }> {
     try {
       const [teamRecords, allMatchups, completedMatchups] = await Promise.all([
-        this.getTeamRecords(seasonId),
-        this.getAllMatchups(seasonId),
-        this.getCompletedMatchups(seasonId)
-      ]);
+      this.getTeamRecords(seasonId),
+      this.getAllMatchups(seasonId),
+      this.getCompletedMatchups(seasonId)]
+      );
 
       const lastUpdated = teamRecords.reduce((latest, record) => {
         const recordDate = new Date(record.last_updated);
