@@ -1,365 +1,437 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Separator } from '@/components/ui/separator';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { UserCheck, Filter, Search, Download, RefreshCw, Keyboard } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
+import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useApp } from '@/contexts/AppContext';
-import { PlayerFilterProvider, usePlayerFilters } from '@/contexts/PlayerFilterContext';
-import { useKeyboardShortcuts, playerPageShortcuts } from '@/hooks/useKeyboardShortcuts';
-import { usePlayersData, usePlayerSearch } from '@/hooks/useRealTimePlayerData';
-import PlayerSearchBar from '@/components/players/PlayerSearchBar';
-import PlayerFilters from '@/components/players/PlayerFilters';
-import PlayerTable from '@/components/players/PlayerTable';
-import PlayerExport from '@/components/players/PlayerExport';
-import PlayerStatsCards from '@/components/players/PlayerStatsCards';
+import { UserCheck, Search, ArrowUpDown, ExternalLink, Filter } from 'lucide-react';
 
-// Interface for component Player data (mapped from database)
-interface Player {
-  id: string;
-  name: string;
-  position: string;
-  nflTeam: string;
-  points: number;
-  avgPoints: number;
-  projectedPoints: number;
-  status: string;
-  rosteredBy: string | null;
-  rosteredByOwner: string | null;
-  injuryStatus: string | null;
-  gamesPlayed: number;
-  age?: number;
-  draftPosition?: number;
-  experience?: number;
-  conference?: string;
-  isOwnedByMultipleTeams?: boolean;
+// Mock data for players - this will be replaced with real Sleeper API data
+const mockPlayersData = [
+{
+  id: 'player1',
+  name: 'Josh Allen',
+  position: 'QB',
+  nflTeam: 'BUF',
+  points: 287.5,
+  avgPoints: 22.1,
+  status: 'rostered',
+  rosteredBy: 'Galactic Gladiators',
+  rosteredByOwner: 'John Doe',
+  injuryStatus: null,
+  gamesPlayed: 13,
+  projectedPoints: 24.8
+},
+{
+  id: 'player2',
+  name: 'Christian McCaffrey',
+  position: 'RB',
+  nflTeam: 'SF',
+  points: 245.8,
+  avgPoints: 18.9,
+  status: 'rostered',
+  rosteredBy: 'Galactic Gladiators',
+  rosteredByOwner: 'John Doe',
+  injuryStatus: 'IR',
+  gamesPlayed: 13,
+  projectedPoints: 0
+},
+{
+  id: 'player3',
+  name: 'Tyreek Hill',
+  position: 'WR',
+  nflTeam: 'MIA',
+  points: 198.2,
+  avgPoints: 15.2,
+  status: 'rostered',
+  rosteredBy: 'Space Vikings',
+  rosteredByOwner: 'Jane Smith',
+  injuryStatus: null,
+  gamesPlayed: 13,
+  projectedPoints: 16.4
+},
+{
+  id: 'player4',
+  name: 'Saquon Barkley',
+  position: 'RB',
+  nflTeam: 'PHI',
+  points: 234.6,
+  avgPoints: 18.0,
+  status: 'free_agent',
+  rosteredBy: null,
+  rosteredByOwner: null,
+  injuryStatus: null,
+  gamesPlayed: 13,
+  projectedPoints: 18.5
+},
+{
+  id: 'player5',
+  name: 'Cooper Kupp',
+  position: 'WR',
+  nflTeam: 'LAR',
+  points: 156.8,
+  avgPoints: 14.2,
+  status: 'rostered',
+  rosteredBy: 'Meteor Crushers',
+  rosteredByOwner: 'Bob Johnson',
+  injuryStatus: 'Q',
+  gamesPlayed: 11,
+  projectedPoints: 15.8
+},
+{
+  id: 'player6',
+  name: 'Travis Kelce',
+  position: 'TE',
+  nflTeam: 'KC',
+  points: 189.4,
+  avgPoints: 14.6,
+  status: 'rostered',
+  rosteredBy: 'Nebula Warriors',
+  rosteredByOwner: 'Sarah Wilson',
+  injuryStatus: null,
+  gamesPlayed: 13,
+  projectedPoints: 15.2
+},
+{
+  id: 'player7',
+  name: 'Myles Garrett',
+  position: 'DL',
+  nflTeam: 'CLE',
+  points: 98.5,
+  avgPoints: 7.6,
+  status: 'rostered',
+  rosteredBy: 'Cosmic Defenders',
+  rosteredByOwner: 'Mike Davis',
+  injuryStatus: null,
+  gamesPlayed: 13,
+  projectedPoints: 8.1
+},
+{
+  id: 'player8',
+  name: 'Micah Parsons',
+  position: 'LB',
+  nflTeam: 'DAL',
+  points: 112.8,
+  avgPoints: 8.7,
+  status: 'rostered',
+  rosteredBy: 'Star Destroyers',
+  rosteredByOwner: 'Lisa Brown',
+  injuryStatus: null,
+  gamesPlayed: 13,
+  projectedPoints: 9.2
+},
+{
+  id: 'player9',
+  name: 'Trevon Diggs',
+  position: 'DB',
+  nflTeam: 'DAL',
+  points: 87.3,
+  avgPoints: 6.7,
+  status: 'free_agent',
+  rosteredBy: null,
+  rosteredByOwner: null,
+  injuryStatus: null,
+  gamesPlayed: 13,
+  projectedPoints: 7.1
 }
+// Add more mock players...
+];
 
-interface PlayersPageContentProps {}
-
-const PlayersPageContent: React.FC<PlayersPageContentProps> = () => {
+const PlayersPage: React.FC = () => {
   const { selectedSeason, selectedConference } = useApp();
-  const { toast } = useToast();
-  const { filters, debouncedSearch, updateFilter, clearFilters } = usePlayerFilters();
-  const [isRefreshing, setIsRefreshing] = useState(false);
-  const [showKeyboardShortcuts, setShowKeyboardShortcuts] = useState(false);
-  const searchRef = useRef<HTMLInputElement>(null);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [positionFilter, setPositionFilter] = useState<string>('all');
+  const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [sortConfig, setSortConfig] = useState<{key: string;direction: 'asc' | 'desc';} | null>(null);
 
-  // Real-time data hooks
-  const { data: playersData, isLoading, error, refetch } = usePlayersData();
-  const { data: searchResults } = usePlayerSearch({
-    name: debouncedSearch,
-    position: filters.position !== 'all' ? filters.position : undefined,
-    team: filters.nflTeam !== 'all' ? filters.nflTeam : undefined,
-    status: filters.availabilityStatus !== 'all' ? filters.availabilityStatus : undefined
+  const positions = ['QB', 'RB', 'WR', 'TE', 'K', 'DEF', 'DL', 'LB', 'DB'];
+  const offensePositions = ['QB', 'RB', 'WR', 'TE'];
+  const defensePositions = ['DEF', 'DL', 'LB', 'DB'];
+
+  // Filter players based on search term and filters
+  const filteredPlayers = mockPlayersData.filter((player) => {
+    const searchMatch = searchTerm === '' ||
+    player.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    player.nflTeam.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    player.rosteredBy && player.rosteredBy.toLowerCase().includes(searchTerm.toLowerCase());
+
+    const positionMatch = positionFilter === 'all' ||
+    player.position === positionFilter ||
+    positionFilter === 'offense' && offensePositions.includes(player.position) ||
+    positionFilter === 'defense' && defensePositions.includes(player.position);
+    const statusMatch = statusFilter === 'all' || player.status === statusFilter;
+
+    return searchMatch && positionMatch && statusMatch;
   });
 
-  // Map database PlayerData to component Player interface
-  const mapPlayerData = (dbPlayer: any): Player => {
-    return {
-      id: dbPlayer.id?.toString() || dbPlayer.sleeper_player_id,
-      name: dbPlayer.player_name || dbPlayer.name || 'Unknown Player',
-      position: dbPlayer.position || 'UNK',
-      nflTeam: dbPlayer.nfl_team || 'FA',
-      points: 0, // This would need to be calculated from stats
-      avgPoints: 0, // This would need to be calculated from stats
-      projectedPoints: 0, // This would need to be calculated from projections
-      status: dbPlayer.status === 'Active' ? 'free_agent' : 'inactive',
-      rosteredBy: null, // This would need to be joined with roster data
-      rosteredByOwner: null, // This would need to be joined with owner data
-      injuryStatus: dbPlayer.injury_status === 'Healthy' ? null : dbPlayer.injury_status,
-      gamesPlayed: 0, // This would need to be calculated from stats
-      age: dbPlayer.age || 0,
-      draftPosition: 0, // This would need to come from draft data
-      experience: dbPlayer.years_experience || 0,
-      conference: null, // This would need to be determined from roster data
-      isOwnedByMultipleTeams: false // This would need to be calculated from roster data
-    };
+  const handleSort = (key: string) => {
+    let direction: 'asc' | 'desc' = 'desc';
+    if (sortConfig && sortConfig.key === key && sortConfig.direction === 'desc') {
+      direction = 'asc';
+    }
+    setSortConfig({ key, direction });
   };
 
-  // Convert database players to component format
-  const players = useMemo(() => {
-    if (!playersData) return [];
-    return playersData.map(mapPlayerData);
-  }, [playersData]);
+  const sortedPlayers = React.useMemo(() => {
+    let sortablePlayers = [...filteredPlayers];
+    if (sortConfig !== null) {
+      sortablePlayers.sort((a, b) => {
+        const aValue = (a as any)[sortConfig.key];
+        const bValue = (b as any)[sortConfig.key];
 
-  // Filter players based on current filters
-  const filteredPlayers = useMemo(() => {
-    let filtered = players;
-
-    // Search filter
-    if (debouncedSearch) {
-      const searchTerm = debouncedSearch.toLowerCase();
-      filtered = filtered.filter((player) =>
-      player.name.toLowerCase().includes(searchTerm) ||
-      player.nflTeam.toLowerCase().includes(searchTerm) ||
-      player.rosteredBy?.toLowerCase().includes(searchTerm) ||
-      player.rosteredByOwner?.toLowerCase().includes(searchTerm)
-      );
-    }
-
-    // Position filter
-    if (filters.position !== 'all') {
-      if (filters.position === 'offense') {
-        filtered = filtered.filter((p) => ['QB', 'RB', 'WR', 'TE'].includes(p.position));
-      } else if (filters.position === 'defense') {
-        // No defense players should be shown based on requirements
-        filtered = [];
-      } else {
-        filtered = filtered.filter((p) => p.position === filters.position);
-      }
-    }
-
-    // NFL Team filter
-    if (filters.nflTeam !== 'all') {
-      filtered = filtered.filter((p) => p.nflTeam === filters.nflTeam);
-    }
-
-    // Conference filter
-    if (filters.conference !== 'all') {
-      filtered = filtered.filter((p) => p.conference === filters.conference);
-    }
-
-    // Availability filter
-    if (filters.availabilityStatus !== 'all') {
-      if (filters.availabilityStatus === 'available') {
-        filtered = filtered.filter((p) => p.status === 'free_agent');
-      } else if (filters.availabilityStatus === 'owned') {
-        filtered = filtered.filter((p) => p.status === 'rostered');
-      }
-    }
-
-    // Injury filter
-    if (filters.injuryStatus !== 'all') {
-      if (filters.injuryStatus === 'healthy') {
-        filtered = filtered.filter((p) => !p.injuryStatus);
-      } else {
-        filtered = filtered.filter((p) => p.injuryStatus === filters.injuryStatus);
-      }
-    }
-
-    // Multi-owned filter
-    if (filters.ownedByMultipleTeams) {
-      filtered = filtered.filter((p) => p.isOwnedByMultipleTeams);
-    }
-
-    return filtered;
-  }, [players, debouncedSearch, filters]);
-
-  // Generate search suggestions from real data
-  const searchSuggestions = useMemo(() => {
-    if (!debouncedSearch || debouncedSearch.length < 2) return [];
-
-    const suggestions = [];
-    const searchTerm = debouncedSearch.toLowerCase();
-
-    // Player suggestions
-    const playerMatches = players.
-    filter((p) => p.name.toLowerCase().includes(searchTerm)).
-    slice(0, 5).
-    map((p) => ({
-      type: 'player' as const,
-      value: p.name,
-      label: p.name,
-      meta: `${p.position} - ${p.nflTeam}`
-    }));
-
-    // Team suggestions
-    const teamMatches = [...new Set(players.map((p) => p.nflTeam))].
-    filter((team) => team.toLowerCase().includes(searchTerm)).
-    slice(0, 3).
-    map((team) => ({
-      type: 'team' as const,
-      value: team,
-      label: team,
-      meta: 'NFL Team'
-    }));
-
-    // Owner suggestions
-    const ownerMatches = [...new Set(players.map((p) => p.rosteredByOwner).filter(Boolean))].
-    filter((owner) => owner!.toLowerCase().includes(searchTerm)).
-    slice(0, 3).
-    map((owner) => ({
-      type: 'owner' as const,
-      value: owner!,
-      label: owner!,
-      meta: 'Owner'
-    }));
-
-    return [...playerMatches, ...teamMatches, ...ownerMatches];
-  }, [debouncedSearch, players]);
-
-  // Handle refresh
-  const handleRefresh = async () => {
-    setIsRefreshing(true);
-    try {
-      await refetch();
-      toast({
-        title: "Data refreshed",
-        description: "Player data has been updated successfully."
+        if (aValue < bValue) {
+          return sortConfig.direction === 'asc' ? -1 : 1;
+        }
+        if (aValue > bValue) {
+          return sortConfig.direction === 'asc' ? 1 : -1;
+        }
+        return 0;
       });
-    } catch (error) {
-      toast({
-        title: "Refresh failed",
-        description: "Failed to refresh player data. Please try again.",
-        variant: "destructive"
-      });
-    } finally {
-      setIsRefreshing(false);
+    }
+    return sortablePlayers;
+  }, [filteredPlayers, sortConfig]);
+
+  const getPositionColor = (position: string) => {
+    switch (position) {
+      case 'QB':return 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200';
+      case 'RB':return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200';
+      case 'WR':return 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200';
+      case 'TE':return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200';
+      case 'K':return 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200';
+      case 'DEF':return 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200';
+      case 'DL':return 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200';
+      case 'LB':return 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-200';
+      case 'DB':return 'bg-teal-100 text-teal-800 dark:bg-teal-900 dark:text-teal-200';
+      default:return 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200';
     }
   };
 
-  // Keyboard shortcuts
-  useKeyboardShortcuts([
-  {
-    ...playerPageShortcuts.SEARCH_FOCUS,
-    handler: () => searchRef.current?.focus()
-  },
-  {
-    ...playerPageShortcuts.CLEAR_FILTERS,
-    handler: () => clearFilters()
-  },
-  {
-    ...playerPageShortcuts.FILTER_AVAILABLE,
-    handler: () => updateFilter('availabilityStatus', 'available')
-  },
-  {
-    ...playerPageShortcuts.FILTER_OWNED,
-    handler: () => updateFilter('availabilityStatus', 'owned')
-  },
-  {
-    ...playerPageShortcuts.NEXT_PAGE,
-    handler: () => updateFilter('page', Math.min(filters.page + 1, Math.ceil(filteredPlayers.length / filters.pageSize)))
-  },
-  {
-    ...playerPageShortcuts.PREV_PAGE,
-    handler: () => updateFilter('page', Math.max(filters.page - 1, 1))
-  }]
-  );
+  const getStatusBadge = (status: string, injuryStatus: string | null) => {
+    if (injuryStatus) {
+      const variants: {[key: string]: string;} = {
+        'IR': 'destructive',
+        'O': 'destructive',
+        'D': 'destructive',
+        'Q': 'secondary',
+        'P': 'outline'
+      };
+      return <Badge variant={variants[injuryStatus] || 'outline'} className="text-xs">{injuryStatus}</Badge>;
+    }
 
-  // Generate filter description for export
-  const filterDescription = useMemo(() => {
-    const parts = [];
-    if (filters.search) parts.push(`Search: "${filters.search}"`);
-    if (filters.position !== 'all') parts.push(`Position: ${filters.position}`);
-    if (filters.nflTeam !== 'all') parts.push(`NFL Team: ${filters.nflTeam}`);
-    if (filters.conference !== 'all') parts.push(`Conference: ${filters.conference}`);
-    if (filters.availabilityStatus !== 'all') parts.push(`Status: ${filters.availabilityStatus}`);
-    if (filters.ownedByMultipleTeams) parts.push('Multi-owned only');
-    return parts.length > 0 ? parts.join(', ') : 'No filters applied';
-  }, [filters]);
-
-  // Show error alert if there's an error
-  if (error) {
-    return (
-      <div className="space-y-6">
-        <Alert variant="destructive">
-          <AlertDescription>
-            {error instanceof Error ? error.message : 'An error occurred while loading player data.'}
-          </AlertDescription>
-        </Alert>
-        <Button onClick={handleRefresh} disabled={isRefreshing}>
-          <RefreshCw className={`h-4 w-4 mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />
-          Try Again
-        </Button>
-      </div>);
-
-  }
+    return status === 'free_agent' ?
+    <Badge variant="outline" className="text-xs">FA</Badge> :
+    <Badge variant="secondary" className="text-xs">Rostered</Badge>;
+  };
 
   return (
     <div className="space-y-6">
       {/* Page Header */}
-      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between space-y-4 lg:space-y-0">
-        <div className="flex items-center space-x-3">
-          <UserCheck className="h-8 w-8 text-primary" />
-          <div>
-            <h1 className="text-3xl font-bold">Players</h1>
-            <p className="text-muted-foreground">
-              {selectedSeason} Season • {filteredPlayers.length} of {players.length} players
-            </p>
-          </div>
-        </div>
-        
+      <div className="flex flex-col space-y-2">
         <div className="flex items-center space-x-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setShowKeyboardShortcuts(!showKeyboardShortcuts)}>
-            <Keyboard className="h-4 w-4 mr-2" />
-            Shortcuts
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleRefresh}
-            disabled={isRefreshing}>
-            <RefreshCw className={`h-4 w-4 mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />
-            Refresh
-          </Button>
-          <PlayerExport
-            players={filteredPlayers}
-            totalCount={players.length}
-            filterDescription={filterDescription} />
+          <UserCheck className="h-6 w-6 text-primary" />
+          <h1 className="text-3xl font-bold">Players</h1>
         </div>
-      </div>
-
-      {/* Keyboard Shortcuts */}
-      {showKeyboardShortcuts &&
-      <Alert>
-          <Keyboard className="h-4 w-4" />
-          <AlertDescription className="flex flex-wrap gap-4 mt-2">
-            <Badge variant="outline">Ctrl+F: Focus search</Badge>
-            <Badge variant="outline">Ctrl+R: Clear filters</Badge>
-            <Badge variant="outline">Ctrl+A: Filter available</Badge>
-            <Badge variant="outline">Ctrl+O: Filter owned</Badge>
-            <Badge variant="outline">Ctrl+←/→: Navigate pages</Badge>
-          </AlertDescription>
-        </Alert>
-      }
-
-      {/* Search Bar */}
-      <div className="max-w-2xl">
-        <PlayerSearchBar
-          suggestions={searchSuggestions}
-          onFocus={() => {}} />
+        <p className="text-muted-foreground">
+          {selectedSeason} Season • {sortedPlayers.length} players
+        </p>
       </div>
 
       {/* Filters */}
-      <PlayerFilters
-        showAdvanced={true}
-        onExport={() => toast({ title: "Filter exported", description: "Filter configuration copied to clipboard" })}
-        onImport={() => toast({ title: "Filter imported", description: "Filter configuration loaded from clipboard" })} />
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* Search */}
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Search players, teams..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="pl-10" />
 
-      {/* Stats Cards */}
-      <PlayerStatsCards
-        players={filteredPlayers}
-        totalCount={players.length}
-        isLoading={isLoading} />
+        </div>
 
-      {/* Error Display */}
-      {error &&
-      <Alert variant="destructive">
-          <AlertDescription>{error instanceof Error ? error.message : 'An error occurred.'}</AlertDescription>
-        </Alert>
-      }
+        {/* Position Filter */}
+        <Select value={positionFilter} onValueChange={setPositionFilter}>
+          <SelectTrigger>
+            <SelectValue placeholder="All Positions" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Positions</SelectItem>
+            <SelectItem value="offense">All Offense (QB, RB, WR, TE)</SelectItem>
+            <SelectItem value="defense">All Defense (DEF, DL, LB, DB)</SelectItem>
+            {positions.map((pos) =>
+            <SelectItem key={pos} value={pos}>{pos}</SelectItem>
+            )}
+          </SelectContent>
+        </Select>
 
-      {/* Player Table */}
-      <PlayerTable
-        players={filteredPlayers}
-        isLoading={isLoading}
-        error={error instanceof Error ? error.message : undefined}
-        enableVirtualization={filteredPlayers.length > 100} />
+        {/* Status Filter */}
+        <Select value={statusFilter} onValueChange={setStatusFilter}>
+          <SelectTrigger>
+            <SelectValue placeholder="All Status" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Status</SelectItem>
+            <SelectItem value="rostered">Rostered</SelectItem>
+            <SelectItem value="free_agent">Free Agent</SelectItem>
+          </SelectContent>
+        </Select>
+
+        {/* Clear Filters */}
+        <Button
+          variant="outline"
+          onClick={() => {
+            setSearchTerm('');
+            setPositionFilter('all');
+            setStatusFilter('all');
+          }}
+          className="flex items-center space-x-2">
+
+          <Filter className="h-4 w-4" />
+          <span>Clear Filters</span>
+        </Button>
+      </div>
+
+      {/* Summary Stats */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <Card>
+          <CardHeader className="pb-2">
+            <CardDescription>Total Players</CardDescription>
+            <CardTitle className="text-2xl">{sortedPlayers.length}</CardTitle>
+          </CardHeader>
+        </Card>
+        
+        <Card>
+          <CardHeader className="pb-2">
+            <CardDescription>Free Agents</CardDescription>
+            <CardTitle className="text-2xl">
+              {sortedPlayers.filter((p) => p.status === 'free_agent').length}
+            </CardTitle>
+          </CardHeader>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-2">
+            <CardDescription>Injured Players</CardDescription>
+            <CardTitle className="text-2xl">
+              {sortedPlayers.filter((p) => p.injuryStatus).length}
+            </CardTitle>
+          </CardHeader>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-2">
+            <CardDescription>Avg Points/Game</CardDescription>
+            <CardTitle className="text-2xl">
+              {sortedPlayers.length > 0 ?
+              (sortedPlayers.reduce((sum, p) => sum + p.avgPoints, 0) / sortedPlayers.length).toFixed(1) :
+              '0.0'
+              }
+            </CardTitle>
+          </CardHeader>
+        </Card>
+      </div>
+
+      {/* Players Table */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Player Database</CardTitle>
+          <CardDescription>
+            Click column headers to sort. Click player names for detailed stats.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="rounded-md border">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>
+                    <Button variant="ghost" size="sm" onClick={() => handleSort('name')}>
+                      Player <ArrowUpDown className="ml-1 h-3 w-3" />
+                    </Button>
+                  </TableHead>
+                  <TableHead>
+                    <Button variant="ghost" size="sm" onClick={() => handleSort('position')}>
+                      Pos <ArrowUpDown className="ml-1 h-3 w-3" />
+                    </Button>
+                  </TableHead>
+                  <TableHead className="hidden sm:table-cell">NFL Team</TableHead>
+                  <TableHead className="text-right">
+                    <Button variant="ghost" size="sm" onClick={() => handleSort('points')}>
+                      Points <ArrowUpDown className="ml-1 h-3 w-3" />
+                    </Button>
+                  </TableHead>
+                  <TableHead className="text-right hidden md:table-cell">
+                    <Button variant="ghost" size="sm" onClick={() => handleSort('avgPoints')}>
+                      Avg <ArrowUpDown className="ml-1 h-3 w-3" />
+                    </Button>
+                  </TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead className="hidden lg:table-cell">Rostered By</TableHead>
+                  <TableHead className="w-10"></TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {sortedPlayers.map((player) =>
+                <TableRow key={player.id} className="hover:bg-muted/50">
+                    <TableCell>
+                      <div className="font-medium">{player.name}</div>
+                      <div className="text-sm text-muted-foreground sm:hidden">
+                        {player.nflTeam}
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <Badge className={getPositionColor(player.position)}>
+                        {player.position}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="hidden sm:table-cell">{player.nflTeam}</TableCell>
+                    <TableCell className="text-right font-mono">
+                      {player.points.toFixed(1)}
+                    </TableCell>
+                    <TableCell className="text-right font-mono hidden md:table-cell">
+                      {player.avgPoints.toFixed(1)}
+                    </TableCell>
+                    <TableCell>
+                      {getStatusBadge(player.status, player.injuryStatus)}
+                    </TableCell>
+                    <TableCell className="hidden lg:table-cell">
+                      {player.rosteredBy ?
+                    <div>
+                          <div className="text-sm font-medium">{player.rosteredBy}</div>
+                          <div className="text-xs text-muted-foreground">{player.rosteredByOwner}</div>
+                        </div> :
+
+                    <span className="text-muted-foreground text-sm">Free Agent</span>
+                    }
+                    </TableCell>
+                    <TableCell>
+                      <Link to={`/players/${player.id}`}>
+                        <Button variant="ghost" size="sm">
+                          <ExternalLink className="h-4 w-4" />
+                        </Button>
+                      </Link>
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </div>
+
+          {sortedPlayers.length === 0 &&
+          <div className="text-center py-8">
+              <UserCheck className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+              <h3 className="text-lg font-semibold mb-2">No players found</h3>
+              <p className="text-muted-foreground">
+                No players match your current search criteria.
+              </p>
+            </div>
+          }
+        </CardContent>
+      </Card>
     </div>);
-
-};
-
-const PlayersPage: React.FC = () => {
-  return (
-    <PlayerFilterProvider>
-      <PlayersPageContent />
-    </PlayerFilterProvider>);
 
 };
 

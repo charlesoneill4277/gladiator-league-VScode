@@ -17,9 +17,8 @@ import {
   Sun,
   Shield,
   Settings,
-  Cog,
-  History
-} from 'lucide-react';
+  Cog } from
+'lucide-react';
 
 const Header: React.FC = () => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -36,17 +35,15 @@ const Header: React.FC = () => {
   } = useApp();
 
   const navigationItems = [
-    { path: '/', label: 'Home', icon: Home },
-    { path: '/standings', label: 'Standings', icon: Trophy },
-    { path: '/matchups', label: 'Matchups', icon: Swords },
-    { path: '/teams', label: 'Teams', icon: Users },
-    { path: '/players', label: 'Players', icon: UserCheck },
-    { path: '/draft', label: 'Draft Results', icon: Shield },
-    { path: '/historical-analytics', label: 'Historical', icon: History },
-    { path: '/rules', label: 'League Rules', icon: FileText },
-    { path: '/player-data', label: 'Player Data', icon: Settings },
-    { path: '/admin', label: 'Admin', icon: Cog }
-  ];
+  { path: '/', label: 'Home', icon: Home },
+  { path: '/standings', label: 'Standings', icon: Trophy },
+  { path: '/matchups', label: 'Matchups', icon: Swords },
+  { path: '/teams', label: 'Teams', icon: Users },
+  { path: '/players', label: 'Players', icon: UserCheck },
+  { path: '/draft', label: 'Draft Results', icon: Shield },
+  { path: '/rules', label: 'League Rules', icon: FileText },
+  { path: '/admin', label: 'Admin', icon: Cog }];
+
 
   const isActivePath = (path: string) => {
     if (path === '/') {
@@ -55,32 +52,30 @@ const Header: React.FC = () => {
     return location.pathname.startsWith(path);
   };
 
-  const NavItems = ({ isMobile = false }) => (
-    <>
+  const NavItems = ({ isMobile = false }) =>
+  <>
       {navigationItems.map((item) => {
-        const Icon = item.icon;
-        const isActive = isActivePath(item.path);
+      const Icon = item.icon;
+      const isActive = isActivePath(item.path);
 
-        return (
-          <Link
-            key={item.path}
-            to={item.path}
-            onClick={() => isMobile && setIsMobileMenuOpen(false)}
-            className={`flex items-center space-x-2 px-3 py-2 rounded-md ${
-              item.path === '/admin' ? 'text-xs opacity-75' : 'text-sm'
-            } font-medium transition-colors ${
-              isActive
-                ? 'bg-primary text-primary-foreground'
-                : 'text-muted-foreground hover:text-foreground hover:bg-accent'
-            }`}
-          >
+      return (
+        <Link
+          key={item.path}
+          to={item.path}
+          onClick={() => isMobile && setIsMobileMenuOpen(false)}
+          className={`flex items-center space-x-2 px-3 py-2 rounded-md ${item.path === '/admin' ? 'text-xs opacity-75' : 'text-sm'} font-medium transition-colors ${
+          isActive ?
+          'bg-primary text-primary-foreground' :
+          'text-muted-foreground hover:text-foreground hover:bg-accent'}`
+          }>
+
             <Icon className={item.path === '/admin' ? 'h-3 w-3' : 'h-4 w-4'} />
             <span className={item.path === '/admin' ? 'text-xs' : ''}>{item.label}</span>
-          </Link>
-        );
-      })}
-    </>
-  );
+          </Link>);
+
+    })}
+    </>;
+
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -108,11 +103,11 @@ const Header: React.FC = () => {
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              {seasonConfigs.map((config) => (
-                <SelectItem key={config.year} value={config.year.toString()}>
+              {seasonConfigs.map((config) =>
+              <SelectItem key={config.year} value={config.year.toString()}>
                   {config.year}
                 </SelectItem>
-              ))}
+              )}
             </SelectContent>
           </Select>
 
@@ -123,11 +118,11 @@ const Header: React.FC = () => {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Conferences</SelectItem>
-              {currentSeasonConfig.conferences.map((conference) => (
-                <SelectItem key={conference.id} value={conference.id}>
+              {currentSeasonConfig.conferences.map((conference) =>
+              <SelectItem key={conference.id} value={conference.id}>
                   {conference.name}
                 </SelectItem>
-              ))}
+              )}
             </SelectContent>
           </Select>
 
@@ -166,11 +161,11 @@ const Header: React.FC = () => {
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        {seasonConfigs.map((config) => (
-                          <SelectItem key={config.year} value={config.year.toString()}>
+                        {seasonConfigs.map((config) =>
+                        <SelectItem key={config.year} value={config.year.toString()}>
                             {config.year}
                           </SelectItem>
-                        ))}
+                        )}
                       </SelectContent>
                     </Select>
                   </div>
@@ -183,11 +178,11 @@ const Header: React.FC = () => {
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="all">All Conferences</SelectItem>
-                        {currentSeasonConfig.conferences.map((conference) => (
-                          <SelectItem key={conference.id} value={conference.id}>
+                        {currentSeasonConfig.conferences.map((conference) =>
+                        <SelectItem key={conference.id} value={conference.id}>
                             {conference.name}
                           </SelectItem>
-                        ))}
+                        )}
                       </SelectContent>
                     </Select>
                   </div>
@@ -199,25 +194,25 @@ const Header: React.FC = () => {
       </div>
 
       {/* Active Filters Badge */}
-      {(selectedConference || selectedSeason !== 2025) && (
-        <div className="border-t bg-accent/50">
+      {(selectedConference || selectedSeason !== 2025) &&
+      <div className="border-t bg-accent/50">
           <div className="container py-2">
             <div className="flex items-center space-x-2 text-sm">
               <span className="text-muted-foreground">Active filters:</span>
-              {selectedSeason !== 2025 && (
-                <Badge variant="secondary">{selectedSeason} Season</Badge>
-              )}
-              {selectedConference && (
-                <Badge variant="secondary">
+              {selectedSeason !== 2025 &&
+            <Badge variant="secondary">{selectedSeason} Season</Badge>
+            }
+              {selectedConference &&
+            <Badge variant="secondary">
                   {currentSeasonConfig.conferences.find((c) => c.id === selectedConference)?.name}
                 </Badge>
-              )}
+            }
             </div>
           </div>
         </div>
-      )}
-    </header>
-  );
+      }
+    </header>);
+
 };
 
 export default Header;

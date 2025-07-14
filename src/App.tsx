@@ -16,8 +16,6 @@ import DraftResultsPage from './pages/DraftResultsPage';
 import LeagueRulesPage from './pages/LeagueRulesPage';
 import ConferencesPage from './pages/ConferencesPage';
 import AdminPage from './pages/AdminPage';
-import PlayerDataPage from './pages/PlayerDataPage';
-import HistoricalAnalyticsPage from './pages/HistoricalAnalyticsPage';
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -42,8 +40,6 @@ const App = () =>
                 <Route path="/rules" element={<LeagueRulesPage />} />
                 <Route path="/conferences" element={<ConferencesPage />} />
                 <Route path="/admin" element={<AdminPage />} />
-                <Route path="/player-data" element={<PlayerDataPage />} />
-                <Route path="/historical-analytics" element={<HistoricalAnalyticsPage />} />
                 <Route path="*" element={<NotFound />} />
               </Routes>
             </main>
