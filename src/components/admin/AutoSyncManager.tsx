@@ -11,21 +11,21 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { 
-  Play, 
-  Pause, 
-  Settings, 
-  Clock, 
-  CheckCircle, 
-  XCircle, 
+import {
+  Play,
+  Pause,
+  Settings,
+  Clock,
+  CheckCircle,
+  XCircle,
   AlertCircle,
   RefreshCw,
   Calendar,
   BarChart3,
   History,
   Timer,
-  Activity
-} from 'lucide-react';
+  Activity } from
+'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import weeklyAutoSyncService, { SyncSchedule, SyncStatus, SyncHistory } from '@/services/weeklyAutoSyncService';
 
@@ -50,10 +50,10 @@ const AutoSyncManager: React.FC = () => {
     const newSchedule = { ...schedule, ...updates };
     setSchedule(newSchedule);
     weeklyAutoSyncService.updateSchedule(updates);
-    
+
     toast({
       title: 'Schedule Updated',
-      description: 'Auto-sync schedule has been updated successfully.',
+      description: 'Auto-sync schedule has been updated successfully.'
     });
   };
 
@@ -72,7 +72,7 @@ const AutoSyncManager: React.FC = () => {
       await weeklyAutoSyncService.runManualSync();
       toast({
         title: 'Manual Sync Started',
-        description: 'Sync has been initiated manually.',
+        description: 'Sync has been initiated manually.'
       });
     } catch (error) {
       toast({
@@ -125,7 +125,7 @@ const AutoSyncManager: React.FC = () => {
     const seconds = Math.floor(ms / 1000);
     const minutes = Math.floor(seconds / 60);
     const hours = Math.floor(minutes / 60);
-    
+
     if (hours > 0) {
       return `${hours}h ${minutes % 60}m ${seconds % 60}s`;
     } else if (minutes > 0) {
@@ -150,16 +150,16 @@ const AutoSyncManager: React.FC = () => {
           <h2 className="text-2xl font-bold">Auto-Sync Manager</h2>
           <p className="text-muted-foreground">Manage automatic weekly synchronization with Sleeper API</p>
         </div>
-        <Button 
-          onClick={handleManualSync} 
+        <Button
+          onClick={handleManualSync}
           disabled={isLoading || status.status === 'running'}
-          className="gap-2"
-        >
-          {isLoading || status.status === 'running' ? (
-            <RefreshCw className="w-4 h-4 animate-spin" />
-          ) : (
-            <Play className="w-4 h-4" />
-          )}
+          className="gap-2">
+
+          {isLoading || status.status === 'running' ?
+          <RefreshCw className="w-4 h-4 animate-spin" /> :
+
+          <Play className="w-4 h-4" />
+          }
           {isLoading || status.status === 'running' ? 'Syncing...' : 'Run Manual Sync'}
         </Button>
       </div>
@@ -241,8 +241,8 @@ const AutoSyncManager: React.FC = () => {
             </Card>
           </div>
 
-          {status.status === 'running' && (
-            <Card>
+          {status.status === 'running' &&
+          <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <RefreshCw className="w-5 h-5 animate-spin" />
@@ -263,21 +263,21 @@ const AutoSyncManager: React.FC = () => {
                 </div>
               </CardContent>
             </Card>
-          )}
+          }
 
-          {status.errors.length > 0 && (
-            <Alert variant="destructive">
+          {status.errors.length > 0 &&
+          <Alert variant="destructive">
               <AlertCircle className="h-4 w-4" />
               <AlertDescription>
                 <div className="font-medium">Sync Errors:</div>
                 <ul className="mt-1 space-y-1">
-                  {status.errors.map((error, index) => (
-                    <li key={index} className="text-sm">• {error}</li>
-                  ))}
+                  {status.errors.map((error, index) =>
+                <li key={index} className="text-sm">• {error}</li>
+                )}
                 </ul>
               </AlertDescription>
             </Alert>
-          )}
+          }
         </TabsContent>
 
         <TabsContent value="schedule" className="space-y-4">
@@ -291,27 +291,27 @@ const AutoSyncManager: React.FC = () => {
                 <Switch
                   id="enable-sync"
                   checked={schedule.enabled}
-                  onCheckedChange={(enabled) => handleScheduleUpdate({ enabled })}
-                />
+                  onCheckedChange={(enabled) => handleScheduleUpdate({ enabled })} />
+
               </div>
 
-              {schedule.enabled && (
-                <>
+              {schedule.enabled &&
+              <>
                   <div className="space-y-2">
                     <Label htmlFor="day-of-week">Day of Week</Label>
                     <Select
-                      value={schedule.dayOfWeek.toString()}
-                      onValueChange={(value) => handleScheduleUpdate({ dayOfWeek: parseInt(value) })}
-                    >
+                    value={schedule.dayOfWeek.toString()}
+                    onValueChange={(value) => handleScheduleUpdate({ dayOfWeek: parseInt(value) })}>
+
                       <SelectTrigger>
                         <SelectValue placeholder="Select day" />
                       </SelectTrigger>
                       <SelectContent>
-                        {dayNames.map((day, index) => (
-                          <SelectItem key={index} value={index.toString()}>
+                        {dayNames.map((day, index) =>
+                      <SelectItem key={index} value={index.toString()}>
                             {day}
                           </SelectItem>
-                        ))}
+                      )}
                       </SelectContent>
                     </Select>
                   </div>
@@ -320,33 +320,33 @@ const AutoSyncManager: React.FC = () => {
                     <div className="space-y-2">
                       <Label htmlFor="hour">Hour (24-hour format)</Label>
                       <Input
-                        id="hour"
-                        type="number"
-                        min="0"
-                        max="23"
-                        value={schedule.hour}
-                        onChange={(e) => handleScheduleUpdate({ hour: parseInt(e.target.value) || 0 })}
-                      />
+                      id="hour"
+                      type="number"
+                      min="0"
+                      max="23"
+                      value={schedule.hour}
+                      onChange={(e) => handleScheduleUpdate({ hour: parseInt(e.target.value) || 0 })} />
+
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="minute">Minute</Label>
                       <Input
-                        id="minute"
-                        type="number"
-                        min="0"
-                        max="59"
-                        value={schedule.minute}
-                        onChange={(e) => handleScheduleUpdate({ minute: parseInt(e.target.value) || 0 })}
-                      />
+                      id="minute"
+                      type="number"
+                      min="0"
+                      max="59"
+                      value={schedule.minute}
+                      onChange={(e) => handleScheduleUpdate({ minute: parseInt(e.target.value) || 0 })} />
+
                     </div>
                   </div>
 
                   <div className="space-y-2">
                     <Label htmlFor="timezone">Timezone</Label>
                     <Select
-                      value={schedule.timezone}
-                      onValueChange={(timezone) => handleScheduleUpdate({ timezone })}
-                    >
+                    value={schedule.timezone}
+                    onValueChange={(timezone) => handleScheduleUpdate({ timezone })}>
+
                       <SelectTrigger>
                         <SelectValue placeholder="Select timezone" />
                       </SelectTrigger>
@@ -359,7 +359,7 @@ const AutoSyncManager: React.FC = () => {
                     </Select>
                   </div>
                 </>
-              )}
+              }
 
               <Alert>
                 <AlertCircle className="h-4 w-4" />
@@ -392,8 +392,8 @@ const AutoSyncManager: React.FC = () => {
                   </div>
                 </div>
 
-                {status.status === 'running' && (
-                  <div className="space-y-4">
+                {status.status === 'running' &&
+                <div className="space-y-4">
                     <div className="space-y-2">
                       <Label>Progress</Label>
                       <Progress value={status.progress} className="h-2" />
@@ -411,21 +411,21 @@ const AutoSyncManager: React.FC = () => {
                       </div>
                     </div>
                   </div>
-                )}
+                }
 
-                {status.startTime && (
-                  <div className="space-y-2">
+                {status.startTime &&
+                <div className="space-y-2">
                     <Label>Started At</Label>
                     <p className="text-sm">{formatDateTime(status.startTime)}</p>
                   </div>
-                )}
+                }
 
-                {status.endTime && (
-                  <div className="space-y-2">
+                {status.endTime &&
+                <div className="space-y-2">
                     <Label>Completed At</Label>
                     <p className="text-sm">{formatDateTime(status.endTime)}</p>
                   </div>
-                )}
+                }
               </div>
             </CardContent>
           </Card>
@@ -451,15 +451,15 @@ const AutoSyncManager: React.FC = () => {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {history.length === 0 ? (
-                      <TableRow>
+                    {history.length === 0 ?
+                    <TableRow>
                         <TableCell colSpan={7} className="text-center text-muted-foreground">
                           No sync history available
                         </TableCell>
-                      </TableRow>
-                    ) : (
-                      history.map((entry) => (
-                        <TableRow key={entry.id}>
+                      </TableRow> :
+
+                    history.map((entry) =>
+                    <TableRow key={entry.id}>
                           <TableCell>{formatDateTime(entry.timestamp)}</TableCell>
                           <TableCell>
                             <Badge variant="outline" className={`${getStatusColor(entry.status)} text-white`}>
@@ -470,16 +470,16 @@ const AutoSyncManager: React.FC = () => {
                           <TableCell>{entry.matchupsProcessed}</TableCell>
                           <TableCell>{entry.recordsUpdated}</TableCell>
                           <TableCell>
-                            {entry.errors.length > 0 ? (
-                              <Badge variant="destructive">{entry.errors.length}</Badge>
-                            ) : (
-                              <span className="text-green-600">None</span>
-                            )}
+                            {entry.errors.length > 0 ?
+                        <Badge variant="destructive">{entry.errors.length}</Badge> :
+
+                        <span className="text-green-600">None</span>
+                        }
                           </TableCell>
                           <TableCell className="max-w-xs truncate">{entry.details}</TableCell>
                         </TableRow>
-                      ))
-                    )}
+                    )
+                    }
                   </TableBody>
                 </Table>
               </div>
@@ -487,8 +487,8 @@ const AutoSyncManager: React.FC = () => {
           </Card>
         </TabsContent>
       </Tabs>
-    </div>
-  );
+    </div>);
+
 };
 
 export default AutoSyncManager;

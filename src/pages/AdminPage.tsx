@@ -13,6 +13,7 @@ import DataSync from '@/components/admin/DataSync';
 import MatchupsManagement from '@/components/admin/MatchupsManagement';
 import MatchupCompletionManager from '@/components/admin/MatchupCompletionManager';
 import AutoSyncManager from '@/components/admin/AutoSyncManager';
+import DataIntegrityManager from '@/components/admin/DataIntegrityManager';
 
 const AdminPage: React.FC = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -173,7 +174,7 @@ const AdminPage: React.FC = () => {
       </div>
 
       <Tabs defaultValue="league-manager" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-5">
+        <TabsList className="grid w-full grid-cols-6">
           <TabsTrigger value="league-manager" className="flex items-center gap-2">
             <Settings className="h-4 w-4" />
             League Manager
@@ -193,6 +194,10 @@ const AdminPage: React.FC = () => {
           <TabsTrigger value="auto-sync" className="flex items-center gap-2">
             <Bot className="h-4 w-4" />
             Auto-Sync
+          </TabsTrigger>
+          <TabsTrigger value="data-integrity" className="flex items-center gap-2">
+            <Shield className="h-4 w-4" />
+            Data Integrity
           </TabsTrigger>
         </TabsList>
 
@@ -214,6 +219,10 @@ const AdminPage: React.FC = () => {
 
         <TabsContent value="auto-sync">
           <AutoSyncManager />
+        </TabsContent>
+
+        <TabsContent value="data-integrity">
+          <DataIntegrityManager />
         </TabsContent>
       </Tabs>
     </div>);

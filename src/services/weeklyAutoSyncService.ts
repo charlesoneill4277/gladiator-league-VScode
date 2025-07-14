@@ -90,21 +90,21 @@ class WeeklyAutoSyncService {
     if (this.syncStatus.status === 'running') {
       throw new Error('Sync is already running');
     }
-    
+
     await this.executeSync(true);
   }
 
   public onStatusChange(listener: (status: SyncStatus) => void): () => void {
     this.statusListeners.push(listener);
     return () => {
-      this.statusListeners = this.statusListeners.filter(l => l !== listener);
+      this.statusListeners = this.statusListeners.filter((l) => l !== listener);
     };
   }
 
   public onHistoryChange(listener: (history: SyncHistory[]) => void): () => void {
     this.historyListeners.push(listener);
     return () => {
-      this.historyListeners = this.historyListeners.filter(l => l !== listener);
+      this.historyListeners = this.historyListeners.filter((l) => l !== listener);
     };
   }
 
@@ -172,20 +172,20 @@ class WeeklyAutoSyncService {
   private calculateNextRunTime(): Date {
     const now = new Date();
     const next = new Date(now);
-    
+
     // Set to the scheduled time today
     next.setHours(this.schedule.hour, this.schedule.minute, 0, 0);
-    
+
     // Calculate days until next scheduled day
     const currentDay = now.getDay();
     const targetDay = this.schedule.dayOfWeek;
     let daysUntil = targetDay - currentDay;
-    
+
     // If the target day is today but the time has passed, or if target day is in the past
-    if (daysUntil < 0 || (daysUntil === 0 && now.getTime() >= next.getTime())) {
+    if (daysUntil < 0 || daysUntil === 0 && now.getTime() >= next.getTime()) {
       daysUntil += 7; // Next week
     }
-    
+
     next.setDate(next.getDate() + daysUntil);
     return next;
   }
@@ -248,9 +248,9 @@ class WeeklyAutoSyncService {
         PageNo: 1,
         PageSize: 1000,
         Filters: [
-          { name: 'status', op: 'Equal', value: 'pending' },
-          { name: 'week', op: 'Equal', value: currentSeason.current_week }
-        ]
+        { name: 'status', op: 'Equal', value: 'pending' },
+        { name: 'week', op: 'Equal', value: currentSeason.current_week }]
+
       });
 
       const pendingMatchups = matchups?.List || [];
@@ -263,19 +263,19 @@ class WeeklyAutoSyncService {
       for (const conference of conferences.List) {
         this.updateSyncStatus({
           currentStep: `Processing ${conference.conference_name}...`,
-          progress: 30 + (processedMatchups / pendingMatchups.length) * 40
+          progress: 30 + processedMatchups / pendingMatchups.length * 40
         });
 
         try {
-          const conferenceMatchups = pendingMatchups.filter(m => m.conference_id === conference.id);
-          
+          const conferenceMatchups = pendingMatchups.filter((m) => m.conference_id === conference.id);
+
           for (const matchup of conferenceMatchups) {
             await this.processMatchup(matchup, conference, currentSeason);
             processedMatchups++;
-            
+
             this.updateSyncStatus({
               processedMatchups,
-              progress: 30 + (processedMatchups / pendingMatchups.length) * 40
+              progress: 30 + processedMatchups / pendingMatchups.length * 40
             });
           }
 
@@ -298,12 +298,12 @@ class WeeklyAutoSyncService {
 
       const endTime = new Date();
       const duration = endTime.getTime() - startTime.getTime();
-      
+
       // Add to history
       const historyEntry: SyncHistory = {
         id: syncId,
         timestamp: startTime,
-        status: errors.length > 0 ? (processedMatchups > 0 ? 'partial' : 'failed') : 'success',
+        status: errors.length > 0 ? processedMatchups > 0 ? 'partial' : 'failed' : 'success',
         duration,
         matchupsProcessed: processedMatchups,
         recordsUpdated: updatedRecords,
@@ -334,7 +334,7 @@ class WeeklyAutoSyncService {
       if (errors.length === 0) {
         toast({
           title: 'Sync Completed',
-          description: `Processed ${processedMatchups} matchups successfully`,
+          description: `Processed ${processedMatchups} matchups successfully`
         });
       } else {
         toast({
@@ -347,7 +347,7 @@ class WeeklyAutoSyncService {
     } catch (error) {
       const errorMsg = `Sync failed: ${error}`;
       errors.push(errorMsg);
-      
+
       this.updateSyncStatus({
         status: 'failed',
         endTime: new Date(),
@@ -357,7 +357,7 @@ class WeeklyAutoSyncService {
       });
 
       console.error('Sync execution failed:', error);
-      
+
       toast({
         title: 'Sync Failed',
         description: errorMsg,
@@ -384,8 +384,8 @@ class WeeklyAutoSyncService {
       }
 
       // Find the corresponding Sleeper matchup
-      const sleeperMatchup = sleeperMatchups.find(sm => 
-        sm.matchup_id === parseInt(matchup.sleeper_matchup_id)
+      const sleeperMatchup = sleeperMatchups.find((sm) =>
+      sm.matchup_id === parseInt(matchup.sleeper_matchup_id)
       );
 
       if (!sleeperMatchup) {
@@ -397,18 +397,18 @@ class WeeklyAutoSyncService {
         PageNo: 1,
         PageSize: 1,
         Filters: [
-          { name: 'team_id', op: 'Equal', value: matchup.team_1_id },
-          { name: 'conference_id', op: 'Equal', value: conference.id }
-        ]
+        { name: 'team_id', op: 'Equal', value: matchup.team_1_id },
+        { name: 'conference_id', op: 'Equal', value: conference.id }]
+
       });
 
       const { data: team2Junction } = await window.ezsite.apis.tablePage(12853, {
         PageNo: 1,
         PageSize: 1,
         Filters: [
-          { name: 'team_id', op: 'Equal', value: matchup.team_2_id },
-          { name: 'conference_id', op: 'Equal', value: conference.id }
-        ]
+        { name: 'team_id', op: 'Equal', value: matchup.team_2_id },
+        { name: 'conference_id', op: 'Equal', value: conference.id }]
+
       });
 
       if (!team1Junction?.List?.length || !team2Junction?.List?.length) {
@@ -419,12 +419,12 @@ class WeeklyAutoSyncService {
       const team2RosterId = team2Junction.List[0].roster_id;
 
       // Get scores from Sleeper matchup
-      const team1Score = sleeperMatchups.find(sm => 
-        sm.roster_id === parseInt(team1RosterId)
+      const team1Score = sleeperMatchups.find((sm) =>
+      sm.roster_id === parseInt(team1RosterId)
       )?.points || 0;
 
-      const team2Score = sleeperMatchups.find(sm => 
-        sm.roster_id === parseInt(team2RosterId)
+      const team2Score = sleeperMatchups.find((sm) =>
+      sm.roster_id === parseInt(team2RosterId)
       )?.points || 0;
 
       // Determine winner
@@ -457,9 +457,9 @@ class WeeklyAutoSyncService {
         PageNo: 1,
         PageSize: 1000,
         Filters: [
-          { name: 'conference_id', op: 'Equal', value: conferenceId },
-          { name: 'status', op: 'Equal', value: 'complete' }
-        ]
+        { name: 'conference_id', op: 'Equal', value: conferenceId },
+        { name: 'status', op: 'Equal', value: 'complete' }]
+
       });
 
       if (!matchups?.List?.length) return;
@@ -476,8 +476,8 @@ class WeeklyAutoSyncService {
       // Calculate records for each team
       for (const junction of teamJunctions.List) {
         const teamId = junction.team_id;
-        const teamMatchups = matchups.List.filter(m => 
-          m.team_1_id === teamId || m.team_2_id === teamId
+        const teamMatchups = matchups.List.filter((m) =>
+        m.team_1_id === teamId || m.team_2_id === teamId
         );
 
         let wins = 0;
@@ -511,10 +511,10 @@ class WeeklyAutoSyncService {
           PageNo: 1,
           PageSize: 1,
           Filters: [
-            { name: 'team_id', op: 'Equal', value: teamId },
-            { name: 'conference_id', op: 'Equal', value: conferenceId },
-            { name: 'season_id', op: 'Equal', value: seasonId }
-          ]
+          { name: 'team_id', op: 'Equal', value: teamId },
+          { name: 'conference_id', op: 'Equal', value: conferenceId },
+          { name: 'season_id', op: 'Equal', value: seasonId }]
+
         });
 
         const recordData = {
@@ -551,7 +551,7 @@ class WeeklyAutoSyncService {
   }
 
   private notifyStatusListeners(): void {
-    this.statusListeners.forEach(listener => {
+    this.statusListeners.forEach((listener) => {
       try {
         listener(this.getStatus());
       } catch (error) {
@@ -561,7 +561,7 @@ class WeeklyAutoSyncService {
   }
 
   private notifyHistoryListeners(): void {
-    this.historyListeners.forEach(listener => {
+    this.historyListeners.forEach((listener) => {
       try {
         listener(this.getHistory());
       } catch (error) {
