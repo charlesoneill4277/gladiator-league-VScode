@@ -8,8 +8,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ArrowUpDown, ArrowUp, ArrowDown, ExternalLink, ChevronLeft, ChevronRight } from 'lucide-react';
 import { usePlayerFilters } from '@/contexts/PlayerFilterContext';
-import { FixedSizeList as List } from 'react-window';
-import { useVirtual } from '@tanstack/react-virtual';
+
 
 interface Player {
   id: string;

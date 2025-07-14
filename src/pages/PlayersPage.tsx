@@ -468,7 +468,6 @@ const PlayersPageContent: React.FC<PlayersPageContentProps> = () => {
       {/* Search Bar */}
       <div className="max-w-2xl">
         <PlayerSearchBar
-          ref={searchRef}
           suggestions={searchSuggestions}
           onFocus={() => {}}
         />

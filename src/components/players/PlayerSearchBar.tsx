@@ -1,4 +1,4 @@
-import React, { useRef, useEffect, useState } from 'react';
+import React, { useRef, useEffect, useState, useCallback } from 'react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -21,16 +21,26 @@ interface PlayerSearchBarProps {
   className?: string;
 }
 
-const PlayerSearchBar: React.FC<PlayerSearchBarProps> = ({
+const PlayerSearchBar = React.forwardRef<HTMLInputElement, PlayerSearchBarProps>(({
   onFocus,
   autoFocus = false,
   suggestions = [],
   className = ''
-}) => {
+}, ref) => {
   const { filters, updateFilter, debouncedSearch } = usePlayerFilters();
   const [isOpen, setIsOpen] = useState(false);
   const [recentSearches, setRecentSearches] = useState<string[]>([]);
   const inputRef = useRef<HTMLInputElement>(null);
+  
+  // Combine refs
+  const combinedRef = useCallback((node: HTMLInputElement) => {
+    inputRef.current = node;
+    if (typeof ref === 'function') {
+      ref(node);
+    } else if (ref) {
+      ref.current = node;
+    }
+  }, [ref]);
 
   // Load recent searches from localStorage on mount
   useEffect(() => {
@@ -114,7 +124,7 @@ const PlayerSearchBar: React.FC<PlayerSearchBarProps> = ({
           <div className="relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
-              ref={inputRef}
+              ref={ref || inputRef}
               placeholder="Search players, teams, owners..."
               value={filters.search}
               onChange={(e) => handleInputChange(e.target.value)}
@@ -263,6 +273,6 @@ const PlayerSearchBar: React.FC<PlayerSearchBarProps> = ({
       )}
     </div>
   );
-};
+});
 
 export default PlayerSearchBar;
