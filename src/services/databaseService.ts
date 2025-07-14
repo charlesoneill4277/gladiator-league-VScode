@@ -85,9 +85,9 @@ export class DatabaseService {
     conferenceId?: number;
   }) {
     const filters = [
-      { name: 'season_id', op: 'Equal', value: params.seasonId },
-      { name: 'is_current', op: 'Equal', value: true }
-    ];
+    { name: 'season_id', op: 'Equal', value: params.seasonId },
+    { name: 'is_current', op: 'Equal', value: true }];
+
 
     if (params.week) {
       filters.push({ name: 'current_week', op: 'Equal', value: params.week });
@@ -129,8 +129,8 @@ export class DatabaseService {
     isAvailable?: boolean;
   }) {
     const filters = [
-      { name: 'season_id', op: 'Equal', value: params.seasonId }
-    ];
+    { name: 'season_id', op: 'Equal', value: params.seasonId }];
+
 
     if (params.week) {
       filters.push({ name: 'week', op: 'Equal', value: params.week });
@@ -199,10 +199,10 @@ export class DatabaseService {
         PageNo: 1,
         PageSize: 1,
         Filters: [
-          { name: 'player_id', op: 'Equal', value: cache.playerId },
-          { name: 'season_id', op: 'Equal', value: cache.seasonId },
-          { name: 'week', op: 'Equal', value: cache.week }
-        ]
+        { name: 'player_id', op: 'Equal', value: cache.playerId },
+        { name: 'season_id', op: 'Equal', value: cache.seasonId },
+        { name: 'week', op: 'Equal', value: cache.week }]
+
       });
 
       if (existingResponse.error) throw new Error(existingResponse.error);
@@ -250,11 +250,11 @@ export class DatabaseService {
         PageNo: 1,
         PageSize: 1,
         Filters: [
-          { name: 'sync_type', op: 'Equal', value: syncStatus.syncType },
-          { name: 'conference_id', op: 'Equal', value: syncStatus.conferenceId },
-          { name: 'season_id', op: 'Equal', value: syncStatus.seasonId },
-          { name: 'week', op: 'Equal', value: syncStatus.week }
-        ]
+        { name: 'sync_type', op: 'Equal', value: syncStatus.syncType },
+        { name: 'conference_id', op: 'Equal', value: syncStatus.conferenceId },
+        { name: 'season_id', op: 'Equal', value: syncStatus.seasonId },
+        { name: 'week', op: 'Equal', value: syncStatus.week }]
+
       });
 
       if (existingResponse.error) throw new Error(existingResponse.error);
@@ -300,8 +300,8 @@ export class DatabaseService {
    */
   static async getPlayerRosterHistory(playerId: number, seasonId?: number) {
     const filters = [
-      { name: 'player_id', op: 'Equal', value: playerId }
-    ];
+    { name: 'player_id', op: 'Equal', value: playerId }];
+
 
     if (seasonId) {
       filters.push({ name: 'season_id', op: 'Equal', value: seasonId });
@@ -333,8 +333,8 @@ export class DatabaseService {
     minOwnershipCount?: number;
   }) {
     const filters = [
-      { name: 'season_id', op: 'Equal', value: params.seasonId }
-    ];
+    { name: 'season_id', op: 'Equal', value: params.seasonId }];
+
 
     if (params.week) {
       filters.push({ name: 'week', op: 'Equal', value: params.week });
@@ -423,11 +423,11 @@ export class DatabaseService {
         PageNo: 1,
         PageSize: 1,
         Filters: [
-          { name: 'team_id', op: 'Equal', value: params.teamId },
-          { name: 'player_id', op: 'Equal', value: params.playerId },
-          { name: 'season_id', op: 'Equal', value: params.seasonId },
-          { name: 'is_current', op: 'Equal', value: true }
-        ]
+        { name: 'team_id', op: 'Equal', value: params.teamId },
+        { name: 'player_id', op: 'Equal', value: params.playerId },
+        { name: 'season_id', op: 'Equal', value: params.seasonId },
+        { name: 'is_current', op: 'Equal', value: true }]
+
       });
 
       if (existingRosterResponse.error) throw new Error(existingRosterResponse.error);

@@ -11,19 +11,19 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Progress } from '@/components/ui/progress';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useToast } from '@/hooks/use-toast';
-import { 
-  Database, 
-  RefreshCw, 
-  Clock, 
-  Users, 
-  Activity, 
-  AlertTriangle, 
+import {
+  Database,
+  RefreshCw,
+  Clock,
+  Users,
+  Activity,
+  AlertTriangle,
   CheckCircle,
   XCircle,
   BarChart3,
   History,
-  Search
-} from 'lucide-react';
+  Search } from
+'lucide-react';
 import DatabaseService from '@/services/databaseService';
 
 interface SyncStatus {
@@ -114,7 +114,7 @@ const DatabaseManager: React.FC = () => {
     try {
       setSyncing(true);
       const now = new Date();
-      
+
       // Update sync status to in_progress
       await DatabaseService.updateSyncStatus({
         syncType: syncType as any,
@@ -129,7 +129,7 @@ const DatabaseManager: React.FC = () => {
       });
 
       // Simulate sync process (in real implementation, this would call Sleeper API)
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      await new Promise((resolve) => setTimeout(resolve, 2000));
 
       // Update sync status to completed
       await DatabaseService.updateSyncStatus({
@@ -168,10 +168,10 @@ const DatabaseManager: React.FC = () => {
   const updatePlayerAvailabilityCache = async () => {
     try {
       setLoading(true);
-      
+
       // This would typically pull from Sleeper API and update the cache
       // For demo purposes, we'll simulate the process
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      await new Promise((resolve) => setTimeout(resolve, 1000));
 
       toast({
         title: "Success",
@@ -278,11 +278,11 @@ const DatabaseManager: React.FC = () => {
                   <SelectValue placeholder="Select week" />
                 </SelectTrigger>
                 <SelectContent>
-                  {Array.from({ length: 18 }, (_, i) => (
-                    <SelectItem key={i + 1} value={(i + 1).toString()}>
+                  {Array.from({ length: 18 }, (_, i) =>
+                  <SelectItem key={i + 1} value={(i + 1).toString()}>
                       Week {i + 1}
                     </SelectItem>
-                  ))}
+                  )}
                 </SelectContent>
               </Select>
             </div>
@@ -313,44 +313,44 @@ const DatabaseManager: React.FC = () => {
                   <Button
                     onClick={() => triggerSync('rosters', selectedConference ? parseInt(selectedConference) : undefined)}
                     disabled={syncing || !selectedSeason || !selectedWeek}
-                    className="flex items-center gap-2"
-                  >
+                    className="flex items-center gap-2">
+
                     {syncing ? <RefreshCw className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
                     Sync Rosters
                   </Button>
                   <Button
                     onClick={() => triggerSync('matchups', selectedConference ? parseInt(selectedConference) : undefined)}
                     disabled={syncing || !selectedSeason || !selectedWeek}
-                    variant="outline"
-                  >
+                    variant="outline">
+
                     Sync Matchups
                   </Button>
                   <Button
                     onClick={() => triggerSync('players', selectedConference ? parseInt(selectedConference) : undefined)}
                     disabled={syncing || !selectedSeason || !selectedWeek}
-                    variant="outline"
-                  >
+                    variant="outline">
+
                     Sync Players
                   </Button>
                   <Button
                     onClick={fetchSyncStatuses}
                     disabled={loading}
-                    variant="outline"
-                  >
+                    variant="outline">
+
                     Refresh Status
                   </Button>
                 </div>
 
-                {loading ? (
-                  <div className="space-y-2">
+                {loading ?
+                <div className="space-y-2">
                     <div className="flex items-center gap-2">
                       <RefreshCw className="h-4 w-4 animate-spin" />
                       <span>Loading sync statuses...</span>
                     </div>
                     <Progress value={undefined} className="w-full" />
-                  </div>
-                ) : (
-                  <Table>
+                  </div> :
+
+                <Table>
                     <TableHeader>
                       <TableRow>
                         <TableHead>Type</TableHead>
@@ -365,8 +365,8 @@ const DatabaseManager: React.FC = () => {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {syncStatuses.map((status) => (
-                        <TableRow key={status.id}>
+                      {syncStatuses.map((status) =>
+                    <TableRow key={status.id}>
                           <TableCell className="font-medium">{status.syncType}</TableCell>
                           <TableCell>{status.conferenceId}</TableCell>
                           <TableCell>{status.seasonId}</TableCell>
@@ -383,17 +383,17 @@ const DatabaseManager: React.FC = () => {
                           <TableCell>{formatDuration(status.syncDurationSeconds)}</TableCell>
                           <TableCell>{status.recordsProcessed || 0}</TableCell>
                           <TableCell>
-                            {status.errorsEncountered ? (
-                              <Badge variant="destructive">{status.errorsEncountered}</Badge>
-                            ) : (
-                              <span className="text-green-600">0</span>
-                            )}
+                            {status.errorsEncountered ?
+                        <Badge variant="destructive">{status.errorsEncountered}</Badge> :
+
+                        <span className="text-green-600">0</span>
+                        }
                           </TableCell>
                         </TableRow>
-                      ))}
+                    )}
                     </TableBody>
                   </Table>
-                )}
+                }
               </div>
             </CardContent>
           </Card>
@@ -416,29 +416,29 @@ const DatabaseManager: React.FC = () => {
                       id="player-search"
                       placeholder="Enter player ID"
                       value={searchPlayerId}
-                      onChange={(e) => setSearchPlayerId(e.target.value)}
-                    />
+                      onChange={(e) => setSearchPlayerId(e.target.value)} />
+
                   </div>
                   <Button
                     onClick={() => fetchRosterHistory()}
                     disabled={loading || !searchPlayerId}
-                    className="flex items-center gap-2"
-                  >
+                    className="flex items-center gap-2">
+
                     <Search className="h-4 w-4" />
                     Search History
                   </Button>
                 </div>
 
-                {loading ? (
-                  <div className="space-y-2">
+                {loading ?
+                <div className="space-y-2">
                     <div className="flex items-center gap-2">
                       <RefreshCw className="h-4 w-4 animate-spin" />
                       <span>Loading roster history...</span>
                     </div>
                     <Progress value={undefined} className="w-full" />
-                  </div>
-                ) : rosterHistory.length > 0 ? (
-                  <Table>
+                  </div> :
+                rosterHistory.length > 0 ?
+                <Table>
                     <TableHeader>
                       <TableRow>
                         <TableHead>Date</TableHead>
@@ -451,8 +451,8 @@ const DatabaseManager: React.FC = () => {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {rosterHistory.map((entry) => (
-                        <TableRow key={entry.id}>
+                      {rosterHistory.map((entry) =>
+                    <TableRow key={entry.id}>
                           <TableCell className="text-sm">
                             {formatDate(entry.transactionDate)}
                           </TableCell>
@@ -471,17 +471,17 @@ const DatabaseManager: React.FC = () => {
                             {entry.notes || 'N/A'}
                           </TableCell>
                         </TableRow>
-                      ))}
+                    )}
                     </TableBody>
-                  </Table>
-                ) : (
-                  <Alert>
+                  </Table> :
+
+                <Alert>
                     <AlertTriangle className="h-4 w-4" />
                     <AlertDescription>
                       No roster history found. Search for a player to view their roster history.
                     </AlertDescription>
                   </Alert>
-                )}
+                }
               </div>
             </CardContent>
           </Card>
@@ -508,16 +508,16 @@ const DatabaseManager: React.FC = () => {
                   <Button
                     onClick={updatePlayerAvailabilityCache}
                     disabled={loading}
-                    className="flex items-center gap-2"
-                  >
+                    className="flex items-center gap-2">
+
                     {loading ? <RefreshCw className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
                     Update Player Availability Cache
                   </Button>
                   <Button
                     onClick={() => {/* TODO: Implement cache clear */}}
                     variant="outline"
-                    disabled={loading}
-                  >
+                    disabled={loading}>
+
                     Clear Cache
                   </Button>
                 </div>
@@ -593,8 +593,8 @@ const DatabaseManager: React.FC = () => {
           </Card>
         </TabsContent>
       </Tabs>
-    </div>
-  );
+    </div>);
+
 };
 
 export default DatabaseManager;
