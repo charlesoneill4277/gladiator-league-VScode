@@ -209,6 +209,18 @@ export class RosterSyncEngine {
           batch.map(async (playerId) => {
             try {
               const sleeperPlayer = allSleeperPlayers[playerId];
+              
+              // Only sync players with valid positions
+              const validPositions = ['QB', 'RB', 'WR', 'TE'];
+              if (!sleeperPlayer.position || !validPositions.includes(sleeperPlayer.position)) {
+                return null; // Skip invalid position players
+              }
+              
+              // Only sync active players
+              if (sleeperPlayer.status !== 'Active') {
+                return null; // Skip inactive players
+              }
+              
               await this.playerService.syncPlayerFromSleeper(playerId, sleeperPlayer);
               recordsProcessed++;
               return null;

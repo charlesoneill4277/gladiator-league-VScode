@@ -208,8 +208,8 @@ export class PlayerAvailabilityCalculator {
     try {
       // Build filters for player query
       const playerFilters = [
-      { name: 'is_current_data', op: 'Equal', value: true }];
-
+      { name: 'is_current_data', op: 'Equal', value: true },
+      { name: 'status', op: 'Equal', value: 'Active' }];
 
       if (filter?.positions?.length) {
         playerFilters.push({ name: 'position', op: 'Equal', value: filter.positions[0] }); // Simplified
@@ -237,9 +237,15 @@ export class PlayerAvailabilityCalculator {
       if (playersError) throw new Error(playersError);
 
       const players = playersData?.List || [];
+      
+      // Filter to only include relevant positions
+      const validPositions = ['QB', 'RB', 'WR', 'TE'];
+      const filteredPlayers = players.filter(player => 
+        validPositions.includes(player.position)
+      );
 
       // Get availability data for all players
-      const availabilityPromises = players.map((player) =>
+      const availabilityPromises = filteredPlayers.map((player) =>
       this.calculatePlayerAvailability(player.id, seasonId, week)
       );
 
@@ -247,7 +253,7 @@ export class PlayerAvailabilityCalculator {
 
       // Calculate statistics
       const stats: AvailabilityStats = {
-        totalPlayers: players.length,
+        totalPlayers: filteredPlayers.length,
         availablePlayers: availabilityData.filter((a) => a.is_available).length,
         ownedPlayers: availabilityData.filter((a) => !a.is_available).length,
         byPosition: {},
@@ -257,7 +263,7 @@ export class PlayerAvailabilityCalculator {
       };
 
       // Group by position
-      players.forEach((player, index) => {
+      filteredPlayers.forEach((player, index) => {
         const position = player.position;
         const availability = availabilityData[index];
 
@@ -274,7 +280,7 @@ export class PlayerAvailabilityCalculator {
       });
 
       // Group by NFL team
-      players.forEach((player, index) => {
+      filteredPlayers.forEach((player, index) => {
         const nflTeam = player.nfl_team;
         const availability = availabilityData[index];
 

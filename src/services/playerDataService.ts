@@ -206,6 +206,13 @@ export class PlayerDataService {
       if (error) throw new Error(error);
 
       const player = data?.List?.[0] || null;
+      
+      // Check if player position is valid
+      const validPositions = ['QB', 'RB', 'WR', 'TE'];
+      if (player && !validPositions.includes(player.position)) {
+        return null; // Return null for invalid position players
+      }
+      
       if (player) {
         this.setCachedData(cacheKey, player);
       }
