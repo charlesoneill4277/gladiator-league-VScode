@@ -169,13 +169,13 @@ export class PlayerDataService {
       if (error) throw new Error(error);
 
       const players = data?.List || [];
-      
+
       // Filter to only include relevant positions
       const validPositions = ['QB', 'RB', 'WR', 'TE'];
-      const filteredPlayers = players.filter(player => 
-        validPositions.includes(player.position)
+      const filteredPlayers = players.filter((player) =>
+      validPositions.includes(player.position)
       );
-      
+
       this.setCachedData(cacheKey, filteredPlayers);
       return filteredPlayers;
     } catch (error) {
@@ -206,13 +206,13 @@ export class PlayerDataService {
       if (error) throw new Error(error);
 
       const player = data?.List?.[0] || null;
-      
+
       // Check if player position is valid
       const validPositions = ['QB', 'RB', 'WR', 'TE'];
       if (player && !validPositions.includes(player.position)) {
         return null; // Return null for invalid position players
       }
-      
+
       if (player) {
         this.setCachedData(cacheKey, player);
       }
@@ -459,11 +459,11 @@ export class PlayerDataService {
       if (error) throw new Error(error);
 
       let players = data?.List || [];
-      
+
       // Filter to only include relevant positions
       const validPositions = ['QB', 'RB', 'WR', 'TE'];
-      players = players.filter(player => 
-        validPositions.includes(player.position)
+      players = players.filter((player) =>
+      validPositions.includes(player.position)
       );
 
       // If availability filter is specified, cross-reference with availability data
