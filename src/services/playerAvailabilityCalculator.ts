@@ -159,6 +159,10 @@ export class PlayerAvailabilityCalculator {
 
 
 
+
+
+
+
           // You might need to adjust this based on your team-conference relationship structure
           // For now, assuming there's a conference_id field or junction table
         }} // Check waiver status if applicable
@@ -170,11 +174,7 @@ export class PlayerAvailabilityCalculator {
         // Calculate waiver priority based on team standings or waiver order
         // This would require additional logic based on your waiver system
       } // Get last transaction date
-      const { data: historyData, error: historyError } = await window.ezsite.apis.tablePage(this.TABLE_IDS.PLAYER_ROSTER_HISTORY, { PageNo: 1, PageSize: 1, Filters: [{ name: 'player_id', op: 'Equal', value: playerId }, { name: 'season_id', op: 'Equal', value: seasonId }], OrderByField: 'transaction_date', IsAsc: false });const lastTransactionDate = historyData?.List?.[0]?.transaction_date || null;const availability: PlayerAvailability = { player_id: playerId, season_id: seasonId, week: week,
-        is_available: isAvailable,
-        owned_by_team_id: ownedByTeamId,
-        owned_by_conference_id: ownedByConferenceId,
-        roster_status: rosterStatus,
+      const { data: historyData, error: historyError } = await window.ezsite.apis.tablePage(this.TABLE_IDS.PLAYER_ROSTER_HISTORY, { PageNo: 1, PageSize: 1, Filters: [{ name: 'player_id', op: 'Equal', value: playerId }, { name: 'season_id', op: 'Equal', value: seasonId }], OrderByField: 'transaction_date', IsAsc: false });const lastTransactionDate = historyData?.List?.[0]?.transaction_date || null;const availability: PlayerAvailability = { player_id: playerId, season_id: seasonId, week: week, is_available: isAvailable, owned_by_team_id: ownedByTeamId, owned_by_conference_id: ownedByConferenceId, roster_status: rosterStatus,
         waiver_priority: waiverPriority,
         last_transaction_date: lastTransactionDate,
         cache_updated_at: new Date().toISOString()

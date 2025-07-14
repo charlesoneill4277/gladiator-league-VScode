@@ -16,211 +16,26 @@ import PlayerTable from '@/components/players/PlayerTable';
 import PlayerExport from '@/components/players/PlayerExport';
 import PlayerStatsCards from '@/components/players/PlayerStatsCards';
 
-// Mock data for demonstration - will be replaced with real API data
-const mockPlayersData = [
-{
-  id: 'player1',
-  name: 'Josh Allen',
-  position: 'QB',
-  nflTeam: 'BUF',
-  points: 287.5,
-  avgPoints: 22.1,
-  projectedPoints: 24.8,
-  status: 'rostered',
-  rosteredBy: 'Galactic Gladiators',
-  rosteredByOwner: 'John Doe',
-  injuryStatus: null,
-  gamesPlayed: 13,
-  age: 28,
-  draftPosition: 12,
-  experience: 6,
-  conference: 'mars',
-  isOwnedByMultipleTeams: false
-},
-{
-  id: 'player2',
-  name: 'Christian McCaffrey',
-  position: 'RB',
-  nflTeam: 'SF',
-  points: 245.8,
-  avgPoints: 18.9,
-  projectedPoints: 0,
-  status: 'rostered',
-  rosteredBy: 'Galactic Gladiators',
-  rosteredByOwner: 'John Doe',
-  injuryStatus: 'IR',
-  gamesPlayed: 13,
-  age: 28,
-  draftPosition: 3,
-  experience: 7,
-  conference: 'mars',
-  isOwnedByMultipleTeams: false
-},
-{
-  id: 'player3',
-  name: 'Tyreek Hill',
-  position: 'WR',
-  nflTeam: 'MIA',
-  points: 198.2,
-  avgPoints: 15.2,
-  projectedPoints: 16.4,
-  status: 'rostered',
-  rosteredBy: 'Space Vikings',
-  rosteredByOwner: 'Jane Smith',
-  injuryStatus: null,
-  gamesPlayed: 13,
-  age: 30,
-  draftPosition: 18,
-  experience: 8,
-  conference: 'jupiter',
-  isOwnedByMultipleTeams: false
-},
-{
-  id: 'player4',
-  name: 'Saquon Barkley',
-  position: 'RB',
-  nflTeam: 'PHI',
-  points: 234.6,
-  avgPoints: 18.0,
-  projectedPoints: 18.5,
-  status: 'free_agent',
-  rosteredBy: null,
-  rosteredByOwner: null,
-  injuryStatus: null,
-  gamesPlayed: 13,
-  age: 27,
-  draftPosition: 5,
-  experience: 6,
-  conference: null,
-  isOwnedByMultipleTeams: false
-},
-{
-  id: 'player5',
-  name: 'Cooper Kupp',
-  position: 'WR',
-  nflTeam: 'LAR',
-  points: 156.8,
-  avgPoints: 14.2,
-  projectedPoints: 15.8,
-  status: 'rostered',
-  rosteredBy: 'Meteor Crushers',
-  rosteredByOwner: 'Bob Johnson',
-  injuryStatus: 'Q',
-  gamesPlayed: 11,
-  age: 31,
-  draftPosition: 24,
-  experience: 7,
-  conference: 'vulcan',
-  isOwnedByMultipleTeams: false
-},
-{
-  id: 'player6',
-  name: 'Travis Kelce',
-  position: 'TE',
-  nflTeam: 'KC',
-  points: 189.4,
-  avgPoints: 14.6,
-  projectedPoints: 15.2,
-  status: 'rostered',
-  rosteredBy: 'Nebula Warriors',
-  rosteredByOwner: 'Sarah Wilson',
-  injuryStatus: null,
-  gamesPlayed: 13,
-  age: 35,
-  draftPosition: 31,
-  experience: 11,
-  conference: 'mars',
-  isOwnedByMultipleTeams: true
-},
-{
-  id: 'player7',
-  name: 'Myles Garrett',
-  position: 'DL',
-  nflTeam: 'CLE',
-  points: 98.5,
-  avgPoints: 7.6,
-  projectedPoints: 8.1,
-  status: 'rostered',
-  rosteredBy: 'Cosmic Defenders',
-  rosteredByOwner: 'Mike Davis',
-  injuryStatus: null,
-  gamesPlayed: 13,
-  age: 29,
-  draftPosition: 89,
-  experience: 7,
-  conference: 'jupiter',
-  isOwnedByMultipleTeams: false
-},
-{
-  id: 'player8',
-  name: 'Micah Parsons',
-  position: 'LB',
-  nflTeam: 'DAL',
-  points: 112.8,
-  avgPoints: 8.7,
-  projectedPoints: 9.2,
-  status: 'rostered',
-  rosteredBy: 'Star Destroyers',
-  rosteredByOwner: 'Lisa Brown',
-  injuryStatus: null,
-  gamesPlayed: 13,
-  age: 25,
-  draftPosition: 67,
-  experience: 3,
-  conference: 'vulcan',
-  isOwnedByMultipleTeams: false
-},
-{
-  id: 'player9',
-  name: 'Trevon Diggs',
-  position: 'DB',
-  nflTeam: 'DAL',
-  points: 87.3,
-  avgPoints: 6.7,
-  projectedPoints: 7.1,
-  status: 'free_agent',
-  rosteredBy: null,
-  rosteredByOwner: null,
-  injuryStatus: null,
-  gamesPlayed: 13,
-  age: 26,
-  draftPosition: 156,
-  experience: 4,
-  conference: null,
-  isOwnedByMultipleTeams: false
-}];
-
-
-// Generate more mock data for demonstration
-const generateMockPlayers = (count: number) => {
-  const positions = ['QB', 'RB', 'WR', 'TE', 'K', 'DEF', 'DL', 'LB', 'DB'];
-  const teams = ['BUF', 'MIA', 'NYJ', 'NE', 'KC', 'LAC', 'LV', 'DEN', 'DAL', 'NYG', 'PHI', 'WAS'];
-  const conferences = ['mars', 'jupiter', 'vulcan'];
-  const statuses = ['rostered', 'free_agent'];
-  const injuries = [null, 'Q', 'D', 'IR', 'O'];
-
-  return Array.from({ length: count }, (_, i) => ({
-    id: `player${i + 10}`,
-    name: `Player ${i + 10}`,
-    position: positions[i % positions.length],
-    nflTeam: teams[i % teams.length],
-    points: Math.random() * 300,
-    avgPoints: Math.random() * 20,
-    projectedPoints: Math.random() * 25,
-    status: statuses[i % statuses.length],
-    rosteredBy: i % 3 === 0 ? null : `Team ${i % 10}`,
-    rosteredByOwner: i % 3 === 0 ? null : `Owner ${i % 10}`,
-    injuryStatus: injuries[i % injuries.length],
-    gamesPlayed: Math.floor(Math.random() * 17) + 1,
-    age: Math.floor(Math.random() * 15) + 20,
-    draftPosition: Math.floor(Math.random() * 200) + 1,
-    experience: Math.floor(Math.random() * 15) + 1,
-    conference: i % 4 === 0 ? null : conferences[i % conferences.length],
-    isOwnedByMultipleTeams: Math.random() > 0.9
-  }));
-};
-
-const allMockData = [...mockPlayersData, ...generateMockPlayers(500)];
+// Interface for component Player data (mapped from database)
+interface Player {
+  id: string;
+  name: string;
+  position: string;
+  nflTeam: string;
+  points: number;
+  avgPoints: number;
+  projectedPoints: number;
+  status: string;
+  rosteredBy: string | null;
+  rosteredByOwner: string | null;
+  injuryStatus: string | null;
+  gamesPlayed: number;
+  age?: number;
+  draftPosition?: number;
+  experience?: number;
+  conference?: string;
+  isOwnedByMultipleTeams?: boolean;
+}
 
 interface PlayersPageContentProps {}
 
@@ -232,31 +47,56 @@ const PlayersPageContent: React.FC<PlayersPageContentProps> = () => {
   const [showKeyboardShortcuts, setShowKeyboardShortcuts] = useState(false);
   const searchRef = useRef<HTMLInputElement>(null);
 
-  // Real-time data hooks (commented out for now, using mock data)
-  // const { data: playersData, isLoading, error, refetch } = usePlayersData();
-  // const { data: searchResults } = usePlayerSearch({
-  //   name: debouncedSearch,
-  //   position: filters.position !== 'all' ? filters.position : undefined,
-  //   team: filters.nflTeam !== 'all' ? filters.nflTeam : undefined,
-  //   status: filters.availabilityStatus !== 'all' ? filters.availabilityStatus : undefined
-  // });
+  // Real-time data hooks
+  const { data: playersData, isLoading, error, refetch } = usePlayersData();
+  const { data: searchResults } = usePlayerSearch({
+    name: debouncedSearch,
+    position: filters.position !== 'all' ? filters.position : undefined,
+    team: filters.nflTeam !== 'all' ? filters.nflTeam : undefined,
+    status: filters.availabilityStatus !== 'all' ? filters.availabilityStatus : undefined
+  });
 
-  // Mock data for demonstration
-  const isLoading = false;
-  const error = null;
+  // Map database PlayerData to component Player interface
+  const mapPlayerData = (dbPlayer: any): Player => {
+    return {
+      id: dbPlayer.id?.toString() || dbPlayer.sleeper_player_id,
+      name: dbPlayer.player_name || dbPlayer.name || 'Unknown Player',
+      position: dbPlayer.position || 'UNK',
+      nflTeam: dbPlayer.nfl_team || 'FA',
+      points: 0, // This would need to be calculated from stats
+      avgPoints: 0, // This would need to be calculated from stats
+      projectedPoints: 0, // This would need to be calculated from projections
+      status: dbPlayer.status === 'Active' ? 'free_agent' : 'inactive',
+      rosteredBy: null, // This would need to be joined with roster data
+      rosteredByOwner: null, // This would need to be joined with owner data
+      injuryStatus: dbPlayer.injury_status === 'Healthy' ? null : dbPlayer.injury_status,
+      gamesPlayed: 0, // This would need to be calculated from stats
+      age: dbPlayer.age || 0,
+      draftPosition: 0, // This would need to come from draft data
+      experience: dbPlayer.years_experience || 0,
+      conference: null, // This would need to be determined from roster data
+      isOwnedByMultipleTeams: false // This would need to be calculated from roster data
+    };
+  };
+
+  // Convert database players to component format
+  const players = useMemo(() => {
+    if (!playersData) return [];
+    return playersData.map(mapPlayerData);
+  }, [playersData]);
 
   // Filter players based on current filters
   const filteredPlayers = useMemo(() => {
-    let filtered = allMockData;
+    let filtered = players;
 
     // Search filter
     if (debouncedSearch) {
       const searchTerm = debouncedSearch.toLowerCase();
       filtered = filtered.filter((player) =>
-      player.name.toLowerCase().includes(searchTerm) ||
-      player.nflTeam.toLowerCase().includes(searchTerm) ||
-      player.rosteredBy?.toLowerCase().includes(searchTerm) ||
-      player.rosteredByOwner?.toLowerCase().includes(searchTerm)
+        player.name.toLowerCase().includes(searchTerm) ||
+        player.nflTeam.toLowerCase().includes(searchTerm) ||
+        player.rosteredBy?.toLowerCase().includes(searchTerm) ||
+        player.rosteredByOwner?.toLowerCase().includes(searchTerm)
       );
     }
 
@@ -265,7 +105,8 @@ const PlayersPageContent: React.FC<PlayersPageContentProps> = () => {
       if (filters.position === 'offense') {
         filtered = filtered.filter((p) => ['QB', 'RB', 'WR', 'TE'].includes(p.position));
       } else if (filters.position === 'defense') {
-        filtered = filtered.filter((p) => ['DEF', 'DL', 'LB', 'DB'].includes(p.position));
+        // No defense players should be shown based on requirements
+        filtered = [];
       } else {
         filtered = filtered.filter((p) => p.position === filters.position);
       }
@@ -305,9 +146,9 @@ const PlayersPageContent: React.FC<PlayersPageContentProps> = () => {
     }
 
     return filtered;
-  }, [debouncedSearch, filters]);
+  }, [players, debouncedSearch, filters]);
 
-  // Generate search suggestions
+  // Generate search suggestions from real data
   const searchSuggestions = useMemo(() => {
     if (!debouncedSearch || debouncedSearch.length < 2) return [];
 
@@ -315,47 +156,46 @@ const PlayersPageContent: React.FC<PlayersPageContentProps> = () => {
     const searchTerm = debouncedSearch.toLowerCase();
 
     // Player suggestions
-    const playerMatches = allMockData.
-    filter((p) => p.name.toLowerCase().includes(searchTerm)).
-    slice(0, 5).
-    map((p) => ({
-      type: 'player' as const,
-      value: p.name,
-      label: p.name,
-      meta: `${p.position} - ${p.nflTeam}`
-    }));
+    const playerMatches = players
+      .filter((p) => p.name.toLowerCase().includes(searchTerm))
+      .slice(0, 5)
+      .map((p) => ({
+        type: 'player' as const,
+        value: p.name,
+        label: p.name,
+        meta: `${p.position} - ${p.nflTeam}`
+      }));
 
     // Team suggestions
-    const teamMatches = [...new Set(allMockData.map((p) => p.nflTeam))].
-    filter((team) => team.toLowerCase().includes(searchTerm)).
-    slice(0, 3).
-    map((team) => ({
-      type: 'team' as const,
-      value: team,
-      label: team,
-      meta: 'NFL Team'
-    }));
+    const teamMatches = [...new Set(players.map((p) => p.nflTeam))]
+      .filter((team) => team.toLowerCase().includes(searchTerm))
+      .slice(0, 3)
+      .map((team) => ({
+        type: 'team' as const,
+        value: team,
+        label: team,
+        meta: 'NFL Team'
+      }));
 
     // Owner suggestions
-    const ownerMatches = [...new Set(allMockData.map((p) => p.rosteredByOwner).filter(Boolean))].
-    filter((owner) => owner!.toLowerCase().includes(searchTerm)).
-    slice(0, 3).
-    map((owner) => ({
-      type: 'owner' as const,
-      value: owner!,
-      label: owner!,
-      meta: 'Owner'
-    }));
+    const ownerMatches = [...new Set(players.map((p) => p.rosteredByOwner).filter(Boolean))]
+      .filter((owner) => owner!.toLowerCase().includes(searchTerm))
+      .slice(0, 3)
+      .map((owner) => ({
+        type: 'owner' as const,
+        value: owner!,
+        label: owner!,
+        meta: 'Owner'
+      }));
 
     return [...playerMatches, ...teamMatches, ...ownerMatches];
-  }, [debouncedSearch]);
+  }, [debouncedSearch, players]);
 
   // Handle refresh
   const handleRefresh = async () => {
     setIsRefreshing(true);
     try {
-      // In real implementation, this would call refetch()
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+      await refetch();
       toast({
         title: "Data refreshed",
         description: "Player data has been updated successfully."
@@ -373,31 +213,31 @@ const PlayersPageContent: React.FC<PlayersPageContentProps> = () => {
 
   // Keyboard shortcuts
   useKeyboardShortcuts([
-  {
-    ...playerPageShortcuts.SEARCH_FOCUS,
-    handler: () => searchRef.current?.focus()
-  },
-  {
-    ...playerPageShortcuts.CLEAR_FILTERS,
-    handler: () => clearFilters()
-  },
-  {
-    ...playerPageShortcuts.FILTER_AVAILABLE,
-    handler: () => updateFilter('availabilityStatus', 'available')
-  },
-  {
-    ...playerPageShortcuts.FILTER_OWNED,
-    handler: () => updateFilter('availabilityStatus', 'owned')
-  },
-  {
-    ...playerPageShortcuts.NEXT_PAGE,
-    handler: () => updateFilter('page', Math.min(filters.page + 1, Math.ceil(filteredPlayers.length / filters.pageSize)))
-  },
-  {
-    ...playerPageShortcuts.PREV_PAGE,
-    handler: () => updateFilter('page', Math.max(filters.page - 1, 1))
-  }]
-  );
+    {
+      ...playerPageShortcuts.SEARCH_FOCUS,
+      handler: () => searchRef.current?.focus()
+    },
+    {
+      ...playerPageShortcuts.CLEAR_FILTERS,
+      handler: () => clearFilters()
+    },
+    {
+      ...playerPageShortcuts.FILTER_AVAILABLE,
+      handler: () => updateFilter('availabilityStatus', 'available')
+    },
+    {
+      ...playerPageShortcuts.FILTER_OWNED,
+      handler: () => updateFilter('availabilityStatus', 'owned')
+    },
+    {
+      ...playerPageShortcuts.NEXT_PAGE,
+      handler: () => updateFilter('page', Math.min(filters.page + 1, Math.ceil(filteredPlayers.length / filters.pageSize)))
+    },
+    {
+      ...playerPageShortcuts.PREV_PAGE,
+      handler: () => updateFilter('page', Math.max(filters.page - 1, 1))
+    }
+  ]);
 
   // Generate filter description for export
   const filterDescription = useMemo(() => {
@@ -411,6 +251,23 @@ const PlayersPageContent: React.FC<PlayersPageContentProps> = () => {
     return parts.length > 0 ? parts.join(', ') : 'No filters applied';
   }, [filters]);
 
+  // Show error alert if there's an error
+  if (error) {
+    return (
+      <div className="space-y-6">
+        <Alert variant="destructive">
+          <AlertDescription>
+            {error instanceof Error ? error.message : 'An error occurred while loading player data.'}
+          </AlertDescription>
+        </Alert>
+        <Button onClick={handleRefresh} disabled={isRefreshing}>
+          <RefreshCw className={`h-4 w-4 mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />
+          Try Again
+        </Button>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       {/* Page Header */}
@@ -420,7 +277,7 @@ const PlayersPageContent: React.FC<PlayersPageContentProps> = () => {
           <div>
             <h1 className="text-3xl font-bold">Players</h1>
             <p className="text-muted-foreground">
-              {selectedSeason} Season • {filteredPlayers.length} of {allMockData.length} players
+              {selectedSeason} Season • {filteredPlayers.length} of {players.length} players
             </p>
           </div>
         </div>
@@ -430,7 +287,6 @@ const PlayersPageContent: React.FC<PlayersPageContentProps> = () => {
             variant="outline"
             size="sm"
             onClick={() => setShowKeyboardShortcuts(!showKeyboardShortcuts)}>
-
             <Keyboard className="h-4 w-4 mr-2" />
             Shortcuts
           </Button>
@@ -439,21 +295,19 @@ const PlayersPageContent: React.FC<PlayersPageContentProps> = () => {
             size="sm"
             onClick={handleRefresh}
             disabled={isRefreshing}>
-
             <RefreshCw className={`h-4 w-4 mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />
             Refresh
           </Button>
           <PlayerExport
             players={filteredPlayers}
-            totalCount={allMockData.length}
+            totalCount={players.length}
             filterDescription={filterDescription} />
-
         </div>
       </div>
 
       {/* Keyboard Shortcuts */}
-      {showKeyboardShortcuts &&
-      <Alert>
+      {showKeyboardShortcuts && (
+        <Alert>
           <Keyboard className="h-4 w-4" />
           <AlertDescription className="flex flex-wrap gap-4 mt-2">
             <Badge variant="outline">Ctrl+F: Focus search</Badge>
@@ -463,14 +317,13 @@ const PlayersPageContent: React.FC<PlayersPageContentProps> = () => {
             <Badge variant="outline">Ctrl+←/→: Navigate pages</Badge>
           </AlertDescription>
         </Alert>
-      }
+      )}
 
       {/* Search Bar */}
       <div className="max-w-2xl">
         <PlayerSearchBar
           suggestions={searchSuggestions}
           onFocus={() => {}} />
-
       </div>
 
       {/* Filters */}
@@ -479,38 +332,35 @@ const PlayersPageContent: React.FC<PlayersPageContentProps> = () => {
         onExport={() => toast({ title: "Filter exported", description: "Filter configuration copied to clipboard" })}
         onImport={() => toast({ title: "Filter imported", description: "Filter configuration loaded from clipboard" })} />
 
-
       {/* Stats Cards */}
       <PlayerStatsCards
         players={filteredPlayers}
-        totalCount={allMockData.length}
+        totalCount={players.length}
         isLoading={isLoading} />
 
-
       {/* Error Display */}
-      {error &&
-      <Alert variant="destructive">
-          <AlertDescription>{error}</AlertDescription>
+      {error && (
+        <Alert variant="destructive">
+          <AlertDescription>{error instanceof Error ? error.message : 'An error occurred.'}</AlertDescription>
         </Alert>
-      }
+      )}
 
       {/* Player Table */}
       <PlayerTable
         players={filteredPlayers}
         isLoading={isLoading}
-        error={error}
+        error={error instanceof Error ? error.message : undefined}
         enableVirtualization={filteredPlayers.length > 100} />
-
-    </div>);
-
+    </div>
+  );
 };
 
 const PlayersPage: React.FC = () => {
   return (
     <PlayerFilterProvider>
       <PlayersPageContent />
-    </PlayerFilterProvider>);
-
+    </PlayerFilterProvider>
+  );
 };
 
 export default PlayersPage;
