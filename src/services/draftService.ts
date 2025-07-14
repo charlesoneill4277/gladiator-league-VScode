@@ -131,10 +131,10 @@ export class DraftService {
         PageNo: 1,
         PageSize: 1,
         Filters: [
-          { name: 'roster_id', op: 'Equal', value: sleeperOwnerId },
-          { name: 'conference_id', op: 'Equal', value: conferenceId },
-          { name: 'is_active', op: 'Equal', value: true }
-        ]
+        { name: 'roster_id', op: 'Equal', value: sleeperOwnerId },
+        { name: 'conference_id', op: 'Equal', value: conferenceId },
+        { name: 'is_active', op: 'Equal', value: true }]
+
       });
 
       if (!junctionError && junctionData?.List?.length > 0) {
@@ -176,10 +176,10 @@ export class DraftService {
    * Process draft picks and prepare them for database insertion
    */
   static async processDraftPicksForDatabase(
-    conferenceId: number,
-    seasonId: number,
-    draftPicks: SleeperDraftPick[]
-  ): Promise<ProcessedDraftPick[]> {
+  conferenceId: number,
+  seasonId: number,
+  draftPicks: SleeperDraftPick[])
+  : Promise<ProcessedDraftPick[]> {
     try {
       console.log(`Processing ${draftPicks.length} draft picks for conference ${conferenceId}, season ${seasonId}`);
 
@@ -304,9 +304,9 @@ export class DraftService {
               PageNo: 1,
               PageSize: 1000,
               Filters: [
-                { name: "conference_id", op: "Equal", value: conference.id },
-                { name: "season_id", op: "Equal", value: season.id }
-              ]
+              { name: "conference_id", op: "Equal", value: conference.id },
+              { name: "season_id", op: "Equal", value: season.id }]
+
             });
 
             if (!existingError && existingData?.List) {
