@@ -2,8 +2,8 @@ import { useState, useEffect } from 'react';
 import { StandingsService, StandingsData } from '@/services/standingsService';
 
 interface UseStandingsDataOptions {
-  seasonId: number;
-  conferenceId?: number;
+  seasonYear: number;
+  conferenceId?: string | number;
   limit?: number;
   autoRefresh?: boolean;
   refreshInterval?: number;
@@ -17,7 +17,7 @@ interface UseStandingsDataResult {
 }
 
 export const useStandingsData = (options: UseStandingsDataOptions): UseStandingsDataResult => {
-  const { seasonId, conferenceId, limit, autoRefresh = false, refreshInterval = 30000 } = options;
+  const { seasonYear, conferenceId, limit, autoRefresh = false, refreshInterval = 30000 } = options;
   const [standings, setStandings] = useState<StandingsData[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -30,9 +30,9 @@ export const useStandingsData = (options: UseStandingsDataOptions): UseStandings
       let data: StandingsData[];
       
       if (limit) {
-        data = await StandingsService.getTopStandings(seasonId, limit);
+        data = await StandingsService.getTopStandings(seasonYear, limit);
       } else {
-        data = await StandingsService.getStandingsData(seasonId, conferenceId);
+        data = await StandingsService.getStandingsData(seasonYear, conferenceId);
       }
 
       setStandings(data);
@@ -46,17 +46,17 @@ export const useStandingsData = (options: UseStandingsDataOptions): UseStandings
   };
 
   useEffect(() => {
-    if (seasonId) {
+    if (seasonYear) {
       fetchStandings();
     }
-  }, [seasonId, conferenceId, limit]);
+  }, [seasonYear, conferenceId, limit]);
 
   useEffect(() => {
     if (autoRefresh && refreshInterval > 0) {
       const interval = setInterval(fetchStandings, refreshInterval);
       return () => clearInterval(interval);
     }
-  }, [autoRefresh, refreshInterval, seasonId, conferenceId, limit]);
+  }, [autoRefresh, refreshInterval, seasonYear, conferenceId, limit]);
 
   return {
     standings,

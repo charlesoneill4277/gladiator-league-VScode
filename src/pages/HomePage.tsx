@@ -65,8 +65,8 @@ const mockDashboardData = {
 const HomePage: React.FC = () => {
   const { selectedSeason, selectedConference, currentSeasonConfig } = useApp();
   
-  // Get the current season ID from the season configuration
-  const currentSeasonId = currentSeasonConfig?.id || 1;
+  // Get the current season year from the season configuration
+  const currentSeasonYear = currentSeasonConfig?.year || 2025;
   
   // Fetch live standings data
   const { 
@@ -75,7 +75,7 @@ const HomePage: React.FC = () => {
     error: standingsError, 
     refetch: refetchStandings 
   } = useStandingsData({
-    seasonId: currentSeasonId,
+    seasonYear: currentSeasonYear,
     conferenceId: selectedConference === 'all' ? undefined : selectedConference,
     limit: 5,
     autoRefresh: true,
