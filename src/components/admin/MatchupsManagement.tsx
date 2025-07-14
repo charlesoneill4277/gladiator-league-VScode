@@ -4,6 +4,8 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import {
   DndContext,
@@ -35,7 +37,9 @@ import {
   Edit,
   GripVertical,
   Trophy,
-  Loader2 } from
+  Loader2,
+  Check,
+  X } from
 'lucide-react';
 
 interface Season {
@@ -83,15 +87,14 @@ interface MatchupWithConference extends Matchup {
   conference_name?: string;
 }
 
-interface SortableTeamProps {
+interface SortableTeamCellProps {
   team: TeamWithDetails | null;
   matchupId: number;
   teamPosition: 'team1' | 'team2';
-  score: number;
   isWinner: boolean;
 }
 
-interface SortableMatchupCardProps {
+interface CompactMatchupRowProps {
   matchup: MatchupWithConference;
   teams: TeamWithDetails[];
   conferences: Conference[];
@@ -99,11 +102,10 @@ interface SortableMatchupCardProps {
   onUpdateScores: (matchupId: number, team1Score: number, team2Score: number) => void;
 }
 
-const SortableTeam: React.FC<SortableTeamProps> = ({
+const SortableTeamCell: React.FC<SortableTeamCellProps> = ({
   team,
   matchupId,
   teamPosition,
-  score,
   isWinner
 }) => {
   const teamId = `${matchupId}-${teamPosition}`;
@@ -136,39 +138,37 @@ const SortableTeam: React.FC<SortableTeamProps> = ({
       style={style}
       {...attributes}
       {...listeners}
-      className={`flex items-center gap-3 p-3 rounded-lg border-2 border-dashed transition-all duration-200 cursor-grab hover:cursor-grabbing
-        ${isDragging ? 'border-blue-400 bg-blue-50' : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'}
-        ${isWinner ? 'bg-green-50 border-green-200' : ''}
+      className={`flex items-center gap-2 p-2 rounded cursor-grab hover:cursor-grabbing transition-colors
+        ${isDragging ? 'bg-blue-50 border border-blue-200' : 'hover:bg-gray-50'}
+        ${isWinner ? 'bg-green-50 border border-green-200' : ''}
       `}>
-
-      {team?.team_logo_url &&
-      <img
-        src={team.team_logo_url}
-        alt={team.team_name}
-        className="w-8 h-8 rounded-full" />
-
-      }
-      <div className={teamPosition === 'team2' ? 'text-right' : ''}>
-        <div className="font-medium">{team?.team_name || `Team ${teamPosition === 'team1' ? '1' : '2'}`}</div>
-        <div className="text-sm text-gray-600">{team?.owner_name}</div>
-      </div>
-      <div className="ml-auto">
-        <div className={`text-lg font-bold ${isWinner ? 'text-green-600' : 'text-gray-700'}`}>
-          {score}
+      <GripVertical className="h-3 w-3 text-gray-400" />
+      {team?.team_logo_url && (
+        <img
+          src={team.team_logo_url}
+          alt={team.team_name}
+          className="w-5 h-5 rounded-full"
+        />
+      )}
+      <div className="flex-1 min-w-0">
+        <div className="text-sm font-medium truncate">
+          {team?.team_name || `Team ${teamPosition === 'team1' ? '1' : '2'}`}
+        </div>
+        <div className="text-xs text-gray-500 truncate">
+          {team?.owner_name}
         </div>
       </div>
-    </div>);
-
+    </div>
+  );
 };
 
-const SortableMatchupCard: React.FC<SortableMatchupCardProps> = ({
+const CompactMatchupRow: React.FC<CompactMatchupRowProps> = ({
   matchup,
   teams,
   conferences,
   onToggleOverride,
   onUpdateScores
 }) => {
-
   const team1 = teams.find((t) => t.id === matchup.team_1_id);
   const team2 = teams.find((t) => t.id === matchup.team_2_id);
   const conference = conferences.find((c) => c.id === matchup.conference_id);
@@ -185,124 +185,127 @@ const SortableMatchupCard: React.FC<SortableMatchupCardProps> = ({
     setEditingScores(false);
   };
 
+  const handleCancelEdit = () => {
+    setTeam1Score(matchup.team_1_score);
+    setTeam2Score(matchup.team_2_score);
+    setEditingScores(false);
+  };
+
   return (
-    <Card className={`mb-4 transition-all duration-200 hover:shadow-md ${
-    matchup.is_manual_override ? 'border-orange-400 bg-orange-50' : 'border-gray-200'}`
-    }>
-      <CardHeader className="pb-3">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="flex items-center gap-2">
-              <Trophy className="h-4 w-4 text-blue-600" />
-              <span className="font-medium">Matchup {matchup.id}</span>
-              {conference &&
-              <Badge variant="secondary" className="text-xs">
-                  {conference.conference_name}
-                </Badge>
-              }
-            </div>
-            {matchup.is_manual_override &&
-            <Badge variant="outline" className="text-orange-600 border-orange-300">
-                Manual Override
+    <TableRow className={`transition-colors ${
+      matchup.is_manual_override ? 'bg-orange-50 border-orange-200' : ''
+    }`}>
+      {/* Matchup Info */}
+      <TableCell className="w-24">
+        <div className="flex items-center gap-2">
+          <span className="text-sm font-medium">#{matchup.id}</span>
+          <div className="flex flex-col gap-1">
+            {matchup.is_manual_override && (
+              <Badge variant="outline" className="text-xs text-orange-600 border-orange-300 px-1 py-0">
+                Override
               </Badge>
-            }
-            {matchup.is_playoff &&
-            <Badge variant="default" className="bg-purple-600">
+            )}
+            {matchup.is_playoff && (
+              <Badge variant="default" className="text-xs bg-purple-600 px-1 py-0">
                 Playoff
               </Badge>
-            }
+            )}
           </div>
-          <div className="flex items-center gap-2">
+        </div>
+      </TableCell>
+
+      {/* Team 1 */}
+      <TableCell className="w-48">
+        <SortableTeamCell
+          team={team1}
+          matchupId={matchup.id}
+          teamPosition="team1"
+          isWinner={isTeam1Winner}
+        />
+      </TableCell>
+
+      {/* Score */}
+      <TableCell className="w-32 text-center">
+        {editingScores ? (
+          <div className="flex items-center gap-1 justify-center">
+            <Input
+              type="number"
+              value={team1Score}
+              onChange={(e) => setTeam1Score(parseFloat(e.target.value) || 0)}
+              className="w-12 h-6 text-xs text-center px-1"
+              step="0.1"
+            />
+            <span className="text-xs text-gray-400">-</span>
+            <Input
+              type="number"
+              value={team2Score}
+              onChange={(e) => setTeam2Score(parseFloat(e.target.value) || 0)}
+              className="w-12 h-6 text-xs text-center px-1"
+              step="0.1"
+            />
             <Button
-              variant="outline"
               size="sm"
-              onClick={() => onToggleOverride(matchup.id)}>
-              <Edit className="h-3 w-3 mr-1" />
-              {matchup.is_manual_override ? 'Remove Override' : 'Override'}
+              onClick={handleSaveScores}
+              className="h-6 w-6 p-0"
+            >
+              <Check className="h-3 w-3" />
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={handleCancelEdit}
+              className="h-6 w-6 p-0"
+            >
+              <X className="h-3 w-3" />
             </Button>
           </div>
+        ) : (
+          <div
+            className="flex items-center gap-1 justify-center cursor-pointer hover:bg-gray-100 px-2 py-1 rounded"
+            onClick={() => setEditingScores(true)}
+          >
+            <span className={`text-sm font-bold ${isTeam1Winner ? 'text-green-600' : ''}`}>
+              {matchup.team_1_score}
+            </span>
+            <span className="text-xs text-gray-400">-</span>
+            <span className={`text-sm font-bold ${isTeam2Winner ? 'text-green-600' : ''}`}>
+              {matchup.team_2_score}
+            </span>
+            <Edit className="h-3 w-3 text-gray-400 ml-1" />
+          </div>
+        )}
+      </TableCell>
+
+      {/* Team 2 */}
+      <TableCell className="w-48">
+        <SortableTeamCell
+          team={team2}
+          matchupId={matchup.id}
+          teamPosition="team2"
+          isWinner={isTeam2Winner}
+        />
+      </TableCell>
+
+      {/* Status */}
+      <TableCell className="w-24">
+        <div className="text-xs text-gray-500 text-center">
+          {matchup.status}
         </div>
-      </CardHeader>
-      <CardContent>
-        <div className="space-y-4">
-          {/* Team Selection Area with Drag and Drop */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-gray-700">Team 1</label>
-              <SortableTeam
-                team={team1}
-                matchupId={matchup.id}
-                teamPosition="team1"
-                score={matchup.team_1_score}
-                isWinner={isTeam1Winner} />
+      </TableCell>
 
-            </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-gray-700">Team 2</label>
-              <SortableTeam
-                team={team2}
-                matchupId={matchup.id}
-                teamPosition="team2"
-                score={matchup.team_2_score}
-                isWinner={isTeam2Winner} />
-
-            </div>
-          </div>
-
-          {/* Score Editing Section */}
-          <div className="flex items-center justify-center py-4 border-t">
-            {editingScores ?
-            <div className="flex items-center gap-2">
-                <input
-                type="number"
-                value={team1Score}
-                onChange={(e) => setTeam1Score(parseFloat(e.target.value) || 0)}
-                className="w-16 px-2 py-1 text-center border rounded"
-                step="0.1" />
-                <span className="text-gray-400">vs</span>
-                <input
-                type="number"
-                value={team2Score}
-                onChange={(e) => setTeam2Score(parseFloat(e.target.value) || 0)}
-                className="w-16 px-2 py-1 text-center border rounded"
-                step="0.1" />
-                <Button size="sm" onClick={handleSaveScores}>
-                  <Save className="h-3 w-3" />
-                </Button>
-                <Button
-                size="sm"
-                variant="outline"
-                onClick={() => setEditingScores(false)}>
-                  Cancel
-                </Button>
-              </div> :
-            <div
-              className="flex items-center gap-2 cursor-pointer hover:bg-gray-50 px-3 py-1 rounded"
-              onClick={() => setEditingScores(true)}>
-                <span className="text-xl font-bold">{matchup.team_1_score}</span>
-                <span className="text-gray-400">vs</span>
-                <span className="text-xl font-bold">{matchup.team_2_score}</span>
-                <Edit className="h-3 w-3 text-gray-400 ml-1" />
-              </div>
-            }
-          </div>
-
-          {matchup.notes &&
-          <div className="mt-3 p-2 bg-gray-50 rounded text-sm">
-              <strong>Notes:</strong> {matchup.notes}
-            </div>
-          }
-
-          <div className="mt-3 flex items-center justify-between text-xs text-gray-500">
-            <span>Status: {matchup.status}</span>
-            {matchup.matchup_date &&
-            <span>Date: {new Date(matchup.matchup_date).toLocaleDateString()}</span>
-            }
-          </div>
-        </div>
-      </CardContent>
-    </Card>);
-
+      {/* Actions */}
+      <TableCell className="w-24 text-center">
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => onToggleOverride(matchup.id)}
+          className="h-6 px-2 text-xs"
+        >
+          <Edit className="h-3 w-3" />
+        </Button>
+      </TableCell>
+    </TableRow>
+  );
 };
 
 const MatchupsManagement: React.FC = () => {
@@ -883,11 +886,12 @@ const MatchupsManagement: React.FC = () => {
             Matchups Management
           </CardTitle>
           <CardDescription>
-            Manage weekly matchups, scores, and overrides across all conferences. Drag and drop individual teams to swap opponents between matchups. Showing up to 18 matchups per week (6 per conference).
+            Compact view for managing weekly matchups, scores, and overrides across all conferences. 
+            Drag and drop teams between matchups, edit scores inline, and toggle overrides quickly.
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
             <div className="space-y-2">
               <label className="text-sm font-medium">Season</label>
               <Select value={selectedSeason} onValueChange={setSelectedSeason}>
@@ -927,56 +931,67 @@ const MatchupsManagement: React.FC = () => {
               </Select>
             </div>
 
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Status</label>
+              <div className="flex items-center gap-2 text-sm text-gray-600">
+                <div className="flex items-center gap-1">
+                  <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                  <span>{matchups.length} Total</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <div className="w-2 h-2 bg-orange-500 rounded-full"></div>
+                  <span>{matchups.filter(m => m.is_manual_override).length} Override</span>
+                </div>
+              </div>
+            </div>
+
             <div className="space-y-2 flex items-end">
-              {hasChanges &&
-              <div className="flex gap-2">
+              {hasChanges && (
+                <div className="flex gap-2">
                   <Button
-                  onClick={handleSaveChanges}
-                  disabled={saving}
-                  className="flex items-center gap-2">
-
+                    onClick={handleSaveChanges}
+                    disabled={saving}
+                    className="flex items-center gap-2">
                     {saving ?
-                  <Loader2 className="h-4 w-4 animate-spin" /> :
-
-                  <Save className="h-4 w-4" />
-                  }
-                    Save Changes
+                    <Loader2 className="h-4 w-4 animate-spin" /> :
+                    <Save className="h-4 w-4" />
+                    }
+                    Save
                   </Button>
                   <Button
-                  variant="outline"
-                  onClick={handleResetChanges}
-                  className="flex items-center gap-2">
-
+                    variant="outline"
+                    onClick={handleResetChanges}
+                    className="flex items-center gap-2">
                     <RotateCcw className="h-4 w-4" />
                     Reset
                   </Button>
                 </div>
-              }
+              )}
             </div>
           </div>
 
-          {hasChanges &&
-          <Alert className="mb-4">
+          {hasChanges && (
+            <Alert className="mb-4">
               <AlertTriangle className="h-4 w-4" />
               <AlertDescription>
                 You have unsaved changes. Remember to save your modifications.
               </AlertDescription>
             </Alert>
-          }
+          )}
         </CardContent>
       </Card>
 
-      {loading ?
-      <Card>
+      {loading ? (
+        <Card>
           <CardContent className="flex items-center justify-center py-12">
             <div className="flex items-center gap-2">
               <Loader2 className="h-6 w-6 animate-spin" />
               <span>Loading matchups...</span>
             </div>
           </CardContent>
-        </Card> :
-      matchups.length === 0 && selectedWeek ?
-      <Card>
+        </Card>
+      ) : matchups.length === 0 && selectedWeek ? (
+        <Card>
           <CardContent className="flex items-center justify-center py-12">
             <div className="text-center">
               <Users className="h-12 w-12 text-gray-400 mx-auto mb-4" />
@@ -986,97 +1001,85 @@ const MatchupsManagement: React.FC = () => {
               </p>
             </div>
           </CardContent>
-        </Card> :
-      matchups.length > 0 ?
-      <div className="space-y-6">
-        {/* Summary Stats */}
+        </Card>
+      ) : matchups.length > 0 ? (
         <Card>
-          <CardContent className="pt-6">
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 text-center">
-              <div className="space-y-1">
-                <div className="text-2xl font-bold text-blue-600">{matchups.length}</div>
-                <div className="text-sm text-gray-600">Total Matchups</div>
-              </div>
-              <div className="space-y-1">
-                <div className="text-2xl font-bold text-green-600">
-                  {matchups.filter((m) => m.status === 'complete').length}
-                </div>
-                <div className="text-sm text-gray-600">Complete</div>
-              </div>
-              <div className="space-y-1">
-                <div className="text-2xl font-bold text-orange-600">
-                  {matchups.filter((m) => m.is_manual_override).length}
-                </div>
-                <div className="text-sm text-gray-600">Manual Overrides</div>
-              </div>
-              <div className="space-y-1">
-                <div className="text-2xl font-bold text-purple-600">
-                  {matchups.filter((m) => m.is_playoff).length}
-                </div>
-                <div className="text-sm text-gray-600">Playoff Games</div>
-              </div>
-            </div>
+          <CardContent className="p-0">
+            <DndContext
+              sensors={sensors}
+              collisionDetection={closestCenter}
+              onDragStart={handleDragStart}
+              onDragEnd={handleDragEnd}>
+
+              <SortableContext
+                items={matchups.flatMap((m) => [
+                `${m.id}-team1`,
+                `${m.id}-team2`]
+                )}
+                strategy={rectSortingStrategy}>
+
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-24">Match</TableHead>
+                      <TableHead className="w-48">Team 1</TableHead>
+                      <TableHead className="w-32 text-center">Score</TableHead>
+                      <TableHead className="w-48">Team 2</TableHead>
+                      <TableHead className="w-24 text-center">Status</TableHead>
+                      <TableHead className="w-24 text-center">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {conferences.map((conference) => {
+                      const conferenceMatchups = matchups.filter((m) => m.conference_id === conference.id);
+                      if (conferenceMatchups.length === 0) return null;
+
+                      return (
+                        <React.Fragment key={conference.id}>
+                          <TableRow>
+                            <TableCell colSpan={6} className="bg-gray-50 font-medium text-sm py-2">
+                              <div className="flex items-center gap-2">
+                                <Users className="h-4 w-4 text-blue-600" />
+                                {conference.conference_name}
+                                <Badge variant="secondary" className="text-xs">
+                                  {conferenceMatchups.length} matchups
+                                </Badge>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                          {conferenceMatchups.map((matchup) => (
+                            <CompactMatchupRow
+                              key={matchup.id}
+                              matchup={matchup}
+                              teams={teams}
+                              conferences={conferences}
+                              onToggleOverride={handleToggleOverride}
+                              onUpdateScores={handleUpdateScores}
+                            />
+                          ))}
+                        </React.Fragment>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </SortableContext>
+              <DragOverlay>
+                {activeId ? (
+                  <div className="bg-white p-2 rounded-lg border-2 border-blue-400 shadow-lg">
+                    <div className="flex items-center gap-2">
+                      <div className="w-4 h-4 bg-blue-100 rounded-full flex items-center justify-center">
+                        <Users className="h-2 w-2 text-blue-600" />
+                      </div>
+                      <span className="text-xs font-medium">Moving team...</span>
+                    </div>
+                  </div>
+                ) : null}
+              </DragOverlay>
+            </DndContext>
           </CardContent>
         </Card>
-
-        {/* Matchups by Conference */}
-        <DndContext
-          sensors={sensors}
-          collisionDetection={closestCenter}
-          onDragStart={handleDragStart}
-          onDragEnd={handleDragEnd}>
-
-          <SortableContext
-            items={matchups.flatMap((m) => [
-            `${m.id}-team1`,
-            `${m.id}-team2`]
-            )}
-            strategy={rectSortingStrategy}>
-
-            <div className="space-y-6">
-              {conferences.map((conference) => {
-                const conferenceMatchups = matchups.filter((m) => m.conference_id === conference.id);
-                if (conferenceMatchups.length === 0) return null;
-
-                return (
-                  <div key={conference.id} className="space-y-4">
-                    <div className="flex items-center gap-2 border-b pb-2">
-                      <Users className="h-5 w-5 text-blue-600" />
-                      <h3 className="text-lg font-semibold">{conference.conference_name}</h3>
-                      <Badge variant="secondary">{conferenceMatchups.length} matchups</Badge>
-                    </div>
-                    <div className="space-y-4 pl-4">
-                      {conferenceMatchups.map((matchup) =>
-                      <SortableMatchupCard
-                        key={matchup.id}
-                        matchup={matchup}
-                        teams={teams}
-                        conferences={conferences}
-                        onToggleOverride={handleToggleOverride}
-                        onUpdateScores={handleUpdateScores} />
-                      )}
-                    </div>
-                  </div>);
-
-              })}
-            </div>
-          </SortableContext>
-          <DragOverlay>
-            {activeId ?
-            <div className="bg-white p-3 rounded-lg border-2 border-blue-400 shadow-lg">
-                <div className="flex items-center gap-2">
-                  <div className="w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center">
-                    <Users className="h-3 w-3 text-blue-600" />
-                  </div>
-                  <span className="text-sm font-medium">Moving team...</span>
-                </div>
-              </div> :
-            null}
-          </DragOverlay>
-        </DndContext>
-      </div> :
-
-      <Card>
+      ) : (
+        <Card>
           <CardContent className="flex items-center justify-center py-12">
             <div className="text-center">
               <Calendar className="h-12 w-12 text-gray-400 mx-auto mb-4" />
@@ -1087,9 +1090,9 @@ const MatchupsManagement: React.FC = () => {
             </div>
           </CardContent>
         </Card>
-      }
-    </div>);
-
+      )}
+    </div>
+  );
 };
 
 export default MatchupsManagement;

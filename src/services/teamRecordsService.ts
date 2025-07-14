@@ -63,8 +63,8 @@ class TeamRecordsService {
   async getTeamRecords(seasonId: number, conferenceId?: number): Promise<TeamRecord[]> {
     try {
       const filters = [
-        { name: 'season_id', op: 'Equal', value: seasonId }
-      ];
+      { name: 'season_id', op: 'Equal', value: seasonId }];
+
 
       if (conferenceId) {
         filters.push({ name: 'conference_id', op: 'Equal', value: conferenceId });
@@ -96,10 +96,10 @@ class TeamRecordsService {
     try {
       // Get all completed matchups for the season
       const matchups = await this.getCompletedMatchups(seasonId, conferenceId);
-      
+
       // Get all teams for the season/conference
       const teams = await this.getTeams(conferenceId);
-      
+
       // Calculate records for each team
       const teamRecords = new Map<number, {
         wins: number;
@@ -111,7 +111,7 @@ class TeamRecordsService {
       }>();
 
       // Initialize records for all teams
-      teams.forEach(team => {
+      teams.forEach((team) => {
         teamRecords.set(team.id, {
           wins: 0,
           losses: 0,
@@ -123,7 +123,7 @@ class TeamRecordsService {
       });
 
       // Process matchups to calculate records
-      matchups.forEach(matchup => {
+      matchups.forEach((matchup) => {
         const team1Record = teamRecords.get(matchup.team_1_id);
         const team2Record = teamRecords.get(matchup.team_2_id);
 
@@ -151,20 +151,20 @@ class TeamRecordsService {
 
       // Update database with calculated records
       await this.updateTeamRecordsInDatabase(seasonId, teamRecords);
-      
+
       // Calculate and update rankings
       await this.updateTeamRankings(seasonId, conferenceId);
 
       toast({
         title: 'Success',
-        description: 'Team records calculated and updated successfully',
+        description: 'Team records calculated and updated successfully'
       });
     } catch (error) {
       console.error('Error calculating team records:', error);
       toast({
         title: 'Error',
         description: 'Failed to calculate team records',
-        variant: 'destructive',
+        variant: 'destructive'
       });
       throw error;
     }
@@ -176,8 +176,8 @@ class TeamRecordsService {
   private async getCompletedMatchups(seasonId: number, conferenceId?: number): Promise<MatchupResult[]> {
     try {
       const filters = [
-        { name: 'status', op: 'Equal', value: 'complete' }
-      ];
+      { name: 'status', op: 'Equal', value: 'complete' }];
+
 
       if (conferenceId) {
         filters.push({ name: 'conference_id', op: 'Equal', value: conferenceId });
@@ -205,7 +205,7 @@ class TeamRecordsService {
   /**
    * Get teams for record calculation
    */
-  private async getTeams(conferenceId?: number): Promise<Array<{ id: number; conference_id: number }>> {
+  private async getTeams(conferenceId?: number): Promise<Array<{id: number;conference_id: number;}>> {
     try {
       // This would need to join with team_conferences_junction table
       // For now, assuming teams have conference_id
@@ -232,16 +232,16 @@ class TeamRecordsService {
    * Update team records in database
    */
   private async updateTeamRecordsInDatabase(
-    seasonId: number,
-    teamRecords: Map<number, {
-      wins: number;
-      losses: number;
-      ties: number;
-      points_for: number;
-      points_against: number;
-      conference_id: number;
-    }>
-  ): Promise<void> {
+  seasonId: number,
+  teamRecords: Map<number, {
+    wins: number;
+    losses: number;
+    ties: number;
+    points_for: number;
+    points_against: number;
+    conference_id: number;
+  }>)
+  : Promise<void> {
     try {
       for (const [teamId, record] of teamRecords.entries()) {
         const totalGames = record.wins + record.losses + record.ties;
@@ -293,10 +293,10 @@ class TeamRecordsService {
           PageNo: 1,
           PageSize: 1,
           Filters: [
-            { name: 'team_id', op: 'Equal', value: teamId },
-            { name: 'season_id', op: 'Equal', value: seasonId },
-            { name: 'conference_id', op: 'Equal', value: conferenceId }
-          ]
+          { name: 'team_id', op: 'Equal', value: teamId },
+          { name: 'season_id', op: 'Equal', value: seasonId },
+          { name: 'conference_id', op: 'Equal', value: conferenceId }]
+
         }
       );
 
@@ -315,10 +315,10 @@ class TeamRecordsService {
     try {
       // Get all records for ranking
       const teamRecords = await this.getTeamRecords(seasonId, conferenceId);
-      
+
       // Group by conference for conference rankings
       const conferenceGroups = new Map<number, TeamRecord[]>();
-      teamRecords.forEach(record => {
+      teamRecords.forEach((record) => {
         if (!conferenceGroups.has(record.conference_id)) {
           conferenceGroups.set(record.conference_id, []);
         }
@@ -412,14 +412,14 @@ class TeamRecordsService {
 
       toast({
         title: 'Success',
-        description: 'Matchup completed and records updated',
+        description: 'Matchup completed and records updated'
       });
     } catch (error) {
       console.error('Error completing matchup:', error);
       toast({
         title: 'Error',
         description: 'Failed to complete matchup',
-        variant: 'destructive',
+        variant: 'destructive'
       });
       throw error;
     }
@@ -433,7 +433,7 @@ class TeamRecordsService {
       // This would ideally be a database view or join query
       // For now, we'll fetch records and teams separately and combine them
       const teamRecords = await this.getTeamRecords(seasonId, conferenceId);
-      
+
       // Get team details
       const teamPromises = teamRecords.map(async (record) => {
         const { data: teamData } = await window.ezsite.apis.tablePage(
@@ -476,10 +476,10 @@ class TeamRecordsService {
       });
 
       const standings = await Promise.all(teamPromises);
-      
+
       // Sort by overall rank
       standings.sort((a, b) => a.overall_rank - b.overall_rank);
-      
+
       return standings;
     } catch (error) {
       console.error('Error fetching standings data:', error);
@@ -493,10 +493,10 @@ class TeamRecordsService {
   async markConferenceChampions(seasonId: number): Promise<void> {
     try {
       const teamRecords = await this.getTeamRecords(seasonId);
-      
+
       // Group by conference and find champions (rank 1 in each conference)
       const conferenceGroups = new Map<number, TeamRecord[]>();
-      teamRecords.forEach(record => {
+      teamRecords.forEach((record) => {
         if (!conferenceGroups.has(record.conference_id)) {
           conferenceGroups.set(record.conference_id, []);
         }
@@ -505,7 +505,7 @@ class TeamRecordsService {
 
       // Mark champions
       for (const [conferenceId, records] of conferenceGroups.entries()) {
-        const champion = records.find(r => r.conference_rank === 1);
+        const champion = records.find((r) => r.conference_rank === 1);
         if (champion) {
           await window.ezsite.apis.tableUpdate(this.TEAM_RECORDS_TABLE_ID, {
             ID: champion.id,
@@ -516,14 +516,14 @@ class TeamRecordsService {
 
       toast({
         title: 'Success',
-        description: 'Conference champions marked successfully',
+        description: 'Conference champions marked successfully'
       });
     } catch (error) {
       console.error('Error marking conference champions:', error);
       toast({
         title: 'Error',
         description: 'Failed to mark conference champions',
-        variant: 'destructive',
+        variant: 'destructive'
       });
       throw error;
     }

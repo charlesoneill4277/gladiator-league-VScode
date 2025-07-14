@@ -10,7 +10,7 @@ import { teamRecordsService, StandingsData } from '@/services/teamRecordsService
 
 const StandingsPage: React.FC = () => {
   const { selectedSeason, selectedConference, currentSeasonConfig } = useApp();
-  const [sortConfig, setSortConfig] = useState<{key: string; direction: 'asc' | 'desc';} | null>(null);
+  const [sortConfig, setSortConfig] = useState<{key: string;direction: 'asc' | 'desc';} | null>(null);
   const [standingsData, setStandingsData] = useState<StandingsData[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -59,9 +59,9 @@ const StandingsPage: React.FC = () => {
             OrderByField: 'id',
             IsAsc: true,
             Filters: [
-              { name: 'season_id', op: 'Equal', value: seasonId },
-              { name: 'conference_name', op: 'Equal', value: selectedConferenceName }
-            ]
+            { name: 'season_id', op: 'Equal', value: seasonId },
+            { name: 'conference_name', op: 'Equal', value: selectedConferenceName }]
+
           });
 
           if (conferencesError) throw new Error(`Conferences fetch error: ${conferencesError}`);
@@ -75,7 +75,7 @@ const StandingsPage: React.FC = () => {
 
       // Use the team records service to get standings data
       const standings = await teamRecordsService.getStandingsData(seasonId, conferenceId);
-      
+
       console.log('Standings data from service:', standings);
       setStandingsData(standings);
 
@@ -96,7 +96,7 @@ const StandingsPage: React.FC = () => {
   const refreshStandings = async () => {
     try {
       setRefreshing(true);
-      
+
       // Get the season ID for the selected year
       const { data: seasonsData, error: seasonsError } = await window.ezsite.apis.tablePage('12818', {
         PageNo: 1,
@@ -118,7 +118,7 @@ const StandingsPage: React.FC = () => {
       }
 
       const seasonId = seasons[0].id;
-      
+
       // Get conference ID if specific conference is selected
       let conferenceId: number | undefined;
       if (selectedConference) {
@@ -130,9 +130,9 @@ const StandingsPage: React.FC = () => {
             OrderByField: 'id',
             IsAsc: true,
             Filters: [
-              { name: 'season_id', op: 'Equal', value: seasonId },
-              { name: 'conference_name', op: 'Equal', value: selectedConferenceName }
-            ]
+            { name: 'season_id', op: 'Equal', value: seasonId },
+            { name: 'conference_name', op: 'Equal', value: selectedConferenceName }]
+
           });
 
           if (conferencesError) throw new Error(`Conferences fetch error: ${conferencesError}`);
@@ -146,13 +146,13 @@ const StandingsPage: React.FC = () => {
 
       // Recalculate team records
       await teamRecordsService.calculateTeamRecords(seasonId, conferenceId);
-      
+
       // Refresh the standings data
       await fetchStandingsData();
-      
+
       toast({
         title: 'Success',
-        description: 'Standings refreshed successfully',
+        description: 'Standings refreshed successfully'
       });
     } catch (err) {
       console.error('Error refreshing standings:', err);
@@ -200,7 +200,7 @@ const StandingsPage: React.FC = () => {
   const getRecordBadgeVariant = (wins: number, losses: number) => {
     const totalGames = wins + losses;
     if (totalGames === 0) return 'outline';
-    
+
     const winPercentage = wins / totalGames;
     if (winPercentage >= 0.7) return 'default';
     if (winPercentage >= 0.5) return 'secondary';
@@ -224,8 +224,8 @@ const StandingsPage: React.FC = () => {
           <Loader2 className="h-6 w-6 animate-spin" />
           <span>Loading standings data...</span>
         </div>
-      </div>
-    );
+      </div>);
+
   }
 
   if (error) {
@@ -238,8 +238,8 @@ const StandingsPage: React.FC = () => {
           </div>
           <p className="text-muted-foreground">
             {selectedSeason} Season • {selectedConference ?
-              currentSeasonConfig.conferences.find((c) => c.id === selectedConference)?.name :
-              'All Conferences'
+            currentSeasonConfig.conferences.find((c) => c.id === selectedConference)?.name :
+            'All Conferences'
             }
           </p>
         </div>
@@ -258,8 +258,8 @@ const StandingsPage: React.FC = () => {
             </div>
           </CardContent>
         </Card>
-      </div>
-    );
+      </div>);
+
   }
 
   return (
@@ -275,16 +275,16 @@ const StandingsPage: React.FC = () => {
             variant="outline"
             onClick={refreshStandings}
             disabled={refreshing}
-            className="flex items-center gap-2"
-          >
+            className="flex items-center gap-2">
+
             <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
             {refreshing ? 'Refreshing...' : 'Refresh'}
           </Button>
         </div>
         <p className="text-muted-foreground">
           {selectedSeason} Season • {selectedConference ?
-            currentSeasonConfig.conferences.find((c) => c.id === selectedConference)?.name :
-            'All Conferences'
+          currentSeasonConfig.conferences.find((c) => c.id === selectedConference)?.name :
+          'All Conferences'
           }
         </p>
       </div>
@@ -303,9 +303,9 @@ const StandingsPage: React.FC = () => {
             <CardDescription>Highest Scoring Team</CardDescription>
             <CardTitle className="text-xl">
               {standingsData.length > 0 &&
-                standingsData.reduce((prev, current) =>
-                  prev.points_for > current.points_for ? prev : current
-                ).team_name
+              standingsData.reduce((prev, current) =>
+              prev.points_for > current.points_for ? prev : current
+              ).team_name
               }
             </CardTitle>
           </CardHeader>
@@ -315,7 +315,7 @@ const StandingsPage: React.FC = () => {
           <CardHeader className="pb-2">
             <CardDescription>Playoff Teams</CardDescription>
             <CardTitle className="text-2xl">
-              {standingsData.filter(team => team.playoff_eligible).length}
+              {standingsData.filter((team) => team.playoff_eligible).length}
             </CardTitle>
           </CardHeader>
         </Card>
@@ -370,8 +370,8 @@ const StandingsPage: React.FC = () => {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {sortedStandings.map((team, index) => (
-                  <TableRow key={team.team_id} className="hover:bg-muted/50">
+                {sortedStandings.map((team, index) =>
+                <TableRow key={team.team_id} className="hover:bg-muted/50">
                     <TableCell className="font-medium">
                       <div className="flex items-center space-x-1">
                         {team.overall_rank === 1 && <Trophy className="h-4 w-4 text-yellow-500" />}
@@ -412,14 +412,14 @@ const StandingsPage: React.FC = () => {
                       </div>
                     </TableCell>
                   </TableRow>
-                ))}
+                )}
               </TableBody>
             </Table>
           </div>
         </CardContent>
       </Card>
-    </div>
-  );
+    </div>);
+
 };
 
 export default StandingsPage;

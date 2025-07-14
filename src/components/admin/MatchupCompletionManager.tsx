@@ -72,7 +72,7 @@ const MatchupCompletionManager: React.FC = () => {
   const loadInitialData = async () => {
     try {
       setIsLoading(true);
-      
+
       // Load conferences
       const { data: conferencesData, error: conferencesError } = await window.ezsite.apis.tablePage(
         CONFERENCES_TABLE_ID,
@@ -108,7 +108,7 @@ const MatchupCompletionManager: React.FC = () => {
       toast({
         title: 'Error',
         description: 'Failed to load initial data',
-        variant: 'destructive',
+        variant: 'destructive'
       });
     } finally {
       setIsLoading(false);
@@ -118,11 +118,11 @@ const MatchupCompletionManager: React.FC = () => {
   const loadMatchups = async () => {
     try {
       const filters = [];
-      
+
       if (selectedConference) {
         filters.push({ name: 'conference_id', op: 'Equal', value: parseInt(selectedConference) });
       }
-      
+
       if (selectedWeek) {
         filters.push({ name: 'week', op: 'Equal', value: parseInt(selectedWeek) });
       }
@@ -145,18 +145,18 @@ const MatchupCompletionManager: React.FC = () => {
       toast({
         title: 'Error',
         description: 'Failed to load matchups',
-        variant: 'destructive',
+        variant: 'destructive'
       });
     }
   };
 
   const getTeamName = (teamId: number) => {
-    const team = teams.find(t => t.id === teamId);
+    const team = teams.find((t) => t.id === teamId);
     return team?.team_name || 'Unknown Team';
   };
 
   const getConferenceName = (conferenceId: number) => {
-    const conference = conferences.find(c => c.id === conferenceId);
+    const conference = conferences.find((c) => c.id === conferenceId);
     return conference?.conference_name || 'Unknown Conference';
   };
 
@@ -178,14 +178,14 @@ const MatchupCompletionManager: React.FC = () => {
       toast({
         title: 'Error',
         description: 'Please fill in all required fields',
-        variant: 'destructive',
+        variant: 'destructive'
       });
       return;
     }
 
     try {
       setIsSubmitting(true);
-      
+
       await teamRecordsService.completeMatchup(
         selectedMatchup.id,
         parseFloat(team1Score),
@@ -195,7 +195,7 @@ const MatchupCompletionManager: React.FC = () => {
 
       // Refresh matchups
       await loadMatchups();
-      
+
       // Close dialog and reset form
       setIsDialogOpen(false);
       setSelectedMatchup(null);
@@ -204,14 +204,14 @@ const MatchupCompletionManager: React.FC = () => {
 
       toast({
         title: 'Success',
-        description: 'Matchup completed successfully and records updated',
+        description: 'Matchup completed successfully and records updated'
       });
     } catch (error) {
       console.error('Error completing matchup:', error);
       toast({
         title: 'Error',
         description: 'Failed to complete matchup',
-        variant: 'destructive',
+        variant: 'destructive'
       });
     } finally {
       setIsSubmitting(false);
@@ -221,22 +221,22 @@ const MatchupCompletionManager: React.FC = () => {
   const handleRecalculateRecords = async () => {
     try {
       setIsSubmitting(true);
-      
+
       const seasonId = 1; // This should be dynamic based on current season
       const conferenceId = selectedConference ? parseInt(selectedConference) : undefined;
-      
+
       await teamRecordsService.calculateTeamRecords(seasonId, conferenceId);
-      
+
       toast({
         title: 'Success',
-        description: 'Team records recalculated successfully',
+        description: 'Team records recalculated successfully'
       });
     } catch (error) {
       console.error('Error recalculating records:', error);
       toast({
         title: 'Error',
         description: 'Failed to recalculate team records',
-        variant: 'destructive',
+        variant: 'destructive'
       });
     } finally {
       setIsSubmitting(false);
@@ -246,20 +246,20 @@ const MatchupCompletionManager: React.FC = () => {
   const handleMarkConferenceChampions = async () => {
     try {
       setIsSubmitting(true);
-      
+
       const seasonId = 1; // This should be dynamic based on current season
       await teamRecordsService.markConferenceChampions(seasonId);
-      
+
       toast({
         title: 'Success',
-        description: 'Conference champions marked successfully',
+        description: 'Conference champions marked successfully'
       });
     } catch (error) {
       console.error('Error marking conference champions:', error);
       toast({
         title: 'Error',
         description: 'Failed to mark conference champions',
-        variant: 'destructive',
+        variant: 'destructive'
       });
     } finally {
       setIsSubmitting(false);
@@ -282,8 +282,8 @@ const MatchupCompletionManager: React.FC = () => {
         <CardContent>
           <div className="text-center py-8">Loading...</div>
         </CardContent>
-      </Card>
-    );
+      </Card>);
+
   }
 
   return (
@@ -312,11 +312,11 @@ const MatchupCompletionManager: React.FC = () => {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="">All Conferences</SelectItem>
-                    {conferences.map(conf => (
-                      <SelectItem key={conf.id} value={conf.id.toString()}>
+                    {conferences.map((conf) =>
+                    <SelectItem key={conf.id} value={conf.id.toString()}>
                         {conf.conference_name}
                       </SelectItem>
-                    ))}
+                    )}
                   </SelectContent>
                 </Select>
               </div>
@@ -329,11 +329,11 @@ const MatchupCompletionManager: React.FC = () => {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="">All Weeks</SelectItem>
-                    {[...Array(17)].map((_, i) => (
-                      <SelectItem key={i + 1} value={(i + 1).toString()}>
+                    {[...Array(17)].map((_, i) =>
+                    <SelectItem key={i + 1} value={(i + 1).toString()}>
                         Week {i + 1}
                       </SelectItem>
-                    ))}
+                    )}
                   </SelectContent>
                 </Select>
               </div>
@@ -353,8 +353,8 @@ const MatchupCompletionManager: React.FC = () => {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {matchups.map(matchup => (
-                    <TableRow key={matchup.id}>
+                  {matchups.map((matchup) =>
+                  <TableRow key={matchup.id}>
                       <TableCell>{matchup.week}</TableCell>
                       <TableCell>{getConferenceName(matchup.conference_id)}</TableCell>
                       <TableCell>
@@ -365,51 +365,51 @@ const MatchupCompletionManager: React.FC = () => {
                         </div>
                       </TableCell>
                       <TableCell>
-                        {matchup.status === 'complete' ? (
-                          <div className="space-y-1">
+                        {matchup.status === 'complete' ?
+                      <div className="space-y-1">
                             <div className={matchup.winner_id === matchup.team_1_id ? 'font-semibold' : ''}>
                               {matchup.team_1_score}
                             </div>
                             <div className={matchup.winner_id === matchup.team_2_id ? 'font-semibold' : ''}>
                               {matchup.team_2_score}
                             </div>
-                          </div>
-                        ) : (
-                          <div className="text-muted-foreground">-</div>
-                        )}
+                          </div> :
+
+                      <div className="text-muted-foreground">-</div>
+                      }
                       </TableCell>
                       <TableCell>
                         <div className="space-y-1">
                           {getStatusBadge(matchup.status)}
-                          {matchup.is_manual_override && (
-                            <Badge variant="outline" className="text-xs">Manual</Badge>
-                          )}
+                          {matchup.is_manual_override &&
+                        <Badge variant="outline" className="text-xs">Manual</Badge>
+                        }
                         </div>
                       </TableCell>
                       <TableCell>
                         <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => openCompleteDialog(matchup)}
-                        >
+                        variant="outline"
+                        size="sm"
+                        onClick={() => openCompleteDialog(matchup)}>
+
                           <Edit className="w-4 h-4 mr-1" />
                           {matchup.status === 'complete' ? 'Edit' : 'Complete'}
                         </Button>
                       </TableCell>
                     </TableRow>
-                  ))}
+                  )}
                 </TableBody>
               </Table>
             </div>
 
-            {matchups.length === 0 && (
-              <Alert>
+            {matchups.length === 0 &&
+            <Alert>
                 <AlertCircle className="h-4 w-4" />
                 <AlertDescription>
                   No matchups found for the selected filters.
                 </AlertDescription>
               </Alert>
-            )}
+            }
           </TabsContent>
           
           <TabsContent value="records" className="space-y-4">
@@ -417,8 +417,8 @@ const MatchupCompletionManager: React.FC = () => {
               <Button
                 onClick={handleRecalculateRecords}
                 disabled={isSubmitting}
-                className="flex items-center gap-2"
-              >
+                className="flex items-center gap-2">
+
                 <Calculator className="w-4 h-4" />
                 Recalculate Team Records
               </Button>
@@ -427,8 +427,8 @@ const MatchupCompletionManager: React.FC = () => {
                 onClick={handleMarkConferenceChampions}
                 disabled={isSubmitting}
                 variant="outline"
-                className="flex items-center gap-2"
-              >
+                className="flex items-center gap-2">
+
                 <Trophy className="w-4 h-4" />
                 Mark Conference Champions
               </Button>
@@ -451,8 +451,8 @@ const MatchupCompletionManager: React.FC = () => {
               <DialogTitle>Complete Matchup</DialogTitle>
             </DialogHeader>
             
-            {selectedMatchup && (
-              <div className="space-y-4">
+            {selectedMatchup &&
+            <div className="space-y-4">
                 <div className="text-center">
                   <div className="text-sm text-muted-foreground mb-2">
                     Week {selectedMatchup.week} - {getConferenceName(selectedMatchup.conference_id)}
@@ -466,49 +466,49 @@ const MatchupCompletionManager: React.FC = () => {
                   <div>
                     <Label htmlFor="team1-score">{getTeamName(selectedMatchup.team_1_id)} Score</Label>
                     <Input
-                      id="team1-score"
-                      type="number"
-                      step="0.1"
-                      value={team1Score}
-                      onChange={(e) => setTeam1Score(e.target.value)}
-                      placeholder="0.0"
-                    />
+                    id="team1-score"
+                    type="number"
+                    step="0.1"
+                    value={team1Score}
+                    onChange={(e) => setTeam1Score(e.target.value)}
+                    placeholder="0.0" />
+
                   </div>
                   
                   <div>
                     <Label htmlFor="team2-score">{getTeamName(selectedMatchup.team_2_id)} Score</Label>
                     <Input
-                      id="team2-score"
-                      type="number"
-                      step="0.1"
-                      value={team2Score}
-                      onChange={(e) => setTeam2Score(e.target.value)}
-                      placeholder="0.0"
-                    />
+                    id="team2-score"
+                    type="number"
+                    step="0.1"
+                    value={team2Score}
+                    onChange={(e) => setTeam2Score(e.target.value)}
+                    placeholder="0.0" />
+
                   </div>
                 </div>
                 
                 <div className="flex justify-end gap-2">
                   <Button
-                    variant="outline"
-                    onClick={() => setIsDialogOpen(false)}
-                  >
+                  variant="outline"
+                  onClick={() => setIsDialogOpen(false)}>
+
                     Cancel
                   </Button>
                   <Button
-                    onClick={handleCompleteMatchup}
-                    disabled={isSubmitting}
-                  >
+                  onClick={handleCompleteMatchup}
+                  disabled={isSubmitting}>
+
                     {isSubmitting ? 'Completing...' : 'Complete Matchup'}
                   </Button>
                 </div>
               </div>
-            )}
+            }
           </DialogContent>
         </Dialog>
       </CardContent>
-    </Card>
-  );
+    </Card>);
+
 };
 
 export default MatchupCompletionManager;
