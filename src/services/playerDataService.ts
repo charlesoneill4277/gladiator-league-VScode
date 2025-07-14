@@ -161,15 +161,23 @@ export class PlayerDataService {
         OrderByField: 'player_name',
         IsAsc: true,
         Filters: [
-        { name: 'is_current_data', op: 'Equal', value: true }]
+        { name: 'is_current_data', op: 'Equal', value: true },
+        { name: 'status', op: 'Equal', value: 'Active' }]
 
       });
 
       if (error) throw new Error(error);
 
       const players = data?.List || [];
-      this.setCachedData(cacheKey, players);
-      return players;
+      
+      // Filter to only include relevant positions
+      const validPositions = ['QB', 'RB', 'WR', 'TE'];
+      const filteredPlayers = players.filter(player => 
+        validPositions.includes(player.position)
+      );
+      
+      this.setCachedData(cacheKey, filteredPlayers);
+      return filteredPlayers;
     } catch (error) {
       console.error('Error fetching all players:', error);
       throw error;
@@ -190,7 +198,8 @@ export class PlayerDataService {
         PageSize: 1,
         Filters: [
         { name: 'sleeper_player_id', op: 'Equal', value: sleeperPlayerId },
-        { name: 'is_current_data', op: 'Equal', value: true }]
+        { name: 'is_current_data', op: 'Equal', value: true },
+        { name: 'status', op: 'Equal', value: 'Active' }]
 
       });
 
@@ -419,8 +428,8 @@ export class PlayerDataService {
 
     try {
       const searchFilters = [
-      { name: 'is_current_data', op: 'Equal', value: true }];
-
+      { name: 'is_current_data', op: 'Equal', value: true },
+      { name: 'status', op: 'Equal', value: 'Active' }];
 
       if (filters.name) {
         searchFilters.push({ name: 'player_name', op: 'StringContains', value: filters.name });
@@ -430,9 +439,6 @@ export class PlayerDataService {
       }
       if (filters.team) {
         searchFilters.push({ name: 'nfl_team', op: 'Equal', value: filters.team });
-      }
-      if (filters.status) {
-        searchFilters.push({ name: 'status', op: 'Equal', value: filters.status });
       }
 
       const { data, error } = await window.ezsite.apis.tablePage(this.TABLE_IDS.PLAYERS, {
@@ -446,6 +452,12 @@ export class PlayerDataService {
       if (error) throw new Error(error);
 
       let players = data?.List || [];
+      
+      // Filter to only include relevant positions
+      const validPositions = ['QB', 'RB', 'WR', 'TE'];
+      players = players.filter(player => 
+        validPositions.includes(player.position)
+      );
 
       // If availability filter is specified, cross-reference with availability data
       if (filters.availability && filters.seasonId && filters.week) {

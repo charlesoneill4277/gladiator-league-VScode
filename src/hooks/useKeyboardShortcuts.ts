@@ -12,13 +12,13 @@ interface KeyboardShortcut {
 
 export function useKeyboardShortcuts(shortcuts: KeyboardShortcut[]) {
   const handleKeyDown = useCallback((event: KeyboardEvent) => {
-    const matchingShortcut = shortcuts.find(shortcut => {
+    const matchingShortcut = shortcuts.find((shortcut) => {
       const keyMatch = event.key.toLowerCase() === shortcut.key.toLowerCase();
       const metaMatch = !!shortcut.metaKey === event.metaKey;
       const ctrlMatch = !!shortcut.ctrlKey === event.ctrlKey;
       const shiftMatch = !!shortcut.shiftKey === event.shiftKey;
       const altMatch = !!shortcut.altKey === event.altKey;
-      
+
       return keyMatch && metaMatch && ctrlMatch && shiftMatch && altMatch;
     });
 

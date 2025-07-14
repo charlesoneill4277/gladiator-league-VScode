@@ -18,178 +18,178 @@ import PlayerStatsCards from '@/components/players/PlayerStatsCards';
 
 // Mock data for demonstration - will be replaced with real API data
 const mockPlayersData = [
-  {
-    id: 'player1',
-    name: 'Josh Allen',
-    position: 'QB',
-    nflTeam: 'BUF',
-    points: 287.5,
-    avgPoints: 22.1,
-    projectedPoints: 24.8,
-    status: 'rostered',
-    rosteredBy: 'Galactic Gladiators',
-    rosteredByOwner: 'John Doe',
-    injuryStatus: null,
-    gamesPlayed: 13,
-    age: 28,
-    draftPosition: 12,
-    experience: 6,
-    conference: 'mars',
-    isOwnedByMultipleTeams: false
-  },
-  {
-    id: 'player2',
-    name: 'Christian McCaffrey',
-    position: 'RB',
-    nflTeam: 'SF',
-    points: 245.8,
-    avgPoints: 18.9,
-    projectedPoints: 0,
-    status: 'rostered',
-    rosteredBy: 'Galactic Gladiators',
-    rosteredByOwner: 'John Doe',
-    injuryStatus: 'IR',
-    gamesPlayed: 13,
-    age: 28,
-    draftPosition: 3,
-    experience: 7,
-    conference: 'mars',
-    isOwnedByMultipleTeams: false
-  },
-  {
-    id: 'player3',
-    name: 'Tyreek Hill',
-    position: 'WR',
-    nflTeam: 'MIA',
-    points: 198.2,
-    avgPoints: 15.2,
-    projectedPoints: 16.4,
-    status: 'rostered',
-    rosteredBy: 'Space Vikings',
-    rosteredByOwner: 'Jane Smith',
-    injuryStatus: null,
-    gamesPlayed: 13,
-    age: 30,
-    draftPosition: 18,
-    experience: 8,
-    conference: 'jupiter',
-    isOwnedByMultipleTeams: false
-  },
-  {
-    id: 'player4',
-    name: 'Saquon Barkley',
-    position: 'RB',
-    nflTeam: 'PHI',
-    points: 234.6,
-    avgPoints: 18.0,
-    projectedPoints: 18.5,
-    status: 'free_agent',
-    rosteredBy: null,
-    rosteredByOwner: null,
-    injuryStatus: null,
-    gamesPlayed: 13,
-    age: 27,
-    draftPosition: 5,
-    experience: 6,
-    conference: null,
-    isOwnedByMultipleTeams: false
-  },
-  {
-    id: 'player5',
-    name: 'Cooper Kupp',
-    position: 'WR',
-    nflTeam: 'LAR',
-    points: 156.8,
-    avgPoints: 14.2,
-    projectedPoints: 15.8,
-    status: 'rostered',
-    rosteredBy: 'Meteor Crushers',
-    rosteredByOwner: 'Bob Johnson',
-    injuryStatus: 'Q',
-    gamesPlayed: 11,
-    age: 31,
-    draftPosition: 24,
-    experience: 7,
-    conference: 'vulcan',
-    isOwnedByMultipleTeams: false
-  },
-  {
-    id: 'player6',
-    name: 'Travis Kelce',
-    position: 'TE',
-    nflTeam: 'KC',
-    points: 189.4,
-    avgPoints: 14.6,
-    projectedPoints: 15.2,
-    status: 'rostered',
-    rosteredBy: 'Nebula Warriors',
-    rosteredByOwner: 'Sarah Wilson',
-    injuryStatus: null,
-    gamesPlayed: 13,
-    age: 35,
-    draftPosition: 31,
-    experience: 11,
-    conference: 'mars',
-    isOwnedByMultipleTeams: true
-  },
-  {
-    id: 'player7',
-    name: 'Myles Garrett',
-    position: 'DL',
-    nflTeam: 'CLE',
-    points: 98.5,
-    avgPoints: 7.6,
-    projectedPoints: 8.1,
-    status: 'rostered',
-    rosteredBy: 'Cosmic Defenders',
-    rosteredByOwner: 'Mike Davis',
-    injuryStatus: null,
-    gamesPlayed: 13,
-    age: 29,
-    draftPosition: 89,
-    experience: 7,
-    conference: 'jupiter',
-    isOwnedByMultipleTeams: false
-  },
-  {
-    id: 'player8',
-    name: 'Micah Parsons',
-    position: 'LB',
-    nflTeam: 'DAL',
-    points: 112.8,
-    avgPoints: 8.7,
-    projectedPoints: 9.2,
-    status: 'rostered',
-    rosteredBy: 'Star Destroyers',
-    rosteredByOwner: 'Lisa Brown',
-    injuryStatus: null,
-    gamesPlayed: 13,
-    age: 25,
-    draftPosition: 67,
-    experience: 3,
-    conference: 'vulcan',
-    isOwnedByMultipleTeams: false
-  },
-  {
-    id: 'player9',
-    name: 'Trevon Diggs',
-    position: 'DB',
-    nflTeam: 'DAL',
-    points: 87.3,
-    avgPoints: 6.7,
-    projectedPoints: 7.1,
-    status: 'free_agent',
-    rosteredBy: null,
-    rosteredByOwner: null,
-    injuryStatus: null,
-    gamesPlayed: 13,
-    age: 26,
-    draftPosition: 156,
-    experience: 4,
-    conference: null,
-    isOwnedByMultipleTeams: false
-  }
-];
+{
+  id: 'player1',
+  name: 'Josh Allen',
+  position: 'QB',
+  nflTeam: 'BUF',
+  points: 287.5,
+  avgPoints: 22.1,
+  projectedPoints: 24.8,
+  status: 'rostered',
+  rosteredBy: 'Galactic Gladiators',
+  rosteredByOwner: 'John Doe',
+  injuryStatus: null,
+  gamesPlayed: 13,
+  age: 28,
+  draftPosition: 12,
+  experience: 6,
+  conference: 'mars',
+  isOwnedByMultipleTeams: false
+},
+{
+  id: 'player2',
+  name: 'Christian McCaffrey',
+  position: 'RB',
+  nflTeam: 'SF',
+  points: 245.8,
+  avgPoints: 18.9,
+  projectedPoints: 0,
+  status: 'rostered',
+  rosteredBy: 'Galactic Gladiators',
+  rosteredByOwner: 'John Doe',
+  injuryStatus: 'IR',
+  gamesPlayed: 13,
+  age: 28,
+  draftPosition: 3,
+  experience: 7,
+  conference: 'mars',
+  isOwnedByMultipleTeams: false
+},
+{
+  id: 'player3',
+  name: 'Tyreek Hill',
+  position: 'WR',
+  nflTeam: 'MIA',
+  points: 198.2,
+  avgPoints: 15.2,
+  projectedPoints: 16.4,
+  status: 'rostered',
+  rosteredBy: 'Space Vikings',
+  rosteredByOwner: 'Jane Smith',
+  injuryStatus: null,
+  gamesPlayed: 13,
+  age: 30,
+  draftPosition: 18,
+  experience: 8,
+  conference: 'jupiter',
+  isOwnedByMultipleTeams: false
+},
+{
+  id: 'player4',
+  name: 'Saquon Barkley',
+  position: 'RB',
+  nflTeam: 'PHI',
+  points: 234.6,
+  avgPoints: 18.0,
+  projectedPoints: 18.5,
+  status: 'free_agent',
+  rosteredBy: null,
+  rosteredByOwner: null,
+  injuryStatus: null,
+  gamesPlayed: 13,
+  age: 27,
+  draftPosition: 5,
+  experience: 6,
+  conference: null,
+  isOwnedByMultipleTeams: false
+},
+{
+  id: 'player5',
+  name: 'Cooper Kupp',
+  position: 'WR',
+  nflTeam: 'LAR',
+  points: 156.8,
+  avgPoints: 14.2,
+  projectedPoints: 15.8,
+  status: 'rostered',
+  rosteredBy: 'Meteor Crushers',
+  rosteredByOwner: 'Bob Johnson',
+  injuryStatus: 'Q',
+  gamesPlayed: 11,
+  age: 31,
+  draftPosition: 24,
+  experience: 7,
+  conference: 'vulcan',
+  isOwnedByMultipleTeams: false
+},
+{
+  id: 'player6',
+  name: 'Travis Kelce',
+  position: 'TE',
+  nflTeam: 'KC',
+  points: 189.4,
+  avgPoints: 14.6,
+  projectedPoints: 15.2,
+  status: 'rostered',
+  rosteredBy: 'Nebula Warriors',
+  rosteredByOwner: 'Sarah Wilson',
+  injuryStatus: null,
+  gamesPlayed: 13,
+  age: 35,
+  draftPosition: 31,
+  experience: 11,
+  conference: 'mars',
+  isOwnedByMultipleTeams: true
+},
+{
+  id: 'player7',
+  name: 'Myles Garrett',
+  position: 'DL',
+  nflTeam: 'CLE',
+  points: 98.5,
+  avgPoints: 7.6,
+  projectedPoints: 8.1,
+  status: 'rostered',
+  rosteredBy: 'Cosmic Defenders',
+  rosteredByOwner: 'Mike Davis',
+  injuryStatus: null,
+  gamesPlayed: 13,
+  age: 29,
+  draftPosition: 89,
+  experience: 7,
+  conference: 'jupiter',
+  isOwnedByMultipleTeams: false
+},
+{
+  id: 'player8',
+  name: 'Micah Parsons',
+  position: 'LB',
+  nflTeam: 'DAL',
+  points: 112.8,
+  avgPoints: 8.7,
+  projectedPoints: 9.2,
+  status: 'rostered',
+  rosteredBy: 'Star Destroyers',
+  rosteredByOwner: 'Lisa Brown',
+  injuryStatus: null,
+  gamesPlayed: 13,
+  age: 25,
+  draftPosition: 67,
+  experience: 3,
+  conference: 'vulcan',
+  isOwnedByMultipleTeams: false
+},
+{
+  id: 'player9',
+  name: 'Trevon Diggs',
+  position: 'DB',
+  nflTeam: 'DAL',
+  points: 87.3,
+  avgPoints: 6.7,
+  projectedPoints: 7.1,
+  status: 'free_agent',
+  rosteredBy: null,
+  rosteredByOwner: null,
+  injuryStatus: null,
+  gamesPlayed: 13,
+  age: 26,
+  draftPosition: 156,
+  experience: 4,
+  conference: null,
+  isOwnedByMultipleTeams: false
+}];
+
 
 // Generate more mock data for demonstration
 const generateMockPlayers = (count: number) => {
@@ -198,7 +198,7 @@ const generateMockPlayers = (count: number) => {
   const conferences = ['mars', 'jupiter', 'vulcan'];
   const statuses = ['rostered', 'free_agent'];
   const injuries = [null, 'Q', 'D', 'IR', 'O'];
-  
+
   return Array.from({ length: count }, (_, i) => ({
     id: `player${i + 10}`,
     name: `Player ${i + 10}`,
@@ -252,56 +252,56 @@ const PlayersPageContent: React.FC<PlayersPageContentProps> = () => {
     // Search filter
     if (debouncedSearch) {
       const searchTerm = debouncedSearch.toLowerCase();
-      filtered = filtered.filter(player =>
-        player.name.toLowerCase().includes(searchTerm) ||
-        player.nflTeam.toLowerCase().includes(searchTerm) ||
-        player.rosteredBy?.toLowerCase().includes(searchTerm) ||
-        player.rosteredByOwner?.toLowerCase().includes(searchTerm)
+      filtered = filtered.filter((player) =>
+      player.name.toLowerCase().includes(searchTerm) ||
+      player.nflTeam.toLowerCase().includes(searchTerm) ||
+      player.rosteredBy?.toLowerCase().includes(searchTerm) ||
+      player.rosteredByOwner?.toLowerCase().includes(searchTerm)
       );
     }
 
     // Position filter
     if (filters.position !== 'all') {
       if (filters.position === 'offense') {
-        filtered = filtered.filter(p => ['QB', 'RB', 'WR', 'TE'].includes(p.position));
+        filtered = filtered.filter((p) => ['QB', 'RB', 'WR', 'TE'].includes(p.position));
       } else if (filters.position === 'defense') {
-        filtered = filtered.filter(p => ['DEF', 'DL', 'LB', 'DB'].includes(p.position));
+        filtered = filtered.filter((p) => ['DEF', 'DL', 'LB', 'DB'].includes(p.position));
       } else {
-        filtered = filtered.filter(p => p.position === filters.position);
+        filtered = filtered.filter((p) => p.position === filters.position);
       }
     }
 
     // NFL Team filter
     if (filters.nflTeam !== 'all') {
-      filtered = filtered.filter(p => p.nflTeam === filters.nflTeam);
+      filtered = filtered.filter((p) => p.nflTeam === filters.nflTeam);
     }
 
     // Conference filter
     if (filters.conference !== 'all') {
-      filtered = filtered.filter(p => p.conference === filters.conference);
+      filtered = filtered.filter((p) => p.conference === filters.conference);
     }
 
     // Availability filter
     if (filters.availabilityStatus !== 'all') {
       if (filters.availabilityStatus === 'available') {
-        filtered = filtered.filter(p => p.status === 'free_agent');
+        filtered = filtered.filter((p) => p.status === 'free_agent');
       } else if (filters.availabilityStatus === 'owned') {
-        filtered = filtered.filter(p => p.status === 'rostered');
+        filtered = filtered.filter((p) => p.status === 'rostered');
       }
     }
 
     // Injury filter
     if (filters.injuryStatus !== 'all') {
       if (filters.injuryStatus === 'healthy') {
-        filtered = filtered.filter(p => !p.injuryStatus);
+        filtered = filtered.filter((p) => !p.injuryStatus);
       } else {
-        filtered = filtered.filter(p => p.injuryStatus === filters.injuryStatus);
+        filtered = filtered.filter((p) => p.injuryStatus === filters.injuryStatus);
       }
     }
 
     // Multi-owned filter
     if (filters.ownedByMultipleTeams) {
-      filtered = filtered.filter(p => p.isOwnedByMultipleTeams);
+      filtered = filtered.filter((p) => p.isOwnedByMultipleTeams);
     }
 
     return filtered;
@@ -310,43 +310,43 @@ const PlayersPageContent: React.FC<PlayersPageContentProps> = () => {
   // Generate search suggestions
   const searchSuggestions = useMemo(() => {
     if (!debouncedSearch || debouncedSearch.length < 2) return [];
-    
+
     const suggestions = [];
     const searchTerm = debouncedSearch.toLowerCase();
-    
+
     // Player suggestions
-    const playerMatches = allMockData
-      .filter(p => p.name.toLowerCase().includes(searchTerm))
-      .slice(0, 5)
-      .map(p => ({
-        type: 'player' as const,
-        value: p.name,
-        label: p.name,
-        meta: `${p.position} - ${p.nflTeam}`
-      }));
-    
+    const playerMatches = allMockData.
+    filter((p) => p.name.toLowerCase().includes(searchTerm)).
+    slice(0, 5).
+    map((p) => ({
+      type: 'player' as const,
+      value: p.name,
+      label: p.name,
+      meta: `${p.position} - ${p.nflTeam}`
+    }));
+
     // Team suggestions
-    const teamMatches = [...new Set(allMockData.map(p => p.nflTeam))]
-      .filter(team => team.toLowerCase().includes(searchTerm))
-      .slice(0, 3)
-      .map(team => ({
-        type: 'team' as const,
-        value: team,
-        label: team,
-        meta: 'NFL Team'
-      }));
-    
+    const teamMatches = [...new Set(allMockData.map((p) => p.nflTeam))].
+    filter((team) => team.toLowerCase().includes(searchTerm)).
+    slice(0, 3).
+    map((team) => ({
+      type: 'team' as const,
+      value: team,
+      label: team,
+      meta: 'NFL Team'
+    }));
+
     // Owner suggestions
-    const ownerMatches = [...new Set(allMockData.map(p => p.rosteredByOwner).filter(Boolean))]
-      .filter(owner => owner!.toLowerCase().includes(searchTerm))
-      .slice(0, 3)
-      .map(owner => ({
-        type: 'owner' as const,
-        value: owner!,
-        label: owner!,
-        meta: 'Owner'
-      }));
-    
+    const ownerMatches = [...new Set(allMockData.map((p) => p.rosteredByOwner).filter(Boolean))].
+    filter((owner) => owner!.toLowerCase().includes(searchTerm)).
+    slice(0, 3).
+    map((owner) => ({
+      type: 'owner' as const,
+      value: owner!,
+      label: owner!,
+      meta: 'Owner'
+    }));
+
     return [...playerMatches, ...teamMatches, ...ownerMatches];
   }, [debouncedSearch]);
 
@@ -355,7 +355,7 @@ const PlayersPageContent: React.FC<PlayersPageContentProps> = () => {
     setIsRefreshing(true);
     try {
       // In real implementation, this would call refetch()
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      await new Promise((resolve) => setTimeout(resolve, 1000));
       toast({
         title: "Data refreshed",
         description: "Player data has been updated successfully."
@@ -373,31 +373,31 @@ const PlayersPageContent: React.FC<PlayersPageContentProps> = () => {
 
   // Keyboard shortcuts
   useKeyboardShortcuts([
-    {
-      ...playerPageShortcuts.SEARCH_FOCUS,
-      handler: () => searchRef.current?.focus()
-    },
-    {
-      ...playerPageShortcuts.CLEAR_FILTERS,
-      handler: () => clearFilters()
-    },
-    {
-      ...playerPageShortcuts.FILTER_AVAILABLE,
-      handler: () => updateFilter('availabilityStatus', 'available')
-    },
-    {
-      ...playerPageShortcuts.FILTER_OWNED,
-      handler: () => updateFilter('availabilityStatus', 'owned')
-    },
-    {
-      ...playerPageShortcuts.NEXT_PAGE,
-      handler: () => updateFilter('page', Math.min(filters.page + 1, Math.ceil(filteredPlayers.length / filters.pageSize)))
-    },
-    {
-      ...playerPageShortcuts.PREV_PAGE,
-      handler: () => updateFilter('page', Math.max(filters.page - 1, 1))
-    }
-  ]);
+  {
+    ...playerPageShortcuts.SEARCH_FOCUS,
+    handler: () => searchRef.current?.focus()
+  },
+  {
+    ...playerPageShortcuts.CLEAR_FILTERS,
+    handler: () => clearFilters()
+  },
+  {
+    ...playerPageShortcuts.FILTER_AVAILABLE,
+    handler: () => updateFilter('availabilityStatus', 'available')
+  },
+  {
+    ...playerPageShortcuts.FILTER_OWNED,
+    handler: () => updateFilter('availabilityStatus', 'owned')
+  },
+  {
+    ...playerPageShortcuts.NEXT_PAGE,
+    handler: () => updateFilter('page', Math.min(filters.page + 1, Math.ceil(filteredPlayers.length / filters.pageSize)))
+  },
+  {
+    ...playerPageShortcuts.PREV_PAGE,
+    handler: () => updateFilter('page', Math.max(filters.page - 1, 1))
+  }]
+  );
 
   // Generate filter description for export
   const filterDescription = useMemo(() => {
@@ -429,8 +429,8 @@ const PlayersPageContent: React.FC<PlayersPageContentProps> = () => {
           <Button
             variant="outline"
             size="sm"
-            onClick={() => setShowKeyboardShortcuts(!showKeyboardShortcuts)}
-          >
+            onClick={() => setShowKeyboardShortcuts(!showKeyboardShortcuts)}>
+
             <Keyboard className="h-4 w-4 mr-2" />
             Shortcuts
           </Button>
@@ -438,22 +438,22 @@ const PlayersPageContent: React.FC<PlayersPageContentProps> = () => {
             variant="outline"
             size="sm"
             onClick={handleRefresh}
-            disabled={isRefreshing}
-          >
+            disabled={isRefreshing}>
+
             <RefreshCw className={`h-4 w-4 mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />
             Refresh
           </Button>
           <PlayerExport
             players={filteredPlayers}
             totalCount={allMockData.length}
-            filterDescription={filterDescription}
-          />
+            filterDescription={filterDescription} />
+
         </div>
       </div>
 
       {/* Keyboard Shortcuts */}
-      {showKeyboardShortcuts && (
-        <Alert>
+      {showKeyboardShortcuts &&
+      <Alert>
           <Keyboard className="h-4 w-4" />
           <AlertDescription className="flex flex-wrap gap-4 mt-2">
             <Badge variant="outline">Ctrl+F: Focus search</Badge>
@@ -463,54 +463,54 @@ const PlayersPageContent: React.FC<PlayersPageContentProps> = () => {
             <Badge variant="outline">Ctrl+←/→: Navigate pages</Badge>
           </AlertDescription>
         </Alert>
-      )}
+      }
 
       {/* Search Bar */}
       <div className="max-w-2xl">
         <PlayerSearchBar
           suggestions={searchSuggestions}
-          onFocus={() => {}}
-        />
+          onFocus={() => {}} />
+
       </div>
 
       {/* Filters */}
       <PlayerFilters
         showAdvanced={true}
         onExport={() => toast({ title: "Filter exported", description: "Filter configuration copied to clipboard" })}
-        onImport={() => toast({ title: "Filter imported", description: "Filter configuration loaded from clipboard" })}
-      />
+        onImport={() => toast({ title: "Filter imported", description: "Filter configuration loaded from clipboard" })} />
+
 
       {/* Stats Cards */}
       <PlayerStatsCards
         players={filteredPlayers}
         totalCount={allMockData.length}
-        isLoading={isLoading}
-      />
+        isLoading={isLoading} />
+
 
       {/* Error Display */}
-      {error && (
-        <Alert variant="destructive">
+      {error &&
+      <Alert variant="destructive">
           <AlertDescription>{error}</AlertDescription>
         </Alert>
-      )}
+      }
 
       {/* Player Table */}
       <PlayerTable
         players={filteredPlayers}
         isLoading={isLoading}
         error={error}
-        enableVirtualization={filteredPlayers.length > 100}
-      />
-    </div>
-  );
+        enableVirtualization={filteredPlayers.length > 100} />
+
+    </div>);
+
 };
 
 const PlayersPage: React.FC = () => {
   return (
     <PlayerFilterProvider>
       <PlayersPageContent />
-    </PlayerFilterProvider>
-  );
+    </PlayerFilterProvider>);
+
 };
 
 export default PlayersPage;

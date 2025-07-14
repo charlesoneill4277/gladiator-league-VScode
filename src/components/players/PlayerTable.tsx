@@ -54,27 +54,27 @@ const PlayerTable: React.FC<PlayerTableProps> = ({
   // Sort players based on current filters
   const sortedPlayers = useMemo(() => {
     if (!players) return [];
-    
+
     const sortedArray = [...players].sort((a, b) => {
       const { sortBy, sortDirection } = filters;
       let aValue: any = a[sortBy as keyof Player];
       let bValue: any = b[sortBy as keyof Player];
-      
+
       // Handle null/undefined values
       if (aValue == null) aValue = sortDirection === 'asc' ? Infinity : -Infinity;
       if (bValue == null) bValue = sortDirection === 'asc' ? Infinity : -Infinity;
-      
+
       // Handle string vs number comparison
       if (typeof aValue === 'string' && typeof bValue === 'string') {
         aValue = aValue.toLowerCase();
         bValue = bValue.toLowerCase();
       }
-      
+
       if (aValue < bValue) return sortDirection === 'asc' ? -1 : 1;
       if (aValue > bValue) return sortDirection === 'asc' ? 1 : -1;
       return 0;
     });
-    
+
     return sortedArray;
   }, [players, filters.sortBy, filters.sortDirection]);
 
@@ -119,23 +119,23 @@ const PlayerTable: React.FC<PlayerTableProps> = ({
   // Get position color
   const getPositionColor = (position: string) => {
     switch (position) {
-      case 'QB': return 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200';
-      case 'RB': return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200';
-      case 'WR': return 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200';
-      case 'TE': return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200';
-      case 'K': return 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200';
-      case 'DEF': return 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200';
-      case 'DL': return 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200';
-      case 'LB': return 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-200';
-      case 'DB': return 'bg-teal-100 text-teal-800 dark:bg-teal-900 dark:text-teal-200';
-      default: return 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200';
+      case 'QB':return 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200';
+      case 'RB':return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200';
+      case 'WR':return 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200';
+      case 'TE':return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200';
+      case 'K':return 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200';
+      case 'DEF':return 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200';
+      case 'DL':return 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200';
+      case 'LB':return 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-200';
+      case 'DB':return 'bg-teal-100 text-teal-800 dark:bg-teal-900 dark:text-teal-200';
+      default:return 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200';
     }
   };
 
   // Get status badge
   const getStatusBadge = (status: string, injuryStatus: string | null) => {
     if (injuryStatus) {
-      const variants: {[key: string]: string} = {
+      const variants: {[key: string]: string;} = {
         'IR': 'destructive',
         'O': 'destructive',
         'D': 'destructive',
@@ -146,8 +146,8 @@ const PlayerTable: React.FC<PlayerTableProps> = ({
     }
 
     return status === 'free_agent' ?
-      <Badge variant="outline" className="text-xs">FA</Badge> :
-      <Badge variant="secondary" className="text-xs">Rostered</Badge>;
+    <Badge variant="outline" className="text-xs">FA</Badge> :
+    <Badge variant="secondary" className="text-xs">Rostered</Badge>;
   };
 
   // Get sort icon
@@ -156,8 +156,8 @@ const PlayerTable: React.FC<PlayerTableProps> = ({
       return <ArrowUpDown className="ml-1 h-3 w-3" />;
     }
     return filters.sortDirection === 'asc' ?
-      <ArrowUp className="ml-1 h-3 w-3" /> :
-      <ArrowDown className="ml-1 h-3 w-3" />;
+    <ArrowUp className="ml-1 h-3 w-3" /> :
+    <ArrowDown className="ml-1 h-3 w-3" />;
   };
 
   if (error) {
@@ -167,8 +167,8 @@ const PlayerTable: React.FC<PlayerTableProps> = ({
           <CardTitle>Error</CardTitle>
           <CardDescription className="text-red-600">{error}</CardDescription>
         </CardHeader>
-      </Card>
-    );
+      </Card>);
+
   }
 
   return (
@@ -201,10 +201,10 @@ const PlayerTable: React.FC<PlayerTableProps> = ({
       </CardHeader>
       
       <CardContent>
-        {isLoading ? (
-          <div className="space-y-4">
-            {Array.from({ length: 10 }).map((_, i) => (
-              <div key={i} className="flex items-center space-x-4">
+        {isLoading ?
+        <div className="space-y-4">
+            {Array.from({ length: 10 }).map((_, i) =>
+          <div key={i} className="flex items-center space-x-4">
                 <Skeleton className="h-4 w-4" />
                 <Skeleton className="h-4 w-32" />
                 <Skeleton className="h-4 w-12" />
@@ -212,33 +212,33 @@ const PlayerTable: React.FC<PlayerTableProps> = ({
                 <Skeleton className="h-4 w-20" />
                 <Skeleton className="h-4 w-16" />
               </div>
-            ))}
-          </div>
-        ) : sortedPlayers.length === 0 ? (
-          <div className="text-center py-8">
+          )}
+          </div> :
+        sortedPlayers.length === 0 ?
+        <div className="text-center py-8">
             <div className="text-lg font-semibold mb-2">No players found</div>
             <p className="text-muted-foreground">
               Try adjusting your filters or search criteria.
             </p>
-          </div>
-        ) : (
-          <>
+          </div> :
+
+        <>
             <div className="rounded-md border" ref={tableRef}>
               <Table>
                 <TableHeader>
                   <TableRow>
                     <TableHead className="w-4">
                       <input
-                        type="checkbox"
-                        checked={selectedRows.size === currentPagePlayers.length}
-                        onChange={(e) => {
-                          if (e.target.checked) {
-                            setSelectedRows(new Set(currentPagePlayers.map(p => p.id)));
-                          } else {
-                            setSelectedRows(new Set());
-                          }
-                        }}
-                      />
+                      type="checkbox"
+                      checked={selectedRows.size === currentPagePlayers.length}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setSelectedRows(new Set(currentPagePlayers.map((p) => p.id)));
+                        } else {
+                          setSelectedRows(new Set());
+                        }
+                      }} />
+
                     </TableHead>
                     <TableHead>
                       <Button variant="ghost" size="sm" onClick={() => handleSort('name')}>
@@ -272,26 +272,26 @@ const PlayerTable: React.FC<PlayerTableProps> = ({
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {currentPagePlayers.map((player) => (
-                    <TableRow 
-                      key={player.id} 
-                      className={`hover:bg-muted/50 ${selectedRows.has(player.id) ? 'bg-muted/30' : ''}`}
-                    >
+                  {currentPagePlayers.map((player) =>
+                <TableRow
+                  key={player.id}
+                  className={`hover:bg-muted/50 ${selectedRows.has(player.id) ? 'bg-muted/30' : ''}`}>
+
                       <TableCell>
                         <input
-                          type="checkbox"
-                          checked={selectedRows.has(player.id)}
-                          onChange={(e) => handleRowSelect(player.id, e.target.checked)}
-                        />
+                      type="checkbox"
+                      checked={selectedRows.has(player.id)}
+                      onChange={(e) => handleRowSelect(player.id, e.target.checked)} />
+
                       </TableCell>
                       <TableCell>
                         <div className="font-medium">{player.name}</div>
                         <div className="text-sm text-muted-foreground sm:hidden">
                           {player.nflTeam}
                         </div>
-                        {player.isOwnedByMultipleTeams && (
-                          <Badge variant="outline" className="text-xs mt-1">Multi-owned</Badge>
-                        )}
+                        {player.isOwnedByMultipleTeams &&
+                    <Badge variant="outline" className="text-xs mt-1">Multi-owned</Badge>
+                    }
                       </TableCell>
                       <TableCell>
                         <Badge className={getPositionColor(player.position)}>
@@ -312,14 +312,14 @@ const PlayerTable: React.FC<PlayerTableProps> = ({
                         {getStatusBadge(player.status, player.injuryStatus)}
                       </TableCell>
                       <TableCell className="hidden lg:table-cell">
-                        {player.rosteredBy ? (
-                          <div>
+                        {player.rosteredBy ?
+                    <div>
                             <div className="text-sm font-medium">{player.rosteredBy}</div>
                             <div className="text-xs text-muted-foreground">{player.rosteredByOwner}</div>
-                          </div>
-                        ) : (
-                          <span className="text-muted-foreground text-sm">Free Agent</span>
-                        )}
+                          </div> :
+
+                    <span className="text-muted-foreground text-sm">Free Agent</span>
+                    }
                       </TableCell>
                       <TableCell>
                         <Link to={`/players/${player.id}`}>
@@ -329,76 +329,76 @@ const PlayerTable: React.FC<PlayerTableProps> = ({
                         </Link>
                       </TableCell>
                     </TableRow>
-                  ))}
+                )}
                 </TableBody>
               </Table>
             </div>
 
             {/* Pagination */}
-            {totalPages > 1 && (
-              <div className="flex items-center justify-between mt-4">
+            {totalPages > 1 &&
+          <div className="flex items-center justify-between mt-4">
                 <div className="text-sm text-muted-foreground">
                   Showing {startIndex + 1} to {Math.min(endIndex, sortedPlayers.length)} of {sortedPlayers.length} players
                 </div>
                 <div className="flex items-center space-x-2">
                   <Button
-                    variant="outline"
-                    size="sm"
-                    disabled={filters.page === 1}
-                    onClick={() => handlePageChange(filters.page - 1)}
-                  >
+                variant="outline"
+                size="sm"
+                disabled={filters.page === 1}
+                onClick={() => handlePageChange(filters.page - 1)}>
+
                     <ChevronLeft className="h-4 w-4" />
                     Previous
                   </Button>
                   
                   <div className="flex items-center space-x-1">
                     {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                      const page = i + 1;
-                      const isCurrentPage = page === filters.page;
-                      return (
-                        <Button
-                          key={page}
-                          variant={isCurrentPage ? "default" : "outline"}
-                          size="sm"
-                          onClick={() => handlePageChange(page)}
-                          className="w-8"
-                        >
+                  const page = i + 1;
+                  const isCurrentPage = page === filters.page;
+                  return (
+                    <Button
+                      key={page}
+                      variant={isCurrentPage ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => handlePageChange(page)}
+                      className="w-8">
+
                           {page}
-                        </Button>
-                      );
-                    })}
-                    {totalPages > 5 && (
-                      <>
+                        </Button>);
+
+                })}
+                    {totalPages > 5 &&
+                <>
                         <span className="text-muted-foreground">...</span>
                         <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handlePageChange(totalPages)}
-                          className="w-8"
-                        >
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handlePageChange(totalPages)}
+                    className="w-8">
+
                           {totalPages}
                         </Button>
                       </>
-                    )}
+                }
                   </div>
                   
                   <Button
-                    variant="outline"
-                    size="sm"
-                    disabled={filters.page === totalPages}
-                    onClick={() => handlePageChange(filters.page + 1)}
-                  >
+                variant="outline"
+                size="sm"
+                disabled={filters.page === totalPages}
+                onClick={() => handlePageChange(filters.page + 1)}>
+
                     Next
                     <ChevronRight className="h-4 w-4" />
                   </Button>
                 </div>
               </div>
-            )}
+          }
           </>
-        )}
+        }
       </CardContent>
-    </Card>
-  );
+    </Card>);
+
 };
 
 export default PlayerTable;

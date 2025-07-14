@@ -62,45 +62,45 @@ const PlayerExport: React.FC<PlayerExportProps> = ({
 
   // Available fields for export
   const availableFields = [
-    { id: 'name', label: 'Player Name', required: true },
-    { id: 'position', label: 'Position', required: false },
-    { id: 'nflTeam', label: 'NFL Team', required: false },
-    { id: 'points', label: 'Total Points', required: false },
-    { id: 'avgPoints', label: 'Average Points', required: false },
-    { id: 'projectedPoints', label: 'Projected Points', required: false },
-    { id: 'status', label: 'Status', required: false },
-    { id: 'rosteredBy', label: 'Rostered By', required: false },
-    { id: 'rosteredByOwner', label: 'Owner', required: false },
-    { id: 'injuryStatus', label: 'Injury Status', required: false },
-    { id: 'gamesPlayed', label: 'Games Played', required: false },
-    { id: 'age', label: 'Age', required: false },
-    { id: 'draftPosition', label: 'Draft Position', required: false },
-    { id: 'experience', label: 'Experience', required: false },
-    { id: 'conference', label: 'Conference', required: false }
-  ];
+  { id: 'name', label: 'Player Name', required: true },
+  { id: 'position', label: 'Position', required: false },
+  { id: 'nflTeam', label: 'NFL Team', required: false },
+  { id: 'points', label: 'Total Points', required: false },
+  { id: 'avgPoints', label: 'Average Points', required: false },
+  { id: 'projectedPoints', label: 'Projected Points', required: false },
+  { id: 'status', label: 'Status', required: false },
+  { id: 'rosteredBy', label: 'Rostered By', required: false },
+  { id: 'rosteredByOwner', label: 'Owner', required: false },
+  { id: 'injuryStatus', label: 'Injury Status', required: false },
+  { id: 'gamesPlayed', label: 'Games Played', required: false },
+  { id: 'age', label: 'Age', required: false },
+  { id: 'draftPosition', label: 'Draft Position', required: false },
+  { id: 'experience', label: 'Experience', required: false },
+  { id: 'conference', label: 'Conference', required: false }];
+
 
   // Handle field selection
   const handleFieldToggle = (fieldId: string, checked: boolean) => {
-    const field = availableFields.find(f => f.id === fieldId);
+    const field = availableFields.find((f) => f.id === fieldId);
     if (field?.required && !checked) return; // Can't uncheck required fields
 
-    setExportOptions(prev => ({
+    setExportOptions((prev) => ({
       ...prev,
-      selectedFields: checked 
-        ? [...prev.selectedFields, fieldId]
-        : prev.selectedFields.filter(id => id !== fieldId)
+      selectedFields: checked ?
+      [...prev.selectedFields, fieldId] :
+      prev.selectedFields.filter((id) => id !== fieldId)
     }));
   };
 
   // Generate CSV content
   const generateCSV = (data: Player[]): string => {
-    const headers = exportOptions.selectedFields.map(fieldId => {
-      const field = availableFields.find(f => f.id === fieldId);
+    const headers = exportOptions.selectedFields.map((fieldId) => {
+      const field = availableFields.find((f) => f.id === fieldId);
       return field?.label || fieldId;
     });
 
-    const rows = data.map(player => {
-      return exportOptions.selectedFields.map(fieldId => {
+    const rows = data.map((player) => {
+      return exportOptions.selectedFields.map((fieldId) => {
         const value = player[fieldId as keyof Player];
         if (value === null || value === undefined) return '';
         if (typeof value === 'string' && value.includes(',')) {
@@ -111,19 +111,19 @@ const PlayerExport: React.FC<PlayerExportProps> = ({
     });
 
     const csvContent = [
-      ...(exportOptions.includeHeaders ? [headers] : []),
-      ...rows
-    ].map(row => row.join(',')).join('\n');
+    ...(exportOptions.includeHeaders ? [headers] : []),
+    ...rows].
+    map((row) => row.join(',')).join('\n');
 
     return csvContent;
   };
 
   // Generate JSON content
   const generateJSON = (data: Player[]): string => {
-    const filteredData = data.map(player => {
+    const filteredData = data.map((player) => {
       const filtered: any = {};
-      exportOptions.selectedFields.forEach(fieldId => {
-        const field = availableFields.find(f => f.id === fieldId);
+      exportOptions.selectedFields.forEach((fieldId) => {
+        const field = availableFields.find((f) => f.id === fieldId);
         filtered[field?.label || fieldId] = player[fieldId as keyof Player];
       });
       return filtered;
@@ -171,7 +171,7 @@ const PlayerExport: React.FC<PlayerExportProps> = ({
     try {
       // Simulate progress for better UX
       const progressInterval = setInterval(() => {
-        setExportProgress(prev => Math.min(prev + 10, 90));
+        setExportProgress((prev) => Math.min(prev + 10, 90));
       }, 100);
 
       let content: string;
@@ -211,7 +211,7 @@ const PlayerExport: React.FC<PlayerExportProps> = ({
 
       toast({
         title: "Export successful",
-        description: `${players.length} players exported as ${exportOptions.format.toUpperCase()}`,
+        description: `${players.length} players exported as ${exportOptions.format.toUpperCase()}`
       });
 
       setIsOpen(false);
@@ -271,12 +271,12 @@ const PlayerExport: React.FC<PlayerExportProps> = ({
           {/* Export Format */}
           <div className="space-y-3">
             <Label>Export Format</Label>
-            <Select 
-              value={exportOptions.format} 
-              onValueChange={(value: 'csv' | 'json' | 'xlsx') => 
-                setExportOptions(prev => ({ ...prev, format: value }))
-              }
-            >
+            <Select
+              value={exportOptions.format}
+              onValueChange={(value: 'csv' | 'json' | 'xlsx') =>
+              setExportOptions((prev) => ({ ...prev, format: value }))
+              }>
+
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
@@ -311,10 +311,10 @@ const PlayerExport: React.FC<PlayerExportProps> = ({
                 <Checkbox
                   id="include-headers"
                   checked={exportOptions.includeHeaders}
-                  onCheckedChange={(checked) => 
-                    setExportOptions(prev => ({ ...prev, includeHeaders: !!checked }))
-                  }
-                />
+                  onCheckedChange={(checked) =>
+                  setExportOptions((prev) => ({ ...prev, includeHeaders: !!checked }))
+                  } />
+
                 <Label htmlFor="include-headers">Include column headers</Label>
               </div>
             </div>
@@ -324,20 +324,20 @@ const PlayerExport: React.FC<PlayerExportProps> = ({
           <div className="space-y-3">
             <Label>Select Fields to Export</Label>
             <div className="grid grid-cols-2 gap-3 max-h-60 overflow-y-auto">
-              {availableFields.map(field => (
-                <div key={field.id} className="flex items-center space-x-2">
+              {availableFields.map((field) =>
+              <div key={field.id} className="flex items-center space-x-2">
                   <Checkbox
-                    id={field.id}
-                    checked={exportOptions.selectedFields.includes(field.id)}
-                    onCheckedChange={(checked) => handleFieldToggle(field.id, !!checked)}
-                    disabled={field.required}
-                  />
+                  id={field.id}
+                  checked={exportOptions.selectedFields.includes(field.id)}
+                  onCheckedChange={(checked) => handleFieldToggle(field.id, !!checked)}
+                  disabled={field.required} />
+
                   <Label htmlFor={field.id} className="text-sm">
                     {field.label}
                     {field.required && <span className="text-red-500 ml-1">*</span>}
                   </Label>
                 </div>
-              ))}
+              )}
             </div>
             <div className="text-xs text-muted-foreground">
               {exportOptions.selectedFields.length} of {availableFields.length} fields selected
@@ -345,15 +345,15 @@ const PlayerExport: React.FC<PlayerExportProps> = ({
           </div>
 
           {/* Export Progress */}
-          {isExporting && (
-            <div className="space-y-2">
+          {isExporting &&
+          <div className="space-y-2">
               <div className="flex items-center justify-between text-sm">
                 <span>Exporting...</span>
                 <span>{exportProgress}%</span>
               </div>
               <Progress value={exportProgress} className="w-full" />
             </div>
-          )}
+          }
 
           {/* Actions */}
           <div className="flex justify-end space-x-2">
@@ -366,8 +366,8 @@ const PlayerExport: React.FC<PlayerExportProps> = ({
           </div>
         </div>
       </DialogContent>
-    </Dialog>
-  );
+    </Dialog>);
+
 };
 
 export default PlayerExport;

@@ -26,7 +26,7 @@ export interface FilterOptions {
   availabilityStatuses: string[];
   injuryStatuses: string[];
   rosterStatuses: string[];
-  sortOptions: { value: string; label: string }[];
+  sortOptions: {value: string;label: string;}[];
 }
 
 // Context interface
@@ -60,27 +60,27 @@ const defaultFilters: PlayerFilterState = {
 
 // Filter options data
 export const filterOptions: FilterOptions = {
-  positions: ['all', 'QB', 'RB', 'WR', 'TE', 'K', 'DEF', 'DL', 'LB', 'DB', 'offense', 'defense'],
+  positions: ['all', 'QB', 'RB', 'WR', 'TE'],
   nflTeams: [
-    'all', 'ARI', 'ATL', 'BAL', 'BUF', 'CAR', 'CHI', 'CIN', 'CLE', 'DAL', 'DEN',
-    'DET', 'GB', 'HOU', 'IND', 'JAC', 'KC', 'LAC', 'LAR', 'LV', 'MIA', 'MIN',
-    'NE', 'NO', 'NYG', 'NYJ', 'PHI', 'PIT', 'SEA', 'SF', 'TB', 'TEN', 'WAS'
-  ],
+  'all', 'ARI', 'ATL', 'BAL', 'BUF', 'CAR', 'CHI', 'CIN', 'CLE', 'DAL', 'DEN',
+  'DET', 'GB', 'HOU', 'IND', 'JAC', 'KC', 'LAC', 'LAR', 'LV', 'MIA', 'MIN',
+  'NE', 'NO', 'NYG', 'NYJ', 'PHI', 'PIT', 'SEA', 'SF', 'TB', 'TEN', 'WAS'],
+
   conferences: ['all', 'mars', 'jupiter', 'vulcan'],
   availabilityStatuses: ['all', 'available', 'owned', 'waivers'],
   injuryStatuses: ['all', 'healthy', 'Q', 'D', 'IR', 'O', 'PUP'],
   rosterStatuses: ['all', 'active', 'bench', 'ir', 'taxi', 'free_agent'],
   sortOptions: [
-    { value: 'points', label: 'Total Points' },
-    { value: 'avgPoints', label: 'Average Points' },
-    { value: 'name', label: 'Player Name' },
-    { value: 'position', label: 'Position' },
-    { value: 'nflTeam', label: 'NFL Team' },
-    { value: 'projectedPoints', label: 'Projected Points' },
-    { value: 'draftPosition', label: 'Draft Position' },
-    { value: 'age', label: 'Age' },
-    { value: 'experience', label: 'Experience' }
-  ]
+  { value: 'points', label: 'Total Points' },
+  { value: 'avgPoints', label: 'Average Points' },
+  { value: 'name', label: 'Player Name' },
+  { value: 'position', label: 'Position' },
+  { value: 'nflTeam', label: 'NFL Team' },
+  { value: 'projectedPoints', label: 'Projected Points' },
+  { value: 'draftPosition', label: 'Draft Position' },
+  { value: 'age', label: 'Age' },
+  { value: 'experience', label: 'Experience' }]
+
 };
 
 const PlayerFilterContext = createContext<PlayerFilterContextType | null>(null);
@@ -109,17 +109,17 @@ const urlParamMap: Record<keyof PlayerFilterState, string> = {
   pageSize: 'size'
 };
 
-export const PlayerFilterProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+export const PlayerFilterProvider: React.FC<{children: React.ReactNode;}> = ({ children }) => {
   const [searchParams, setSearchParams] = useSearchParams();
   const [filters, setFilters] = useState<PlayerFilterState>(defaultFilters);
-  
+
   // Debounced search for performance
   const debouncedSearch = useDebounce(filters.search, 300);
 
   // Initialize filters from URL on mount
   useEffect(() => {
     const initialFilters = { ...defaultFilters };
-    
+
     // Parse URL parameters
     Object.entries(urlParamMap).forEach(([key, param]) => {
       const value = searchParams.get(param);
@@ -133,29 +133,29 @@ export const PlayerFilterProvider: React.FC<{ children: React.ReactNode }> = ({ 
         }
       }
     });
-    
+
     setFilters(initialFilters);
   }, [searchParams]);
 
   // Update URL when filters change
   useEffect(() => {
     const newSearchParams = new URLSearchParams();
-    
+
     Object.entries(filters).forEach(([key, value]) => {
       const param = urlParamMap[key as keyof PlayerFilterState];
       const defaultValue = defaultFilters[key as keyof PlayerFilterState];
-      
+
       // Only add to URL if different from default
       if (value !== defaultValue) {
         newSearchParams.set(param, String(value));
       }
     });
-    
+
     setSearchParams(newSearchParams, { replace: true });
   }, [filters, setSearchParams]);
 
   const updateFilter = useCallback((key: keyof PlayerFilterState, value: any) => {
-    setFilters(prev => ({
+    setFilters((prev) => ({
       ...prev,
       [key]: value,
       // Reset page when changing filters (except page itself)
@@ -164,7 +164,7 @@ export const PlayerFilterProvider: React.FC<{ children: React.ReactNode }> = ({ 
   }, []);
 
   const updateFilters = useCallback((updates: Partial<PlayerFilterState>) => {
-    setFilters(prev => ({
+    setFilters((prev) => ({
       ...prev,
       ...updates,
       // Reset page when changing filters
@@ -177,7 +177,7 @@ export const PlayerFilterProvider: React.FC<{ children: React.ReactNode }> = ({ 
   }, []);
 
   const resetPagination = useCallback(() => {
-    setFilters(prev => ({ ...prev, page: 1 }));
+    setFilters((prev) => ({ ...prev, page: 1 }));
   }, []);
 
   const exportFilters = useCallback(() => {
@@ -215,6 +215,6 @@ export const PlayerFilterProvider: React.FC<{ children: React.ReactNode }> = ({ 
   return (
     <PlayerFilterContext.Provider value={value}>
       {children}
-    </PlayerFilterContext.Provider>
-  );
+    </PlayerFilterContext.Provider>);
+
 };

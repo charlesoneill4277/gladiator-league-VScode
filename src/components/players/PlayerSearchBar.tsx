@@ -31,7 +31,7 @@ const PlayerSearchBar = React.forwardRef<HTMLInputElement, PlayerSearchBarProps>
   const [isOpen, setIsOpen] = useState(false);
   const [recentSearches, setRecentSearches] = useState<string[]>([]);
   const inputRef = useRef<HTMLInputElement>(null);
-  
+
   // Combine refs
   const combinedRef = useCallback((node: HTMLInputElement) => {
     inputRef.current = node;
@@ -57,7 +57,7 @@ const PlayerSearchBar = React.forwardRef<HTMLInputElement, PlayerSearchBarProps>
   // Save to recent searches when search changes
   useEffect(() => {
     if (debouncedSearch && debouncedSearch.trim() && debouncedSearch.length > 2) {
-      const newRecent = [debouncedSearch, ...recentSearches.filter(s => s !== debouncedSearch)].slice(0, 5);
+      const newRecent = [debouncedSearch, ...recentSearches.filter((s) => s !== debouncedSearch)].slice(0, 5);
       setRecentSearches(newRecent);
       localStorage.setItem('playerSearchHistory', JSON.stringify(newRecent));
     }
@@ -103,19 +103,19 @@ const PlayerSearchBar = React.forwardRef<HTMLInputElement, PlayerSearchBarProps>
 
   // Generate combined suggestions
   const combinedSuggestions: SearchSuggestion[] = [
-    // Recent searches
-    ...recentSearches.map(search => ({
-      type: 'recent' as const,
-      value: search,
-      label: search,
-      meta: 'Recent'
-    })),
-    // Provided suggestions
-    ...suggestions.filter(s => 
-      s.label.toLowerCase().includes(filters.search.toLowerCase()) ||
-      s.value.toLowerCase().includes(filters.search.toLowerCase())
-    )
-  ];
+  // Recent searches
+  ...recentSearches.map((search) => ({
+    type: 'recent' as const,
+    value: search,
+    label: search,
+    meta: 'Recent'
+  })),
+  // Provided suggestions
+  ...suggestions.filter((s) =>
+  s.label.toLowerCase().includes(filters.search.toLowerCase()) ||
+  s.value.toLowerCase().includes(filters.search.toLowerCase())
+  )];
+
 
   return (
     <div className={`relative ${className}`}>
@@ -129,140 +129,140 @@ const PlayerSearchBar = React.forwardRef<HTMLInputElement, PlayerSearchBarProps>
               value={filters.search}
               onChange={(e) => handleInputChange(e.target.value)}
               onFocus={handleFocus}
-              className="pl-10 pr-8"
-            />
-            {filters.search && (
-              <Button
-                variant="ghost"
-                size="sm"
-                className="absolute right-1 top-1/2 transform -translate-y-1/2 h-6 w-6 p-0"
-                onClick={clearSearch}
-              >
+              className="pl-10 pr-8" />
+
+            {filters.search &&
+            <Button
+              variant="ghost"
+              size="sm"
+              className="absolute right-1 top-1/2 transform -translate-y-1/2 h-6 w-6 p-0"
+              onClick={clearSearch}>
+
                 <X className="h-3 w-3" />
               </Button>
-            )}
+            }
           </div>
         </PopoverTrigger>
         
         <PopoverContent className="w-[400px] p-0" align="start">
           <Command>
             <CommandList>
-              {combinedSuggestions.length === 0 ? (
-                <CommandEmpty>
+              {combinedSuggestions.length === 0 ?
+              <CommandEmpty>
                   {filters.search ? 'No suggestions found' : 'Start typing to search...'}
-                </CommandEmpty>
-              ) : (
-                <>
+                </CommandEmpty> :
+
+              <>
                   {/* Recent searches */}
-                  {recentSearches.length > 0 && (
-                    <CommandGroup heading="Recent Searches">
-                      {recentSearches.map((search, index) => (
-                        <CommandItem
-                          key={`recent-${index}`}
-                          value={search}
-                          onSelect={() => handleSuggestionSelect({
-                            type: 'recent',
-                            value: search,
-                            label: search
-                          })}
-                        >
+                  {recentSearches.length > 0 &&
+                <CommandGroup heading="Recent Searches">
+                      {recentSearches.map((search, index) =>
+                  <CommandItem
+                    key={`recent-${index}`}
+                    value={search}
+                    onSelect={() => handleSuggestionSelect({
+                      type: 'recent',
+                      value: search,
+                      label: search
+                    })}>
+
                           <Clock className="mr-2 h-4 w-4" />
                           <span>{search}</span>
                         </CommandItem>
-                      ))}
+                  )}
                       <CommandItem onSelect={clearRecentSearches}>
                         <X className="mr-2 h-4 w-4" />
                         <span className="text-muted-foreground">Clear recent searches</span>
                       </CommandItem>
                     </CommandGroup>
-                  )}
+                }
 
                   {/* Player suggestions */}
-                  {suggestions.filter(s => s.type === 'player').length > 0 && (
-                    <CommandGroup heading="Players">
-                      {suggestions
-                        .filter(s => s.type === 'player')
-                        .slice(0, 5)
-                        .map((suggestion, index) => (
-                          <CommandItem
-                            key={`player-${index}`}
-                            value={suggestion.value}
-                            onSelect={() => handleSuggestionSelect(suggestion)}
-                          >
+                  {suggestions.filter((s) => s.type === 'player').length > 0 &&
+                <CommandGroup heading="Players">
+                      {suggestions.
+                  filter((s) => s.type === 'player').
+                  slice(0, 5).
+                  map((suggestion, index) =>
+                  <CommandItem
+                    key={`player-${index}`}
+                    value={suggestion.value}
+                    onSelect={() => handleSuggestionSelect(suggestion)}>
+
                             <User className="mr-2 h-4 w-4" />
                             <div className="flex flex-col">
                               <span>{suggestion.label}</span>
-                              {suggestion.meta && (
-                                <span className="text-xs text-muted-foreground">
+                              {suggestion.meta &&
+                      <span className="text-xs text-muted-foreground">
                                   {suggestion.meta}
                                 </span>
-                              )}
+                      }
                             </div>
                           </CommandItem>
-                        ))}
-                    </CommandGroup>
                   )}
+                    </CommandGroup>
+                }
 
                   {/* Team suggestions */}
-                  {suggestions.filter(s => s.type === 'team').length > 0 && (
-                    <CommandGroup heading="Teams">
-                      {suggestions
-                        .filter(s => s.type === 'team')
-                        .slice(0, 3)
-                        .map((suggestion, index) => (
-                          <CommandItem
-                            key={`team-${index}`}
-                            value={suggestion.value}
-                            onSelect={() => handleSuggestionSelect(suggestion)}
-                          >
+                  {suggestions.filter((s) => s.type === 'team').length > 0 &&
+                <CommandGroup heading="Teams">
+                      {suggestions.
+                  filter((s) => s.type === 'team').
+                  slice(0, 3).
+                  map((suggestion, index) =>
+                  <CommandItem
+                    key={`team-${index}`}
+                    value={suggestion.value}
+                    onSelect={() => handleSuggestionSelect(suggestion)}>
+
                             <div className="flex flex-col">
                               <span>{suggestion.label}</span>
-                              {suggestion.meta && (
-                                <span className="text-xs text-muted-foreground">
+                              {suggestion.meta &&
+                      <span className="text-xs text-muted-foreground">
                                   {suggestion.meta}
                                 </span>
-                              )}
+                      }
                             </div>
                           </CommandItem>
-                        ))}
-                    </CommandGroup>
                   )}
+                    </CommandGroup>
+                }
 
                   {/* Owner suggestions */}
-                  {suggestions.filter(s => s.type === 'owner').length > 0 && (
-                    <CommandGroup heading="Owners">
-                      {suggestions
-                        .filter(s => s.type === 'owner')
-                        .slice(0, 3)
-                        .map((suggestion, index) => (
-                          <CommandItem
-                            key={`owner-${index}`}
-                            value={suggestion.value}
-                            onSelect={() => handleSuggestionSelect(suggestion)}
-                          >
+                  {suggestions.filter((s) => s.type === 'owner').length > 0 &&
+                <CommandGroup heading="Owners">
+                      {suggestions.
+                  filter((s) => s.type === 'owner').
+                  slice(0, 3).
+                  map((suggestion, index) =>
+                  <CommandItem
+                    key={`owner-${index}`}
+                    value={suggestion.value}
+                    onSelect={() => handleSuggestionSelect(suggestion)}>
+
                             <User className="mr-2 h-4 w-4" />
                             <div className="flex flex-col">
                               <span>{suggestion.label}</span>
-                              {suggestion.meta && (
-                                <span className="text-xs text-muted-foreground">
+                              {suggestion.meta &&
+                      <span className="text-xs text-muted-foreground">
                                   {suggestion.meta}
                                 </span>
-                              )}
+                      }
                             </div>
                           </CommandItem>
-                        ))}
-                    </CommandGroup>
                   )}
+                    </CommandGroup>
+                }
                 </>
-              )}
+              }
             </CommandList>
           </Command>
         </PopoverContent>
       </Popover>
 
       {/* Search tips */}
-      {filters.search && (
-        <div className="mt-2 flex flex-wrap gap-1">
+      {filters.search &&
+      <div className="mt-2 flex flex-wrap gap-1">
           <Badge variant="secondary" className="text-xs">
             Press Enter to search
           </Badge>
@@ -270,9 +270,9 @@ const PlayerSearchBar = React.forwardRef<HTMLInputElement, PlayerSearchBarProps>
             Ctrl+F to focus
           </Badge>
         </div>
-      )}
-    </div>
-  );
+      }
+    </div>);
+
 });
 
 export default PlayerSearchBar;

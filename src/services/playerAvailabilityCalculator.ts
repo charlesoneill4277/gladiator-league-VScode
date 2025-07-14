@@ -145,6 +145,10 @@ export class PlayerAvailabilityCalculator {
 
 
 
+
+
+
+
           // You might need to adjust this based on your team-conference relationship structure
           // For now, assuming there's a conference_id field or junction table
         }} // Check waiver status if applicable
@@ -156,11 +160,7 @@ export class PlayerAvailabilityCalculator {
         // Calculate waiver priority based on team standings or waiver order
         // This would require additional logic based on your waiver system
       } // Get last transaction date
-      const { data: historyData, error: historyError } = await window.ezsite.apis.tablePage(this.TABLE_IDS.PLAYER_ROSTER_HISTORY, { PageNo: 1, PageSize: 1,
-          Filters: [
-          { name: 'player_id', op: 'Equal', value: playerId },
-          { name: 'season_id', op: 'Equal', value: seasonId }],
-
+      const { data: historyData, error: historyError } = await window.ezsite.apis.tablePage(this.TABLE_IDS.PLAYER_ROSTER_HISTORY, { PageNo: 1, PageSize: 1, Filters: [{ name: 'player_id', op: 'Equal', value: playerId }, { name: 'season_id', op: 'Equal', value: seasonId }],
           OrderByField: 'transaction_date',
           IsAsc: false
         });

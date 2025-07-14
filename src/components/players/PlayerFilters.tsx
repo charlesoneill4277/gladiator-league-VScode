@@ -31,7 +31,7 @@ const PlayerFilters: React.FC<PlayerFiltersProps> = ({
     importFilters,
     getFilterCount
   } = usePlayerFilters();
-  
+
   const [isAdvancedOpen, setIsAdvancedOpen] = useState(false);
   const [isExportOpen, setIsExportOpen] = useState(false);
 
@@ -46,10 +46,10 @@ const PlayerFilters: React.FC<PlayerFiltersProps> = ({
 
   // Handle filter import
   const handleImport = () => {
-    navigator.clipboard.readText().then(text => {
+    navigator.clipboard.readText().then((text) => {
       importFilters(text);
       onImport?.();
-    }).catch(err => {
+    }).catch((err) => {
       console.error('Failed to read clipboard:', err);
     });
   };
@@ -57,10 +57,8 @@ const PlayerFilters: React.FC<PlayerFiltersProps> = ({
   // Get position label
   const getPositionLabel = (position: string) => {
     switch (position) {
-      case 'all': return 'All Positions';
-      case 'offense': return 'All Offense';
-      case 'defense': return 'All Defense';
-      default: return position;
+      case 'all':return 'All Positions';
+      default:return position;
     }
   };
 
@@ -71,39 +69,39 @@ const PlayerFilters: React.FC<PlayerFiltersProps> = ({
           <div className="flex items-center space-x-2">
             <Filter className="h-5 w-5" />
             <CardTitle className="text-base">Filters</CardTitle>
-            {filterCount > 0 && (
-              <Badge variant="secondary">{filterCount}</Badge>
-            )}
+            {filterCount > 0 &&
+            <Badge variant="secondary">{filterCount}</Badge>
+            }
           </div>
           <div className="flex items-center space-x-2">
-            {showAdvanced && (
-              <>
+            {showAdvanced &&
+            <>
                 <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={handleExport}
-                  className="text-xs"
-                >
+                variant="ghost"
+                size="sm"
+                onClick={handleExport}
+                className="text-xs">
+
                   <Download className="h-3 w-3 mr-1" />
                   Export
                 </Button>
                 <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={handleImport}
-                  className="text-xs"
-                >
+                variant="ghost"
+                size="sm"
+                onClick={handleImport}
+                className="text-xs">
+
                   <Upload className="h-3 w-3 mr-1" />
                   Import
                 </Button>
               </>
-            )}
+            }
             <Button
               variant="ghost"
               size="sm"
               onClick={clearFilters}
-              disabled={filterCount === 0}
-            >
+              disabled={filterCount === 0}>
+
               <X className="h-4 w-4 mr-1" />
               Clear
             </Button>
@@ -122,11 +120,11 @@ const PlayerFilters: React.FC<PlayerFiltersProps> = ({
                 <SelectValue>{getPositionLabel(filters.position)}</SelectValue>
               </SelectTrigger>
               <SelectContent>
-                {filterOptions.positions.map((position) => (
-                  <SelectItem key={position} value={position}>
+                {filterOptions.positions.map((position) =>
+                <SelectItem key={position} value={position}>
                     {getPositionLabel(position)}
                   </SelectItem>
-                ))}
+                )}
               </SelectContent>
             </Select>
           </div>
@@ -139,11 +137,11 @@ const PlayerFilters: React.FC<PlayerFiltersProps> = ({
                 <SelectValue>{filters.nflTeam === 'all' ? 'All Teams' : filters.nflTeam}</SelectValue>
               </SelectTrigger>
               <SelectContent>
-                {filterOptions.nflTeams.map((team) => (
-                  <SelectItem key={team} value={team}>
+                {filterOptions.nflTeams.map((team) =>
+                <SelectItem key={team} value={team}>
                     {team === 'all' ? 'All Teams' : team}
                   </SelectItem>
-                ))}
+                )}
               </SelectContent>
             </Select>
           </div>
@@ -154,11 +152,11 @@ const PlayerFilters: React.FC<PlayerFiltersProps> = ({
             <Select value={filters.conference} onValueChange={(value) => updateFilter('conference', value)}>
               <SelectTrigger>
                 <SelectValue>
-                  {filters.conference === 'all' ? 'All Conferences' : 
-                   filters.conference === 'mars' ? 'Legions of Mars' :
-                   filters.conference === 'jupiter' ? 'Guardians of Jupiter' :
-                   filters.conference === 'vulcan' ? 'Vulcan\'s Oathsworn' : 
-                   filters.conference}
+                  {filters.conference === 'all' ? 'All Conferences' :
+                  filters.conference === 'mars' ? 'Legions of Mars' :
+                  filters.conference === 'jupiter' ? 'Guardians of Jupiter' :
+                  filters.conference === 'vulcan' ? 'Vulcan\'s Oathsworn' :
+                  filters.conference}
                 </SelectValue>
               </SelectTrigger>
               <SelectContent>
@@ -172,8 +170,8 @@ const PlayerFilters: React.FC<PlayerFiltersProps> = ({
         </div>
 
         {/* Advanced Filters */}
-        {showAdvanced && (
-          <Collapsible open={isAdvancedOpen} onOpenChange={setIsAdvancedOpen}>
+        {showAdvanced &&
+        <Collapsible open={isAdvancedOpen} onOpenChange={setIsAdvancedOpen}>
             <CollapsibleTrigger asChild>
               <Button variant="ghost" className="w-full justify-between">
                 <span>Advanced Filters</span>
@@ -192,10 +190,10 @@ const PlayerFilters: React.FC<PlayerFiltersProps> = ({
                     <SelectTrigger>
                       <SelectValue>
                         {filters.availabilityStatus === 'all' ? 'All Players' :
-                         filters.availabilityStatus === 'available' ? 'Available' :
-                         filters.availabilityStatus === 'owned' ? 'Owned' :
-                         filters.availabilityStatus === 'waivers' ? 'On Waivers' :
-                         filters.availabilityStatus}
+                      filters.availabilityStatus === 'available' ? 'Available' :
+                      filters.availabilityStatus === 'owned' ? 'Owned' :
+                      filters.availabilityStatus === 'waivers' ? 'On Waivers' :
+                      filters.availabilityStatus}
                       </SelectValue>
                     </SelectTrigger>
                     <SelectContent>
@@ -214,18 +212,18 @@ const PlayerFilters: React.FC<PlayerFiltersProps> = ({
                     <SelectTrigger>
                       <SelectValue>
                         {filters.injuryStatus === 'all' ? 'All' :
-                         filters.injuryStatus === 'healthy' ? 'Healthy' :
-                         filters.injuryStatus}
+                      filters.injuryStatus === 'healthy' ? 'Healthy' :
+                      filters.injuryStatus}
                       </SelectValue>
                     </SelectTrigger>
                     <SelectContent>
-                      {filterOptions.injuryStatuses.map((status) => (
-                        <SelectItem key={status} value={status}>
+                      {filterOptions.injuryStatuses.map((status) =>
+                    <SelectItem key={status} value={status}>
                           {status === 'all' ? 'All' :
-                           status === 'healthy' ? 'Healthy' :
-                           status}
+                      status === 'healthy' ? 'Healthy' :
+                      status}
                         </SelectItem>
-                      ))}
+                    )}
                     </SelectContent>
                   </Select>
                 </div>
@@ -237,26 +235,26 @@ const PlayerFilters: React.FC<PlayerFiltersProps> = ({
                     <SelectTrigger>
                       <SelectValue>
                         {filters.rosterStatus === 'all' ? 'All' :
-                         filters.rosterStatus === 'active' ? 'Active' :
-                         filters.rosterStatus === 'bench' ? 'Bench' :
-                         filters.rosterStatus === 'ir' ? 'IR' :
-                         filters.rosterStatus === 'taxi' ? 'Taxi Squad' :
-                         filters.rosterStatus === 'free_agent' ? 'Free Agent' :
-                         filters.rosterStatus}
+                      filters.rosterStatus === 'active' ? 'Active' :
+                      filters.rosterStatus === 'bench' ? 'Bench' :
+                      filters.rosterStatus === 'ir' ? 'IR' :
+                      filters.rosterStatus === 'taxi' ? 'Taxi Squad' :
+                      filters.rosterStatus === 'free_agent' ? 'Free Agent' :
+                      filters.rosterStatus}
                       </SelectValue>
                     </SelectTrigger>
                     <SelectContent>
-                      {filterOptions.rosterStatuses.map((status) => (
-                        <SelectItem key={status} value={status}>
+                      {filterOptions.rosterStatuses.map((status) =>
+                    <SelectItem key={status} value={status}>
                           {status === 'all' ? 'All' :
-                           status === 'active' ? 'Active' :
-                           status === 'bench' ? 'Bench' :
-                           status === 'ir' ? 'IR' :
-                           status === 'taxi' ? 'Taxi Squad' :
-                           status === 'free_agent' ? 'Free Agent' :
-                           status}
+                      status === 'active' ? 'Active' :
+                      status === 'bench' ? 'Bench' :
+                      status === 'ir' ? 'IR' :
+                      status === 'taxi' ? 'Taxi Squad' :
+                      status === 'free_agent' ? 'Free Agent' :
+                      status}
                         </SelectItem>
-                      ))}
+                    )}
                     </SelectContent>
                   </Select>
                 </div>
@@ -267,10 +265,10 @@ const PlayerFilters: React.FC<PlayerFiltersProps> = ({
                 <Label>Special Filters</Label>
                 <div className="flex items-center space-x-2">
                   <Switch
-                    id="multiple-teams"
-                    checked={filters.ownedByMultipleTeams}
-                    onCheckedChange={(checked) => updateFilter('ownedByMultipleTeams', checked)}
-                  />
+                  id="multiple-teams"
+                  checked={filters.ownedByMultipleTeams}
+                  onCheckedChange={(checked) => updateFilter('ownedByMultipleTeams', checked)} />
+
                   <Label htmlFor="multiple-teams">
                     Show players owned by multiple teams
                   </Label>
@@ -286,11 +284,11 @@ const PlayerFilters: React.FC<PlayerFiltersProps> = ({
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      {filterOptions.sortOptions.map((option) => (
-                        <SelectItem key={option.value} value={option.value}>
+                      {filterOptions.sortOptions.map((option) =>
+                    <SelectItem key={option.value} value={option.value}>
                           {option.label}
                         </SelectItem>
-                      ))}
+                    )}
                     </SelectContent>
                   </Select>
                   <Select value={filters.sortDirection} onValueChange={(value) => updateFilter('sortDirection', value)}>
@@ -306,97 +304,97 @@ const PlayerFilters: React.FC<PlayerFiltersProps> = ({
               </div>
             </CollapsibleContent>
           </Collapsible>
-        )}
+        }
 
         {/* Active Filters Summary */}
-        {filterCount > 0 && (
-          <div className="space-y-2">
+        {filterCount > 0 &&
+        <div className="space-y-2">
             <Label>Active Filters ({filterCount})</Label>
             <div className="flex flex-wrap gap-2">
-              {filters.search && (
-                <Badge variant="secondary">
+              {filters.search &&
+            <Badge variant="secondary">
                   Search: {filters.search}
                   <Button
-                    variant="ghost"
-                    size="sm"
-                    className="ml-1 h-4 w-4 p-0"
-                    onClick={() => updateFilter('search', '')}
-                  >
+                variant="ghost"
+                size="sm"
+                className="ml-1 h-4 w-4 p-0"
+                onClick={() => updateFilter('search', '')}>
+
                     <X className="h-3 w-3" />
                   </Button>
                 </Badge>
-              )}
-              {filters.position !== 'all' && (
-                <Badge variant="secondary">
+            }
+              {filters.position !== 'all' &&
+            <Badge variant="secondary">
                   Position: {getPositionLabel(filters.position)}
                   <Button
-                    variant="ghost"
-                    size="sm"
-                    className="ml-1 h-4 w-4 p-0"
-                    onClick={() => updateFilter('position', 'all')}
-                  >
+                variant="ghost"
+                size="sm"
+                className="ml-1 h-4 w-4 p-0"
+                onClick={() => updateFilter('position', 'all')}>
+
                     <X className="h-3 w-3" />
                   </Button>
                 </Badge>
-              )}
-              {filters.nflTeam !== 'all' && (
-                <Badge variant="secondary">
+            }
+              {filters.nflTeam !== 'all' &&
+            <Badge variant="secondary">
                   NFL Team: {filters.nflTeam}
                   <Button
-                    variant="ghost"
-                    size="sm"
-                    className="ml-1 h-4 w-4 p-0"
-                    onClick={() => updateFilter('nflTeam', 'all')}
-                  >
+                variant="ghost"
+                size="sm"
+                className="ml-1 h-4 w-4 p-0"
+                onClick={() => updateFilter('nflTeam', 'all')}>
+
                     <X className="h-3 w-3" />
                   </Button>
                 </Badge>
-              )}
-              {filters.conference !== 'all' && (
-                <Badge variant="secondary">
+            }
+              {filters.conference !== 'all' &&
+            <Badge variant="secondary">
                   Conference: {filters.conference}
                   <Button
-                    variant="ghost"
-                    size="sm"
-                    className="ml-1 h-4 w-4 p-0"
-                    onClick={() => updateFilter('conference', 'all')}
-                  >
+                variant="ghost"
+                size="sm"
+                className="ml-1 h-4 w-4 p-0"
+                onClick={() => updateFilter('conference', 'all')}>
+
                     <X className="h-3 w-3" />
                   </Button>
                 </Badge>
-              )}
-              {filters.availabilityStatus !== 'all' && (
-                <Badge variant="secondary">
+            }
+              {filters.availabilityStatus !== 'all' &&
+            <Badge variant="secondary">
                   Availability: {filters.availabilityStatus}
                   <Button
-                    variant="ghost"
-                    size="sm"
-                    className="ml-1 h-4 w-4 p-0"
-                    onClick={() => updateFilter('availabilityStatus', 'all')}
-                  >
+                variant="ghost"
+                size="sm"
+                className="ml-1 h-4 w-4 p-0"
+                onClick={() => updateFilter('availabilityStatus', 'all')}>
+
                     <X className="h-3 w-3" />
                   </Button>
                 </Badge>
-              )}
-              {filters.ownedByMultipleTeams && (
-                <Badge variant="secondary">
+            }
+              {filters.ownedByMultipleTeams &&
+            <Badge variant="secondary">
                   Multi-owned
                   <Button
-                    variant="ghost"
-                    size="sm"
-                    className="ml-1 h-4 w-4 p-0"
-                    onClick={() => updateFilter('ownedByMultipleTeams', false)}
-                  >
+                variant="ghost"
+                size="sm"
+                className="ml-1 h-4 w-4 p-0"
+                onClick={() => updateFilter('ownedByMultipleTeams', false)}>
+
                     <X className="h-3 w-3" />
                   </Button>
                 </Badge>
-              )}
+            }
             </div>
           </div>
-        )}
+        }
       </CardContent>
-    </Card>
-  );
+    </Card>);
+
 };
 
 export default PlayerFilters;
