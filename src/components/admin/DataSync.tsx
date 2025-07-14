@@ -7,8 +7,9 @@ import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Checkbox } from '@/components/ui/checkbox';
 import { useToast } from '@/hooks/use-toast';
-import { RefreshCw, Download, CheckCircle, AlertCircle, Clock, Database, Users, Trophy, UserCheck, Target, Server } from 'lucide-react';
+import { RefreshCw, Download, CheckCircle, AlertCircle, Clock, Database, Users, Trophy, UserCheck, Target, Server, Calendar, Filter } from 'lucide-react';
 import DraftService from '@/services/draftService';
 
 interface Season {
@@ -123,6 +124,12 @@ const DataSync: React.FC = () => {
   const [selectedTeamFilter, setSelectedTeamFilter] = useState<string>('all');
   const [selectedPositionFilter, setSelectedPositionFilter] = useState<string>('all');
   const [selectedStatusFilter, setSelectedStatusFilter] = useState<string>('all');
+
+  // Team Rosters sync filters
+  const [rosterSyncMode, setRosterSyncMode] = useState<string>('all'); // 'all', 'range', 'specific'
+  const [selectedStartWeek, setSelectedStartWeek] = useState<number>(1);
+  const [selectedEndWeek, setSelectedEndWeek] = useState<number>(17);
+  const [selectedSpecificWeeks, setSelectedSpecificWeeks] = useState<number[]>([]);
 
   const { toast } = useToast();
 
@@ -264,11 +271,56 @@ const DataSync: React.FC = () => {
     }
   };
 
+  const getWeeksToProcess = (): number[] => {
+    switch (rosterSyncMode) {
+      case 'range':
+        const weeks: number[] = [];
+        for (let week = selectedStartWeek; week <= selectedEndWeek; week++) {
+          weeks.push(week);
+        }
+        return weeks;
+      case 'specific':
+        return [...selectedSpecificWeeks];
+      case 'all':
+      default:
+        return Array.from({ length: 17 }, (_, i) => i + 1); // weeks 1-17
+    }
+  };
+
+  const handleSpecificWeekToggle = (week: number) => {
+    setSelectedSpecificWeeks(prev => {
+      if (prev.includes(week)) {
+        return prev.filter(w => w !== week);
+      } else {
+        return [...prev, week].sort((a, b) => a - b);
+      }
+    });
+  };
+
+  const selectAllWeeks = () => {
+    setSelectedSpecificWeeks(Array.from({ length: 17 }, (_, i) => i + 1));
+  };
+
+  const clearAllWeeks = () => {
+    setSelectedSpecificWeeks([]);
+  };
+
+
   const syncRostersData = async () => {
     if (!selectedSeasonId || conferences.length === 0) {
       toast({
         title: "No Data to Sync",
         description: "Please select a season with conferences to sync rosters",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    const weeksToProcess = getWeeksToProcess();
+    if (weeksToProcess.length === 0) {
+      toast({
+        title: "No Weeks Selected",
+        description: "Please select at least one week to sync",
         variant: "destructive"
       });
       return;
@@ -280,6 +332,7 @@ const DataSync: React.FC = () => {
 
     try {
       console.log('Starting team rosters sync from Sleeper API...');
+      console.log(`Syncing weeks: ${weeksToProcess.join(', ')}`);
       setRostersProgress(5);
 
       let playersProcessed = 0;
@@ -287,15 +340,16 @@ const DataSync: React.FC = () => {
       let rostersUpdated = 0;
       let leaguesProcessed = 0;
       let weeksProcessed = 0;
-      const totalOperations = conferences.length * 17; // 17 weeks per season
+      const totalOperations = conferences.length * weeksToProcess.length;
       let operationCount = 0;
 
       for (const conference of conferences) {
         try {
           console.log(`Processing rosters for league ${conference.league_id}...`);
 
-          // Process weeks 1-17 for this league
-          for (let week = 1; week <= 17; week++) {
+          // Process selected weeks for this league
+          for (const week of weeksToProcess) {
+
             try {
               console.log(`Fetching roster data for league ${conference.league_id}, week ${week}...`);
 
@@ -361,11 +415,11 @@ const DataSync: React.FC = () => {
                         PageNo: 1,
                         PageSize: 1,
                         Filters: [
-                          { name: 'team_id', op: 'Equal', value: teamId },
-                          { name: 'player_id', op: 'Equal', value: playerId },
-                          { name: 'season_id', op: 'Equal', value: selectedSeasonId },
-                          { name: 'week', op: 'Equal', value: week }
-                        ]
+                        { name: 'team_id', op: 'Equal', value: teamId },
+                        { name: 'player_id', op: 'Equal', value: playerId },
+                        { name: 'season_id', op: 'Equal', value: selectedSeasonId },
+                        { name: 'week', op: 'Equal', value: week }]
+
                       });
 
                       if (rosterSearchError) {
@@ -729,6 +783,123 @@ const DataSync: React.FC = () => {
                     </Button>
                   </div>
 
+                  {/* Week Filtering Controls */}
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <Filter className="h-5 w-5" />
+                        Week Filtering Options
+                      </CardTitle>
+                      <CardDescription>
+                        Choose which weeks to sync for team rosters data
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <div className="flex items-center gap-4">
+                        <Select value={rosterSyncMode} onValueChange={setRosterSyncMode}>
+                          <SelectTrigger className="w-[200px]">
+                            <SelectValue placeholder="Select sync mode" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="all">All Weeks (1-17)</SelectItem>
+                            <SelectItem value="range">Week Range</SelectItem>
+                            <SelectItem value="specific">Specific Weeks</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        
+                        {rosterSyncMode === 'range' && (
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm">From week:</span>
+                            <Select 
+                              value={selectedStartWeek.toString()} 
+                              onValueChange={(value) => setSelectedStartWeek(parseInt(value))}
+                            >
+                              <SelectTrigger className="w-20">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {Array.from({ length: 17 }, (_, i) => i + 1).map(week => (
+                                  <SelectItem key={week} value={week.toString()}>{week}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                            <span className="text-sm">to week:</span>
+                            <Select 
+                              value={selectedEndWeek.toString()} 
+                              onValueChange={(value) => setSelectedEndWeek(parseInt(value))}
+                            >
+                              <SelectTrigger className="w-20">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {Array.from({ length: 17 }, (_, i) => i + 1).map(week => (
+                                  <SelectItem key={week} value={week.toString()}>{week}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        )}
+                      </div>
+
+                      {rosterSyncMode === 'specific' && (
+                        <div className="space-y-3">
+                          <div className="flex items-center gap-2">
+                            <Button 
+                              variant="outline" 
+                              size="sm" 
+                              onClick={selectAllWeeks}
+                              className="text-xs"
+                            >
+                              Select All
+                            </Button>
+                            <Button 
+                              variant="outline" 
+                              size="sm" 
+                              onClick={clearAllWeeks}
+                              className="text-xs"
+                            >
+                              Clear All
+                            </Button>
+                            <span className="text-sm text-muted-foreground">
+                              {selectedSpecificWeeks.length} weeks selected
+                            </span>
+                          </div>
+                          <div className="grid grid-cols-9 gap-2">
+                            {Array.from({ length: 17 }, (_, i) => i + 1).map(week => (
+                              <div key={week} className="flex items-center space-x-1">
+                                <Checkbox
+                                  id={`week-${week}`}
+                                  checked={selectedSpecificWeeks.includes(week)}
+                                  onCheckedChange={() => handleSpecificWeekToggle(week)}
+                                />
+                                <label 
+                                  htmlFor={`week-${week}`} 
+                                  className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                                >
+                                  {week}
+                                </label>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded">
+                        <div className="flex items-center gap-2 mb-1">
+                          <Calendar className="h-4 w-4 text-blue-600" />
+                          <span className="text-sm font-medium text-blue-800">Sync Summary</span>
+                        </div>
+                        <div className="text-sm text-blue-700">
+                          {(() => {
+                            const weeks = getWeeksToProcess();
+                            return `Will sync ${weeks.length} week${weeks.length !== 1 ? 's' : ''} (${weeks.join(', ')}) across ${conferences.length} conference${conferences.length !== 1 ? 's' : ''} = ${weeks.length * conferences.length} total operations`;
+                          })()}
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+
                   {syncingRosters &&
                   <div>
                       <div className="flex items-center justify-between mb-2">
@@ -745,7 +916,7 @@ const DataSync: React.FC = () => {
                         Team Rosters Synchronization - {selectedSeason.season_name}
                       </CardTitle>
                       <CardDescription>
-                        Sync weekly team roster data from Sleeper API using matchups endpoint for all {conferences.length} conference{conferences.length !== 1 ? 's' : ''} across weeks 1-17
+                        Sync weekly team roster data from Sleeper API using matchups endpoint for {conferences.length} conference{conferences.length !== 1 ? 's' : ''} across selected weeks
                       </CardDescription>
                     </CardHeader>
                     <CardContent>
@@ -813,14 +984,14 @@ const DataSync: React.FC = () => {
                           )}
                         </div>
                         <div className="mt-2 text-xs text-muted-foreground">
-                          Total operations: {conferences.length} leagues × 17 weeks = {conferences.length * 17} API calls
+                          Total operations: {conferences.length} leagues × {getWeeksToProcess().length} weeks = {conferences.length * getWeeksToProcess().length} API calls
                         </div>
                       </div>
                       
                       <Alert className="mt-4">
                         <AlertCircle className="h-4 w-4" />
                         <AlertDescription>
-                          <strong>Note:</strong> This sync processes team rosters for weeks 1-17 across all conferences using the matchups endpoint. 
+                          <strong>Note:</strong> This sync processes team rosters for the selected weeks across all conferences using the matchups endpoint. 
                           The "players" array from each matchup entry contains all players on that team's roster for that specific week. 
                           Weeks that don't exist yet (future weeks) will be skipped automatically.
                         </AlertDescription>
