@@ -11,6 +11,7 @@ import { Shield, Lock, Settings, Database, Clock, Activity, Calendar } from 'luc
 import LeagueManager from '@/components/admin/LeagueManager';
 import DataSync from '@/components/admin/DataSync';
 import MatchupsManagement from '@/components/admin/MatchupsManagement';
+import MatchupCompletionManager from '@/components/admin/MatchupCompletionManager';
 
 const AdminPage: React.FC = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -171,7 +172,7 @@ const AdminPage: React.FC = () => {
       </div>
 
       <Tabs defaultValue="league-manager" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="league-manager" className="flex items-center gap-2">
             <Settings className="h-4 w-4" />
             League Manager
@@ -183,6 +184,10 @@ const AdminPage: React.FC = () => {
           <TabsTrigger value="matchups-management" className="flex items-center gap-2">
             <Calendar className="h-4 w-4" />
             Matchups
+          </TabsTrigger>
+          <TabsTrigger value="records-management" className="flex items-center gap-2">
+            <Activity className="h-4 w-4" />
+            Records
           </TabsTrigger>
         </TabsList>
 
@@ -196,6 +201,10 @@ const AdminPage: React.FC = () => {
 
         <TabsContent value="matchups-management">
           <MatchupsManagement />
+        </TabsContent>
+
+        <TabsContent value="records-management">
+          <MatchupCompletionManager />
         </TabsContent>
       </Tabs>
     </div>);

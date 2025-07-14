@@ -26,7 +26,7 @@ export interface StandingsData {
 export class StandingsService {
   // Map string conference IDs to numeric database IDs
   private static getConferenceIdFromString(conferenceId: string): number | null {
-    const mapping: { [key: string]: number } = {
+    const mapping: {[key: string]: number;} = {
       'mars': 1,
       'jupiter': 2,
       'vulcan': 3
@@ -43,8 +43,8 @@ export class StandingsService {
         OrderByField: 'id',
         IsAsc: true,
         Filters: [
-          { name: 'season_year', op: 'Equal', value: seasonYear }
-        ]
+        { name: 'season_year', op: 'Equal', value: seasonYear }]
+
       });
 
       if (seasonsResponse.error) {
@@ -60,13 +60,13 @@ export class StandingsService {
       const seasonId = seasons[0].id;
 
       const filters = [
-        { name: 'season_id', op: 'Equal', value: seasonId }
-      ];
+      { name: 'season_id', op: 'Equal', value: seasonId }];
+
 
       if (conferenceId && conferenceId !== 'all') {
         // Convert string conference ID to numeric if needed
-        const numericConferenceId = typeof conferenceId === 'string' ? 
-          this.getConferenceIdFromString(conferenceId) : conferenceId;
+        const numericConferenceId = typeof conferenceId === 'string' ?
+        this.getConferenceIdFromString(conferenceId) : conferenceId;
         if (numericConferenceId) {
           filters.push({ name: 'conference_id', op: 'Equal', value: numericConferenceId });
         }
@@ -161,11 +161,11 @@ export class StandingsService {
   static async getTopStandings(seasonYear: number, limit: number = 5): Promise<StandingsData[]> {
     try {
       const allStandings = await this.getStandingsData(seasonYear);
-      
+
       // Sort by overall rank and return top teams
-      return allStandings
-        .sort((a, b) => a.overall_rank - b.overall_rank)
-        .slice(0, limit);
+      return allStandings.
+      sort((a, b) => a.overall_rank - b.overall_rank).
+      slice(0, limit);
     } catch (error) {
       console.error('Error fetching top standings:', error);
       throw error;

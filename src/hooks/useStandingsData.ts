@@ -28,7 +28,7 @@ export const useStandingsData = (options: UseStandingsDataOptions): UseStandings
       setError(null);
 
       let data: StandingsData[];
-      
+
       if (limit) {
         data = await StandingsService.getTopStandings(seasonYear, limit);
       } else {
