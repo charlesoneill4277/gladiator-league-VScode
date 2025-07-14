@@ -288,9 +288,9 @@ const DataSync: React.FC = () => {
   };
 
   const handleSpecificWeekToggle = (week: number) => {
-    setSelectedSpecificWeeks(prev => {
+    setSelectedSpecificWeeks((prev) => {
       if (prev.includes(week)) {
-        return prev.filter(w => w !== week);
+        return prev.filter((w) => w !== week);
       } else {
         return [...prev, week].sort((a, b) => a - b);
       }
@@ -814,57 +814,57 @@ const DataSync: React.FC = () => {
                           </SelectContent>
                         </Select>
                         
-                        {rosterSyncMode === 'range' && (
-                          <div className="flex items-center gap-2">
+                        {rosterSyncMode === 'range' &&
+                        <div className="flex items-center gap-2">
                             <span className="text-sm">From week:</span>
-                            <Select 
-                              value={selectedStartWeek.toString()} 
-                              onValueChange={(value) => setSelectedStartWeek(parseInt(value))}
-                            >
+                            <Select
+                            value={selectedStartWeek.toString()}
+                            onValueChange={(value) => setSelectedStartWeek(parseInt(value))}>
+
                               <SelectTrigger className="w-20">
                                 <SelectValue />
                               </SelectTrigger>
                               <SelectContent>
-                                {Array.from({ length: 17 }, (_, i) => i + 1).map(week => (
-                                  <SelectItem key={week} value={week.toString()}>{week}</SelectItem>
-                                ))}
+                                {Array.from({ length: 17 }, (_, i) => i + 1).map((week) =>
+                              <SelectItem key={week} value={week.toString()}>{week}</SelectItem>
+                              )}
                               </SelectContent>
                             </Select>
                             <span className="text-sm">to week:</span>
-                            <Select 
-                              value={selectedEndWeek.toString()} 
-                              onValueChange={(value) => setSelectedEndWeek(parseInt(value))}
-                            >
+                            <Select
+                            value={selectedEndWeek.toString()}
+                            onValueChange={(value) => setSelectedEndWeek(parseInt(value))}>
+
                               <SelectTrigger className="w-20">
                                 <SelectValue />
                               </SelectTrigger>
                               <SelectContent>
-                                {Array.from({ length: 17 }, (_, i) => i + 1).filter(week => week >= selectedStartWeek).map(week => (
-                                  <SelectItem key={week} value={week.toString()}>{week}</SelectItem>
-                                ))}
+                                {Array.from({ length: 17 }, (_, i) => i + 1).filter((week) => week >= selectedStartWeek).map((week) =>
+                              <SelectItem key={week} value={week.toString()}>{week}</SelectItem>
+                              )}
                               </SelectContent>
                             </Select>
                           </div>
-                        )}
+                        }
                       </div>
 
-                      {rosterSyncMode === 'specific' && (
-                        <div className="space-y-3">
+                      {rosterSyncMode === 'specific' &&
+                      <div className="space-y-3">
                           <div className="flex items-center gap-2">
-                            <Button 
-                              variant="outline" 
-                              size="sm" 
-                              onClick={selectAllWeeks}
-                              className="text-xs"
-                            >
+                            <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={selectAllWeeks}
+                            className="text-xs">
+
                               Select All
                             </Button>
-                            <Button 
-                              variant="outline" 
-                              size="sm" 
-                              onClick={clearAllWeeks}
-                              className="text-xs"
-                            >
+                            <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={clearAllWeeks}
+                            className="text-xs">
+
                               Clear All
                             </Button>
                             <span className="text-sm text-muted-foreground">
@@ -872,24 +872,24 @@ const DataSync: React.FC = () => {
                             </span>
                           </div>
                           <div className="grid grid-cols-9 gap-2">
-                            {Array.from({ length: 17 }, (_, i) => i + 1).map(week => (
-                              <div key={week} className="flex items-center space-x-1">
+                            {Array.from({ length: 17 }, (_, i) => i + 1).map((week) =>
+                          <div key={week} className="flex items-center space-x-1">
                                 <Checkbox
-                                  id={`week-${week}`}
-                                  checked={selectedSpecificWeeks.includes(week)}
-                                  onCheckedChange={() => handleSpecificWeekToggle(week)}
-                                />
-                                <label 
-                                  htmlFor={`week-${week}`} 
-                                  className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                                >
+                              id={`week-${week}`}
+                              checked={selectedSpecificWeeks.includes(week)}
+                              onCheckedChange={() => handleSpecificWeekToggle(week)} />
+
+                                <label
+                              htmlFor={`week-${week}`}
+                              className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+
                                   {week}
                                 </label>
                               </div>
-                            ))}
+                          )}
                           </div>
                         </div>
-                      )}
+                      }
 
                       <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded">
                         <div className="flex items-center gap-2 mb-1">
