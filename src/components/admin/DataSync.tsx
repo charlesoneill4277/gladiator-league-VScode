@@ -305,6 +305,13 @@ const DataSync: React.FC = () => {
     setSelectedSpecificWeeks([]);
   };
 
+  // Validation for week range
+  React.useEffect(() => {
+    if (selectedStartWeek > selectedEndWeek) {
+      setSelectedEndWeek(selectedStartWeek);
+    }
+  }, [selectedStartWeek, selectedEndWeek]);
+
 
   const syncRostersData = async () => {
     if (!selectedSeasonId || conferences.length === 0) {
@@ -832,7 +839,7 @@ const DataSync: React.FC = () => {
                                 <SelectValue />
                               </SelectTrigger>
                               <SelectContent>
-                                {Array.from({ length: 17 }, (_, i) => i + 1).map(week => (
+                                {Array.from({ length: 17 }, (_, i) => i + 1).filter(week => week >= selectedStartWeek).map(week => (
                                   <SelectItem key={week} value={week.toString()}>{week}</SelectItem>
                                 ))}
                               </SelectContent>
