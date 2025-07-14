@@ -92,13 +92,13 @@ export class PlayerAvailabilityCalculator {
    * Calculate real-time availability for a specific player
    */
   async calculatePlayerAvailability(
-    playerId: number,
-    seasonId: number,
-    week: number,
-    refreshCache = false
-  ): Promise<PlayerAvailability> {
+  playerId: number,
+  seasonId: number,
+  week: number,
+  refreshCache = false)
+  : Promise<PlayerAvailability> {
     const cacheKey = `availability_${playerId}_${seasonId}_${week}`;
-    
+
     if (!refreshCache) {
       const cached = this.getCachedData<PlayerAvailability>(cacheKey);
       if (cached) return cached;
@@ -110,11 +110,11 @@ export class PlayerAvailabilityCalculator {
         PageNo: 1,
         PageSize: 10,
         Filters: [
-          { name: 'player_id', op: 'Equal', value: playerId },
-          { name: 'season_id', op: 'Equal', value: seasonId },
-          { name: 'week', op: 'LessThanOrEqual', value: week },
-          { name: 'is_current', op: 'Equal', value: true }
-        ],
+        { name: 'player_id', op: 'Equal', value: playerId },
+        { name: 'season_id', op: 'Equal', value: seasonId },
+        { name: 'week', op: 'LessThanOrEqual', value: week },
+        { name: 'is_current', op: 'Equal', value: true }],
+
         OrderByField: 'week',
         IsAsc: false
       });
@@ -136,34 +136,34 @@ export class PlayerAvailabilityCalculator {
           PageNo: 1,
           PageSize: 1,
           Filters: [
-            { name: 'id', op: 'Equal', value: currentRoster.team_id }
-          ]
+          { name: 'id', op: 'Equal', value: currentRoster.team_id }]
+
         });
 
         if (!teamError && teamData?.List?.[0]) {
+
+
+
+
           // You might need to adjust this based on your team-conference relationship structure
           // For now, assuming there's a conference_id field or junction table
-        }
-      }
+        }} // Check waiver status if applicable
+      let waiverPriority = 0;if (rosterStatus === 'waiver') {
 
-      // Check waiver status if applicable
-      let waiverPriority = 0;
-      if (rosterStatus === 'waiver') {
+
+
+
         // Calculate waiver priority based on team standings or waiver order
         // This would require additional logic based on your waiver system
-      }
-
-      // Get last transaction date
-      const { data: historyData, error: historyError } = await window.ezsite.apis.tablePage(this.TABLE_IDS.PLAYER_ROSTER_HISTORY, {
-        PageNo: 1,
-        PageSize: 1,
-        Filters: [
+      } // Get last transaction date
+      const { data: historyData, error: historyError } = await window.ezsite.apis.tablePage(this.TABLE_IDS.PLAYER_ROSTER_HISTORY, { PageNo: 1, PageSize: 1,
+          Filters: [
           { name: 'player_id', op: 'Equal', value: playerId },
-          { name: 'season_id', op: 'Equal', value: seasonId }
-        ],
-        OrderByField: 'transaction_date',
-        IsAsc: false
-      });
+          { name: 'season_id', op: 'Equal', value: seasonId }],
+
+          OrderByField: 'transaction_date',
+          IsAsc: false
+        });
 
       const lastTransactionDate = historyData?.List?.[0]?.transaction_date || null;
 
@@ -197,10 +197,10 @@ export class PlayerAvailabilityCalculator {
    * Get availability statistics for a season/week
    */
   async getAvailabilityStats(
-    seasonId: number,
-    week: number,
-    filter?: AvailabilityFilter
-  ): Promise<AvailabilityStats> {
+  seasonId: number,
+  week: number,
+  filter?: AvailabilityFilter)
+  : Promise<AvailabilityStats> {
     const cacheKey = `stats_${seasonId}_${week}_${JSON.stringify(filter)}`;
     const cached = this.getCachedData<AvailabilityStats>(cacheKey);
     if (cached) return cached;
@@ -208,8 +208,8 @@ export class PlayerAvailabilityCalculator {
     try {
       // Build filters for player query
       const playerFilters = [
-        { name: 'is_current_data', op: 'Equal', value: true }
-      ];
+      { name: 'is_current_data', op: 'Equal', value: true }];
+
 
       if (filter?.positions?.length) {
         playerFilters.push({ name: 'position', op: 'Equal', value: filter.positions[0] }); // Simplified
@@ -237,34 +237,34 @@ export class PlayerAvailabilityCalculator {
       if (playersError) throw new Error(playersError);
 
       const players = playersData?.List || [];
-      
+
       // Get availability data for all players
-      const availabilityPromises = players.map(player =>
-        this.calculatePlayerAvailability(player.id, seasonId, week)
+      const availabilityPromises = players.map((player) =>
+      this.calculatePlayerAvailability(player.id, seasonId, week)
       );
-      
+
       const availabilityData = await Promise.all(availabilityPromises);
 
       // Calculate statistics
       const stats: AvailabilityStats = {
         totalPlayers: players.length,
-        availablePlayers: availabilityData.filter(a => a.is_available).length,
-        ownedPlayers: availabilityData.filter(a => !a.is_available).length,
+        availablePlayers: availabilityData.filter((a) => a.is_available).length,
+        ownedPlayers: availabilityData.filter((a) => !a.is_available).length,
         byPosition: {},
         byTeam: {},
-        waiversCount: availabilityData.filter(a => a.roster_status === 'waiver').length,
-        freeAgentsCount: availabilityData.filter(a => a.roster_status === 'free_agent').length
+        waiversCount: availabilityData.filter((a) => a.roster_status === 'waiver').length,
+        freeAgentsCount: availabilityData.filter((a) => a.roster_status === 'free_agent').length
       };
 
       // Group by position
       players.forEach((player, index) => {
         const position = player.position;
         const availability = availabilityData[index];
-        
+
         if (!stats.byPosition[position]) {
           stats.byPosition[position] = { total: 0, available: 0, owned: 0 };
         }
-        
+
         stats.byPosition[position].total++;
         if (availability.is_available) {
           stats.byPosition[position].available++;
@@ -277,11 +277,11 @@ export class PlayerAvailabilityCalculator {
       players.forEach((player, index) => {
         const nflTeam = player.nfl_team;
         const availability = availabilityData[index];
-        
+
         if (!stats.byTeam[nflTeam]) {
           stats.byTeam[nflTeam] = { total: 0, available: 0, owned: 0 };
         }
-        
+
         stats.byTeam[nflTeam].total++;
         if (availability.is_available) {
           stats.byTeam[nflTeam].available++;
@@ -312,17 +312,17 @@ export class PlayerAvailabilityCalculator {
         PageNo: 1,
         PageSize: 1000,
         Filters: [
-          { name: 'season_id', op: 'Equal', value: seasonId },
-          { name: 'week', op: 'Equal', value: week },
-          { name: 'ownership_count', op: 'GreaterThan', value: 1 }
-        ]
+        { name: 'season_id', op: 'Equal', value: seasonId },
+        { name: 'week', op: 'Equal', value: week },
+        { name: 'ownership_count', op: 'GreaterThan', value: 1 }]
+
       });
 
       if (conflictsError) throw new Error(conflictsError);
 
       const conflicts = conflictsData?.List || [];
-      
-      const result: ConflictingOwnership[] = conflicts.map(conflict => ({
+
+      const result: ConflictingOwnership[] = conflicts.map((conflict) => ({
         playerId: conflict.player_id,
         playerName: conflict.player_name,
         conflictingTeams: JSON.parse(conflict.teams_json || '[]')
@@ -350,8 +350,8 @@ export class PlayerAvailabilityCalculator {
         PageNo: 1,
         PageSize: 1,
         Filters: [
-          { name: 'id', op: 'Equal', value: teamId }
-        ]
+        { name: 'id', op: 'Equal', value: teamId }]
+
       });
 
       if (teamError) throw new Error(teamError);
@@ -360,13 +360,13 @@ export class PlayerAvailabilityCalculator {
 
       // Get current roster
       const currentRoster = await this.playerService.getTeamCurrentRoster(teamId, seasonId);
-      
+
       // Count roster spots by status
       const rosterSpots = {
         available: 22 - currentRoster.length, // Assuming 22 max roster size
-        bench: currentRoster.filter(p => p.roster_status === 'bench').length,
-        ir: currentRoster.filter(p => p.roster_status === 'ir').length,
-        taxi: currentRoster.filter(p => p.roster_status === 'taxi').length
+        bench: currentRoster.filter((p) => p.roster_status === 'bench').length,
+        ir: currentRoster.filter((p) => p.roster_status === 'ir').length,
+        taxi: currentRoster.filter((p) => p.roster_status === 'taxi').length
       };
 
       const availability: TeamAvailability = {
@@ -391,10 +391,10 @@ export class PlayerAvailabilityCalculator {
    * Bulk refresh availability cache for multiple players
    */
   async bulkRefreshAvailability(
-    playerIds: number[],
-    seasonId: number,
-    week: number
-  ): Promise<{ success: number; failed: number; errors: string[] }> {
+  playerIds: number[],
+  seasonId: number,
+  week: number)
+  : Promise<{success: number;failed: number;errors: string[];}> {
     let success = 0;
     let failed = 0;
     const errors: string[] = [];
@@ -402,7 +402,7 @@ export class PlayerAvailabilityCalculator {
     const batchSize = 10;
     for (let i = 0; i < playerIds.length; i += batchSize) {
       const batch = playerIds.slice(i, i + batchSize);
-      
+
       const promises = batch.map(async (playerId) => {
         try {
           await this.calculatePlayerAvailability(playerId, seasonId, week, true);
@@ -414,10 +414,10 @@ export class PlayerAvailabilityCalculator {
       });
 
       await Promise.all(promises);
-      
+
       // Small delay between batches
       if (i + batchSize < playerIds.length) {
-        await new Promise(resolve => setTimeout(resolve, 100));
+        await new Promise((resolve) => setTimeout(resolve, 100));
       }
     }
 
@@ -434,16 +434,16 @@ export class PlayerAvailabilityCalculator {
         PageNo: 1,
         PageSize: 1,
         Filters: [
-          { name: 'player_id', op: 'Equal', value: availability.player_id },
-          { name: 'season_id', op: 'Equal', value: availability.season_id },
-          { name: 'week', op: 'Equal', value: availability.week }
-        ]
+        { name: 'player_id', op: 'Equal', value: availability.player_id },
+        { name: 'season_id', op: 'Equal', value: availability.season_id },
+        { name: 'week', op: 'Equal', value: availability.week }]
+
       });
 
       if (queryError) throw new Error(queryError);
 
       const existing = existingData?.List?.[0];
-      
+
       if (existing) {
         // Update existing entry
         const { error } = await window.ezsite.apis.tableUpdate(this.TABLE_IDS.PLAYER_AVAILABILITY_CACHE, {
@@ -468,12 +468,12 @@ export class PlayerAvailabilityCalculator {
   private getCachedData<T>(key: string): T | null {
     const cached = this.cache.get(key);
     if (!cached) return null;
-    
+
     if (Date.now() - cached.timestamp > this.CACHE_TTL) {
       this.cache.delete(key);
       return null;
     }
-    
+
     return cached.data;
   }
 
@@ -498,7 +498,7 @@ export class PlayerAvailabilityCalculator {
   /**
    * Get cache statistics
    */
-  getCacheStats(): { size: number; keys: string[] } {
+  getCacheStats(): {size: number;keys: string[];} {
     return {
       size: this.cache.size,
       keys: Array.from(this.cache.keys())

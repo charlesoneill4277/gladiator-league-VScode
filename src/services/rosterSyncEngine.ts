@@ -90,20 +90,20 @@ export class RosterSyncEngine {
    */
   private emitProgress(progress: SyncProgress): void {
     this.syncState.progress = progress;
-    this.progressCallbacks.forEach(callback => callback(progress));
+    this.progressCallbacks.forEach((callback) => callback(progress));
   }
 
   /**
    * Record sync status in database
    */
   private async recordSyncStatus(
-    syncType: string,
-    conferenceId: number,
-    seasonId: number,
-    week: number,
-    status: 'pending' | 'in_progress' | 'completed' | 'failed',
-    result?: SyncResult
-  ): Promise<void> {
+  syncType: string,
+  conferenceId: number,
+  seasonId: number,
+  week: number,
+  status: 'pending' | 'in_progress' | 'completed' | 'failed',
+  result?: SyncResult)
+  : Promise<void> {
     try {
       const syncData = {
         sync_type: syncType,
@@ -142,28 +142,28 @@ export class RosterSyncEngine {
    * Retry mechanism with exponential backoff
    */
   private async retryOperation<T>(
-    operation: () => Promise<T>,
-    maxAttempts: number = 3,
-    baseDelayMs: number = 1000
-  ): Promise<T> {
+  operation: () => Promise<T>,
+  maxAttempts: number = 3,
+  baseDelayMs: number = 1000)
+  : Promise<T> {
     let lastError: Error | null = null;
-    
+
     for (let attempt = 1; attempt <= maxAttempts; attempt++) {
       try {
         return await operation();
       } catch (error) {
         lastError = error instanceof Error ? error : new Error('Unknown error');
-        
+
         if (attempt === maxAttempts) {
           throw lastError;
         }
-        
+
         const delayMs = baseDelayMs * Math.pow(2, attempt - 1);
         console.warn(`Attempt ${attempt} failed, retrying in ${delayMs}ms:`, error);
-        await new Promise(resolve => setTimeout(resolve, delayMs));
+        await new Promise((resolve) => setTimeout(resolve, delayMs));
       }
     }
-    
+
     throw lastError;
   }
 
@@ -204,7 +204,7 @@ export class RosterSyncEngine {
       const batchSize = 50;
       for (let i = 0; i < playerIds.length; i += batchSize) {
         const batch = playerIds.slice(i, i + batchSize);
-        
+
         const batchOperations = await Promise.all(
           batch.map(async (playerId) => {
             try {
@@ -227,7 +227,7 @@ export class RosterSyncEngine {
         });
 
         // Small delay between batches
-        await new Promise(resolve => setTimeout(resolve, 100));
+        await new Promise((resolve) => setTimeout(resolve, 100));
       }
 
       const duration = Date.now() - startTime;
@@ -255,11 +255,11 @@ export class RosterSyncEngine {
    * Sync roster data for a specific conference
    */
   private async syncConferenceRosters(
-    conferenceId: number,
-    leagueId: string,
-    seasonId: number,
-    week: number
-  ): Promise<SyncResult> {
+  conferenceId: number,
+  leagueId: string,
+  seasonId: number,
+  week: number)
+  : Promise<SyncResult> {
     const startTime = Date.now();
     let recordsProcessed = 0;
     const errors: string[] = [];
@@ -299,12 +299,12 @@ export class RosterSyncEngine {
       // Process each roster
       for (let i = 0; i < rosters.length; i++) {
         const roster = rosters[i];
-        
+
         try {
           // Find corresponding team
-          const team = teams.find(t => 
-            // You might need to adjust this mapping logic based on your data structure
-            t.owner_id === roster.owner_id
+          const team = teams.find((t) =>
+          // You might need to adjust this mapping logic based on your data structure
+          t.owner_id === roster.owner_id
           );
 
           if (!team) {
@@ -317,10 +317,10 @@ export class RosterSyncEngine {
             PageNo: 1,
             PageSize: 1000,
             Filters: [
-              { name: 'team_id', op: 'Equal', value: team.id },
-              { name: 'season_id', op: 'Equal', value: seasonId },
-              { name: 'week', op: 'Equal', value: week }
-            ]
+            { name: 'team_id', op: 'Equal', value: team.id },
+            { name: 'season_id', op: 'Equal', value: seasonId },
+            { name: 'week', op: 'Equal', value: week }]
+
           });
 
           // Mark previous roster entries as not current
@@ -332,7 +332,7 @@ export class RosterSyncEngine {
 
           // Add new roster entries
           const rosterOperations: BatchOperation<any>[] = [];
-          
+
           for (const sleeperPlayerId of roster.players) {
             const player = await this.playerService.getPlayerBySleeperID(sleeperPlayerId);
             if (!player) {
@@ -342,10 +342,10 @@ export class RosterSyncEngine {
 
             const isStarter = roster.starters.includes(sleeperPlayerId);
             const isIR = roster.reserve.includes(sleeperPlayerId);
-            
+
             let rosterStatus: 'active' | 'bench' | 'ir' | 'taxi' = 'bench';
-            if (isStarter) rosterStatus = 'active';
-            else if (isIR) rosterStatus = 'ir';
+            if (isStarter) rosterStatus = 'active';else
+            if (isIR) rosterStatus = 'ir';
 
             rosterOperations.push({
               type: 'create',
@@ -413,7 +413,7 @@ export class RosterSyncEngine {
 
     this.syncState.isRunning = true;
     this.syncState.errors = [];
-    
+
     const overallStartTime = Date.now();
     let totalRecordsProcessed = 0;
     const allErrors: string[] = [];
@@ -427,33 +427,33 @@ export class RosterSyncEngine {
       totalApiCalls += playersResult.apiCalls;
 
       // Record players sync status
-      await this.recordSyncStatus('players', 0, config.seasonId, config.week, 
-        playersResult.success ? 'completed' : 'failed', playersResult);
+      await this.recordSyncStatus('players', 0, config.seasonId, config.week,
+      playersResult.success ? 'completed' : 'failed', playersResult);
 
       // Stage 2: Sync rosters for each conference
       for (let i = 0; i < config.conferences.length; i++) {
         const conference = config.conferences[i];
-        
+
         const rosterResult = await this.syncConferenceRosters(
           conference.id,
           conference.leagueId,
           config.seasonId,
           config.week
         );
-        
+
         totalRecordsProcessed += rosterResult.recordsProcessed;
         allErrors.push(...rosterResult.errors);
         totalApiCalls += rosterResult.apiCalls;
 
         // Record conference sync status
         await this.recordSyncStatus('rosters', conference.id, config.seasonId, config.week,
-          rosterResult.success ? 'completed' : 'failed', rosterResult);
+        rosterResult.success ? 'completed' : 'failed', rosterResult);
       }
 
       const duration = Date.now() - overallStartTime;
       this.syncState.lastSync = new Date();
       this.syncState.nextSync = this.calculateNextSyncTime();
-      
+
       const result: SyncResult = {
         success: allErrors.length === 0,
         recordsProcessed: totalRecordsProcessed,
@@ -475,7 +475,7 @@ export class RosterSyncEngine {
       const duration = Date.now() - overallStartTime;
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       allErrors.push(errorMessage);
-      
+
       this.emitProgress({
         stage: 'Sync Failed',
         progress: 0,
@@ -502,7 +502,7 @@ export class RosterSyncEngine {
    */
   startAutomaticSync(config: SyncConfiguration, intervalMs: number = 30 * 60 * 1000): void {
     this.stopAutomaticSync();
-    
+
     const runSync = async () => {
       try {
         await this.fullSync(config);
@@ -514,7 +514,7 @@ export class RosterSyncEngine {
 
     // Run initial sync
     runSync();
-    
+
     // Schedule recurring sync
     this.syncTimer = setInterval(runSync, intervalMs);
     console.log(`Automatic sync started with ${intervalMs / 1000}s interval`);

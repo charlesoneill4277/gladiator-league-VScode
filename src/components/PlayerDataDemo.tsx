@@ -11,18 +11,18 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { toast } from '@/hooks/use-toast';
-import { 
-  Search, 
-  Users, 
-  RefreshCw, 
-  Activity, 
-  TrendingUp, 
+import {
+  Search,
+  Users,
+  RefreshCw,
+  Activity,
+  TrendingUp,
   AlertCircle,
   Play,
   Pause,
   BarChart3,
-  Database
-} from 'lucide-react';
+  Database } from
+'lucide-react';
 
 import {
   usePlayersData,
@@ -33,8 +33,8 @@ import {
   useRosterSync,
   useOptimisticRosterUpdate,
   useBulkAvailabilityRefresh,
-  useCacheManagement
-} from '../hooks/useRealTimePlayerData';
+  useCacheManagement } from
+'../hooks/useRealTimePlayerData';
 
 import { SyncConfiguration } from '../services/rosterSyncEngine';
 import { AvailabilityFilter } from '../services/playerAvailabilityCalculator';
@@ -58,11 +58,11 @@ const PlayerDataDemo: React.FC = () => {
     seasonId: selectedSeason,
     week: currentWeek
   });
-  
+
   const { data: playerAvailability } = usePlayerAvailability(selectedPlayerId, selectedSeason, currentWeek);
   const { data: availabilityStats } = useAvailabilityStats(selectedSeason, currentWeek);
   const { data: teamRoster } = useTeamRoster(1, selectedSeason); // Example team ID
-  
+
   const {
     sync,
     isSyncing,
@@ -148,7 +148,7 @@ const PlayerDataDemo: React.FC = () => {
       return;
     }
 
-    const playerIds = searchResults.slice(0, 20).map(p => p.id); // Limit to first 20
+    const playerIds = searchResults.slice(0, 20).map((p) => p.id); // Limit to first 20
     bulkRefresh.mutate({
       playerIds,
       seasonId: selectedSeason,
@@ -176,7 +176,7 @@ const PlayerDataDemo: React.FC = () => {
     });
   };
 
-  const displayPlayers = searchTerm || (selectedPosition && selectedPosition !== 'all') || (selectedTeam && selectedTeam !== 'all') ? searchResults : allPlayers;
+  const displayPlayers = searchTerm || selectedPosition && selectedPosition !== 'all' || selectedTeam && selectedTeam !== 'all' ? searchResults : allPlayers;
   const positions = ['QB', 'RB', 'WR', 'TE', 'K', 'DEF'];
   const nflTeams = ['KC', 'BUF', 'SF', 'BAL', 'CIN', 'DAL', 'PHI', 'MIA']; // Sample teams
 
@@ -193,16 +193,16 @@ const PlayerDataDemo: React.FC = () => {
           <Button
             variant="outline"
             size="sm"
-            onClick={() => clearAllCaches()}
-          >
+            onClick={() => clearAllCaches()}>
+
             <Database className="h-4 w-4 mr-2" />
             Clear Cache
           </Button>
           <Button
             variant={autoSyncEnabled ? "destructive" : "default"}
             size="sm"
-            onClick={() => setAutoSyncEnabled(!autoSyncEnabled)}
-          >
+            onClick={() => setAutoSyncEnabled(!autoSyncEnabled)}>
+
             {autoSyncEnabled ? <Pause className="h-4 w-4 mr-2" /> : <Play className="h-4 w-4 mr-2" />}
             {autoSyncEnabled ? 'Stop Auto-Sync' : 'Start Auto-Sync'}
           </Button>
@@ -238,8 +238,8 @@ const PlayerDataDemo: React.FC = () => {
                     id="search"
                     placeholder="Enter player name..."
                     value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                  />
+                    onChange={(e) => setSearchTerm(e.target.value)} />
+
                 </div>
                 <div>
                   <Label htmlFor="position">Position</Label>
@@ -249,9 +249,9 @@ const PlayerDataDemo: React.FC = () => {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">All positions</SelectItem>
-                      {positions.map(pos => (
-                        <SelectItem key={pos} value={pos}>{pos}</SelectItem>
-                      ))}
+                      {positions.map((pos) =>
+                      <SelectItem key={pos} value={pos}>{pos}</SelectItem>
+                      )}
                     </SelectContent>
                   </Select>
                 </div>
@@ -263,9 +263,9 @@ const PlayerDataDemo: React.FC = () => {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">All teams</SelectItem>
-                      {nflTeams.map(team => (
-                        <SelectItem key={team} value={team}>{team}</SelectItem>
-                      ))}
+                      {nflTeams.map((team) =>
+                      <SelectItem key={team} value={team}>{team}</SelectItem>
+                      )}
                     </SelectContent>
                   </Select>
                 </div>
@@ -273,8 +273,8 @@ const PlayerDataDemo: React.FC = () => {
                   <Button
                     onClick={handleBulkRefresh}
                     disabled={bulkRefresh.isPending}
-                    className="flex-1"
-                  >
+                    className="flex-1">
+
                     {bulkRefresh.isPending ? <RefreshCw className="h-4 w-4 animate-spin mr-2" /> : <RefreshCw className="h-4 w-4 mr-2" />}
                     Refresh
                   </Button>
@@ -294,14 +294,14 @@ const PlayerDataDemo: React.FC = () => {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {loadingPlayers || searchingPlayers ? (
-                      <TableRow>
+                    {loadingPlayers || searchingPlayers ?
+                    <TableRow>
                         <TableCell colSpan={6} className="text-center">
                           <RefreshCw className="h-4 w-4 animate-spin mx-auto" />
                         </TableCell>
-                      </TableRow>
-                    ) : displayPlayers?.slice(0, 20).map((player) => (
-                      <TableRow key={player.id}>
+                      </TableRow> :
+                    displayPlayers?.slice(0, 20).map((player) =>
+                    <TableRow key={player.id}>
                         <TableCell className="font-medium">{player.player_name}</TableCell>
                         <TableCell>
                           <Badge variant="outline">{player.position}</Badge>
@@ -320,29 +320,29 @@ const PlayerDataDemo: React.FC = () => {
                         <TableCell>
                           <div className="flex gap-1">
                             <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => setSelectedPlayerId(player.id)}
-                            >
+                            size="sm"
+                            variant="outline"
+                            onClick={() => setSelectedPlayerId(player.id)}>
+
                               View
                             </Button>
                             <Button
-                              size="sm"
-                              onClick={() => handleAddPlayer(player.id)}
-                              disabled={isAddingPlayer}
-                            >
+                            size="sm"
+                            onClick={() => handleAddPlayer(player.id)}
+                            disabled={isAddingPlayer}>
+
                               Add
                             </Button>
                           </div>
                         </TableCell>
                       </TableRow>
-                    ))}
+                    )}
                   </TableBody>
                 </Table>
               </div>
 
-              {selectedPlayerId > 0 && playerAvailability && (
-                <Alert>
+              {selectedPlayerId > 0 && playerAvailability &&
+              <Alert>
                   <Activity className="h-4 w-4" />
                   <AlertDescription>
                     <strong>Player Availability:</strong> {playerAvailability.is_available ? 'Available' : 'Owned'} 
@@ -353,7 +353,7 @@ const PlayerDataDemo: React.FC = () => {
                     <strong>Last Updated:</strong> {new Date(playerAvailability.cache_updated_at).toLocaleString()}
                   </AlertDescription>
                 </Alert>
-              )}
+              }
             </CardContent>
           </Card>
         </TabsContent>
@@ -381,36 +381,36 @@ const PlayerDataDemo: React.FC = () => {
                 <div className="flex gap-2">
                   <Button
                     onClick={handleManualSync}
-                    disabled={isSyncing}
-                  >
+                    disabled={isSyncing}>
+
                     {isSyncing ? <RefreshCw className="h-4 w-4 animate-spin mr-2" /> : <RefreshCw className="h-4 w-4 mr-2" />}
                     Manual Sync
                   </Button>
-                  {isSyncing && (
-                    <Button variant="destructive" onClick={forceStop}>
+                  {isSyncing &&
+                  <Button variant="destructive" onClick={forceStop}>
                       Force Stop
                     </Button>
-                  )}
+                  }
                 </div>
               </div>
 
-              {syncProgress && (
-                <div className="space-y-2">
+              {syncProgress &&
+              <div className="space-y-2">
                   <div className="flex justify-between text-sm">
                     <span>{syncProgress.stage}</span>
                     <span>{syncProgress.progress}/{syncProgress.total}</span>
                   </div>
-                  <Progress 
-                    value={syncProgress.total > 0 ? (syncProgress.progress / syncProgress.total) * 100 : 0} 
-                  />
-                  {syncProgress.currentItem && (
-                    <p className="text-xs text-muted-foreground">{syncProgress.currentItem}</p>
-                  )}
-                </div>
-              )}
+                  <Progress
+                  value={syncProgress.total > 0 ? syncProgress.progress / syncProgress.total * 100 : 0} />
 
-              {syncResult && (
-                <Alert>
+                  {syncProgress.currentItem &&
+                <p className="text-xs text-muted-foreground">{syncProgress.currentItem}</p>
+                }
+                </div>
+              }
+
+              {syncResult &&
+              <Alert>
                   <AlertCircle className="h-4 w-4" />
                   <AlertDescription>
                     <strong>Sync Completed:</strong> {syncResult.success ? 'Success' : 'Failed'}
@@ -420,25 +420,25 @@ const PlayerDataDemo: React.FC = () => {
                     <strong>Duration:</strong> {(syncResult.duration / 1000).toFixed(2)}s
                     <br />
                     <strong>API Calls:</strong> {syncResult.apiCalls}
-                    {syncResult.errors.length > 0 && (
-                      <>
+                    {syncResult.errors.length > 0 &&
+                  <>
                         <br />
                         <strong>Errors:</strong> {syncResult.errors.length}
                       </>
-                    )}
+                  }
                   </AlertDescription>
                 </Alert>
-              )}
+              }
 
-              {syncState && (
-                <div className="text-sm space-y-1">
+              {syncState &&
+              <div className="text-sm space-y-1">
                   <p><strong>Last Sync:</strong> {syncState.lastSync?.toLocaleString() || 'Never'}</p>
                   <p><strong>Next Sync:</strong> {syncState.nextSync?.toLocaleString() || 'Not scheduled'}</p>
-                  {syncState.errors.length > 0 && (
-                    <p><strong>Recent Errors:</strong> {syncState.errors.length}</p>
-                  )}
+                  {syncState.errors.length > 0 &&
+                <p><strong>Recent Errors:</strong> {syncState.errors.length}</p>
+                }
                 </div>
-              )}
+              }
             </CardContent>
           </Card>
         </TabsContent>
@@ -468,8 +468,8 @@ const PlayerDataDemo: React.FC = () => {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {teamRoster?.map((rosterEntry) => (
-                      <TableRow key={rosterEntry.player_id}>
+                    {teamRoster?.map((rosterEntry) =>
+                    <TableRow key={rosterEntry.player_id}>
                         <TableCell className="font-medium">
                           Player {rosterEntry.player_id}
                         </TableCell>
@@ -482,28 +482,28 @@ const PlayerDataDemo: React.FC = () => {
                         </TableCell>
                         <TableCell>
                           <Button
-                            size="sm"
-                            variant="destructive"
-                            onClick={() => handleRemovePlayer(rosterEntry.player_id)}
-                            disabled={isRemovingPlayer}
-                          >
+                          size="sm"
+                          variant="destructive"
+                          onClick={() => handleRemovePlayer(rosterEntry.player_id)}
+                          disabled={isRemovingPlayer}>
+
                             Remove
                           </Button>
                         </TableCell>
                       </TableRow>
-                    ))}
+                    )}
                   </TableBody>
                 </Table>
               </div>
               
-              {(addError || removeError) && (
-                <Alert variant="destructive">
+              {(addError || removeError) &&
+              <Alert variant="destructive">
                   <AlertCircle className="h-4 w-4" />
                   <AlertDescription>
                     Error: {addError?.message || removeError?.message}
                   </AlertDescription>
                 </Alert>
-              )}
+              }
             </CardContent>
           </Card>
         </TabsContent>
@@ -521,8 +521,8 @@ const PlayerDataDemo: React.FC = () => {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              {availabilityStats && (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              {availabilityStats &&
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                   <div className="space-y-2">
                     <p className="text-sm font-medium">Total Players</p>
                     <p className="text-2xl font-bold">{availabilityStats.totalPlayers}</p>
@@ -540,23 +540,23 @@ const PlayerDataDemo: React.FC = () => {
                     <p className="text-2xl font-bold text-orange-600">{availabilityStats.waiversCount}</p>
                   </div>
                 </div>
-              )}
+              }
 
-              {availabilityStats?.byPosition && (
-                <div className="mt-6">
+              {availabilityStats?.byPosition &&
+              <div className="mt-6">
                   <h4 className="font-medium mb-3">By Position</h4>
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    {Object.entries(availabilityStats.byPosition).map(([position, stats]) => (
-                      <div key={position} className="text-center p-3 border rounded">
+                    {Object.entries(availabilityStats.byPosition).map(([position, stats]) =>
+                  <div key={position} className="text-center p-3 border rounded">
                         <p className="font-medium">{position}</p>
                         <p className="text-sm">Total: {stats.total}</p>
                         <p className="text-sm text-green-600">Available: {stats.available}</p>
                         <p className="text-sm text-red-600">Owned: {stats.owned}</p>
                       </div>
-                    ))}
+                  )}
                   </div>
                 </div>
-              )}
+              }
             </CardContent>
           </Card>
         </TabsContent>
@@ -597,8 +597,8 @@ const PlayerDataDemo: React.FC = () => {
           </Card>
         </TabsContent>
       </Tabs>
-    </div>
-  );
+    </div>);
+
 };
 
 export default PlayerDataDemo;

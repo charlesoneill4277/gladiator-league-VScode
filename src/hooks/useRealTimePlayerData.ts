@@ -22,7 +22,7 @@ export const QUERY_KEYS = {
 // Hook for fetching all players with real-time updates
 export function usePlayersData(forceRefresh = false) {
   const playerService = PlayerDataService.getInstance();
-  
+
   return useQuery({
     queryKey: [QUERY_KEYS.players, 'all'],
     queryFn: () => playerService.getAllPlayers(forceRefresh),
@@ -44,7 +44,7 @@ export function usePlayerSearch(filters: {
   week?: number;
 }) {
   const playerService = PlayerDataService.getInstance();
-  
+
   return useQuery({
     queryKey: [QUERY_KEYS.players, 'search', filters],
     queryFn: () => playerService.searchPlayers(filters),
@@ -57,7 +57,7 @@ export function usePlayerSearch(filters: {
 // Hook for player availability data
 export function usePlayerAvailability(playerId: number, seasonId: number, week: number) {
   const availabilityCalculator = PlayerAvailabilityCalculator.getInstance();
-  
+
   return useQuery({
     queryKey: [QUERY_KEYS.playerAvailability, playerId, seasonId, week],
     queryFn: () => availabilityCalculator.calculatePlayerAvailability(playerId, seasonId, week),
@@ -71,7 +71,7 @@ export function usePlayerAvailability(playerId: number, seasonId: number, week: 
 // Hook for availability statistics
 export function useAvailabilityStats(seasonId: number, week: number, filter?: AvailabilityFilter) {
   const availabilityCalculator = PlayerAvailabilityCalculator.getInstance();
-  
+
   return useQuery({
     queryKey: [QUERY_KEYS.availabilityStats, seasonId, week, filter],
     queryFn: () => availabilityCalculator.getAvailabilityStats(seasonId, week, filter),
@@ -83,7 +83,7 @@ export function useAvailabilityStats(seasonId: number, week: number, filter?: Av
 // Hook for team roster data
 export function useTeamRoster(teamId: number, seasonId: number) {
   const playerService = PlayerDataService.getInstance();
-  
+
   return useQuery({
     queryKey: [QUERY_KEYS.teamRoster, teamId, seasonId],
     queryFn: () => playerService.getTeamCurrentRoster(teamId, seasonId),
@@ -116,15 +116,15 @@ export function useRosterSync() {
   const syncMutation = useMutation({
     mutationFn: async (config: SyncConfiguration) => {
       const result = await syncEngine.fullSync(config);
-      
+
       // Invalidate relevant queries after sync
       await Promise.all([
-        queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.players] }),
-        queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.playerAvailability] }),
-        queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.teamRoster] }),
-        queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.availabilityStats] })
-      ]);
-      
+      queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.players] }),
+      queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.playerAvailability] }),
+      queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.teamRoster] }),
+      queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.availabilityStats] })]
+      );
+
       return result;
     },
     onSuccess: (result) => {
@@ -145,8 +145,8 @@ export function useRosterSync() {
     syncResult: syncMutation.data,
     syncError: syncMutation.error,
     forceStop: () => syncEngine.forceStop(),
-    startAutoSync: (config: SyncConfiguration, interval?: number) => 
-      syncEngine.startAutomaticSync(config, interval),
+    startAutoSync: (config: SyncConfiguration, interval?: number) =>
+    syncEngine.startAutomaticSync(config, interval),
     stopAutoSync: () => syncEngine.stopAutomaticSync()
   };
 }
@@ -157,19 +157,19 @@ export function useOptimisticRosterUpdate() {
   const playerService = PlayerDataService.getInstance();
 
   const addPlayerToRoster = useMutation({
-    mutationFn: async ({ 
-      teamId, 
-      playerId, 
-      seasonId, 
-      week, 
-      rosterStatus 
-    }: {
-      teamId: number;
-      playerId: number;
-      seasonId: number;
-      week: number;
-      rosterStatus: 'active' | 'bench' | 'ir' | 'taxi';
-    }) => {
+    mutationFn: async ({
+      teamId,
+      playerId,
+      seasonId,
+      week,
+      rosterStatus
+
+
+
+
+
+
+    }: {teamId: number;playerId: number;seasonId: number;week: number;rosterStatus: 'active' | 'bench' | 'ir' | 'taxi';}) => {
       const rosterData = {
         team_id: teamId,
         player_id: playerId,
@@ -190,12 +190,12 @@ export function useOptimisticRosterUpdate() {
 
       return await playerService.batchUpdatePlayers(operations);
     },
-    
+
     // Optimistic update
     onMutate: async ({ teamId, playerId, seasonId, rosterStatus }) => {
       // Cancel outgoing refetches
-      await queryClient.cancelQueries({ 
-        queryKey: [QUERY_KEYS.teamRoster, teamId, seasonId] 
+      await queryClient.cancelQueries({
+        queryKey: [QUERY_KEYS.teamRoster, teamId, seasonId]
       });
 
       // Snapshot the previous value
@@ -204,7 +204,7 @@ export function useOptimisticRosterUpdate() {
       // Optimistically update roster
       queryClient.setQueryData([QUERY_KEYS.teamRoster, teamId, seasonId], (old: any) => {
         if (!old) return old;
-        
+
         const newRosterEntry = {
           team_id: teamId,
           player_id: playerId,
@@ -239,7 +239,7 @@ export function useOptimisticRosterUpdate() {
     onError: (err, variables, context) => {
       if (context?.previousRoster) {
         queryClient.setQueryData(
-          [QUERY_KEYS.teamRoster, variables.teamId, variables.seasonId], 
+          [QUERY_KEYS.teamRoster, variables.teamId, variables.seasonId],
           context.previousRoster
         );
       }
@@ -248,29 +248,29 @@ export function useOptimisticRosterUpdate() {
 
     // Refetch on success or error
     onSettled: (data, error, variables) => {
-      queryClient.invalidateQueries({ 
-        queryKey: [QUERY_KEYS.teamRoster, variables.teamId, variables.seasonId] 
+      queryClient.invalidateQueries({
+        queryKey: [QUERY_KEYS.teamRoster, variables.teamId, variables.seasonId]
       });
-      queryClient.invalidateQueries({ 
-        queryKey: [QUERY_KEYS.playerAvailability, variables.playerId, variables.seasonId] 
+      queryClient.invalidateQueries({
+        queryKey: [QUERY_KEYS.playerAvailability, variables.playerId, variables.seasonId]
       });
     }
   });
 
   const removePlayerFromRoster = useMutation({
-    mutationFn: async ({ 
-      teamId, 
-      playerId, 
-      seasonId 
-    }: {
-      teamId: number;
-      playerId: number;
-      seasonId: number;
-    }) => {
+    mutationFn: async ({
+      teamId,
+      playerId,
+      seasonId
+
+
+
+
+    }: {teamId: number;playerId: number;seasonId: number;}) => {
       // First find the roster entry to update
       const currentRoster = await playerService.getTeamCurrentRoster(teamId, seasonId);
-      const rosterEntry = currentRoster.find(r => r.player_id === playerId);
-      
+      const rosterEntry = currentRoster.find((r) => r.player_id === playerId);
+
       if (!rosterEntry) {
         throw new Error('Player not found on roster');
       }
@@ -291,8 +291,8 @@ export function useOptimisticRosterUpdate() {
 
     // Optimistic update (similar pattern to add)
     onMutate: async ({ teamId, playerId, seasonId }) => {
-      await queryClient.cancelQueries({ 
-        queryKey: [QUERY_KEYS.teamRoster, teamId, seasonId] 
+      await queryClient.cancelQueries({
+        queryKey: [QUERY_KEYS.teamRoster, teamId, seasonId]
       });
 
       const previousRoster = queryClient.getQueryData([QUERY_KEYS.teamRoster, teamId, seasonId]);
@@ -319,7 +319,7 @@ export function useOptimisticRosterUpdate() {
     onError: (err, variables, context) => {
       if (context?.previousRoster) {
         queryClient.setQueryData(
-          [QUERY_KEYS.teamRoster, variables.teamId, variables.seasonId], 
+          [QUERY_KEYS.teamRoster, variables.teamId, variables.seasonId],
           context.previousRoster
         );
       }
@@ -327,11 +327,11 @@ export function useOptimisticRosterUpdate() {
     },
 
     onSettled: (data, error, variables) => {
-      queryClient.invalidateQueries({ 
-        queryKey: [QUERY_KEYS.teamRoster, variables.teamId, variables.seasonId] 
+      queryClient.invalidateQueries({
+        queryKey: [QUERY_KEYS.teamRoster, variables.teamId, variables.seasonId]
       });
-      queryClient.invalidateQueries({ 
-        queryKey: [QUERY_KEYS.playerAvailability, variables.playerId, variables.seasonId] 
+      queryClient.invalidateQueries({
+        queryKey: [QUERY_KEYS.playerAvailability, variables.playerId, variables.seasonId]
       });
     }
   });
@@ -352,28 +352,28 @@ export function useBulkAvailabilityRefresh() {
   const availabilityCalculator = PlayerAvailabilityCalculator.getInstance();
 
   return useMutation({
-    mutationFn: async ({ 
-      playerIds, 
-      seasonId, 
-      week 
-    }: {
-      playerIds: number[];
-      seasonId: number;
-      week: number;
-    }) => {
+    mutationFn: async ({
+      playerIds,
+      seasonId,
+      week
+
+
+
+
+    }: {playerIds: number[];seasonId: number;week: number;}) => {
       return await availabilityCalculator.bulkRefreshAvailability(playerIds, seasonId, week);
     },
     onSuccess: (result, variables) => {
       // Invalidate availability queries for refreshed players
-      variables.playerIds.forEach(playerId => {
-        queryClient.invalidateQueries({ 
-          queryKey: [QUERY_KEYS.playerAvailability, playerId, variables.seasonId, variables.week] 
+      variables.playerIds.forEach((playerId) => {
+        queryClient.invalidateQueries({
+          queryKey: [QUERY_KEYS.playerAvailability, playerId, variables.seasonId, variables.week]
         });
       });
-      
+
       // Also invalidate stats
-      queryClient.invalidateQueries({ 
-        queryKey: [QUERY_KEYS.availabilityStats] 
+      queryClient.invalidateQueries({
+        queryKey: [QUERY_KEYS.availabilityStats]
       });
 
       console.log('Bulk availability refresh completed:', result);
@@ -394,10 +394,10 @@ export function useCacheManagement() {
     // Clear service caches
     playerService.clearCache();
     availabilityCalculator.clearCache();
-    
+
     // Clear React Query cache
     queryClient.clear();
-    
+
     console.log('All caches cleared');
   }, [playerService, availabilityCalculator, queryClient]);
 
@@ -407,7 +407,7 @@ export function useCacheManagement() {
       availabilityCalculator: availabilityCalculator.getCacheStats(),
       reactQuery: {
         size: queryClient.getQueryCache().getAll().length,
-        queries: queryClient.getQueryCache().getAll().map(query => query.queryKey)
+        queries: queryClient.getQueryCache().getAll().map((query) => query.queryKey)
       }
     };
   }, [playerService, availabilityCalculator, queryClient]);

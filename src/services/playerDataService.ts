@@ -107,13 +107,13 @@ export class PlayerDataService {
     const now = Date.now();
     const windowStart = Math.floor(now / this.RATE_LIMIT_WINDOW) * this.RATE_LIMIT_WINDOW;
     const key = `${endpoint}_${windowStart}`;
-    
+
     const currentCount = this.rateLimiter.get(key) || 0;
     if (currentCount >= this.MAX_REQUESTS_PER_WINDOW) {
       console.warn(`Rate limit exceeded for ${endpoint}`);
       return false;
     }
-    
+
     this.rateLimiter.set(key, currentCount + 1);
     return true;
   }
@@ -124,12 +124,12 @@ export class PlayerDataService {
   private getCachedData<T>(key: string, ttlMs: number = 300000): T | null {
     const cached = this.cache.get(key);
     if (!cached) return null;
-    
+
     if (Date.now() - cached.timestamp > ttlMs) {
       this.cache.delete(key);
       return null;
     }
-    
+
     return cached.data;
   }
 
@@ -148,7 +148,7 @@ export class PlayerDataService {
    */
   async getAllPlayers(forceRefresh = false): Promise<PlayerData[]> {
     const cacheKey = 'all_players';
-    
+
     if (!forceRefresh) {
       const cached = this.getCachedData<PlayerData[]>(cacheKey, 600000); // 10 min cache
       if (cached) return cached;
@@ -161,8 +161,8 @@ export class PlayerDataService {
         OrderByField: 'player_name',
         IsAsc: true,
         Filters: [
-          { name: 'is_current_data', op: 'Equal', value: true }
-        ]
+        { name: 'is_current_data', op: 'Equal', value: true }]
+
       });
 
       if (error) throw new Error(error);
@@ -189,9 +189,9 @@ export class PlayerDataService {
         PageNo: 1,
         PageSize: 1,
         Filters: [
-          { name: 'sleeper_player_id', op: 'Equal', value: sleeperPlayerId },
-          { name: 'is_current_data', op: 'Equal', value: true }
-        ]
+        { name: 'sleeper_player_id', op: 'Equal', value: sleeperPlayerId },
+        { name: 'is_current_data', op: 'Equal', value: true }]
+
       });
 
       if (error) throw new Error(error);
@@ -213,7 +213,7 @@ export class PlayerDataService {
   async syncPlayerFromSleeper(sleeperPlayerId: string, sleeperPlayer: SleeperPlayer): Promise<PlayerData> {
     try {
       const existingPlayer = await this.getPlayerBySleeperID(sleeperPlayerId);
-      
+
       const playerData = {
         sleeper_player_id: sleeperPlayerId,
         player_name: SleeperApiService.getPlayerName(sleeperPlayer),
@@ -239,7 +239,7 @@ export class PlayerDataService {
           ...playerData
         });
         if (error) throw new Error(error);
-        
+
         const updatedPlayer = { ...existingPlayer, ...playerData };
         this.setCachedData(`player_sleeper_${sleeperPlayerId}`, updatedPlayer);
         return updatedPlayer;
@@ -249,11 +249,11 @@ export class PlayerDataService {
           created_at: new Date().toISOString()
         });
         if (error) throw new Error(error);
-        
+
         // Fetch the newly created player to get the ID
         const newPlayer = await this.getPlayerBySleeperID(sleeperPlayerId);
         if (!newPlayer) throw new Error('Failed to create player');
-        
+
         return newPlayer;
       }
     } catch (error) {
@@ -275,10 +275,10 @@ export class PlayerDataService {
         PageNo: 1,
         PageSize: 1000,
         Filters: [
-          { name: 'team_id', op: 'Equal', value: teamId },
-          { name: 'season_id', op: 'Equal', value: seasonId },
-          { name: 'is_current', op: 'Equal', value: true }
-        ]
+        { name: 'team_id', op: 'Equal', value: teamId },
+        { name: 'season_id', op: 'Equal', value: seasonId },
+        { name: 'is_current', op: 'Equal', value: true }]
+
       });
 
       if (error) throw new Error(error);
@@ -305,10 +305,10 @@ export class PlayerDataService {
         PageNo: 1,
         PageSize: 1,
         Filters: [
-          { name: 'player_id', op: 'Equal', value: playerId },
-          { name: 'season_id', op: 'Equal', value: seasonId },
-          { name: 'week', op: 'Equal', value: week }
-        ]
+        { name: 'player_id', op: 'Equal', value: playerId },
+        { name: 'season_id', op: 'Equal', value: seasonId },
+        { name: 'week', op: 'Equal', value: week }]
+
       });
 
       if (error) throw new Error(error);
@@ -347,13 +347,13 @@ export class PlayerDataService {
         for (const op of ops) {
           try {
             apiCalls++;
-            
+
             switch (op.type) {
               case 'create':
                 const { error: createError } = await window.ezsite.apis.tableCreate(op.tableId, op.data);
                 if (createError) throw new Error(createError);
                 break;
-                
+
               case 'update':
                 const { error: updateError } = await window.ezsite.apis.tableUpdate(op.tableId, {
                   ID: op.id,
@@ -361,18 +361,18 @@ export class PlayerDataService {
                 });
                 if (updateError) throw new Error(updateError);
                 break;
-                
+
               case 'delete':
                 const { error: deleteError } = await window.ezsite.apis.tableDelete(op.tableId, { ID: op.id });
                 if (deleteError) throw new Error(deleteError);
                 break;
             }
-            
+
             recordsProcessed++;
-            
+
             // Add small delay between operations to avoid overwhelming the API
             if (recordsProcessed % 10 === 0) {
-              await new Promise(resolve => setTimeout(resolve, 100));
+              await new Promise((resolve) => setTimeout(resolve, 100));
             }
           } catch (error) {
             errors.push(`Operation ${op.type} failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -381,7 +381,7 @@ export class PlayerDataService {
       }
 
       const duration = Date.now() - startTime;
-      
+
       return {
         success: errors.length === 0,
         recordsProcessed,
@@ -419,8 +419,8 @@ export class PlayerDataService {
 
     try {
       const searchFilters = [
-        { name: 'is_current_data', op: 'Equal', value: true }
-      ];
+      { name: 'is_current_data', op: 'Equal', value: true }];
+
 
       if (filters.name) {
         searchFilters.push({ name: 'player_name', op: 'StringContains', value: filters.name });
@@ -449,12 +449,12 @@ export class PlayerDataService {
 
       // If availability filter is specified, cross-reference with availability data
       if (filters.availability && filters.seasonId && filters.week) {
-        const availabilityPromises = players.map(player => 
-          this.getPlayerAvailability(player.id, filters.seasonId!, filters.week!)
+        const availabilityPromises = players.map((player) =>
+        this.getPlayerAvailability(player.id, filters.seasonId!, filters.week!)
         );
-        
+
         const availabilityData = await Promise.all(availabilityPromises);
-        
+
         players = players.filter((player, index) => {
           const availability = availabilityData[index];
           if (filters.availability === 'available') {
@@ -484,7 +484,7 @@ export class PlayerDataService {
   /**
    * Get cache statistics
    */
-  getCacheStats(): { size: number; keys: string[] } {
+  getCacheStats(): {size: number;keys: string[];} {
     return {
       size: this.cache.size,
       keys: Array.from(this.cache.keys())
