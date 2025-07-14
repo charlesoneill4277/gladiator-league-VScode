@@ -93,10 +93,10 @@ const PlayersPageContent: React.FC<PlayersPageContentProps> = () => {
     if (debouncedSearch) {
       const searchTerm = debouncedSearch.toLowerCase();
       filtered = filtered.filter((player) =>
-        player.name.toLowerCase().includes(searchTerm) ||
-        player.nflTeam.toLowerCase().includes(searchTerm) ||
-        player.rosteredBy?.toLowerCase().includes(searchTerm) ||
-        player.rosteredByOwner?.toLowerCase().includes(searchTerm)
+      player.name.toLowerCase().includes(searchTerm) ||
+      player.nflTeam.toLowerCase().includes(searchTerm) ||
+      player.rosteredBy?.toLowerCase().includes(searchTerm) ||
+      player.rosteredByOwner?.toLowerCase().includes(searchTerm)
       );
     }
 
@@ -156,37 +156,37 @@ const PlayersPageContent: React.FC<PlayersPageContentProps> = () => {
     const searchTerm = debouncedSearch.toLowerCase();
 
     // Player suggestions
-    const playerMatches = players
-      .filter((p) => p.name.toLowerCase().includes(searchTerm))
-      .slice(0, 5)
-      .map((p) => ({
-        type: 'player' as const,
-        value: p.name,
-        label: p.name,
-        meta: `${p.position} - ${p.nflTeam}`
-      }));
+    const playerMatches = players.
+    filter((p) => p.name.toLowerCase().includes(searchTerm)).
+    slice(0, 5).
+    map((p) => ({
+      type: 'player' as const,
+      value: p.name,
+      label: p.name,
+      meta: `${p.position} - ${p.nflTeam}`
+    }));
 
     // Team suggestions
-    const teamMatches = [...new Set(players.map((p) => p.nflTeam))]
-      .filter((team) => team.toLowerCase().includes(searchTerm))
-      .slice(0, 3)
-      .map((team) => ({
-        type: 'team' as const,
-        value: team,
-        label: team,
-        meta: 'NFL Team'
-      }));
+    const teamMatches = [...new Set(players.map((p) => p.nflTeam))].
+    filter((team) => team.toLowerCase().includes(searchTerm)).
+    slice(0, 3).
+    map((team) => ({
+      type: 'team' as const,
+      value: team,
+      label: team,
+      meta: 'NFL Team'
+    }));
 
     // Owner suggestions
-    const ownerMatches = [...new Set(players.map((p) => p.rosteredByOwner).filter(Boolean))]
-      .filter((owner) => owner!.toLowerCase().includes(searchTerm))
-      .slice(0, 3)
-      .map((owner) => ({
-        type: 'owner' as const,
-        value: owner!,
-        label: owner!,
-        meta: 'Owner'
-      }));
+    const ownerMatches = [...new Set(players.map((p) => p.rosteredByOwner).filter(Boolean))].
+    filter((owner) => owner!.toLowerCase().includes(searchTerm)).
+    slice(0, 3).
+    map((owner) => ({
+      type: 'owner' as const,
+      value: owner!,
+      label: owner!,
+      meta: 'Owner'
+    }));
 
     return [...playerMatches, ...teamMatches, ...ownerMatches];
   }, [debouncedSearch, players]);
@@ -213,31 +213,31 @@ const PlayersPageContent: React.FC<PlayersPageContentProps> = () => {
 
   // Keyboard shortcuts
   useKeyboardShortcuts([
-    {
-      ...playerPageShortcuts.SEARCH_FOCUS,
-      handler: () => searchRef.current?.focus()
-    },
-    {
-      ...playerPageShortcuts.CLEAR_FILTERS,
-      handler: () => clearFilters()
-    },
-    {
-      ...playerPageShortcuts.FILTER_AVAILABLE,
-      handler: () => updateFilter('availabilityStatus', 'available')
-    },
-    {
-      ...playerPageShortcuts.FILTER_OWNED,
-      handler: () => updateFilter('availabilityStatus', 'owned')
-    },
-    {
-      ...playerPageShortcuts.NEXT_PAGE,
-      handler: () => updateFilter('page', Math.min(filters.page + 1, Math.ceil(filteredPlayers.length / filters.pageSize)))
-    },
-    {
-      ...playerPageShortcuts.PREV_PAGE,
-      handler: () => updateFilter('page', Math.max(filters.page - 1, 1))
-    }
-  ]);
+  {
+    ...playerPageShortcuts.SEARCH_FOCUS,
+    handler: () => searchRef.current?.focus()
+  },
+  {
+    ...playerPageShortcuts.CLEAR_FILTERS,
+    handler: () => clearFilters()
+  },
+  {
+    ...playerPageShortcuts.FILTER_AVAILABLE,
+    handler: () => updateFilter('availabilityStatus', 'available')
+  },
+  {
+    ...playerPageShortcuts.FILTER_OWNED,
+    handler: () => updateFilter('availabilityStatus', 'owned')
+  },
+  {
+    ...playerPageShortcuts.NEXT_PAGE,
+    handler: () => updateFilter('page', Math.min(filters.page + 1, Math.ceil(filteredPlayers.length / filters.pageSize)))
+  },
+  {
+    ...playerPageShortcuts.PREV_PAGE,
+    handler: () => updateFilter('page', Math.max(filters.page - 1, 1))
+  }]
+  );
 
   // Generate filter description for export
   const filterDescription = useMemo(() => {
@@ -264,8 +264,8 @@ const PlayersPageContent: React.FC<PlayersPageContentProps> = () => {
           <RefreshCw className={`h-4 w-4 mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />
           Try Again
         </Button>
-      </div>
-    );
+      </div>);
+
   }
 
   return (
@@ -306,8 +306,8 @@ const PlayersPageContent: React.FC<PlayersPageContentProps> = () => {
       </div>
 
       {/* Keyboard Shortcuts */}
-      {showKeyboardShortcuts && (
-        <Alert>
+      {showKeyboardShortcuts &&
+      <Alert>
           <Keyboard className="h-4 w-4" />
           <AlertDescription className="flex flex-wrap gap-4 mt-2">
             <Badge variant="outline">Ctrl+F: Focus search</Badge>
@@ -317,7 +317,7 @@ const PlayersPageContent: React.FC<PlayersPageContentProps> = () => {
             <Badge variant="outline">Ctrl+←/→: Navigate pages</Badge>
           </AlertDescription>
         </Alert>
-      )}
+      }
 
       {/* Search Bar */}
       <div className="max-w-2xl">
@@ -339,11 +339,11 @@ const PlayersPageContent: React.FC<PlayersPageContentProps> = () => {
         isLoading={isLoading} />
 
       {/* Error Display */}
-      {error && (
-        <Alert variant="destructive">
+      {error &&
+      <Alert variant="destructive">
           <AlertDescription>{error instanceof Error ? error.message : 'An error occurred.'}</AlertDescription>
         </Alert>
-      )}
+      }
 
       {/* Player Table */}
       <PlayerTable
@@ -351,16 +351,16 @@ const PlayersPageContent: React.FC<PlayersPageContentProps> = () => {
         isLoading={isLoading}
         error={error instanceof Error ? error.message : undefined}
         enableVirtualization={filteredPlayers.length > 100} />
-    </div>
-  );
+    </div>);
+
 };
 
 const PlayersPage: React.FC = () => {
   return (
     <PlayerFilterProvider>
       <PlayersPageContent />
-    </PlayerFilterProvider>
-  );
+    </PlayerFilterProvider>);
+
 };
 
 export default PlayersPage;
