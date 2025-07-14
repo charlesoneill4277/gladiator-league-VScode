@@ -889,5 +889,8 @@ class TeamRecordsService {
 
 export const teamRecordsService = new TeamRecordsService();
 
-// Initialize auto-sync on service load
-teamRecordsService.initializeAutoSync();
+// Initialize auto-sync on service load with a delay to allow proper initialization
+// Temporarily disabled to avoid initialization errors
+// setTimeout(() => {
+//   teamRecordsService.initializeAutoSync();
+// }, 1000);

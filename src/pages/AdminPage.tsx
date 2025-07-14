@@ -14,6 +14,7 @@ import MatchupsManagement from '@/components/admin/MatchupsManagement';
 import MatchupCompletionManager from '@/components/admin/MatchupCompletionManager';
 import AutoSyncManager from '@/components/admin/AutoSyncManager';
 import DataIntegrityManager from '@/components/admin/DataIntegrityManager';
+import DataIntegrityDemo from '@/components/DataIntegrityDemo';
 
 const AdminPage: React.FC = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
