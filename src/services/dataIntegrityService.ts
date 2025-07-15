@@ -72,7 +72,7 @@ class DataIntegrityService {
 
       if (teamsError) throw teamsError;
       const teams = teamsData.List || [];
-      const teamIds = new Set(teams.map(t => t.id));
+      const teamIds = new Set(teams.map((t) => t.id));
 
       // Get all conferences
       const { data: conferencesData, error: conferencesError } = await window.ezsite.apis.tablePage(
@@ -88,7 +88,7 @@ class DataIntegrityService {
 
       if (conferencesError) throw conferencesError;
       const conferences = conferencesData.List || [];
-      const conferenceIds = new Set(conferences.map(c => c.id));
+      const conferenceIds = new Set(conferences.map((c) => c.id));
 
       // Get all seasons
       const { data: seasonsData, error: seasonsError } = await window.ezsite.apis.tablePage(
@@ -104,7 +104,7 @@ class DataIntegrityService {
 
       if (seasonsError) throw seasonsError;
       const seasons = seasonsData.List || [];
-      const seasonIds = new Set(seasons.map(s => s.id));
+      const seasonIds = new Set(seasons.map((s) => s.id));
 
       // Get all team-conference junctions
       const { data: junctionsData, error: junctionsError } = await window.ezsite.apis.tablePage(
@@ -123,7 +123,7 @@ class DataIntegrityService {
 
       // Build valid team-conference relationships
       const validTeamConferenceRelationships = new Set<string>();
-      junctions.forEach(junction => {
+      junctions.forEach((junction) => {
         if (junction.is_active) {
           validTeamConferenceRelationships.add(`${junction.team_id}_${junction.conference_id}`);
         }
@@ -134,9 +134,9 @@ class DataIntegrityService {
       const seasonsAffected = new Set<number>();
       const conferencesAffected = new Set<number>();
 
-      teamRecords.forEach(record => {
+      teamRecords.forEach((record) => {
         const key = `${record.team_id}_${record.conference_id}_${record.season_id}`;
-        
+
         if (!duplicateMap.has(key)) {
           duplicateMap.set(key, []);
         }
@@ -172,7 +172,7 @@ class DataIntegrityService {
 
       // Check for missing junction records
       const expectedJunctionCount = teams.length * conferences.length;
-      const actualJunctionCount = junctions.filter(j => j.is_active).length;
+      const actualJunctionCount = junctions.filter((j) => j.is_active).length;
       report.missing_junction_records = Math.max(0, expectedJunctionCount - actualJunctionCount);
 
       report.seasons_affected = Array.from(seasonsAffected);
@@ -194,8 +194,8 @@ class DataIntegrityService {
 
       // Expected total: 12 teams × 3 conferences × seasons = 36 per season
       const expectedRecordsPerSeason = 36;
-      report.seasons_affected.forEach(seasonId => {
-        const seasonRecords = teamRecords.filter(r => r.season_id === seasonId);
+      report.seasons_affected.forEach((seasonId) => {
+        const seasonRecords = teamRecords.filter((r) => r.season_id === seasonId);
         const expectedTotal = expectedRecordsPerSeason;
         if (seasonRecords.length !== expectedTotal) {
           report.cleanup_recommendations.push(
@@ -226,16 +226,16 @@ class DataIntegrityService {
     try {
       // Step 1: Get all data needed for cleanup
       const [teamRecords, teams, conferences, seasons, junctions] = await Promise.all([
-        this.getAllTeamRecords(),
-        this.getAllTeams(),
-        this.getAllConferences(),
-        this.getAllSeasons(),
-        this.getAllJunctions()
-      ]);
+      this.getAllTeamRecords(),
+      this.getAllTeams(),
+      this.getAllConferences(),
+      this.getAllSeasons(),
+      this.getAllJunctions()]
+      );
 
-      const teamIds = new Set(teams.map(t => t.id));
-      const conferenceIds = new Set(conferences.map(c => c.id));
-      const seasonIds = new Set(seasons.map(s => s.id));
+      const teamIds = new Set(teams.map((t) => t.id));
+      const conferenceIds = new Set(conferences.map((c) => c.id));
+      const seasonIds = new Set(seasons.map((s) => s.id));
 
       // Step 2: Remove orphaned records
       for (const record of teamRecords) {
@@ -255,14 +255,14 @@ class DataIntegrityService {
 
       // Step 3: Remove duplicates (keep the most recent record)
       const duplicateMap = new Map<string, any[]>();
-      const remainingRecords = teamRecords.filter(record => {
+      const remainingRecords = teamRecords.filter((record) => {
         const hasValidTeam = teamIds.has(record.team_id);
         const hasValidConference = conferenceIds.has(record.conference_id);
         const hasValidSeason = seasonIds.has(record.season_id);
         return hasValidTeam && hasValidConference && hasValidSeason;
       });
 
-      remainingRecords.forEach(record => {
+      remainingRecords.forEach((record) => {
         const key = `${record.team_id}_${record.conference_id}_${record.season_id}`;
         if (!duplicateMap.has(key)) {
           duplicateMap.set(key, []);
@@ -295,9 +295,9 @@ class DataIntegrityService {
       }
 
       // Step 4: Ensure proper team-conference junction records exist
-      const validJunctions = junctions.filter(j => j.is_active);
+      const validJunctions = junctions.filter((j) => j.is_active);
       const existingJunctionKeys = new Set(
-        validJunctions.map(j => `${j.team_id}_${j.conference_id}`)
+        validJunctions.map((j) => `${j.team_id}_${j.conference_id}`)
       );
 
       // Create missing junction records (for now, we'll assume all teams should be in all conferences)
@@ -346,18 +346,18 @@ class DataIntegrityService {
     try {
       // Get all conferences and ensure they have proper season relationships
       const [conferences, seasons] = await Promise.all([
-        this.getAllConferences(),
-        this.getAllSeasons()
-      ]);
+      this.getAllConferences(),
+      this.getAllSeasons()]
+      );
 
       for (const conference of conferences) {
         // Check if conference has a valid season_id
-        const hasValidSeason = seasons.some(s => s.id === conference.season_id);
-        
+        const hasValidSeason = seasons.some((s) => s.id === conference.season_id);
+
         if (!hasValidSeason) {
           // Try to find the current season or default to the first available season
-          const currentSeason = seasons.find(s => s.is_current_season) || seasons[0];
-          
+          const currentSeason = seasons.find((s) => s.is_current_season) || seasons[0];
+
           if (currentSeason) {
             try {
               await window.ezsite.apis.tableUpdate(this.CONFERENCES_TABLE_ID, {
@@ -395,15 +395,15 @@ class DataIntegrityService {
 
     try {
       const [teams, conferences, seasons, junctions] = await Promise.all([
-        this.getAllTeams(),
-        this.getAllConferences(),
-        this.getAllSeasons(),
-        this.getAllJunctions()
-      ]);
+      this.getAllTeams(),
+      this.getAllConferences(),
+      this.getAllSeasons(),
+      this.getAllJunctions()]
+      );
 
       // Build a map of valid team-conference relationships
       const validRelationships = new Map<number, Set<number>>();
-      junctions.forEach(junction => {
+      junctions.forEach((junction) => {
         if (junction.is_active) {
           if (!validRelationships.has(junction.team_id)) {
             validRelationships.set(junction.team_id, new Set());
@@ -415,7 +415,7 @@ class DataIntegrityService {
       // Get existing team records
       const existingRecords = await this.getAllTeamRecords();
       const existingRecordKeys = new Set(
-        existingRecords.map(r => `${r.team_id}_${r.conference_id}_${r.season_id}`)
+        existingRecords.map((r) => `${r.team_id}_${r.conference_id}_${r.season_id}`)
       );
 
       // Create missing records for each valid team-conference-season combination
@@ -423,7 +423,7 @@ class DataIntegrityService {
         for (const [teamId, conferenceIds] of validRelationships.entries()) {
           for (const conferenceId of conferenceIds) {
             const key = `${teamId}_${conferenceId}_${season.id}`;
-            
+
             if (!existingRecordKeys.has(key)) {
               try {
                 await window.ezsite.apis.tableCreate(this.TEAM_RECORDS_TABLE_ID, {

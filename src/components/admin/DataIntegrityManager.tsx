@@ -6,17 +6,17 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Progress } from '@/components/ui/progress';
-import { 
-  AlertTriangle, 
-  CheckCircle, 
-  Database, 
-  Trash2, 
+import {
+  AlertTriangle,
+  CheckCircle,
+  Database,
+  Trash2,
   RefreshCw,
   Shield,
   AlertCircle,
   Play,
-  FileText
-} from 'lucide-react';
+  FileText } from
+'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { dataIntegrityService, DataIntegrityReport, CleanupResult } from '@/services/dataIntegrityService';
 
@@ -51,17 +51,17 @@ const DataIntegrityManager: React.FC = () => {
   const runCleanup = async () => {
     try {
       setCleaning(true);
-      
+
       // Run all cleanup operations
       const [
-        integrityResult,
-        relationshipResult,
-        missingRecordsResult
-      ] = await Promise.all([
-        dataIntegrityService.cleanupDataIntegrity(),
-        dataIntegrityService.validateSeasonConferenceRelationships(),
-        dataIntegrityService.createMissingTeamRecords()
-      ]);
+      integrityResult,
+      relationshipResult,
+      missingRecordsResult] =
+      await Promise.all([
+      dataIntegrityService.cleanupDataIntegrity(),
+      dataIntegrityService.validateSeasonConferenceRelationships(),
+      dataIntegrityService.createMissingTeamRecords()]
+      );
 
       // Combine results
       const combinedResult: CleanupResult = {
@@ -69,10 +69,10 @@ const DataIntegrityManager: React.FC = () => {
         records_updated: integrityResult.records_updated + relationshipResult.records_updated,
         records_created: integrityResult.records_created + missingRecordsResult.records_created,
         errors: [
-          ...integrityResult.errors,
-          ...relationshipResult.errors,
-          ...missingRecordsResult.errors
-        ],
+        ...integrityResult.errors,
+        ...relationshipResult.errors,
+        ...missingRecordsResult.errors],
+
         success: integrityResult.success && relationshipResult.success && missingRecordsResult.success
       };
 
@@ -133,8 +133,8 @@ const DataIntegrityManager: React.FC = () => {
             <span>Analyzing data integrity...</span>
           </div>
         </CardContent>
-      </Card>
-    );
+      </Card>);
+
   }
 
   return (
@@ -155,29 +155,29 @@ const DataIntegrityManager: React.FC = () => {
               <RefreshCw className="h-4 w-4 mr-2" />
               Run Audit
             </Button>
-            <Button 
-              onClick={runCleanup} 
+            <Button
+              onClick={runCleanup}
               disabled={cleaning || !report}
-              variant="outline"
-            >
-              {cleaning ? (
-                <>
+              variant="outline">
+
+              {cleaning ?
+              <>
                   <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
                   Cleaning...
-                </>
-              ) : (
-                <>
+                </> :
+
+              <>
                   <Shield className="h-4 w-4 mr-2" />
                   Run Cleanup
                 </>
-              )}
+              }
             </Button>
           </div>
         </CardContent>
       </Card>
 
-      {report && (
-        <Tabs defaultValue="overview" className="space-y-4">
+      {report &&
+      <Tabs defaultValue="overview" className="space-y-4">
           <TabsList>
             <TabsTrigger value="overview">Overview</TabsTrigger>
             <TabsTrigger value="details">Details</TabsTrigger>
@@ -260,23 +260,23 @@ const DataIntegrityManager: React.FC = () => {
               </Card>
             </div>
 
-            {(report.duplicate_records > 0 || report.orphaned_records > 0 || report.invalid_relationships > 0 || report.missing_junction_records > 0) && (
-              <Alert>
+            {(report.duplicate_records > 0 || report.orphaned_records > 0 || report.invalid_relationships > 0 || report.missing_junction_records > 0) &&
+          <Alert>
                 <AlertTriangle className="h-4 w-4" />
                 <AlertDescription>
                   Data integrity issues detected. Run cleanup to fix these issues automatically.
                 </AlertDescription>
               </Alert>
-            )}
+          }
 
-            {report.duplicate_records === 0 && report.orphaned_records === 0 && report.invalid_relationships === 0 && report.missing_junction_records === 0 && (
-              <Alert>
+            {report.duplicate_records === 0 && report.orphaned_records === 0 && report.invalid_relationships === 0 && report.missing_junction_records === 0 &&
+          <Alert>
                 <CheckCircle className="h-4 w-4" />
                 <AlertDescription>
                   Data integrity is good! No issues detected.
                 </AlertDescription>
               </Alert>
-            )}
+          }
           </TabsContent>
 
           <TabsContent value="details" className="space-y-4">
@@ -336,21 +336,21 @@ const DataIntegrityManager: React.FC = () => {
                   <div>
                     <h4 className="font-medium mb-2">Seasons with Records</h4>
                     <div className="space-y-1">
-                      {report.seasons_affected.map(seasonId => (
-                        <Badge key={seasonId} variant="outline">
+                      {report.seasons_affected.map((seasonId) =>
+                    <Badge key={seasonId} variant="outline">
                           Season {seasonId}
                         </Badge>
-                      ))}
+                    )}
                     </div>
                   </div>
                   <div>
                     <h4 className="font-medium mb-2">Conferences with Records</h4>
                     <div className="space-y-1">
-                      {report.conferences_affected.map(conferenceId => (
-                        <Badge key={conferenceId} variant="outline">
+                      {report.conferences_affected.map((conferenceId) =>
+                    <Badge key={conferenceId} variant="outline">
                           Conference {conferenceId}
                         </Badge>
-                      ))}
+                    )}
                     </div>
                   </div>
                 </div>
@@ -370,37 +370,37 @@ const DataIntegrityManager: React.FC = () => {
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                {report.cleanup_recommendations.length === 0 ? (
-                  <Alert>
+                {report.cleanup_recommendations.length === 0 ?
+              <Alert>
                     <CheckCircle className="h-4 w-4" />
                     <AlertDescription>
                       No cleanup recommendations. Your data integrity is good!
                     </AlertDescription>
-                  </Alert>
-                ) : (
-                  <div className="space-y-3">
-                    {report.cleanup_recommendations.map((recommendation, index) => (
-                      <Alert key={index}>
+                  </Alert> :
+
+              <div className="space-y-3">
+                    {report.cleanup_recommendations.map((recommendation, index) =>
+                <Alert key={index}>
                         <AlertCircle className="h-4 w-4" />
                         <AlertDescription>{recommendation}</AlertDescription>
                       </Alert>
-                    ))}
-                  </div>
                 )}
+                  </div>
+              }
               </CardContent>
             </Card>
           </TabsContent>
 
-          {cleanupResults && (
-            <TabsContent value="cleanup" className="space-y-4">
+          {cleanupResults &&
+        <TabsContent value="cleanup" className="space-y-4">
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
-                    {cleanupResults.success ? (
-                      <CheckCircle className="h-5 w-5 text-green-600" />
-                    ) : (
-                      <AlertTriangle className="h-5 w-5 text-yellow-600" />
-                    )}
+                    {cleanupResults.success ?
+                <CheckCircle className="h-5 w-5 text-green-600" /> :
+
+                <AlertTriangle className="h-5 w-5 text-yellow-600" />
+                }
                     Cleanup Results
                   </CardTitle>
                   <CardDescription>
@@ -437,36 +437,36 @@ const DataIntegrityManager: React.FC = () => {
                     </Card>
                   </div>
 
-                  {cleanupResults.errors.length > 0 && (
-                    <Alert variant="destructive">
+                  {cleanupResults.errors.length > 0 &&
+              <Alert variant="destructive">
                       <AlertTriangle className="h-4 w-4" />
                       <AlertDescription>
                         <div className="font-medium mb-2">Errors encountered during cleanup:</div>
                         <ul className="list-disc list-inside space-y-1">
-                          {cleanupResults.errors.map((error, index) => (
-                            <li key={index} className="text-sm">{error}</li>
-                          ))}
+                          {cleanupResults.errors.map((error, index) =>
+                    <li key={index} className="text-sm">{error}</li>
+                    )}
                         </ul>
                       </AlertDescription>
                     </Alert>
-                  )}
+              }
 
-                  {cleanupResults.success && (
-                    <Alert>
+                  {cleanupResults.success &&
+              <Alert>
                       <CheckCircle className="h-4 w-4" />
                       <AlertDescription>
                         Cleanup completed successfully! Data integrity has been restored.
                       </AlertDescription>
                     </Alert>
-                  )}
+              }
                 </CardContent>
               </Card>
             </TabsContent>
-          )}
+        }
         </Tabs>
-      )}
-    </div>
-  );
+      }
+    </div>);
+
 };
 
 export default DataIntegrityManager;

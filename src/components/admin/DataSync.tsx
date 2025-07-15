@@ -668,8 +668,639 @@ const DataSync: React.FC = () => {
     });
   };
 
-  // [Include all other existing sync functions here unchanged]
-  // ... (keeping the rest of the component intact for brevity)
+  const syncTeamsData = async () => {
+    if (!selectedSeasonId || conferences.length === 0) {
+      toast({
+        title: "No Data to Sync",
+        description: "Please select a season with conferences to sync teams",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setSyncingTeams(true);
+    setTeamsProgress(0);
+    setTeamsSyncResults([]);
+
+    try {
+      console.log('Starting teams sync from Sleeper API...');
+      setTeamsProgress(5);
+
+      const results: TeamSyncResult[] = [];
+      const total = conferences.length;
+      let teamsCreated = 0;
+      let junctionRecordsCreated = 0;
+
+      for (let i = 0; i < conferences.length; i++) {
+        const conference = conferences[i];
+        setTeamsProgress(5 + (i / total) * 90);
+
+        try {
+          console.log(`Processing teams for league ${conference.league_id}...`);
+
+          // Fetch league data from Sleeper API
+          const [leagueData, rostersData, usersData] = await Promise.all([
+            fetch(`https://api.sleeper.app/v1/league/${conference.league_id}`),
+            fetch(`https://api.sleeper.app/v1/league/${conference.league_id}/rosters`),
+            fetch(`https://api.sleeper.app/v1/league/${conference.league_id}/users`)
+          ]);
+
+          if (!leagueData.ok || !rostersData.ok || !usersData.ok) {
+            throw new Error(`API request failed for league ${conference.league_id}`);
+          }
+
+          const [league, rosters, users] = await Promise.all([
+            leagueData.json(),
+            rostersData.json(),
+            usersData.json()
+          ]);
+
+          console.log(`Fetched ${rosters.length} rosters and ${users.length} users for league ${conference.league_id}`);
+
+          // Process each roster to create teams
+          for (const roster of rosters) {
+            const user = users.find(u => u.user_id === roster.owner_id);
+            if (!user) {
+              console.warn(`No user found for roster ${roster.roster_id}`);
+              continue;
+            }
+
+            const teamData = {
+              team_name: user.metadata?.team_name || user.display_name || user.username,
+              owner_name: user.display_name || user.username,
+              owner_id: user.user_id,
+              co_owner_name: '',
+              co_owner_id: '',
+              team_logo_url: user.avatar ? `https://sleepercdn.com/avatars/thumbs/${user.avatar}` : '',
+              team_primary_color: '#1f2937',
+              team_secondary_color: '#6b7280'
+            };
+
+            // Check if team already exists
+            const { data: existingTeam, error: searchError } = await window.ezsite.apis.tablePage(12852, {
+              PageNo: 1,
+              PageSize: 1,
+              Filters: [{
+                name: 'owner_id',
+                op: 'Equal',
+                value: user.user_id
+              }]
+            });
+
+            if (searchError) {
+              console.error(`Error searching for existing team:`, searchError);
+              continue;
+            }
+
+            let teamId;
+            if (existingTeam?.List?.length > 0) {
+              // Update existing team
+              const existingRecord = existingTeam.List[0];
+              const updateData = { ...teamData, ID: existingRecord.id };
+              const { error: updateError } = await window.ezsite.apis.tableUpdate(12852, updateData);
+              if (updateError) {
+                console.error('Error updating team:', updateError);
+                continue;
+              }
+              teamId = existingRecord.id;
+            } else {
+              // Create new team
+              const { error: createError } = await window.ezsite.apis.tableCreate(12852, teamData);
+              if (createError) {
+                console.error('Error creating team:', createError);
+                continue;
+              }
+              
+              // Get the newly created team ID
+              const { data: newTeamData, error: newTeamError } = await window.ezsite.apis.tablePage(12852, {
+                PageNo: 1,
+                PageSize: 1,
+                Filters: [{
+                  name: 'owner_id',
+                  op: 'Equal',
+                  value: user.user_id
+                }]
+              });
+
+              if (newTeamError || !newTeamData?.List?.length) {
+                console.error('Error retrieving new team ID');
+                continue;
+              }
+              
+              teamId = newTeamData.List[0].id;
+              teamsCreated++;
+            }
+
+            // Create or update junction record
+            const junctionData = {
+              team_id: teamId,
+              conference_id: conference.id,
+              roster_id: roster.roster_id.toString(),
+              is_active: true,
+              joined_date: new Date().toISOString()
+            };
+
+            const { data: existingJunction, error: junctionSearchError } = await window.ezsite.apis.tablePage(12853, {
+              PageNo: 1,
+              PageSize: 1,
+              Filters: [
+                { name: 'team_id', op: 'Equal', value: teamId },
+                { name: 'conference_id', op: 'Equal', value: conference.id }
+              ]
+            });
+
+            if (junctionSearchError) {
+              console.error('Error searching for existing junction:', junctionSearchError);
+              continue;
+            }
+
+            if (existingJunction?.List?.length > 0) {
+              // Update existing junction
+              const existingRecord = existingJunction.List[0];
+              const updateData = { ...junctionData, ID: existingRecord.id };
+              const { error: updateError } = await window.ezsite.apis.tableUpdate(12853, updateData);
+              if (updateError) {
+                console.error('Error updating junction:', updateError);
+              }
+            } else {
+              // Create new junction
+              const { error: createError } = await window.ezsite.apis.tableCreate(12853, junctionData);
+              if (createError) {
+                console.error('Error creating junction:', createError);
+              } else {
+                junctionRecordsCreated++;
+              }
+            }
+          }
+
+          results.push({
+            league_id: conference.league_id,
+            success: true,
+            teams_created: teamsCreated,
+            junction_records_created: junctionRecordsCreated
+          });
+
+          console.log(`✓ Completed teams sync for league ${conference.league_id}`);
+
+        } catch (error) {
+          console.error(`Error syncing teams for league ${conference.league_id}:`, error);
+          results.push({
+            league_id: conference.league_id,
+            success: false,
+            error: error.toString(),
+            teams_created: 0,
+            junction_records_created: 0
+          });
+        }
+
+        // Small delay between requests
+        await new Promise(resolve => setTimeout(resolve, 200));
+      }
+
+      setTeamsSyncResults(results);
+      setTeamsProgress(100);
+
+      // Update last sync time
+      const now = new Date().toISOString();
+      localStorage.setItem('last_teams_sync', now);
+      setLastTeamsSyncTime(new Date(now).toLocaleString());
+
+      // Reload teams to show updated data
+      loadTeams();
+
+      const successCount = results.filter(r => r.success).length;
+      const failureCount = results.filter(r => !r.success).length;
+
+      toast({
+        title: "Teams Sync Complete",
+        description: `${successCount} successful, ${failureCount} failed`,
+        variant: failureCount > 0 ? "destructive" : "default"
+      });
+
+    } catch (error) {
+      console.error('❌ Error syncing teams:', error);
+      toast({
+        title: "Teams Sync Failed",
+        description: `Failed to sync teams: ${error}`,
+        variant: "destructive"
+      });
+    } finally {
+      setSyncingTeams(false);
+    }
+  };
+
+  const syncPlayersData = async () => {
+    setSyncingPlayers(true);
+    setPlayersProgress(0);
+    setPlayersSyncResult(null);
+
+    try {
+      console.log('Starting players sync from Sleeper API...');
+      setPlayersProgress(5);
+
+      // Fetch all players from Sleeper API
+      const response = await fetch('https://api.sleeper.app/v1/players/nfl');
+      if (!response.ok) {
+        throw new Error(`API returned ${response.status}: ${response.statusText}`);
+      }
+
+      const playersData = await response.json();
+      const playerIds = Object.keys(playersData);
+      console.log(`Fetched ${playerIds.length} players from Sleeper API`);
+
+      setPlayersProgress(20);
+
+      let playersCreated = 0;
+      let playersUpdated = 0;
+      const total = playerIds.length;
+
+      for (let i = 0; i < playerIds.length; i++) {
+        const playerId = playerIds[i];
+        const playerData = playersData[playerId];
+
+        if (!playerData) continue;
+
+        // Calculate progress
+        const progress = 20 + (i / total) * 75;
+        setPlayersProgress(progress);
+
+        try {
+          // Check if player already exists
+          const { data: existingPlayer, error: searchError } = await window.ezsite.apis.tablePage(12870, {
+            PageNo: 1,
+            PageSize: 1,
+            Filters: [{
+              name: 'sleeper_player_id',
+              op: 'Equal',
+              value: playerId
+            }]
+          });
+
+          if (searchError) {
+            console.error(`Error searching for player ${playerId}:`, searchError);
+            continue;
+          }
+
+          const playerRecord = {
+            sleeper_player_id: playerId,
+            player_name: `${playerData.first_name || ''} ${playerData.last_name || ''}`.trim() || 'Unknown Player',
+            position: playerData.position || 'UNK',
+            team_id: 0, // Fantasy team ID - will be set when assigned to roster
+            nfl_team: playerData.team || 'FA',
+            jersey_number: playerData.jersey_number || 0,
+            status: playerData.status || 'Active',
+            injury_status: playerData.injury_status || 'Healthy',
+            age: playerData.age || 0,
+            height: playerData.height || '',
+            weight: playerData.weight || 0,
+            years_experience: playerData.years_exp || 0,
+            depth_chart_position: playerData.depth_chart_position || 1,
+            college: playerData.college || '',
+            is_current_data: true,
+            last_updated: new Date().toISOString(),
+            data_version: 1
+          };
+
+          if (existingPlayer?.List?.length > 0) {
+            // Update existing player
+            const existingRecord = existingPlayer.List[0];
+            const updateData = { ...playerRecord, ID: existingRecord.id };
+            const { error: updateError } = await window.ezsite.apis.tableUpdate(12870, updateData);
+            if (updateError) {
+              console.error(`Error updating player ${playerId}:`, updateError);
+            } else {
+              playersUpdated++;
+            }
+          } else {
+            // Create new player
+            const { error: createError } = await window.ezsite.apis.tableCreate(12870, playerRecord);
+            if (createError) {
+              console.error(`Error creating player ${playerId}:`, createError);
+            } else {
+              playersCreated++;
+            }
+          }
+
+        } catch (error) {
+          console.error(`Error processing player ${playerId}:`, error);
+        }
+
+        // Small delay every 100 players to prevent rate limiting
+        if (i % 100 === 0) {
+          await new Promise(resolve => setTimeout(resolve, 50));
+        }
+      }
+
+      setPlayersSyncResult({
+        success: true,
+        players_created: playersCreated,
+        players_updated: playersUpdated
+      });
+
+      console.log(`✓ Successfully synced players: ${playersCreated} created, ${playersUpdated} updated`);
+
+      // Update last sync time
+      const now = new Date().toISOString();
+      localStorage.setItem('last_players_sync', now);
+      setLastPlayersSyncTime(new Date(now).toLocaleString());
+
+      toast({
+        title: "Players Sync Complete",
+        description: `${playersCreated} players created, ${playersUpdated} updated`,
+        variant: "default"
+      });
+
+    } catch (error) {
+      console.error('❌ Error syncing players:', error);
+      setPlayersSyncResult({
+        success: false,
+        error: error.toString(),
+        players_created: 0,
+        players_updated: 0
+      });
+
+      toast({
+        title: "Players Sync Failed",
+        description: `Failed to sync players: ${error}`,
+        variant: "destructive"
+      });
+    } finally {
+      setSyncingPlayers(false);
+      setPlayersProgress(100);
+    }
+  };
+
+  const syncMatchupsData = async () => {
+    if (!selectedSeasonId || conferences.length === 0) {
+      toast({
+        title: "No Data to Sync",
+        description: "Please select a season with conferences to sync matchups",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setSyncingMatchups(true);
+    setMatchupsProgress(0);
+    setMatchupsSyncResult(null);
+
+    try {
+      console.log('Starting matchups sync from Sleeper API...');
+      setMatchupsProgress(5);
+
+      let matchupsCreated = 0;
+      let matchupsUpdated = 0;
+      let leaguesProcessed = 0;
+      let weeksProcessed = 0;
+
+      const totalOperations = conferences.length * 17; // 17 weeks per season
+      let operationCount = 0;
+
+      for (const conference of conferences) {
+        try {
+          console.log(`Processing matchups for league ${conference.league_id}...`);
+
+          // Process all 17 weeks
+          for (let week = 1; week <= 17; week++) {
+            try {
+              console.log(`Fetching matchups for league ${conference.league_id}, week ${week}...`);
+
+              // Fetch matchups from Sleeper API
+              const response = await fetch(`https://api.sleeper.app/v1/league/${conference.league_id}/matchups/${week}`);
+              if (!response.ok) {
+                if (response.status === 404) {
+                  console.log(`No matchups found for league ${conference.league_id}, week ${week} (404)`);
+                  continue;
+                }
+                throw new Error(`API returned ${response.status}: ${response.statusText}`);
+              }
+
+              const matchupsData = await response.json();
+              console.log(`Received ${matchupsData.length} matchup entries for league ${conference.league_id}, week ${week}`);
+
+              if (!Array.isArray(matchupsData) || matchupsData.length === 0) {
+                console.log(`No matchup data available for league ${conference.league_id}, week ${week}`);
+                continue;
+              }
+
+              // Group matchups by matchup_id
+              const matchupGroups = new Map();
+              matchupsData.forEach(entry => {
+                if (!matchupGroups.has(entry.matchup_id)) {
+                  matchupGroups.set(entry.matchup_id, []);
+                }
+                matchupGroups.get(entry.matchup_id).push(entry);
+              });
+
+              // Process each matchup pair
+              for (const [matchupId, matchupPair] of matchupGroups.entries()) {
+                if (matchupPair.length !== 2) {
+                  console.warn(`Skipping incomplete matchup ${matchupId} - only ${matchupPair.length} teams`);
+                  continue;
+                }
+
+                const [team1Data, team2Data] = matchupPair;
+
+                // Get team IDs from roster IDs
+                const team1Id = await getTeamIdFromRosterId(team1Data.roster_id.toString(), conference.id);
+                const team2Id = await getTeamIdFromRosterId(team2Data.roster_id.toString(), conference.id);
+
+                if (!team1Id || !team2Id) {
+                  console.warn(`Could not find team IDs for matchup ${matchupId}`);
+                  continue;
+                }
+
+                // Determine winner
+                let winnerId = 0;
+                if (team1Data.points > team2Data.points) {
+                  winnerId = team1Id;
+                } else if (team2Data.points > team1Data.points) {
+                  winnerId = team2Id;
+                }
+
+                const matchupData = {
+                  conference_id: conference.id,
+                  week: week,
+                  team_1_id: team1Id,
+                  team_2_id: team2Id,
+                  is_playoff: week > 14, // Weeks 15-17 are typically playoffs
+                  sleeper_matchup_id: matchupId.toString(),
+                  team_1_score: team1Data.points || 0,
+                  team_2_score: team2Data.points || 0,
+                  winner_id: winnerId,
+                  is_manual_override: false,
+                  status: (team1Data.points > 0 || team2Data.points > 0) ? 'complete' : 'pending',
+                  matchup_date: new Date().toISOString(),
+                  notes: ''
+                };
+
+                // Check if matchup already exists
+                const { data: existingMatchup, error: searchError } = await window.ezsite.apis.tablePage(13329, {
+                  PageNo: 1,
+                  PageSize: 1,
+                  Filters: [
+                    { name: 'conference_id', op: 'Equal', value: conference.id },
+                    { name: 'week', op: 'Equal', value: week },
+                    { name: 'sleeper_matchup_id', op: 'Equal', value: matchupId.toString() }
+                  ]
+                });
+
+                if (searchError) {
+                  console.error('Error searching for existing matchup:', searchError);
+                  continue;
+                }
+
+                if (existingMatchup?.List?.length > 0) {
+                  // Update existing matchup
+                  const existingRecord = existingMatchup.List[0];
+                  const updateData = { ...matchupData, ID: existingRecord.id };
+                  const { error: updateError } = await window.ezsite.apis.tableUpdate(13329, updateData);
+                  if (updateError) {
+                    console.error('Error updating matchup:', updateError);
+                  } else {
+                    matchupsUpdated++;
+                  }
+                } else {
+                  // Create new matchup
+                  const { error: createError } = await window.ezsite.apis.tableCreate(13329, matchupData);
+                  if (createError) {
+                    console.error('Error creating matchup:', createError);
+                  } else {
+                    matchupsCreated++;
+                  }
+                }
+              }
+
+              weeksProcessed++;
+              
+              // Small delay between week requests
+              await new Promise(resolve => setTimeout(resolve, 100));
+
+            } catch (error) {
+              console.error(`Error processing week ${week} for league ${conference.league_id}:`, error);
+            }
+
+            // Update progress
+            operationCount++;
+            const progressPercent = 5 + (operationCount / totalOperations) * 90;
+            setMatchupsProgress(progressPercent);
+          }
+
+          leaguesProcessed++;
+          console.log(`✓ Completed matchups sync for league ${conference.league_id}`);
+
+          // Small delay between league requests
+          await new Promise(resolve => setTimeout(resolve, 200));
+
+        } catch (error) {
+          console.error(`Error processing league ${conference.league_id}:`, error);
+        }
+      }
+
+      setMatchupsSyncResult({
+        success: true,
+        matchups_created: matchupsCreated,
+        matchups_updated: matchupsUpdated,
+        leagues_processed: leaguesProcessed,
+        weeks_processed: weeksProcessed
+      });
+
+      console.log(`✓ Successfully synced matchups: ${matchupsCreated} created, ${matchupsUpdated} updated`);
+
+      // Update last sync time
+      const now = new Date().toISOString();
+      localStorage.setItem('last_matchups_sync', now);
+      setLastMatchupsSyncTime(new Date(now).toLocaleString());
+
+      toast({
+        title: "Matchups Sync Complete",
+        description: `${matchupsCreated} matchups created, ${matchupsUpdated} updated across ${leaguesProcessed} leagues`,
+        variant: "default"
+      });
+
+    } catch (error) {
+      console.error('❌ Error syncing matchups:', error);
+      setMatchupsSyncResult({
+        success: false,
+        error: error.toString(),
+        matchups_created: 0,
+        matchups_updated: 0,
+        leagues_processed: 0,
+        weeks_processed: 0
+      });
+
+      toast({
+        title: "Matchups Sync Failed",
+        description: `Failed to sync matchups: ${error}`,
+        variant: "destructive"
+      });
+    } finally {
+      setSyncingMatchups(false);
+      setMatchupsProgress(100);
+    }
+  };
+
+  const syncDraftData = async () => {
+    setSyncingDraft(true);
+    setDraftProgress(0);
+    setDraftSyncResult(null);
+
+    try {
+      console.log('Starting draft sync from Sleeper API...');
+      setDraftProgress(5);
+
+      const result = await DraftService.fetchAndStoreDraftResults();
+      
+      setDraftProgress(100);
+      
+      if (result.success) {
+        setDraftSyncResult({
+          success: true,
+          message: result.message,
+          data: result.data
+        });
+
+        // Update last sync time
+        const now = new Date().toISOString();
+        localStorage.setItem('last_draft_sync', now);
+        setLastDraftSyncTime(new Date(now).toLocaleString());
+
+        toast({
+          title: "Draft Sync Complete",
+          description: result.message,
+          variant: "default"
+        });
+      } else {
+        setDraftSyncResult({
+          success: false,
+          error: result.message,
+          message: result.message
+        });
+
+        toast({
+          title: "Draft Sync Failed",
+          description: result.message,
+          variant: "destructive"
+        });
+      }
+
+    } catch (error) {
+      console.error('❌ Error syncing draft:', error);
+      setDraftSyncResult({
+        success: false,
+        error: error.toString(),
+        message: `Draft sync failed: ${error}`
+      });
+
+      toast({
+        title: "Draft Sync Failed",
+        description: `Failed to sync draft: ${error}`,
+        variant: "destructive"
+      });
+    } finally {
+      setSyncingDraft(false);
+    }
+  };
 
   const selectedSeason = seasons.find((s) => s.id === selectedSeasonId);
 
@@ -1068,7 +1699,685 @@ const DataSync: React.FC = () => {
                 }
               </TabsContent>
 
-              {/* Keep all other tab contents for other sync operations unchanged */}
+              <TabsContent value="conferences">
+                {conferences.length === 0 ? (
+                  <Alert>
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertDescription>
+                      No conferences available. Please add leagues in the League Manager tab first.
+                    </AlertDescription>
+                  </Alert>
+                ) : (
+                  <div className="space-y-6">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-4">
+                        {lastSyncTime && (
+                          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                            <Clock className="h-4 w-4" />
+                            Last sync: {lastSyncTime}
+                          </div>
+                        )}
+                      </div>
+                      <Button
+                        onClick={syncConferenceData}
+                        disabled={syncing || !selectedSeasonId || conferences.length === 0}
+                      >
+                        {syncing ? (
+                          <>
+                            <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                            Syncing...
+                          </>
+                        ) : (
+                          <>
+                            <Trophy className="h-4 w-4 mr-2" />
+                            Sync Conference Data
+                          </>
+                        )}
+                      </Button>
+                    </div>
+
+                    {syncing && (
+                      <div>
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-sm font-medium">Synchronizing conferences...</span>
+                          <span className="text-sm text-muted-foreground">{Math.round(progress)}%</span>
+                        </div>
+                        <Progress value={progress} className="w-full" />
+                      </div>
+                    )}
+
+                    <Card>
+                      <CardHeader>
+                        <CardTitle className="text-lg">
+                          Conference Synchronization - {selectedSeason?.season_name}
+                        </CardTitle>
+                        <CardDescription>
+                          Sync conference data from Sleeper API to update league information
+                        </CardDescription>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="mb-4">
+                          <h4 className="font-semibold mb-2">Conferences to Process:</h4>
+                          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
+                            {conferences.map((conference) => (
+                              <div key={conference.id} className="flex items-center gap-2 p-2 border rounded">
+                                <Badge variant="outline" className="text-xs">
+                                  {conference.league_id}
+                                </Badge>
+                                <span className="text-sm truncate">{conference.conference_name}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+
+                    {syncResults.length > 0 && (
+                      <Card>
+                        <CardHeader>
+                          <CardTitle className="text-lg">Sync Results</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <Table>
+                            <TableHeader>
+                              <TableRow>
+                                <TableHead>League ID</TableHead>
+                                <TableHead>Status</TableHead>
+                                <TableHead>Details</TableHead>
+                              </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                              {syncResults.map((result, index) => (
+                                <TableRow key={index}>
+                                  <TableCell className="font-medium">{result.league_id}</TableCell>
+                                  <TableCell>
+                                    {result.success ? (
+                                      <Badge variant="default">Success</Badge>
+                                    ) : (
+                                      <Badge variant="destructive">Failed</Badge>
+                                    )}
+                                  </TableCell>
+                                  <TableCell>
+                                    {result.success ? (
+                                      <span className="text-green-600">Updated successfully</span>
+                                    ) : (
+                                      <span className="text-red-600">{result.error}</span>
+                                    )}
+                                  </TableCell>
+                                </TableRow>
+                              ))}
+                            </TableBody>
+                          </Table>
+                        </CardContent>
+                      </Card>
+                    )}
+                  </div>
+                )}
+              </TabsContent>
+
+              <TabsContent value="teams">
+                {conferences.length === 0 ? (
+                  <Alert>
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertDescription>
+                      No conferences available for team synchronization. Please add leagues in the League Manager tab first.
+                    </AlertDescription>
+                  </Alert>
+                ) : (
+                  <div className="space-y-6">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-4">
+                        {lastTeamsSyncTime && (
+                          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                            <Clock className="h-4 w-4" />
+                            Last teams sync: {lastTeamsSyncTime}
+                          </div>
+                        )}
+                      </div>
+                      <Button
+                        onClick={syncTeamsData}
+                        disabled={syncingTeams || !selectedSeasonId || conferences.length === 0}
+                      >
+                        {syncingTeams ? (
+                          <>
+                            <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                            Syncing...
+                          </>
+                        ) : (
+                          <>
+                            <Users className="h-4 w-4 mr-2" />
+                            Sync Teams
+                          </>
+                        )}
+                      </Button>
+                    </div>
+
+                    {syncingTeams && (
+                      <div>
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-sm font-medium">Synchronizing teams...</span>
+                          <span className="text-sm text-muted-foreground">{Math.round(teamsProgress)}%</span>
+                        </div>
+                        <Progress value={teamsProgress} className="w-full" />
+                      </div>
+                    )}
+
+                    <Card>
+                      <CardHeader>
+                        <CardTitle className="text-lg">
+                          Teams Synchronization - {selectedSeason?.season_name}
+                        </CardTitle>
+                        <CardDescription>
+                          Sync team data from Sleeper API including owners, team names, and roster mappings
+                        </CardDescription>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                          <div className="p-4 border rounded-lg">
+                            <div className="flex items-center gap-2 mb-2">
+                              <Users className="h-5 w-5 text-blue-600" />
+                              <h4 className="font-semibold">Team Data</h4>
+                            </div>
+                            <p className="text-sm text-muted-foreground mb-2">
+                              Creates teams and junction records:
+                            </p>
+                            <ul className="text-sm text-muted-foreground space-y-1">
+                              <li>• Team names and owner information</li>
+                              <li>• Avatar/logo URLs</li>
+                              <li>• Roster ID mappings</li>
+                              <li>• Conference relationships</li>
+                            </ul>
+                          </div>
+                          <div className="p-4 border rounded-lg">
+                            <div className="flex items-center gap-2 mb-2">
+                              <Database className="h-5 w-5 text-green-600" />
+                              <h4 className="font-semibold">Data Structure</h4>
+                            </div>
+                            <p className="text-sm text-muted-foreground mb-2">
+                              Updates database tables:
+                            </p>
+                            <ul className="text-sm text-muted-foreground space-y-1">
+                              <li>• Teams table (team info)</li>
+                              <li>• Junction table (team-conference mapping)</li>
+                              <li>• Roster ID associations</li>
+                              <li>• Active status tracking</li>
+                            </ul>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+
+                    {teamsSyncResults.length > 0 && (
+                      <Card>
+                        <CardHeader>
+                          <CardTitle className="text-lg">Teams Sync Results</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <Table>
+                            <TableHeader>
+                              <TableRow>
+                                <TableHead>League ID</TableHead>
+                                <TableHead>Status</TableHead>
+                                <TableHead>Teams Created</TableHead>
+                                <TableHead>Junction Records</TableHead>
+                                <TableHead>Details</TableHead>
+                              </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                              {teamsSyncResults.map((result, index) => (
+                                <TableRow key={index}>
+                                  <TableCell className="font-medium">{result.league_id}</TableCell>
+                                  <TableCell>
+                                    {result.success ? (
+                                      <Badge variant="default">Success</Badge>
+                                    ) : (
+                                      <Badge variant="destructive">Failed</Badge>
+                                    )}
+                                  </TableCell>
+                                  <TableCell>
+                                    {result.success ? result.teams_created : 0}
+                                  </TableCell>
+                                  <TableCell>
+                                    {result.success ? result.junction_records_created : 0}
+                                  </TableCell>
+                                  <TableCell>
+                                    {result.success ? (
+                                      <span className="text-green-600">Updated successfully</span>
+                                    ) : (
+                                      <span className="text-red-600">{result.error}</span>
+                                    )}
+                                  </TableCell>
+                                </TableRow>
+                              ))}
+                            </TableBody>
+                          </Table>
+                        </CardContent>
+                      </Card>
+                    )}
+                  </div>
+                )}
+              </TabsContent>
+
+              <TabsContent value="matchups">
+                {conferences.length === 0 ? (
+                  <Alert>
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertDescription>
+                      No conferences available for matchup synchronization. Please add leagues in the League Manager tab first.
+                    </AlertDescription>
+                  </Alert>
+                ) : (
+                  <div className="space-y-6">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-4">
+                        {lastMatchupsSyncTime && (
+                          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                            <Clock className="h-4 w-4" />
+                            Last matchups sync: {lastMatchupsSyncTime}
+                          </div>
+                        )}
+                      </div>
+                      <Button
+                        onClick={syncMatchupsData}
+                        disabled={syncingMatchups || !selectedSeasonId || conferences.length === 0}
+                      >
+                        {syncingMatchups ? (
+                          <>
+                            <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                            Syncing...
+                          </>
+                        ) : (
+                          <>
+                            <RefreshCw className="h-4 w-4 mr-2" />
+                            Sync Matchups
+                          </>
+                        )}
+                      </Button>
+                    </div>
+
+                    {syncingMatchups && (
+                      <div>
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-sm font-medium">Synchronizing matchups...</span>
+                          <span className="text-sm text-muted-foreground">{Math.round(matchupsProgress)}%</span>
+                        </div>
+                        <Progress value={matchupsProgress} className="w-full" />
+                      </div>
+                    )}
+
+                    <Card>
+                      <CardHeader>
+                        <CardTitle className="text-lg">
+                          Matchups Synchronization - {selectedSeason?.season_name}
+                        </CardTitle>
+                        <CardDescription>
+                          Sync matchup data from Sleeper API for all weeks across all conferences
+                        </CardDescription>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                          <div className="p-4 border rounded-lg">
+                            <div className="flex items-center gap-2 mb-2">
+                              <RefreshCw className="h-5 w-5 text-blue-600" />
+                              <h4 className="font-semibold">Matchup Data</h4>
+                            </div>
+                            <p className="text-sm text-muted-foreground mb-2">
+                              Processes matchup information:
+                            </p>
+                            <ul className="text-sm text-muted-foreground space-y-1">
+                              <li>• Team matchups for all weeks</li>
+                              <li>• Scores and results</li>
+                              <li>• Winner determination</li>
+                              <li>• Playoff vs regular season</li>
+                            </ul>
+                          </div>
+                          <div className="p-4 border rounded-lg">
+                            <div className="flex items-center gap-2 mb-2">
+                              <Calendar className="h-5 w-5 text-green-600" />
+                              <h4 className="font-semibold">Season Coverage</h4>
+                            </div>
+                            <p className="text-sm text-muted-foreground mb-2">
+                              Covers the entire season:
+                            </p>
+                            <ul className="text-sm text-muted-foreground space-y-1">
+                              <li>• Weeks 1-17 for each conference</li>
+                              <li>• Regular season and playoffs</li>
+                              <li>• {conferences.length * 17} total operations</li>
+                              <li>• Automatic status detection</li>
+                            </ul>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+
+                    {matchupsSyncResult && (
+                      <Card>
+                        <CardHeader>
+                          <CardTitle className="text-lg">Matchups Sync Results</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="p-3 border rounded-lg">
+                            <div className="flex items-center justify-between mb-2">
+                              <div className="flex items-center gap-3">
+                                {matchupsSyncResult.success ? (
+                                  <CheckCircle className="h-5 w-5 text-green-600" />
+                                ) : (
+                                  <AlertCircle className="h-5 w-5 text-red-600" />
+                                )}
+                                <span className="font-medium">Matchups Synchronization</span>
+                              </div>
+                              <div className="text-sm">
+                                {matchupsSyncResult.success ? (
+                                  <span className="text-green-600">Success</span>
+                                ) : (
+                                  <span className="text-red-600">Failed</span>
+                                )}
+                              </div>
+                            </div>
+                            {matchupsSyncResult.success && (
+                              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm text-muted-foreground">
+                                <div>
+                                  <span className="font-medium">Created:</span>
+                                  <div className="text-lg font-semibold text-green-600">{matchupsSyncResult.matchups_created}</div>
+                                </div>
+                                <div>
+                                  <span className="font-medium">Updated:</span>
+                                  <div className="text-lg font-semibold text-blue-600">{matchupsSyncResult.matchups_updated}</div>
+                                </div>
+                                <div>
+                                  <span className="font-medium">Leagues:</span>
+                                  <div className="text-lg font-semibold text-orange-600">{matchupsSyncResult.leagues_processed}</div>
+                                </div>
+                                <div>
+                                  <span className="font-medium">Weeks:</span>
+                                  <div className="text-lg font-semibold text-purple-600">{matchupsSyncResult.weeks_processed}</div>
+                                </div>
+                              </div>
+                            )}
+                            {matchupsSyncResult.error && (
+                              <div className="text-sm text-red-600 mt-1">
+                                {matchupsSyncResult.error}
+                              </div>
+                            )}
+                          </div>
+                        </CardContent>
+                      </Card>
+                    )}
+                  </div>
+                )}
+              </TabsContent>
+
+              <TabsContent value="draft">
+                <div className="space-y-6">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-4">
+                      {lastDraftSyncTime && (
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                          <Clock className="h-4 w-4" />
+                          Last draft sync: {lastDraftSyncTime}
+                        </div>
+                      )}
+                    </div>
+                    <Button
+                      onClick={syncDraftData}
+                      disabled={syncingDraft}
+                    >
+                      {syncingDraft ? (
+                        <>
+                          <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                          Syncing...
+                        </>
+                      ) : (
+                        <>
+                          <Target className="h-4 w-4 mr-2" />
+                          Sync Draft Results
+                        </>
+                      )}
+                    </Button>
+                  </div>
+
+                  {syncingDraft && (
+                    <div>
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-sm font-medium">Synchronizing draft results...</span>
+                        <span className="text-sm text-muted-foreground">{Math.round(draftProgress)}%</span>
+                      </div>
+                      <Progress value={draftProgress} className="w-full" />
+                    </div>
+                  )}
+
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-lg">
+                        Draft Results Synchronization
+                      </CardTitle>
+                      <CardDescription>
+                        Sync draft results from Sleeper API for all conferences and seasons
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                        <div className="p-4 border rounded-lg">
+                          <div className="flex items-center gap-2 mb-2">
+                            <Target className="h-5 w-5 text-blue-600" />
+                            <h4 className="font-semibold">Draft Data</h4>
+                          </div>
+                          <p className="text-sm text-muted-foreground mb-2">
+                            Processes draft information:
+                          </p>
+                          <ul className="text-sm text-muted-foreground space-y-1">
+                            <li>• Draft picks by round and position</li>
+                            <li>• Player information and positions</li>
+                            <li>• Team assignments</li>
+                            <li>• Historical draft tracking</li>
+                          </ul>
+                        </div>
+                        <div className="p-4 border rounded-lg">
+                          <div className="flex items-center gap-2 mb-2">
+                            <Database className="h-5 w-5 text-green-600" />
+                            <h4 className="font-semibold">Data Processing</h4>
+                          </div>
+                          <p className="text-sm text-muted-foreground mb-2">
+                            Updates draft results table:
+                          </p>
+                          <ul className="text-sm text-muted-foreground space-y-1">
+                            <li>• Maps roster IDs to team IDs</li>
+                            <li>• Processes all conferences</li>
+                            <li>• Handles multiple seasons</li>
+                            <li>• Clears and refreshes data</li>
+                          </ul>
+                        </div>
+                      </div>
+                      
+                      <Alert>
+                        <AlertCircle className="h-4 w-4" />
+                        <AlertDescription>
+                          <strong>Note:</strong> This sync processes draft results for all conferences and seasons. 
+                          It will clear existing draft data and repopulate it with the latest information from Sleeper API.
+                        </AlertDescription>
+                      </Alert>
+                    </CardContent>
+                  </Card>
+
+                  {draftSyncResult && (
+                    <Card>
+                      <CardHeader>
+                        <CardTitle className="text-lg">Draft Sync Results</CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="p-3 border rounded-lg">
+                          <div className="flex items-center justify-between mb-2">
+                            <div className="flex items-center gap-3">
+                              {draftSyncResult.success ? (
+                                <CheckCircle className="h-5 w-5 text-green-600" />
+                              ) : (
+                                <AlertCircle className="h-5 w-5 text-red-600" />
+                              )}
+                              <span className="font-medium">Draft Synchronization</span>
+                            </div>
+                            <div className="text-sm">
+                              {draftSyncResult.success ? (
+                                <span className="text-green-600">Success</span>
+                              ) : (
+                                <span className="text-red-600">Failed</span>
+                              )}
+                            </div>
+                          </div>
+                          <div className="text-sm text-muted-foreground">
+                            {draftSyncResult.message}
+                          </div>
+                          {draftSyncResult.error && (
+                            <div className="text-sm text-red-600 mt-1">
+                              {draftSyncResult.error}
+                            </div>
+                          )}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  )}
+                </div>
+              </TabsContent>
+
+              <TabsContent value="players">
+                <div className="space-y-6">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-4">
+                      {lastPlayersSyncTime && (
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                          <Clock className="h-4 w-4" />
+                          Last players sync: {lastPlayersSyncTime}
+                        </div>
+                      )}
+                    </div>
+                    <Button
+                      onClick={syncPlayersData}
+                      disabled={syncingPlayers}
+                    >
+                      {syncingPlayers ? (
+                        <>
+                          <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                          Syncing...
+                        </>
+                      ) : (
+                        <>
+                          <UserCheck className="h-4 w-4 mr-2" />
+                          Sync Players
+                        </>
+                      )}
+                    </Button>
+                  </div>
+
+                  {syncingPlayers && (
+                    <div>
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-sm font-medium">Synchronizing players...</span>
+                        <span className="text-sm text-muted-foreground">{Math.round(playersProgress)}%</span>
+                      </div>
+                      <Progress value={playersProgress} className="w-full" />
+                    </div>
+                  )}
+
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-lg">
+                        Players Synchronization
+                      </CardTitle>
+                      <CardDescription>
+                        Sync all NFL players data from Sleeper API - this operation is independent of conferences
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                        <div className="p-4 border rounded-lg">
+                          <div className="flex items-center gap-2 mb-2">
+                            <UserCheck className="h-5 w-5 text-blue-600" />
+                            <h4 className="font-semibold">Player Data</h4>
+                          </div>
+                          <p className="text-sm text-muted-foreground mb-2">
+                            Syncs comprehensive player information:
+                          </p>
+                          <ul className="text-sm text-muted-foreground space-y-1">
+                            <li>• Names and positions</li>
+                            <li>• NFL team affiliations</li>
+                            <li>• Physical attributes</li>
+                            <li>• Injury status</li>
+                            <li>• College and experience</li>
+                          </ul>
+                        </div>
+                        <div className="p-4 border rounded-lg">
+                          <div className="flex items-center gap-2 mb-2">
+                            <Database className="h-5 w-5 text-green-600" />
+                            <h4 className="font-semibold">Data Management</h4>
+                          </div>
+                          <p className="text-sm text-muted-foreground mb-2">
+                            Updates player database:
+                          </p>
+                          <ul className="text-sm text-muted-foreground space-y-1">
+                            <li>• Creates new player records</li>
+                            <li>• Updates existing player info</li>
+                            <li>• Maintains Sleeper ID mappings</li>
+                            <li>• Processes thousands of players</li>
+                          </ul>
+                        </div>
+                      </div>
+                      
+                      <Alert>
+                        <AlertCircle className="h-4 w-4" />
+                        <AlertDescription>
+                          <strong>Note:</strong> This sync processes all NFL players from Sleeper API. 
+                          It can take several minutes to complete and will update or create thousands of player records.
+                        </AlertDescription>
+                      </Alert>
+                    </CardContent>
+                  </Card>
+
+                  {playersSyncResult && (
+                    <Card>
+                      <CardHeader>
+                        <CardTitle className="text-lg">Players Sync Results</CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="p-3 border rounded-lg">
+                          <div className="flex items-center justify-between mb-2">
+                            <div className="flex items-center gap-3">
+                              {playersSyncResult.success ? (
+                                <CheckCircle className="h-5 w-5 text-green-600" />
+                              ) : (
+                                <AlertCircle className="h-5 w-5 text-red-600" />
+                              )}
+                              <span className="font-medium">Players Synchronization</span>
+                            </div>
+                            <div className="text-sm">
+                              {playersSyncResult.success ? (
+                                <span className="text-green-600">Success</span>
+                              ) : (
+                                <span className="text-red-600">Failed</span>
+                              )}
+                            </div>
+                          </div>
+                          {playersSyncResult.success && (
+                            <div className="grid grid-cols-2 gap-4 text-sm text-muted-foreground">
+                              <div>
+                                <span className="font-medium">Created:</span>
+                                <div className="text-lg font-semibold text-green-600">{playersSyncResult.players_created}</div>
+                              </div>
+                              <div>
+                                <span className="font-medium">Updated:</span>
+                                <div className="text-lg font-semibold text-blue-600">{playersSyncResult.players_updated}</div>
+                              </div>
+                            </div>
+                          )}
+                          {playersSyncResult.error && (
+                            <div className="text-sm text-red-600 mt-1">
+                              {playersSyncResult.error}
+                            </div>
+                          )}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  )}
+                </div>
+              </TabsContent>
 
             </Tabs>
           </>

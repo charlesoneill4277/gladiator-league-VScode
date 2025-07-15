@@ -29,9 +29,9 @@ const DataIntegrityDemo: React.FC = () => {
       console.log('Initial audit completed:', demoResults.auditBefore);
 
       // Step 2: Run cleanup if needed
-      if (demoResults.auditBefore.duplicate_records > 0 || 
-          demoResults.auditBefore.orphaned_records > 0 || 
-          demoResults.auditBefore.invalid_relationships > 0) {
+      if (demoResults.auditBefore.duplicate_records > 0 ||
+      demoResults.auditBefore.orphaned_records > 0 ||
+      demoResults.auditBefore.invalid_relationships > 0) {
         console.log('Running cleanup...');
         demoResults.cleanupResult = await dataIntegrityService.cleanupDataIntegrity();
         console.log('Cleanup completed:', demoResults.cleanupResult);
@@ -87,33 +87,33 @@ const DataIntegrityDemo: React.FC = () => {
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        <Button 
-          onClick={runDemo} 
+        <Button
+          onClick={runDemo}
           disabled={loading}
-          className="flex items-center gap-2"
-        >
-          {loading ? (
-            <>
+          className="flex items-center gap-2">
+
+          {loading ?
+          <>
               <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
               Running Demo...
-            </>
-          ) : (
-            <>
+            </> :
+
+          <>
               <Play className="h-4 w-4" />
               Run Data Integrity Demo
             </>
-          )}
+          }
         </Button>
 
-        {results && (
-          <div className="space-y-4">
-            {results.error ? (
-              <Alert variant="destructive">
+        {results &&
+        <div className="space-y-4">
+            {results.error ?
+          <Alert variant="destructive">
                 <AlertTriangle className="h-4 w-4" />
                 <AlertDescription>{results.error}</AlertDescription>
-              </Alert>
-            ) : (
-              <>
+              </Alert> :
+
+          <>
                 {/* Before Results */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <Card>
@@ -182,8 +182,8 @@ const DataIntegrityDemo: React.FC = () => {
                 </div>
 
                 {/* Cleanup Results */}
-                {results.cleanupResult && (
-                  <Card>
+                {results.cleanupResult &&
+            <Card>
                     <CardHeader>
                       <CardTitle className="text-lg">Cleanup Actions</CardTitle>
                     </CardHeader>
@@ -210,7 +210,7 @@ const DataIntegrityDemo: React.FC = () => {
                       </div>
                     </CardContent>
                   </Card>
-                )}
+            }
 
                 {/* Standings Test Results */}
                 <Card>
@@ -239,23 +239,23 @@ const DataIntegrityDemo: React.FC = () => {
                 </Card>
 
                 {/* Success Message */}
-                {results.auditAfter?.duplicate_records === 0 && 
-                 results.auditAfter?.orphaned_records === 0 && 
-                 results.auditAfter?.invalid_relationships === 0 && (
-                  <Alert>
+                {results.auditAfter?.duplicate_records === 0 &&
+            results.auditAfter?.orphaned_records === 0 &&
+            results.auditAfter?.invalid_relationships === 0 &&
+            <Alert>
                     <CheckCircle className="h-4 w-4" />
                     <AlertDescription>
                       Data integrity issues have been resolved! The system now properly filters team records by season-conference relationships.
                     </AlertDescription>
                   </Alert>
-                )}
+            }
               </>
-            )}
+          }
           </div>
-        )}
+        }
       </CardContent>
-    </Card>
-  );
+    </Card>);
+
 };
 
 export default DataIntegrityDemo;

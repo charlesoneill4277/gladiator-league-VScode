@@ -82,8 +82,8 @@ class TeamRecordsService {
       }
 
       const filters = [
-        { name: 'season_id', op: 'Equal', value: seasonId }
-      ];
+      { name: 'season_id', op: 'Equal', value: seasonId }];
+
 
       if (conferenceId) {
         // Validate conference exists and is in the correct season
@@ -123,15 +123,15 @@ class TeamRecordsService {
     try {
       // First get conferences for the season
       const conferences = await this.getConferencesForSeason(seasonId);
-      const validConferenceIds = conferences.map(c => c.id);
+      const validConferenceIds = conferences.map((c) => c.id);
 
       if (conferenceId && !validConferenceIds.includes(conferenceId)) {
         throw new Error(`Conference ${conferenceId} does not exist in season ${seasonId}`);
       }
 
       const filters = [
-        { name: 'is_active', op: 'Equal', value: true }
-      ];
+      { name: 'is_active', op: 'Equal', value: true }];
+
 
       if (conferenceId) {
         filters.push({ name: 'conference_id', op: 'Equal', value: conferenceId });
@@ -149,10 +149,10 @@ class TeamRecordsService {
       );
 
       if (error) throw error;
-      
+
       // Filter by valid conference IDs for the season
-      const junctions = (data.List || []).filter(junction => 
-        validConferenceIds.includes(junction.conference_id)
+      const junctions = (data.List || []).filter((junction) =>
+      validConferenceIds.includes(junction.conference_id)
       );
 
       return junctions;
@@ -184,9 +184,9 @@ class TeamRecordsService {
 
       // Get conferences for this season
       const conferences = await this.getConferencesForSeason(seasonId);
-      const conferencesToProcess = conferenceId 
-        ? conferences.filter(c => c.id === conferenceId)
-        : conferences;
+      const conferencesToProcess = conferenceId ?
+      conferences.filter((c) => c.id === conferenceId) :
+      conferences;
 
       if (conferencesToProcess.length === 0) {
         throw new Error(`No conferences found for season ${seasonId}`);
@@ -230,7 +230,7 @@ class TeamRecordsService {
     try {
       // Get all completed matchups for this conference
       const matchups = await this.getCompletedMatchups(seasonId, conferenceId);
-      
+
       // Get team-conference junctions for this specific conference and season
       const teamConferenceJunctions = await this.getTeamConferenceJunctions(seasonId, conferenceId);
 
@@ -297,9 +297,9 @@ class TeamRecordsService {
   private async getCompletedMatchups(seasonId: number, conferenceId: number): Promise<MatchupResult[]> {
     try {
       const filters = [
-        { name: 'conference_id', op: 'Equal', value: conferenceId },
-        { name: 'status', op: 'Equal', value: 'complete' }
-      ];
+      { name: 'conference_id', op: 'Equal', value: conferenceId },
+      { name: 'status', op: 'Equal', value: 'complete' }];
+
 
       const { data, error } = await window.ezsite.apis.tablePage(
         this.MATCHUPS_TABLE_ID,
@@ -324,17 +324,17 @@ class TeamRecordsService {
    * Update team records in database with upsert logic
    */
   private async updateTeamRecordsInDatabase(
-    seasonId: number,
-    conferenceId: number,
-    teamRecords: Map<number, {
-      wins: number;
-      losses: number;
-      ties: number;
-      points_for: number;
-      points_against: number;
-      conference_id: number;
-    }>
-  ): Promise<void> {
+  seasonId: number,
+  conferenceId: number,
+  teamRecords: Map<number, {
+    wins: number;
+    losses: number;
+    ties: number;
+    points_for: number;
+    points_against: number;
+    conference_id: number;
+  }>)
+  : Promise<void> {
     try {
       for (const [teamId, record] of teamRecords.entries()) {
         const totalGames = record.wins + record.losses + record.ties;
@@ -386,10 +386,10 @@ class TeamRecordsService {
           PageNo: 1,
           PageSize: 1,
           Filters: [
-            { name: 'team_id', op: 'Equal', value: teamId },
-            { name: 'season_id', op: 'Equal', value: seasonId },
-            { name: 'conference_id', op: 'Equal', value: conferenceId }
-          ]
+          { name: 'team_id', op: 'Equal', value: teamId },
+          { name: 'season_id', op: 'Equal', value: seasonId },
+          { name: 'conference_id', op: 'Equal', value: conferenceId }]
+
         }
       );
 
@@ -478,12 +478,12 @@ class TeamRecordsService {
       // Get team-conference junctions to ensure we only include valid relationships
       const teamConferenceJunctions = await this.getTeamConferenceJunctions(seasonId, conferenceId);
       const validTeamConferenceRelationships = new Set<string>();
-      teamConferenceJunctions.forEach(junction => {
+      teamConferenceJunctions.forEach((junction) => {
         validTeamConferenceRelationships.add(`${junction.team_id}_${junction.conference_id}`);
       });
 
       // Filter team records to only include those with valid relationships
-      const validTeamRecords = teamRecords.filter(record => {
+      const validTeamRecords = teamRecords.filter((record) => {
         const key = `${record.team_id}_${record.conference_id}`;
         return validTeamConferenceRelationships.has(key);
       });
@@ -505,7 +505,7 @@ class TeamRecordsService {
       );
 
       if (teamsError) throw teamsError;
-      (teamsData.List || []).forEach(team => {
+      (teamsData.List || []).forEach((team) => {
         teamDetailsMap.set(team.id, team);
       });
 
@@ -522,12 +522,12 @@ class TeamRecordsService {
       );
 
       if (conferencesError) throw conferencesError;
-      (conferencesData.List || []).forEach(conference => {
+      (conferencesData.List || []).forEach((conference) => {
         conferenceDetailsMap.set(conference.id, conference);
       });
 
       // Build standings data
-      const standings: StandingsData[] = validTeamRecords.map(record => {
+      const standings: StandingsData[] = validTeamRecords.map((record) => {
         const team = teamDetailsMap.get(record.team_id);
         const conference = conferenceDetailsMap.get(record.conference_id);
 
@@ -625,7 +625,7 @@ class TeamRecordsService {
   async initializeAutoSync(): Promise<void> {
     try {
       const currentSeason = await this.getCurrentSeason();
-      
+
       if (!currentSeason) {
         console.warn('No current season found, skipping auto-sync initialization');
         return;
@@ -733,10 +733,10 @@ class TeamRecordsService {
   }> {
     try {
       const [teamRecords, allMatchups, completedMatchups] = await Promise.all([
-        this.getTeamRecords(seasonId),
-        this.getAllMatchupsForSeason(seasonId),
-        this.getCompletedMatchupsForSeason(seasonId)
-      ]);
+      this.getTeamRecords(seasonId),
+      this.getAllMatchupsForSeason(seasonId),
+      this.getCompletedMatchupsForSeason(seasonId)]
+      );
 
       const lastUpdated = teamRecords.reduce((latest, record) => {
         const recordDate = new Date(record.last_updated);
@@ -820,7 +820,7 @@ class TeamRecordsService {
     try {
       // Get conferences for this season
       const conferences = await this.getConferencesForSeason(seasonId);
-      const conferenceIds = conferences.map(c => c.id);
+      const conferenceIds = conferences.map((c) => c.id);
 
       if (conferenceIds.length === 0) {
         return [];
@@ -839,10 +839,10 @@ class TeamRecordsService {
       );
 
       if (error) throw error;
-      
+
       // Filter by conference IDs that belong to this season
-      const matchups = (data.List || []).filter(matchup => 
-        conferenceIds.includes(matchup.conference_id)
+      const matchups = (data.List || []).filter((matchup) =>
+      conferenceIds.includes(matchup.conference_id)
       );
 
       return matchups;
@@ -855,7 +855,7 @@ class TeamRecordsService {
   private async getCompletedMatchupsForSeason(seasonId: number): Promise<MatchupResult[]> {
     try {
       const allMatchups = await this.getAllMatchupsForSeason(seasonId);
-      return allMatchups.filter(matchup => matchup.status === 'complete');
+      return allMatchups.filter((matchup) => matchup.status === 'complete');
     } catch (error) {
       console.error('Error fetching completed matchups for season:', error);
       return [];
