@@ -24,6 +24,8 @@ const TeamRecordsDashboard: React.FC = () => {
   const [recordsSummary, setRecordsSummary] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [hasError, setHasError] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
   const { toast } = useToast();
 
   const currentSeasonId = 1; // This should be dynamic based on current season
@@ -36,11 +38,43 @@ const TeamRecordsDashboard: React.FC = () => {
     try {
       setIsLoading(true);
 
-      const [records, standings, summary] = await Promise.all([
-      teamRecordsService.getTeamRecords(currentSeasonId),
-      teamRecordsService.getStandingsData(currentSeasonId),
-      teamRecordsService.getRecordsSummary(currentSeasonId)]
-      );
+      // Load data with individual error handling to prevent complete failure
+      let records = [];
+      let standings = [];
+      let summary = null;
+
+      try {
+        records = await teamRecordsService.getTeamRecords(currentSeasonId);
+      } catch (error) {
+        console.error('Error loading team records:', error);
+        toast({
+          title: 'Warning',
+          description: 'Failed to load team records',
+          variant: 'destructive'
+        });
+      }
+
+      try {
+        standings = await teamRecordsService.getStandingsData(currentSeasonId);
+      } catch (error) {
+        console.error('Error loading standings data:', error);
+        toast({
+          title: 'Warning',
+          description: 'Failed to load standings data',
+          variant: 'destructive'
+        });
+      }
+
+      try {
+        summary = await teamRecordsService.getRecordsSummary(currentSeasonId);
+      } catch (error) {
+        console.error('Error loading records summary:', error);
+        toast({
+          title: 'Warning',
+          description: 'Failed to load records summary',
+          variant: 'destructive'
+        });
+      }
 
       setTeamRecords(records);
       setStandingsData(standings);
@@ -173,14 +207,13 @@ const TeamRecordsDashboard: React.FC = () => {
           
           <TabsContent value="overview" className="space-y-4">
             {/* Summary Stats */}
-            {recordsSummary &&
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                 <Card>
                   <CardContent className="p-4">
                     <div className="flex items-center justify-between">
                       <div>
                         <p className="text-sm font-medium text-muted-foreground">Total Teams</p>
-                        <p className="text-2xl font-bold">{recordsSummary.totalTeams}</p>
+                        <p className="text-2xl font-bold">{recordsSummary?.totalTeams || 0}</p>
                       </div>
                       <TrendingUp className="w-8 h-8 text-blue-500" />
                     </div>
@@ -192,7 +225,7 @@ const TeamRecordsDashboard: React.FC = () => {
                     <div className="flex items-center justify-between">
                       <div>
                         <p className="text-sm font-medium text-muted-foreground">Total Matchups</p>
-                        <p className="text-2xl font-bold">{recordsSummary.totalMatchups}</p>
+                        <p className="text-2xl font-bold">{recordsSummary?.totalMatchups || 0}</p>
                       </div>
                       <Activity className="w-8 h-8 text-purple-500" />
                     </div>
@@ -204,7 +237,7 @@ const TeamRecordsDashboard: React.FC = () => {
                     <div className="flex items-center justify-between">
                       <div>
                         <p className="text-sm font-medium text-muted-foreground">Completed</p>
-                        <p className="text-2xl font-bold text-green-600">{recordsSummary.completedMatchups}</p>
+                        <p className="text-2xl font-bold text-green-600">{recordsSummary?.completedMatchups || 0}</p>
                       </div>
                       <CheckCircle className="w-8 h-8 text-green-500" />
                     </div>
@@ -216,14 +249,13 @@ const TeamRecordsDashboard: React.FC = () => {
                     <div className="flex items-center justify-between">
                       <div>
                         <p className="text-sm font-medium text-muted-foreground">Pending</p>
-                        <p className="text-2xl font-bold text-orange-600">{recordsSummary.pendingMatchups}</p>
+                        <p className="text-2xl font-bold text-orange-600">{recordsSummary?.pendingMatchups || 0}</p>
                       </div>
                       <Clock className="w-8 h-8 text-orange-500" />
                     </div>
                   </CardContent>
                 </Card>
               </div>
-            }
 
             {/* Auto-Sync Status */}
             <Alert>
@@ -233,6 +265,11 @@ const TeamRecordsDashboard: React.FC = () => {
                 {recordsSummary && recordsSummary.recordsLastUpdated &&
                 <span className="block mt-1 text-sm text-muted-foreground">
                     Last updated: {formatDate(recordsSummary.recordsLastUpdated)}
+                  </span>
+                }
+                {!recordsSummary &&
+                <span className="block mt-1 text-sm text-muted-foreground">
+                    No records data available
                   </span>
                 }
               </AlertDescription>
@@ -255,50 +292,62 @@ const TeamRecordsDashboard: React.FC = () => {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {standingsData.map((team) =>
-                  <TableRow key={team.team_id}>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          <span className="font-medium">#{team.overall_rank}</span>
-                          {team.is_conference_champion &&
-                        <Trophy className="w-4 h-4 text-yellow-500" />
-                        }
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div>
-                          <div className="font-medium">{team.team_name}</div>
-                          <div className="text-sm text-muted-foreground">{team.owner_name}</div>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant="outline">{team.conference_name}</Badge>
-                      </TableCell>
-                      <TableCell>
-                        <span className="font-mono">
-                          {team.wins}-{team.losses}
-                          {team.ties > 0 && `-${team.ties}`}
-                        </span>
-                      </TableCell>
-                      <TableCell>
-                        <span className={`font-semibold ${getWinPercentageColor(team.win_percentage)}`}>
-                          {(team.win_percentage * 100).toFixed(1)}%
-                        </span>
-                      </TableCell>
-                      <TableCell>{team.points_for.toFixed(1)}</TableCell>
-                      <TableCell>{team.points_against.toFixed(1)}</TableCell>
-                      <TableCell>
-                        <div className="flex flex-col gap-1">
-                          {team.playoff_eligible &&
-                        <Badge variant="secondary" className="text-xs">
-                              Playoff Eligible
-                            </Badge>
-                        }
-                          {team.is_conference_champion &&
-                        <Badge variant="default" className="text-xs bg-yellow-500">
-                              Conference Champion
-                            </Badge>
-                        }
+                  {standingsData.length > 0 ? (
+                    standingsData.map((team) =>
+                    <TableRow key={team.team_id}>
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium">#{team.overall_rank}</span>
+                            {team.is_conference_champion &&
+                          <Trophy className="w-4 h-4 text-yellow-500" />
+                          }
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div>
+                            <div className="font-medium">{team.team_name}</div>
+                            <div className="text-sm text-muted-foreground">{team.owner_name}</div>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant="outline">{team.conference_name}</Badge>
+                        </TableCell>
+                        <TableCell>
+                          <span className="font-mono">
+                            {team.wins}-{team.losses}
+                            {team.ties > 0 && `-${team.ties}`}
+                          </span>
+                        </TableCell>
+                        <TableCell>
+                          <span className={`font-semibold ${getWinPercentageColor(team.win_percentage)}`}>
+                            {(team.win_percentage * 100).toFixed(1)}%
+                          </span>
+                        </TableCell>
+                        <TableCell>{team.points_for.toFixed(1)}</TableCell>
+                        <TableCell>{team.points_against.toFixed(1)}</TableCell>
+                        <TableCell>
+                          <div className="flex flex-col gap-1">
+                            {team.playoff_eligible &&
+                          <Badge variant="secondary" className="text-xs">
+                                Playoff Eligible
+                              </Badge>
+                          }
+                            {team.is_conference_champion &&
+                          <Badge variant="default" className="text-xs bg-yellow-500">
+                                Conference Champion
+                              </Badge>
+                          }
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    )
+                  ) : (
+                    <TableRow>
+                      <TableCell colSpan={8} className="text-center py-8">
+                        <div className="flex flex-col items-center gap-2">
+                          <AlertCircle className="w-8 h-8 text-muted-foreground" />
+                          <p className="text-sm text-muted-foreground">No standings data available</p>
+                          <p className="text-xs text-muted-foreground">Team records may need to be calculated</p>
                         </div>
                       </TableCell>
                     </TableRow>

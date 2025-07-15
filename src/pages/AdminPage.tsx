@@ -88,9 +88,9 @@ const AdminPage: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="container mx-auto px-4 py-8">
-        <div className="flex items-center justify-center min-h-[400px]">
-          <div className="animate-spin h-8 w-8 border-b-2 border-blue-600 rounded-full"></div>
+      <div className="container mx-auto px-4 py-8" data-id="ao89vvru5">
+        <div className="flex items-center justify-center min-h-[400px]" data-id="pml7mynqn">
+          <div className="animate-spin h-8 w-8 border-b-2 border-blue-600 rounded-full" data-id="10jeltn5k"></div>
         </div>
       </div>);
 
@@ -98,42 +98,42 @@ const AdminPage: React.FC = () => {
 
   if (!isAuthenticated) {
     return (
-      <div className="container mx-auto px-4 py-8">
-        <div className="max-w-md mx-auto">
-          <Card>
-            <CardHeader className="text-center">
-              <div className="flex justify-center mb-4">
-                <Shield className="h-12 w-12 text-blue-600" />
+      <div className="container mx-auto px-4 py-8" data-id="sep77enuq">
+        <div className="max-w-md mx-auto" data-id="qkcxfcevx">
+          <Card data-id="7bka3yyd5">
+            <CardHeader className="text-center" data-id="alhddkb9x">
+              <div className="flex justify-center mb-4" data-id="20czuz7s8">
+                <Shield className="h-12 w-12 text-blue-600" data-id="uj6wfwcyd" />
               </div>
-              <CardTitle className="flex items-center gap-2 justify-center">
-                <Lock className="h-5 w-5" />
+              <CardTitle className="flex items-center gap-2 justify-center" data-id="easa7srw9">
+                <Lock className="h-5 w-5" data-id="srgo1x52n" />
                 Admin Access Required
               </CardTitle>
-              <CardDescription>
+              <CardDescription data-id="dw6h33z8z">
                 Enter the admin password to access the admin panel
               </CardDescription>
             </CardHeader>
-            <CardContent>
-              <form onSubmit={handleLogin} className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="password">Admin Password</Label>
+            <CardContent data-id="p54cgo0pa">
+              <form onSubmit={handleLogin} className="space-y-4" data-id="nu7k5xnra">
+                <div className="space-y-2" data-id="rtr62f4xb">
+                  <Label htmlFor="password" data-id="nell7jvlm">Admin Password</Label>
                   <Input
                     id="password"
                     type="password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="Enter admin password"
-                    className="w-full" />
+                    className="w-full" data-id="hjlpnn2yv" />
 
                 </div>
                 
                 {loginError &&
-                <Alert variant="destructive">
-                    <AlertDescription>{loginError}</AlertDescription>
+                <Alert variant="destructive" data-id="4zu7gxwp4">
+                    <AlertDescription data-id="js05q0hn6">{loginError}</AlertDescription>
                   </Alert>
                 }
                 
-                <Button type="submit" className="w-full">
+                <Button type="submit" className="w-full" data-id="tthln8jfy">
                   Access Admin Panel
                 </Button>
               </form>
@@ -145,85 +145,85 @@ const AdminPage: React.FC = () => {
   }
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <div className="flex items-center justify-between mb-8">
-        <div>
-          <h1 className="text-3xl font-bold flex items-center gap-3">
-            <Settings className="h-8 w-8 text-blue-600" />
+    <div className="container mx-auto px-4 py-8" data-id="zucmgzvwq">
+      <div className="flex items-center justify-between mb-8" data-id="lro5ngqd4">
+        <div data-id="noo7qh20h">
+          <h1 className="text-3xl font-bold flex items-center gap-3" data-id="fmj1jcz8o">
+            <Settings className="h-8 w-8 text-blue-600" data-id="bdjtdbfnt" />
             Admin Panel
           </h1>
-          <p className="text-muted-foreground mt-2">
+          <p className="text-muted-foreground mt-2" data-id="amn1082i4">
             Manage leagues, sync data, and perform administrative tasks
           </p>
         </div>
         
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-4" data-id="nw6oaovvh">
           {lastLogin &&
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <Clock className="h-4 w-4" />
+          <div className="flex items-center gap-2 text-sm text-muted-foreground" data-id="1kqkbfoj2">
+              <Clock className="h-4 w-4" data-id="u85cv9ybo" />
               Last login: {lastLogin}
             </div>
           }
-          <Badge variant="secondary" className="flex items-center gap-1">
-            <Activity className="h-3 w-3" />
+          <Badge variant="secondary" className="flex items-center gap-1" data-id="u49kieuap">
+            <Activity className="h-3 w-3" data-id="fzemdjhv1" />
             Admin Active
           </Badge>
-          <Button variant="outline" onClick={handleLogout}>
+          <Button variant="outline" onClick={handleLogout} data-id="ssqzxi57s">
             Logout
           </Button>
         </div>
       </div>
 
-      <Tabs defaultValue="league-manager" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-6">
-          <TabsTrigger value="league-manager" className="flex items-center gap-2">
-            <Settings className="h-4 w-4" />
+      <Tabs defaultValue="league-manager" className="space-y-6" data-id="ojttqdptv">
+        <TabsList className="grid w-full grid-cols-6" data-id="55g8xnp5m">
+          <TabsTrigger value="league-manager" className="flex items-center gap-2" data-id="mudt4s949">
+            <Settings className="h-4 w-4" data-id="vq59l6i0o" />
             League Manager
           </TabsTrigger>
-          <TabsTrigger value="data-sync" className="flex items-center gap-2">
-            <Database className="h-4 w-4" />
+          <TabsTrigger value="data-sync" className="flex items-center gap-2" data-id="x1ln07h9l">
+            <Database className="h-4 w-4" data-id="gwzxvoplp" />
             Data Sync
           </TabsTrigger>
-          <TabsTrigger value="matchups-management" className="flex items-center gap-2">
-            <Calendar className="h-4 w-4" />
+          <TabsTrigger value="matchups-management" className="flex items-center gap-2" data-id="kq8s7gvio">
+            <Calendar className="h-4 w-4" data-id="930hxto7y" />
             Matchups
           </TabsTrigger>
-          <TabsTrigger value="records-management" className="flex items-center gap-2">
-            <Activity className="h-4 w-4" />
+          <TabsTrigger value="records-management" className="flex items-center gap-2" data-id="fy9seefhn">
+            <Activity className="h-4 w-4" data-id="vrxjwjjwo" />
             Records
           </TabsTrigger>
-          <TabsTrigger value="auto-sync" className="flex items-center gap-2">
-            <Bot className="h-4 w-4" />
+          <TabsTrigger value="auto-sync" className="flex items-center gap-2" data-id="ufa49dbo7">
+            <Bot className="h-4 w-4" data-id="xv3rcuk8d" />
             Auto-Sync
           </TabsTrigger>
-          <TabsTrigger value="data-integrity" className="flex items-center gap-2">
-            <Shield className="h-4 w-4" />
+          <TabsTrigger value="data-integrity" className="flex items-center gap-2" data-id="n4yd9gt3j">
+            <Shield className="h-4 w-4" data-id="dp35svc9k" />
             Data Integrity
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="league-manager">
-          <LeagueManager />
+        <TabsContent value="league-manager" data-id="9y7vx68ag">
+          <LeagueManager data-id="jqk7s5yut" />
         </TabsContent>
 
-        <TabsContent value="data-sync">
-          <DataSync />
+        <TabsContent value="data-sync" data-id="mbmsyjmjw">
+          <DataSync data-id="r02lgxd37" />
         </TabsContent>
 
-        <TabsContent value="matchups-management">
-          <MatchupsManagement />
+        <TabsContent value="matchups-management" data-id="2im6bg2ok">
+          <MatchupsManagement data-id="ddqsho0df" />
         </TabsContent>
 
-        <TabsContent value="records-management">
-          <MatchupCompletionManager />
+        <TabsContent value="records-management" data-id="wcqins10e">
+          <MatchupCompletionManager data-id="yxx2l3zcf" />
         </TabsContent>
 
-        <TabsContent value="auto-sync">
-          <AutoSyncManager />
+        <TabsContent value="auto-sync" data-id="cr5xmlzdc">
+          <AutoSyncManager data-id="5st9c4lq3" />
         </TabsContent>
 
-        <TabsContent value="data-integrity">
-          <DataIntegrityManager />
+        <TabsContent value="data-integrity" data-id="l5rwhkbkk">
+          <DataIntegrityManager data-id="eabmrs4t6" />
         </TabsContent>
       </Tabs>
     </div>);
