@@ -37,6 +37,8 @@ const TeamRecordsDashboard: React.FC = () => {
   const loadDashboardData = async () => {
     try {
       setIsLoading(true);
+      setHasError(false);
+      setErrorMessage('');
 
       // Load data with individual error handling to prevent complete failure
       let records = [];
@@ -81,6 +83,8 @@ const TeamRecordsDashboard: React.FC = () => {
       setRecordsSummary(summary);
     } catch (error) {
       console.error('Error loading dashboard data:', error);
+      setHasError(true);
+      setErrorMessage(error instanceof Error ? error.message : 'Unknown error occurred');
       toast({
         title: 'Error',
         description: 'Failed to load dashboard data',
@@ -183,6 +187,33 @@ const TeamRecordsDashboard: React.FC = () => {
         <CardContent>
           <div className="flex items-center justify-center py-8">
             <div className="animate-spin h-8 w-8 border-b-2 border-blue-600 rounded-full"></div>
+          </div>
+        </CardContent>
+      </Card>);
+
+  }
+
+  if (hasError) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Activity className="w-5 h-5" />
+            Team Records Dashboard
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-col items-center gap-4 py-8">
+            <AlertCircle className="w-16 h-16 text-red-500" />
+            <div className="text-center">
+              <h3 className="text-lg font-semibold mb-2">Error Loading Dashboard</h3>
+              <p className="text-sm text-muted-foreground mb-4">
+                {errorMessage || 'An unexpected error occurred while loading the dashboard data.'}
+              </p>
+              <Button onClick={loadDashboardData} disabled={isLoading}>
+                Try Again
+              </Button>
+            </div>
           </div>
         </CardContent>
       </Card>);
