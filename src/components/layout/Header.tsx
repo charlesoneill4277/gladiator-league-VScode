@@ -83,7 +83,11 @@ const Header: React.FC = () => {
         {/* Logo and Title */}
         <div className="flex items-center space-x-4">
           <Link to="/" className="flex items-center space-x-2">
-            <Shield className="h-8 w-8 text-primary" />
+            <img 
+              src="/gladiator-logo.png" 
+              alt="Gladiator League Logo" 
+              className="h-8 w-8" 
+            />
             <div className="hidden sm:block">
               <h1 className="text-xl font-bold">Gladiator League</h1>
             </div>

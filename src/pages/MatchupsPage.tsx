@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -364,21 +364,11 @@ const MatchupsPage: React.FC = () => {
             <Card key={matchupKey} className="hover:shadow-md transition-shadow">
               {/* Compact Header */}
               <CardHeader className="pb-3">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-2">
-                    <CardTitle className="text-base">
-                      {matchup.conference.conference_name}
-                    </CardTitle>
-                    {getStatusBadge(matchup.status)}
-                  </div>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => toggleMatchupExpansion(matchupKey)}
-                    className="h-8 w-8 p-0"
-                  >
-                    {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-                  </Button>
+                <div className="flex items-center space-x-2">
+                  <CardTitle className="text-base">
+                    {matchup.conference.conference_name}
+                  </CardTitle>
+                  {getStatusBadge(matchup.status)}
                 </div>
               </CardHeader>
 
@@ -551,6 +541,27 @@ const MatchupsPage: React.FC = () => {
                       </div>
                     </div>
                   </CollapsibleContent>
+                  
+                  {/* Full-width expand/collapse button - moved inside Collapsible */}
+                  <CollapsibleTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className="w-full mt-3"
+                      onClick={() => toggleMatchupExpansion(matchupKey)}
+                    >
+                      {isExpanded ? (
+                        <>
+                          Hide Details
+                          <ChevronUp className="h-4 w-4 ml-2" />
+                        </>
+                      ) : (
+                        <>
+                          View Details
+                          <ChevronDown className="h-4 w-4 ml-2" />
+                        </>
+                      )}
+                    </Button>
+                  </CollapsibleTrigger>
                 </Collapsible>
               </CardContent>
             </Card>

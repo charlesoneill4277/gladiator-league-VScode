@@ -61,7 +61,7 @@ const HomePage: React.FC = () => {
       (typeof currentSeasonConfig.seasonId === 'string' ? parseInt(currentSeasonConfig.seasonId) : currentSeasonConfig.seasonId) : 
       undefined, // Convert seasonId to number
     conferenceId: (selectedConference === 'all' || selectedConference === null) ? undefined : currentSeasonConfig?.conferences.find(c => c.id === selectedConference)?.dbConferenceId,
-    limit: 5,
+    limit: 12,
     autoRefresh: true,
     refreshInterval: 60000 // Refresh every minute
   });
@@ -722,7 +722,11 @@ const HomePage: React.FC = () => {
         <div className="relative px-6 py-12 sm:px-12">
           <div className="flex flex-col items-center text-center space-y-4">
             <div className="flex items-center space-x-3">
-              <Shield className="h-12 w-12 text-primary" />
+              <img 
+                src="/gladiator-logo.png" 
+                alt="Gladiator League Logo" 
+                className="h-12 w-12" 
+              />
               <div>
                 <h1 className="text-4xl font-bold tracking-tight">Gladiator League</h1>
                 <p className="text-lg text-muted-foreground">Fantasy Football Championship</p>
@@ -745,135 +749,144 @@ const HomePage: React.FC = () => {
         </div>
       </div>
 
-      {/* Main Dashboard Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Current Standings */}
-        <Card className="lg:col-span-2">
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-2">
-                <Trophy className="h-5 w-5 text-primary" />
-                <CardTitle>League Standings</CardTitle>
-              </div>
-              <Link to="/standings">
-                <Button variant="ghost" size="sm">
-                  View All <ArrowRight className="ml-1 h-4 w-4" />
-                </Button>
-              </Link>
-            </div>
-            <CardDescription>
-              Top 5 teams across all conferences
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            {renderStandings()}
-          </CardContent>
-        </Card>
+      {/* Main Dashboard - Two Column Flexbox Layout */}
+      <div className="flex flex-col lg:flex-row gap-6">
 
-        {/* Current Matchups */}
-        <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-2">
-                <Swords className="h-5 w-5 text-primary" />
-                <CardTitle>Week {currentWeek}</CardTitle>
+        {/* === Left Column (2/3 width) === */}
+        <div className="lg:w-2/3 flex flex-col gap-6">
+          
+          {/* Current Matchups */}
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-2">
+                  <Swords className="h-5 w-5 text-primary" />
+                  <CardTitle>Week {currentWeek}</CardTitle>
+                </div>
+                <Link to="/matchups">
+                  <Button variant="ghost" size="sm">
+                    <ArrowRight className="h-4 w-4" />
+                  </Button>
+                </Link>
               </div>
-              <Link to="/matchups">
-                <Button variant="ghost" size="sm">
-                  <ArrowRight className="h-4 w-4" />
-                </Button>
-              </Link>
-            </div>
-            <CardDescription>Current matchups</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {renderMatchups()}
-          </CardContent>
-        </Card>
-      </div>
+              <CardDescription>Current matchups</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {renderMatchups()}
+            </CardContent>
+          </Card>
 
-      {/* Bottom Section */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Recent Transactions */}
-        <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-2">
-                <Activity className="h-5 w-5 text-primary" />
-                <CardTitle>Recent Transactions</CardTitle>
+          {/* Recent Transactions */}
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-2">
+                  <Activity className="h-5 w-5 text-primary" />
+                  <CardTitle>Recent Transactions</CardTitle>
+                </div>
+                <Link to="/transactions">
+                  <Button variant="ghost" size="sm">
+                    View All <ArrowRight className="ml-1 h-4 w-4" />
+                  </Button>
+                </Link>
               </div>
-              <Link to="/transactions">
-                <Button variant="ghost" size="sm">
-                  View All <ArrowRight className="ml-1 h-4 w-4" />
-                </Button>
-              </Link>
-            </div>
-            <CardDescription>
-              Latest roster moves across all conferences
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            {renderTransactions()}
-          </CardContent>
-        </Card>
+              <CardDescription>
+                Latest roster moves across all conferences
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {renderTransactions()}
+            </CardContent>
+          </Card>
 
-        {/* Quick Actions */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center space-x-2">
-              <Users className="h-5 w-5 text-primary" />
-              <span>Quick Actions</span>
-            </CardTitle>
-            <CardDescription>
-              Navigate to key sections of the league
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-2 gap-3">
-              <Link to="/standings">
-                <Button variant="outline" className="w-full h-16 flex flex-col space-y-1">
-                  <Trophy className="h-5 w-5" />
-                  <span className="text-xs">Standings</span>
-                </Button>
-              </Link>
-              
-              <Link to="/matchups">
-                <Button variant="outline" className="w-full h-16 flex flex-col space-y-1">
-                  <Swords className="h-5 w-5" />
-                  <span className="text-xs">Matchups</span>
-                </Button>
-              </Link>
-              
-              <Link to="/teams">
-                <Button variant="outline" className="w-full h-16 flex flex-col space-y-1">
-                  <Users className="h-5 w-5" />
-                  <span className="text-xs">Teams</span>
-                </Button>
-              </Link>
-              
-              <Link to="/players">
-                <Button variant="outline" className="w-full h-16 flex flex-col space-y-1">
-                  <Activity className="h-5 w-5" />
-                  <span className="text-xs">Players</span>
-                </Button>
-              </Link>
-              
-              <Link to="/draft">
-                <Button variant="outline" className="w-full h-16 flex flex-col space-y-1">
-                  <Shield className="h-5 w-5" />
-                  <span className="text-xs">Draft Results</span>
-                </Button>
-              </Link>
-              
-              <Link to="/rules">
-                <Button variant="outline" className="w-full h-16 flex flex-col space-y-1">
-                  <Calendar className="h-5 w-5" />
-                  <span className="text-xs">League Rules</span>
-                </Button>
-              </Link>
-            </div>
-          </CardContent>
-        </Card>
+        </div>
+
+        {/* === Right Column (1/3 width) === */}
+        <div className="lg:w-1/3 flex flex-col gap-6">
+
+          {/* Current Standings */}
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-2">
+                  <Trophy className="h-5 w-5 text-primary" />
+                  <CardTitle>League Standings</CardTitle>
+                </div>
+                <Link to="/standings">
+                  <Button variant="ghost" size="sm">
+                    View All <ArrowRight className="ml-1 h-4 w-4" />
+                  </Button>
+                </Link>
+              </div>
+              <CardDescription>
+                Top 12 teams across all conferences
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {renderStandings()}
+            </CardContent>
+          </Card>
+
+          {/* Quick Actions */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center space-x-2">
+                <Users className="h-5 w-5 text-primary" />
+                <span>Quick Actions</span>
+              </CardTitle>
+              <CardDescription>
+                Navigate to key sections of the league
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-2 gap-3">
+                <Link to="/standings">
+                  <Button variant="outline" className="w-full h-16 flex flex-col space-y-1">
+                    <Trophy className="h-5 w-5" />
+                    <span className="text-xs">Standings</span>
+                  </Button>
+                </Link>
+                
+                <Link to="/matchups">
+                  <Button variant="outline" className="w-full h-16 flex flex-col space-y-1">
+                    <Swords className="h-5 w-5" />
+                    <span className="text-xs">Matchups</span>
+                  </Button>
+                </Link>
+                
+                <Link to="/teams">
+                  <Button variant="outline" className="w-full h-16 flex flex-col space-y-1">
+                    <Users className="h-5 w-5" />
+                    <span className="text-xs">Teams</span>
+                  </Button>
+                </Link>
+                
+                <Link to="/players">
+                  <Button variant="outline" className="w-full h-16 flex flex-col space-y-1">
+                    <Activity className="h-5 w-5" />
+                    <span className="text-xs">Players</span>
+                  </Button>
+                </Link>
+                
+                <Link to="/draft">
+                  <Button variant="outline" className="w-full h-16 flex flex-col space-y-1">
+                    <Shield className="h-5 w-5" />
+                    <span className="text-xs">Draft Results</span>
+                  </Button>
+                </Link>
+                
+                <Link to="/rules">
+                  <Button variant="outline" className="w-full h-16 flex flex-col space-y-1">
+                    <Calendar className="h-5 w-5" />
+                    <span className="text-xs">League Rules</span>
+                  </Button>
+                </Link>
+              </div>
+            </CardContent>
+          </Card>
+
+        </div>
+
       </div>
 
       {/* League Information */}
