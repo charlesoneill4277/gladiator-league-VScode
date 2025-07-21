@@ -1,12 +1,17 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useApp } from '@/contexts/AppContext';
 import { useStandingsData } from '@/hooks/useStandingsData';
 import { StandingsService } from '@/services/standingsService';
+import { SleeperApiService } from '@/services/sleeperApi';
+import { MatchupService, OrganizedMatchup } from '@/services/matchupService';
+import { ProcessedTransaction } from '@/services/transactionService';
+import { DatabaseService } from '@/services/databaseService';
 import {
   Shield,
   Trophy,
@@ -17,70 +22,446 @@ import {
   ArrowRight,
   Activity,
   Star,
-  Loader2 } from
-'lucide-react';
-
-// Mock data for other sections - will be replaced with real API data
-const mockDashboardData = {
-  currentWeek: 14,
-  currentMatchups: [
-  {
-    id: '1',
-    conference: 'Legions of Mars',
-    homeTeam: { name: 'Galactic Gladiators', score: 127.5 },
-    awayTeam: { name: 'Mars Rovers', score: 98.2 },
-    status: 'live'
-  },
-  {
-    id: '2',
-    conference: 'Guardians of Jupiter',
-    homeTeam: { name: 'Space Vikings', score: 112.8 },
-    awayTeam: { name: 'Storm Chasers', score: 134.2 },
-    status: 'live'
-  },
-  {
-    id: '3',
-    conference: "Vulcan's Oathsworn",
-    homeTeam: { name: 'Meteor Crushers', score: 0 },
-    awayTeam: { name: 'Forge Masters', score: 0 },
-    status: 'upcoming'
-  }],
-
-  recentTransactions: [
-  { id: '1', team: 'Space Vikings', action: 'Added Jerome Ford', type: 'waiver', date: '2024-12-15' },
-  { id: '2', team: 'Galactic Gladiators', action: 'Traded Saquon Barkley for Stefon Diggs', type: 'trade', date: '2024-12-14' },
-  { id: '3', team: 'Meteor Crushers', action: 'Added Tank Dell', type: 'waiver', date: '2024-12-13' },
-  { id: '4', team: 'Solar Flares', action: 'Dropped Antonio Gibson', type: 'drop', date: '2024-12-12' },
-  { id: '5', team: 'Asteroid Miners', action: 'Added Romeo Doubs', type: 'waiver', date: '2024-12-11' }],
-
-  keyMetrics: {
-    totalTeams: 36,
-    totalGames: 468,
-    avgPointsPerGame: 112.5,
-    highestScore: 187.2,
-    totalTransactions: 284
-  }
-};
+  Loader2,
+  AlertCircle,
+  RefreshCw
+} from 'lucide-react';
 
 const HomePage: React.FC = () => {
-  const { selectedSeason, selectedConference, currentSeasonConfig } = useApp();
+  // --- ALL HOOKS AT THE TOP LEVEL ---
+  const [currentWeek, setCurrentWeek] = useState<number>(1);
+  const [matchups, setMatchups] = useState<OrganizedMatchup[]>([]);
+  const [transactions, setTransactions] = useState<ProcessedTransaction[]>([]);
+  const [matchupsLoading, setMatchupsLoading] = useState(true);
+  const [transactionsLoading, setTransactionsLoading] = useState(true);
+  const [matchupsError, setMatchupsError] = useState<string | null>(null);
+  const [transactionsError, setTransactionsError] = useState<string | null>(null);
+  
+  const { 
+    selectedSeason,
+    selectedConference, 
+    currentSeasonConfig, 
+    seasonConfigs, 
+    loading: appLoading, 
+    error: appError,
+    refreshSeasonData 
+  } = useApp();
 
-  // Get the current season year from the season configuration
-  const currentSeasonYear = currentSeasonConfig?.year || 2025;
+  // Get the current season year from the season configuration (may be undefined initially)
+  const currentSeasonYear = currentSeasonConfig?.year;
 
-  // Fetch live standings data
+  // Fetch live standings data - MOVED TO TOP LEVEL
   const {
     standings,
     loading: standingsLoading,
     error: standingsError,
     refetch: refetchStandings
   } = useStandingsData({
-    seasonYear: currentSeasonYear,
-    conferenceId: selectedConference === 'all' ? undefined : selectedConference,
+    seasonYear: currentSeasonConfig?.seasonId ? 
+      (typeof currentSeasonConfig.seasonId === 'string' ? parseInt(currentSeasonConfig.seasonId) : currentSeasonConfig.seasonId) : 
+      undefined, // Convert seasonId to number
+    conferenceId: (selectedConference === 'all' || selectedConference === null) ? undefined : currentSeasonConfig?.conferences.find(c => c.id === selectedConference)?.dbConferenceId,
     limit: 5,
     autoRefresh: true,
     refreshInterval: 60000 // Refresh every minute
   });
+
+  // Load current week from Sleeper API
+  useEffect(() => {
+    const loadCurrentWeek = async () => {
+      try {
+        const week = await SleeperApiService.getCurrentNFLWeek();
+        // If week is 0, default to week 1
+        setCurrentWeek(week === 0 ? 1 : week);
+      } catch (error) {
+        console.error('Error loading current week:', error);
+        // Keep default week 1 if API fails
+        setCurrentWeek(1);
+      }
+    };
+    
+    loadCurrentWeek();
+  }, []);
+
+  // Simplified matchups loading for homepage
+  const loadSimpleMatchups = async (conferences: any[], week: number) => {
+    const allMatchups = [];
+    
+    for (const conference of conferences) {
+      if (!conference.dbConferenceId) continue;
+      
+      // Get matchups for this conference and week
+      const matchupsResult = await DatabaseService.getMatchups({
+        filters: [
+          { column: 'conference_id', operator: 'eq', value: conference.dbConferenceId },
+          { column: 'week', operator: 'eq', value: week }
+        ]
+      });
+      
+      if (matchupsResult.error || !matchupsResult.data) continue;
+      
+      // Get all teams to create a lookup map
+      const teamsResult = await DatabaseService.getTeams({});
+      
+      if (teamsResult.error || !teamsResult.data) continue;
+      
+      // Create team lookup map
+      const teamLookup = new Map();
+      teamsResult.data.forEach(team => {
+        teamLookup.set(team.id, team.team_name);
+      });
+      
+      // Process matchups
+      for (const matchup of matchupsResult.data) {
+        const team1Name = teamLookup.get(matchup.team1_id) || 'Unknown Team';
+        const team2Name = teamLookup.get(matchup.team2_id) || 'Unknown Team';
+        
+        allMatchups.push({
+          matchup_id: matchup.id,
+          conference: {
+            conference_name: conference.name,
+            league_id: conference.leagueId
+          },
+          teams: [
+            {
+              team: { team_name: team1Name },
+              points: matchup.team1_score || 0
+            },
+            {
+              team: { team_name: team2Name },
+              points: matchup.team2_score || 0
+            }
+          ],
+          status: matchup.team1_score && matchup.team2_score ? 'completed' : 'upcoming'
+        });
+      }
+    }
+    
+    return allMatchups;
+  };
+
+  // Load matchups for current week
+  const loadMatchups = async () => {
+    if (!currentSeasonConfig || currentWeek === 0) return;
+    
+    setMatchupsLoading(true);
+    setMatchupsError(null);
+    
+    try {
+      // Get conferences based on filter
+      const conferences = (selectedConference === 'all' || selectedConference === null) 
+        ? currentSeasonConfig.conferences 
+        : currentSeasonConfig.conferences.filter(c => c.id === selectedConference);
+      
+      // Use simplified matchups loading for homepage
+      const matchups = await loadSimpleMatchups(conferences, currentWeek);
+      setMatchups(matchups);
+    } catch (error) {
+      console.error('Error loading matchups:', error);
+      setMatchupsError(error instanceof Error ? error.message : 'Failed to load matchups');
+    } finally {
+      setMatchupsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadMatchups();
+  }, [currentWeek, selectedConference, currentSeasonConfig]);
+
+  // Load recent transactions with enhanced data
+  const loadTransactions = async () => {
+    if (!currentSeasonConfig) return;
+    
+    setTransactionsLoading(true);
+    setTransactionsError(null);
+    
+    try {
+      // Get conferences based on filter
+      const conferences = (selectedConference === 'all' || selectedConference === null) 
+        ? currentSeasonConfig.conferences 
+        : currentSeasonConfig.conferences.filter(c => c.id === selectedConference);
+      
+      // Get conference IDs for filtering
+      const conferenceIds = conferences
+        .filter(conf => conf.dbConferenceId)
+        .map(conf => conf.dbConferenceId);
+      
+      if (conferenceIds.length === 0) {
+        setTransactions([]);
+        return;
+      }
+      
+      // Query transactions table directly
+      const transactionsResult = await DatabaseService.getTransactions({
+        filters: [
+          { column: 'conference_id', operator: 'in', value: conferenceIds }
+        ],
+        orderBy: { column: 'created_at', ascending: false },
+        limit: 10 // Get top 10 most recent
+      });
+      
+      if (transactionsResult.error || !transactionsResult.data) {
+        throw new Error(transactionsResult.error || 'Failed to fetch transactions');
+      }
+      
+      // Get all teams for team lookup
+      const teamsResult = await DatabaseService.getTeams({});
+      
+      // Get team-conference junctions for roster_id to team mapping
+      const junctionResult = await DatabaseService.getTeamConferenceJunctions({
+        filters: [
+          { column: 'conference_id', operator: 'in', value: conferenceIds }
+        ]
+      });
+      
+      // Fetch ALL players for transaction mapping
+      const allPlayers = await DatabaseService.getAllPlayersForMapping([
+        { column: 'playing_status', operator: 'eq', value: 'Active' },
+        { column: 'position', operator: 'in', value: ['QB', 'RB', 'WR', 'TE'] }
+      ]);
+
+      // Create player lookup map
+      const playerLookup = new Map<string, string>();
+      allPlayers.forEach(player => {
+        if (player.sleeper_id) {
+          playerLookup.set(String(player.sleeper_id), player.player_name);
+        }
+      });
+      
+      // Process transactions for display
+      const processedTransactions = await Promise.all(transactionsResult.data.map(async (tx) => {
+        let parsedData: any = {};
+        try {
+          parsedData = typeof tx.data === 'string' ? JSON.parse(tx.data) : tx.data || {};
+        } catch (e) {
+          console.warn('Failed to parse transaction data:', e);
+        }
+        
+        // Find the conference name
+        const conference = conferences.find(c => c.dbConferenceId === tx.conference_id);
+        
+        // Create a helper function to get team name from roster_id and conference_id
+        const getTeamNameFromRosterId = (rosterId: number | string): string => {
+          // Find the team_conference_junction record for this roster_id and conference_id
+          const junction = junctionResult.data?.find(j => 
+            j.roster_id.toString() === rosterId.toString() && 
+            j.conference_id === tx.conference_id
+          );
+          
+          if (junction && teamsResult.data) {
+            const team = teamsResult.data.find(t => t.id === junction.team_id);
+            return team?.team_name || 'Unknown Team';
+          }
+          
+          return 'Unknown Team';
+        };
+        
+        // Get the primary team name from the first roster_id involved
+        let primaryTeamName = 'Unknown Team';
+        if (parsedData.roster_ids && parsedData.roster_ids.length > 0) {
+          primaryTeamName = getTeamNameFromRosterId(parsedData.roster_ids[0]);
+        }
+        
+        // Process added and dropped players with their respective teams
+        const addedPlayers = [];
+        const droppedPlayers = [];
+        
+        // Player lookup function
+        const findPlayerName = (sleeperId: string | number): string => {
+          const idAsString = String(sleeperId);
+          return playerLookup.get(idAsString) || `Player ${idAsString}`;
+        };
+        
+        // Process added players - adds: { "sleeper_id": roster_id, ... }
+        if (parsedData.adds) {
+          for (const [sleeperId, rosterId] of Object.entries(parsedData.adds)) {
+            const playerName = findPlayerName(sleeperId);
+            const addingTeam = getTeamNameFromRosterId(rosterId as string | number);
+            // Extract waiver bid amount for this player if it's a waiver transaction
+            const bidAmount = parsedData.settings && parsedData.settings.waiver_bid && parsedData.settings.waiver_bid[sleeperId];
+            addedPlayers.push({ 
+              name: playerName, 
+              team: addingTeam,
+              bidAmount: bidAmount || null
+            });
+          }
+        }
+        
+        // Process dropped players - drops: { "sleeper_id": roster_id, ... }
+        if (parsedData.drops) {
+          for (const [sleeperId, rosterId] of Object.entries(parsedData.drops)) {
+            const playerName = findPlayerName(sleeperId);
+            const droppingTeam = getTeamNameFromRosterId(rosterId as string | number);
+            droppedPlayers.push({ name: playerName, team: droppingTeam });
+          }
+        }
+        
+        // Generate transaction description based on type and involved teams
+        let transactionDescription = '';
+        const transactionType = parsedData.type || tx.type;
+        
+        // Get all teams involved in the transaction
+        const involvedTeams = new Set();
+        if (parsedData.roster_ids) {
+          parsedData.roster_ids.forEach(rosterId => {
+            const teamName = getTeamNameFromRosterId(rosterId);
+            if (teamName !== 'Unknown Team') {
+              involvedTeams.add(teamName);
+            }
+          });
+        }
+        
+        switch (transactionType) {
+          case 'trade':
+            if (addedPlayers.length > 0 || droppedPlayers.length > 0) {
+              const playerMoves = [];
+              addedPlayers.forEach(p => playerMoves.push(`${p.name} to ${p.team}`));
+              droppedPlayers.forEach(p => playerMoves.push(`${p.name} from ${p.team}`));
+              
+              if (involvedTeams.size > 1) {
+                transactionDescription = `Trade between ${Array.from(involvedTeams).join(' and ')}: ${playerMoves.join(', ')}`;
+              } else {
+                transactionDescription = `${primaryTeamName} trade: ${playerMoves.join(', ')}`;
+              }
+            } else if (parsedData.draft_picks && parsedData.draft_picks.length > 0) {
+              const picks = parsedData.draft_picks.map(pick => 
+                `${pick.season} Round ${pick.round} pick`
+              );
+              transactionDescription = `Trade involving ${picks.join(', ')}`;
+            } else {
+              transactionDescription = `Trade between ${Array.from(involvedTeams).join(' and ')}`;
+            }
+            break;
+          
+          case 'waiver':
+            if (addedPlayers.length > 0 && droppedPlayers.length > 0) {
+              transactionDescription = `${primaryTeamName} claimed ${addedPlayers.map(p => p.name).join(', ')} from waivers, dropped ${droppedPlayers.map(p => p.name).join(', ')}`;
+            } else if (addedPlayers.length > 0) {
+              transactionDescription = `${primaryTeamName} claimed ${addedPlayers.map(p => p.name).join(', ')} from waivers`;
+            } else if (droppedPlayers.length > 0) {
+              transactionDescription = `${primaryTeamName} dropped ${droppedPlayers.map(p => p.name).join(', ')} to waivers`;
+            } else {
+              transactionDescription = `${primaryTeamName} made a waiver claim`;
+            }
+            break;
+          
+          case 'free_agent':
+            if (addedPlayers.length > 0 && droppedPlayers.length > 0) {
+              transactionDescription = `${primaryTeamName} added ${addedPlayers.map(p => p.name).join(', ')}, dropped ${droppedPlayers.map(p => p.name).join(', ')}`;
+            } else if (addedPlayers.length > 0) {
+              transactionDescription = `${primaryTeamName} added ${addedPlayers.map(p => p.name).join(', ')} from free agency`;
+            } else if (droppedPlayers.length > 0) {
+              transactionDescription = `${primaryTeamName} dropped ${droppedPlayers.map(p => p.name).join(', ')}`;
+            } else {
+              transactionDescription = `${primaryTeamName} made a free agent transaction`;
+            }
+            break;
+          
+          default:
+            transactionDescription = `${primaryTeamName} completed a ${transactionType || 'transaction'}`;
+        }
+        
+        // Map database transaction type to ProcessedTransaction type
+        const mappedType = parsedData.type === 'trade' ? 'trade' : 
+                          parsedData.type === 'waiver' ? 'waiver' : 
+                          parsedData.type === 'free_agent' ? 'free_agent' : 
+                          'commissioner';
+        
+        return {
+          id: tx.id.toString(),
+          type: mappedType as 'trade' | 'free_agent' | 'waiver' | 'commissioner',
+          date: new Date(tx.created_at || new Date()),
+          details: transactionDescription,
+          teams: [primaryTeamName],
+          players: {
+            added: addedPlayers.map(p => ({ id: '', name: p.name, team: p.team, bidAmount: p.bidAmount })),
+            dropped: droppedPlayers.map(p => ({ id: '', name: p.name, team: p.team }))
+          },
+          week: (parsedData.leg || 0) as number,
+          status: 'completed',
+          rosterIds: parsedData.roster_ids || [],
+          draftPicks: parsedData.draft_picks || [],
+          waiverBudget: parsedData.waiver_budget || []
+        };
+      }));
+      
+      setTransactions(processedTransactions);
+    } catch (error) {
+      console.error('Error loading transactions:', error);
+      setTransactionsError(error instanceof Error ? error.message : 'Failed to load transactions');
+    } finally {
+      setTransactionsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadTransactions();
+  }, [selectedConference, currentSeasonConfig]);
+
+  // --- CONDITIONAL RETURNS AFTER ALL HOOKS ---
+  // Show loading state while app context loads
+  if (appLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4" />
+          <h2 className="text-xl font-semibold mb-2">Loading Gladiator League</h2>
+          <p className="text-muted-foreground">Connecting to Supabase database...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show error state with retry option
+  if (appError) {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-4">
+        <Card className="w-full max-w-md">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-destructive">
+              <AlertCircle className="h-5 w-5" />
+              Connection Error
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <Alert>
+              <AlertDescription>{appError}</AlertDescription>
+            </Alert>
+            <Button onClick={refreshSeasonData} className="w-full">
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Retry Connection
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  // Don't render if seasonConfigs is not loaded yet or is empty
+  if (!seasonConfigs || seasonConfigs.length === 0) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4" />
+          <h2 className="text-xl font-semibold mb-2">Loading Season Configuration</h2>
+          <p className="text-muted-foreground">Setting up league data...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Don't render if currentSeasonConfig has no conferences
+  if (!currentSeasonConfig || !currentSeasonConfig.conferences || currentSeasonConfig.conferences.length === 0) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4" />
+          <h2 className="text-xl font-semibold mb-2">Loading Conferences</h2>
+          <p className="text-muted-foreground">Setting up conference data...</p>
+        </div>
+      </div>
+    );
+  }
 
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -97,10 +478,11 @@ const HomePage: React.FC = () => {
 
   const getTransactionIcon = (type: string) => {
     switch (type) {
-      case 'trade':return '🔄';
-      case 'waiver':return '📈';
-      case 'drop':return '📉';
-      default:return '📝';
+      case 'trade': return '🔄';
+      case 'waiver': return '⚡';
+      case 'free_agent': return '🆓';
+      case 'commissioner': return '⚖️';
+      default: return '📝';
     }
   };
 
@@ -110,8 +492,8 @@ const HomePage: React.FC = () => {
         <div className="flex items-center justify-center p-8">
           <Loader2 className="h-6 w-6 animate-spin text-primary" />
           <span className="ml-2 text-sm text-muted-foreground">Loading standings...</span>
-        </div>);
-
+        </div>
+      );
     }
 
     if (standingsError) {
@@ -121,22 +503,22 @@ const HomePage: React.FC = () => {
           <Button variant="outline" size="sm" onClick={refetchStandings}>
             Try Again
           </Button>
-        </div>);
-
+        </div>
+      );
     }
 
     if (!standings || standings.length === 0) {
       return (
         <div className="text-center p-8">
           <p className="text-sm text-muted-foreground">No standings data available</p>
-        </div>);
-
+        </div>
+      );
     }
 
     return (
       <div className="space-y-3">
-        {standings.map((team) =>
-        <div key={team.id} className="flex items-center justify-between p-3 rounded-lg bg-accent/50">
+        {standings.map((team) => (
+          <div key={team.team_id} className="flex items-center justify-between p-3 rounded-lg bg-accent/50">
             <div className="flex items-center space-x-3">
               <div className="flex items-center space-x-1">
                 {team.overall_rank === 1 && <Star className="h-4 w-4 text-yellow-500" />}
@@ -152,9 +534,184 @@ const HomePage: React.FC = () => {
               <p className="text-xs text-muted-foreground">{StandingsService.formatPoints(team.points_for)} pts</p>
             </div>
           </div>
-        )}
-      </div>);
+        ))}
+      </div>
+    );
+  };
 
+  const renderMatchups = () => {
+    if (matchupsLoading) {
+      return (
+        <div className="flex items-center justify-center p-8">
+          <Loader2 className="h-6 w-6 animate-spin text-primary" />
+          <span className="ml-2 text-sm text-muted-foreground">Loading matchups...</span>
+        </div>
+      );
+    }
+
+    if (matchupsError) {
+      return (
+        <div className="text-center p-8">
+          <p className="text-sm text-red-600 mb-4">Error loading matchups: {matchupsError}</p>
+          <Button variant="outline" size="sm" onClick={loadMatchups}>
+            Try Again
+          </Button>
+        </div>
+      );
+    }
+
+    if (!matchups || matchups.length === 0) {
+      return (
+        <div className="text-center p-8">
+          <p className="text-sm text-muted-foreground">No matchups found for week {currentWeek}</p>
+        </div>
+      );
+    }
+
+    return (
+      <div className="space-y-2">
+        {matchups.map((matchup) => (
+          <div key={matchup.matchup_id} className="p-2 border rounded-lg">
+            <div className="flex items-center justify-between mb-1">
+              <Badge variant="outline" className="text-xs">
+                {matchup.conference.conference_name}
+              </Badge>
+              {getStatusBadge(matchup.status)}
+            </div>
+            <div className="grid grid-cols-3 gap-2 items-center text-sm">
+              <div className="text-right">
+                <p className="font-medium truncate text-xs">{matchup.teams[0]?.team?.team_name || 'Team 1'}</p>
+                <p className="text-sm font-bold">
+                  {matchup.status === 'upcoming' ? '--' : matchup.teams[0]?.points.toFixed(1)}
+                </p>
+              </div>
+              <div className="text-center text-muted-foreground font-semibold text-xs">
+                VS
+              </div>
+              <div className="text-left">
+                <p className="font-medium truncate text-xs">{matchup.teams[1]?.team?.team_name || 'Team 2'}</p>
+                <p className="text-sm font-bold">
+                  {matchup.status === 'upcoming' ? '--' : matchup.teams[1]?.points.toFixed(1)}
+                </p>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  };
+
+  const renderTransactions = () => {
+    if (transactionsLoading) {
+      return (
+        <div className="flex items-center justify-center p-8">
+          <Loader2 className="h-6 w-6 animate-spin text-primary" />
+          <span className="ml-2 text-sm text-muted-foreground">Loading transactions...</span>
+        </div>
+      );
+    }
+
+    if (transactionsError) {
+      return (
+        <div className="text-center p-8">
+          <p className="text-sm text-red-600 mb-4">Error loading transactions: {transactionsError}</p>
+          <Button variant="outline" size="sm" onClick={loadTransactions}>
+            Try Again
+          </Button>
+        </div>
+      );
+    }
+
+    if (!transactions || transactions.length === 0) {
+      return (
+        <div className="text-center p-8">
+          <p className="text-sm text-muted-foreground">No recent transactions found</p>
+        </div>
+      );
+    }
+
+    return (
+      <div className="space-y-3">
+        {transactions.map((transaction) => (
+          <div key={transaction.id} className="p-3 rounded-lg border bg-card hover:bg-accent/50 transition-colors">
+            <div className="flex items-start justify-between mb-2">
+              <div className="flex items-center space-x-2">
+                <div className="text-base">{getTransactionIcon(transaction.type)}</div>
+                <div className="flex items-center space-x-2">
+                  <Badge variant="outline" className="text-xs">
+                    {transaction.type.replace('_', ' ').toUpperCase()}
+                  </Badge>
+                  <span className="text-xs text-muted-foreground">
+                    Week {transaction.week}
+                  </span>
+                </div>
+              </div>
+              <span className="text-xs text-muted-foreground">
+                {transaction.date.toLocaleDateString()}
+              </span>
+            </div>
+            
+            <div className="space-y-2">
+              <div className="flex items-center space-x-2">
+                <span className="text-sm font-medium">{transaction.teams[0]}</span>
+              </div>
+              
+              {(transaction.players.added.length > 0 || transaction.players.dropped.length > 0) && (
+                <div className="space-y-2">
+                  {transaction.players.added.length > 0 && (
+                    <div>
+                      <div className="flex items-center space-x-2 mb-1">
+                        <Badge variant="secondary" className="text-xs bg-green-100 text-green-800">
+                          +{transaction.players.added.length}
+                        </Badge>
+                        <span className="text-xs font-medium text-green-700">Added</span>
+                      </div>
+                      <div className="ml-1 space-y-1">
+                        {transaction.players.added.map((player, idx) => (
+                          <div key={idx} className="flex items-center justify-between text-sm">
+                            <span className="font-medium">{player.name}</span>
+                            <div className="flex items-center space-x-1">
+                              {player.bidAmount && (
+                                <Badge variant="secondary" className="text-xs bg-blue-100 text-blue-800">
+                                  ${player.bidAmount}
+                                </Badge>
+                              )}
+                              <Badge variant="outline" className="text-xs">
+                                {player.team}
+                              </Badge>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {transaction.players.dropped.length > 0 && (
+                    <div>
+                      <div className="flex items-center space-x-2 mb-1">
+                        <Badge variant="secondary" className="text-xs bg-red-100 text-red-800">
+                          -{transaction.players.dropped.length}
+                        </Badge>
+                        <span className="text-xs font-medium text-red-700">Dropped</span>
+                      </div>
+                      <div className="ml-1 space-y-1">
+                        {transaction.players.dropped.map((player, idx) => (
+                          <div key={idx} className="flex items-center justify-between text-sm">
+                            <span className="font-medium">{player.name}</span>
+                            <Badge variant="outline" className="text-xs">
+                              {player.team}
+                            </Badge>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
+    );
   };
 
   return (
@@ -177,53 +734,15 @@ const HomePage: React.FC = () => {
             </p>
             <div className="flex items-center space-x-2 mt-4">
               <Badge variant="outline">{selectedSeason} Season</Badge>
-              <Badge variant="outline">Week {mockDashboardData.currentWeek}</Badge>
-              {selectedConference &&
-              <Badge variant="secondary">
+              <Badge variant="outline">Week {currentWeek}</Badge>
+              {selectedConference !== 'all' && currentSeasonConfig && (
+                <Badge variant="secondary">
                   {currentSeasonConfig.conferences.find((c) => c.id === selectedConference)?.name}
                 </Badge>
-              }
+              )}
             </div>
           </div>
         </div>
-      </div>
-
-      {/* Key Metrics */}
-      <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-        <Card>
-          <CardHeader className="pb-2">
-            <CardDescription>Total Teams</CardDescription>
-            <CardTitle className="text-2xl">{mockDashboardData.keyMetrics.totalTeams}</CardTitle>
-          </CardHeader>
-        </Card>
-        
-        <Card>
-          <CardHeader className="pb-2">
-            <CardDescription>Games Played</CardDescription>
-            <CardTitle className="text-2xl">{mockDashboardData.keyMetrics.totalGames}</CardTitle>
-          </CardHeader>
-        </Card>
-
-        <Card>
-          <CardHeader className="pb-2">
-            <CardDescription>Avg Score</CardDescription>
-            <CardTitle className="text-2xl">{mockDashboardData.keyMetrics.avgPointsPerGame}</CardTitle>
-          </CardHeader>
-        </Card>
-
-        <Card>
-          <CardHeader className="pb-2">
-            <CardDescription>High Score</CardDescription>
-            <CardTitle className="text-2xl">{mockDashboardData.keyMetrics.highestScore}</CardTitle>
-          </CardHeader>
-        </Card>
-
-        <Card>
-          <CardHeader className="pb-2">
-            <CardDescription>Transactions</CardDescription>
-            <CardTitle className="text-2xl">{mockDashboardData.keyMetrics.totalTransactions}</CardTitle>
-          </CardHeader>
-        </Card>
       </div>
 
       {/* Main Dashboard Grid */}
@@ -257,7 +776,7 @@ const HomePage: React.FC = () => {
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-2">
                 <Swords className="h-5 w-5 text-primary" />
-                <CardTitle>Week {mockDashboardData.currentWeek}</CardTitle>
+                <CardTitle>Week {currentWeek}</CardTitle>
               </div>
               <Link to="/matchups">
                 <Button variant="ghost" size="sm">
@@ -268,35 +787,7 @@ const HomePage: React.FC = () => {
             <CardDescription>Current matchups</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="space-y-4">
-              {mockDashboardData.currentMatchups.map((matchup) =>
-              <div key={matchup.id} className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <Badge variant="outline" className="text-xs">
-                      {matchup.conference.split(' ')[0]}
-                    </Badge>
-                    {getStatusBadge(matchup.status)}
-                  </div>
-                  <div className="grid grid-cols-3 gap-2 items-center text-sm">
-                    <div className="text-right">
-                      <p className="font-medium truncate">{matchup.homeTeam.name}</p>
-                      <p className="text-lg font-bold">
-                        {matchup.status === 'upcoming' ? '--' : matchup.homeTeam.score.toFixed(1)}
-                      </p>
-                    </div>
-                    <div className="text-center text-muted-foreground font-semibold">
-                      VS
-                    </div>
-                    <div className="text-left">
-                      <p className="font-medium truncate">{matchup.awayTeam.name}</p>
-                      <p className="text-lg font-bold">
-                        {matchup.status === 'upcoming' ? '--' : matchup.awayTeam.score.toFixed(1)}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
+            {renderMatchups()}
           </CardContent>
         </Card>
       </div>
@@ -311,7 +802,7 @@ const HomePage: React.FC = () => {
                 <Activity className="h-5 w-5 text-primary" />
                 <CardTitle>Recent Transactions</CardTitle>
               </div>
-              <Link to="/teams">
+              <Link to="/transactions">
                 <Button variant="ghost" size="sm">
                   View All <ArrowRight className="ml-1 h-4 w-4" />
                 </Button>
@@ -322,20 +813,7 @@ const HomePage: React.FC = () => {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="space-y-3">
-              {mockDashboardData.recentTransactions.map((transaction) =>
-              <div key={transaction.id} className="flex items-start space-x-3 p-2 rounded-lg hover:bg-accent/50">
-                  <div className="text-lg">{getTransactionIcon(transaction.type)}</div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium">{transaction.team}</p>
-                    <p className="text-xs text-muted-foreground truncate">{transaction.action}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {new Date(transaction.date).toLocaleDateString()}
-                    </p>
-                  </div>
-                </div>
-              )}
-            </div>
+            {renderTransactions()}
           </CardContent>
         </Card>
 
@@ -408,22 +886,22 @@ const HomePage: React.FC = () => {
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {currentSeasonConfig.conferences.map((conference) =>
-            <div key={conference.id} className="text-center p-4 border rounded-lg">
+            {currentSeasonConfig?.conferences.map((conference) => (
+              <div key={conference.id} className="text-center p-4 border rounded-lg">
                 <h4 className="font-semibold mb-2">{conference.name}</h4>
                 <p className="text-sm text-muted-foreground mb-2">
                   12 teams • 14-week season
                 </p>
                 <Badge variant="outline" className="text-xs">
-                  Conference ID: {conference.id}
+                  {conference.status}
                 </Badge>
               </div>
-            )}
+            ))}
           </div>
         </CardContent>
       </Card>
-    </div>);
-
+    </div>
+  );
 };
 
 export default HomePage;

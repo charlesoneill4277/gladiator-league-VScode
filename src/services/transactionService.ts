@@ -1,3 +1,5 @@
+import { DatabaseService } from './databaseService';
+
 interface SleeperTransaction {
   type: 'trade' | 'free_agent' | 'waiver' | 'commissioner';
   transaction_id: string;
@@ -40,7 +42,7 @@ interface ProcessedTransaction {
   rosterIds: number[];
   details: string;
   players: {
-    added: {id: string;name: string;team: string;}[];
+    added: {id: string;name: string;team: string;bidAmount?: number | null;}[];
     dropped: {id: string;name: string;team: string;}[];
   };
   draftPicks: DraftPick[];
@@ -91,43 +93,42 @@ class TransactionService {
     }
 
     try {
-      // Get conference data for this league
-      const conferenceResponse = await window.ezsite.apis.tablePage('12820', {
-        PageNo: 1,
-        PageSize: 1,
-        Filters: [{ name: 'league_id', op: 'Equal', value: leagueId }]
+      // Get conference data for this league using database service
+      const conferencesResponse = await DatabaseService.getConferences({
+        filters: [{ column: 'league_id', operator: 'eq', value: leagueId }],
+        limit: 1
       });
 
-      if (conferenceResponse.error || !conferenceResponse.data?.List?.length) {
-        throw new Error('Conference not found');
+      if (conferencesResponse.error || !conferencesResponse.data?.length) {
+        console.warn(`No conference found for league ${leagueId}`);
+        return new Map();
       }
 
-      const conferenceId = conferenceResponse.data.List[0].id;
+      const conference = conferencesResponse.data[0];
+      const conferenceId = conference.id;
 
-      // Get all team-conference mappings for this conference
-      const junctionResponse = await window.ezsite.apis.tablePage('12853', {
-        PageNo: 1,
-        PageSize: 50,
-        Filters: [{ name: 'conference_id', op: 'Equal', value: conferenceId }]
+      // Get all team-conference junction records for this conference
+      const junctionResponse = await DatabaseService.getTeamConferenceJunctions({
+        filters: [{ column: 'conference_id', operator: 'eq', value: conferenceId }]
       });
 
-      if (junctionResponse.error) {
-        throw new Error(junctionResponse.error);
+      if (junctionResponse.error || !junctionResponse.data?.length) {
+        console.warn(`No team-conference junctions found for conference ${conferenceId}`);
+        return new Map();
       }
 
       const teamNameMap = new Map<number, string>();
 
       // For each junction record, get the team name
-      for (const junction of junctionResponse.data?.List || []) {
-        const teamResponse = await window.ezsite.apis.tablePage('12852', {
-          PageNo: 1,
-          PageSize: 1,
-          Filters: [{ name: 'id', op: 'Equal', value: junction.team_id }]
+      for (const junction of junctionResponse.data) {
+        const teamResponse = await DatabaseService.getTeams({
+          filters: [{ column: 'id', operator: 'eq', value: junction.team_id }],
+          limit: 1
         });
 
-        if (!teamResponse.error && teamResponse.data?.List?.length) {
-          const rosterId = parseInt(junction.roster_id);
-          const teamName = teamResponse.data.List[0].team_name;
+        if (!teamResponse.error && teamResponse.data?.length) {
+          const rosterId = junction.roster_id;
+          const teamName = teamResponse.data[0].team_name;
           teamNameMap.set(rosterId, teamName);
         }
       }
@@ -145,15 +146,14 @@ class TransactionService {
    */
   static async getPlayerName(playerId: string): Promise<string> {
     try {
-      // First try to get from database
-      const playerResponse = await window.ezsite.apis.tablePage('12870', {
-        PageNo: 1,
-        PageSize: 1,
-        Filters: [{ name: 'sleeper_player_id', op: 'Equal', value: playerId }]
+      // Try to get from database using the proper database service
+      const playersResponse = await DatabaseService.getPlayers({
+        filters: [{ column: 'sleeper_id', operator: 'eq', value: playerId }],
+        limit: 1
       });
 
-      if (!playerResponse.error && playerResponse.data?.List?.length) {
-        return playerResponse.data.List[0].player_name;
+      if (playersResponse.data && playersResponse.data.length > 0) {
+        return playersResponse.data[0].player_name;
       }
 
       // If not in database, try to fetch from Sleeper API

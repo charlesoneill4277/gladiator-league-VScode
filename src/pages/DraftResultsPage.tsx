@@ -9,16 +9,21 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { useApp } from '@/contexts/AppContext';
 import { useToast } from '@/hooks/use-toast';
 import { Shield, Trophy, Target, Users, RefreshCw, AlertCircle, ChevronDown, ChevronUp } from 'lucide-react';
+import { DatabaseService } from '@/services/databaseService';
+import { DbDraftResult, DbSeason, DbConference, DbTeam } from '@/types/database';
 
+// Updated interfaces to match Supabase schema
 interface DraftPick {
   id: number;
-  season_id: number;
-  conference_id: number;
-  round: number;
-  draft_slot: number;
-  pick_number: number;
-  team_id: number;
-  player_id: string;
+  draft_year: string;
+  league_id: string;
+  round: string;
+  draft_slot: string;
+  pick_number: string;
+  owner_id: string;
+  sleeper_id: string;
+  created_at?: string;
+  updated_at?: string;
 }
 
 interface Conference {
@@ -30,9 +35,9 @@ interface Conference {
 
 interface Season {
   id: number;
-  season_year: number;
+  season_year: string;
   season_name: string;
-  is_current_season: boolean;
+  is_current: boolean;
 }
 
 interface ProcessedDraftPick extends DraftPick {
@@ -41,6 +46,11 @@ interface ProcessedDraftPick extends DraftPick {
   nfl_team?: string;
   conference_name?: string;
   owner_name?: string;
+  team_name?: string;
+  // Add computed fields to bridge the schema differences
+  conference_id?: number; // derived from league_id mapping
+  team_id?: number; // derived from owner_id mapping
+  player_id?: string; // alias for sleeper_id
 }
 
 const DraftResultsPage: React.FC = () => {
@@ -63,79 +73,59 @@ const DraftResultsPage: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    if (selectedSeason) {
+    if (selectedSeason && seasons.length > 0 && conferences.length > 0 && teams.length > 0 && Object.keys(allPlayers).length > 0) {
       loadDraftData();
     }
-  }, [selectedSeason, selectedConference]);
+  }, [selectedSeason, selectedConference, seasons, conferences, teams, allPlayers]);
 
   const loadInitialData = async () => {
     setLoading(true);
     try {
+      
       // Load seasons
-      const { data: seasonsData, error: seasonsError } = await window.ezsite.apis.tablePage(12818, {
-        PageNo: 1,
-        PageSize: 50,
-        OrderByField: "season_year",
-        IsAsc: false
+      const seasonsResult = await DatabaseService.getSeasons({
+        orderBy: { column: 'season_year', ascending: false },
+        limit: 50
       });
 
-      if (seasonsError) throw seasonsError;
-      setSeasons(seasonsData?.List || []);
+      if (seasonsResult.error) throw seasonsResult.error;
+      setSeasons(seasonsResult.data || []);
 
       // Load conferences
-      const { data: conferencesData, error: conferencesError } = await window.ezsite.apis.tablePage(12820, {
-        PageNo: 1,
-        PageSize: 50,
-        OrderByField: "conference_name",
-        IsAsc: true
+      const conferencesResult = await DatabaseService.getConferences({
+        orderBy: { column: 'conference_name', ascending: true },
+        limit: 50
       });
 
-      if (conferencesError) throw conferencesError;
-      setConferences(conferencesData?.List || []);
+      if (conferencesResult.error) throw conferencesResult.error;
+      setConferences(conferencesResult.data || []);
 
-      // Load teams for owner mapping
-      const { data: teamsData, error: teamsError } = await window.ezsite.apis.tablePage(12852, {
-        PageNo: 1,
-        PageSize: 100,
-        OrderByField: "team_name",
-        IsAsc: true
+      // Load teams
+      const teamsResult = await DatabaseService.getTeams({
+        orderBy: { column: 'team_name', ascending: true },
+        limit: 100
       });
 
-      if (teamsError) throw teamsError;
-
-      // Load team-conference junction data to get roster_id mappings
-      const { data: junctionData, error: junctionError } = await window.ezsite.apis.tablePage(12853, {
-        PageNo: 1,
-        PageSize: 500,
-        OrderByField: "id",
-        IsAsc: true
-      });
-
-      if (junctionError) throw junctionError;
-
-      // Create enhanced teams data with roster_id mappings
-      const enhancedTeams = (teamsData?.List || []).map((team) => {
-        // Find all junction records for this team
-        const teamJunctions = (junctionData?.List || []).filter((junction) => junction.team_id === team.id);
-        return {
-          ...team,
-          junctions: teamJunctions,
-          // For convenience, add roster_ids as an array
-          roster_ids: teamJunctions.map((j) => j.roster_id)
-        };
-      });
-
-      setTeams(enhancedTeams);
+      if (teamsResult.error) throw teamsResult.error;
+      setTeams(teamsResult.data || []);
 
       // Load players data for mapping
       try {
-        const response = await fetch('https://api.sleeper.app/v1/players/nfl');
-        if (response.ok) {
-          const playersData = await response.json();
-          setAllPlayers(playersData);
-        }
+        const players = await DatabaseService.getAllPlayersForMapping();
+        
+        // Create a lookup map by sleeper_id
+        const playersData = {};
+        players.forEach(player => {
+          if (player.sleeper_id) {
+            playersData[player.sleeper_id] = player;
+          }
+        });
+        setAllPlayers(playersData);
+        console.log(`📊 Loaded ${Object.keys(playersData).length} players from database (${players.length} total players)`);
+        
       } catch (error) {
-        console.warn('Could not load players data from Sleeper API:', error);
+        console.warn('Could not load players data from database:', error);
+        setAllPlayers({});
       }
 
     } catch (error) {
@@ -151,82 +141,110 @@ const DraftResultsPage: React.FC = () => {
   };
 
   const loadDraftData = async () => {
-    if (!selectedSeason) return;
+    if (!selectedSeason) {
+      console.log('⚠️ No selectedSeason, skipping draft data load');
+      return;
+    }
+
+    if (seasons.length === 0) {
+      console.log('⚠️ Seasons not loaded yet, skipping draft data load');
+      return;
+    }
+
+    if (conferences.length === 0) {
+      console.log('⚠️ Conferences not loaded yet, skipping draft data load');
+      return;
+    }
+
+    if (teams.length === 0) {
+      console.log('⚠️ Teams not loaded yet, skipping draft data load');
+      return;
+    }
+
+    if (Object.keys(allPlayers).length === 0) {
+      console.log('⚠️ Players not loaded yet, skipping draft data load');
+      return;
+    }
 
     setRefreshing(true);
     try {
-      console.log(`Loading draft data for season ${selectedSeason}, conference: ${selectedConference || 'all'}`);
+      console.log(`🎯 Loading draft data for season ${selectedSeason}, conference: ${selectedConference || 'all'}`);
+      console.log(`📊 Available data: seasons=${seasons.length}, conferences=${conferences.length}, teams=${teams.length}, players=${Object.keys(allPlayers).length}`);
 
-      // Get the season ID for the selected season year
-      const season = seasons.find((s) => s.season_year === selectedSeason);
+      // Get the season for the selected season year
+      const season = seasons.find((s) => s.season_year === selectedSeason.toString());
+      
       if (!season) {
-        console.warn(`Season ${selectedSeason} not found in database`);
+        console.warn(`⚠️ Season ${selectedSeason} not found in database`);
+        console.log('Available seasons:', seasons.map(s => s.season_year));
         setDraftPicks([]);
         return;
       }
 
-      // Build filters
+      // Build filters for draft results - only filter by year, do conference filtering in UI
       const filters = [
-      { name: "season_id", op: "Equal", value: season.id }];
+        { column: "draft_year", operator: "eq" as const, value: selectedSeason.toString() }
+      ];
 
+      // Note: We do conference filtering in the UI for better reliability
+      console.log('🔍 Draft query filters:', filters);
 
-      // Add conference filter if specific conference is selected
-      if (selectedConference) {
-        const contextConferenceMap = {
-          'mars': 'The Legions of Mars',
-          'jupiter': 'The Guardians of Jupiter',
-          'vulcan': "Vulcan's Oathsworn"
-        };
-
-        const targetConferenceName = contextConferenceMap[selectedConference];
-        if (targetConferenceName) {
-          const conference = conferences.find((c) =>
-          c.season_id === season.id && c.conference_name === targetConferenceName
-          );
-          if (conference) {
-            filters.push({ name: "conference_id", op: "Equal", value: conference.id });
-          }
-        }
-      }
-
-      console.log('Draft query filters:', filters);
-
-      // Fetch draft picks
-      const { data: draftData, error: draftError } = await window.ezsite.apis.tablePage(27845, {
-        PageNo: 1,
-        PageSize: 1000, // Get all draft picks
-        OrderByField: "pick_number",
-        IsAsc: true,
-        Filters: filters
+      // Fetch draft picks using Supabase
+      const draftResult = await DatabaseService.getDraftResults({
+        filters,
+        orderBy: { column: 'pick_number', ascending: true },
+        limit: 1000
       });
 
-      if (draftError) throw draftError;
+      if (draftResult.error) {
+        throw draftResult.error;
+      }
 
-      console.log(`Loaded ${draftData?.List?.length || 0} draft picks`);
+      console.log(`🎲 Loaded ${draftResult.data?.length || 0} draft picks`);
 
       // Process and enhance draft picks with additional information
-      const picks = draftData?.List || [];
-      const processedPicks = picks.map((pick: DraftPick) => {
-        // Find conference name
-        const conference = conferences.find((c) => c.id === pick.conference_id);
+      const picks = draftResult.data || [];
+      
+      // Don't sort globally - each conference has its own independent draft
+      // Sorting will be done per conference in the render functions
+      const processedPicks = picks.map((pick: DbDraftResult) => {
+        // Find conference by league_id (draft results store league_id, not conference_id)
+        const conference = conferences.find((c) => c.league_id === pick.league_id);
 
-        // Find player information
-        const player = allPlayers[pick.player_id];
+        // Find player information using sleeper_id from database
+        const player = allPlayers[pick.sleeper_id];
 
-        // Find team/owner information using the team_id
-        // The team_id in draft_results now directly references the teams table
-        const team = teams.find((t) => t.id === pick.team_id);
+        // Find team/owner information using owner_id
+        const team = teams.find((t) => t.owner_id === pick.owner_id);
+
+        // Debug logging for first few picks
+        if (picks.indexOf(pick) < 3) {
+          console.log(`🔍 Processing pick ${pick.pick_number}:`, {
+            sleeper_id: pick.sleeper_id,
+            player_found: !!player,
+            player_name: player?.player_name,
+            conference_found: !!conference,
+            team_found: !!team
+          });
+        }
 
         return {
           ...pick,
           conference_name: conference?.conference_name || 'Unknown Conference',
-          player_name: player ? `${player.first_name || ''} ${player.last_name || ''}`.trim() : 'Unknown Player',
+          player_name: player?.player_name || 'Unknown Player',
           position: player?.position || 'UNK',
-          nfl_team: player?.team || 'UNK',
+          nfl_team: player?.nfl_team || 'UNK',
           owner_name: team?.owner_name || 'Unknown Owner',
-          team_name: team?.team_name || 'Unknown Team'
+          team_name: team?.team_name || 'Unknown Team',
+          // Add computed fields for backward compatibility
+          conference_id: conference?.id,
+          team_id: team?.id,
+          player_id: pick.sleeper_id
         };
       });
+
+      console.log(`✅ Processed ${processedPicks.length} draft picks`);
+      console.log('First few picks:', processedPicks.slice(0, 3));
 
       setDraftPicks(processedPicks);
 
@@ -256,29 +274,42 @@ const DraftResultsPage: React.FC = () => {
   const getConferencesToShow = () => {
     if (!selectedConference) {
       // Show all conferences for the selected season
-      const season = seasons.find((s) => s.season_year === selectedSeason);
-      if (!season) return [];
-      return conferences.filter((c) => c.season_id === season.id);
+      const season = seasons.find((s) => s.season_year === selectedSeason.toString());
+      if (!season) {
+        console.log('⚠️ Season not found for getConferencesToShow');
+        return [];
+      }
+      const allConfs = conferences.filter((c) => c.season_id === season.id);
+      console.log(`📋 Showing ${allConfs.length} conferences for season ${selectedSeason}`);
+      return allConfs;
     }
 
     // Map the string conference ID from context to database conference
-    // The context uses string IDs like 'mars', 'jupiter', 'vulcan'
+    // The context uses string IDs generated from conference names (lowercased, alphanumeric only)
     // We need to find the corresponding database conference by matching the conference name
     const contextConferenceMap = {
-      'mars': 'The Legions of Mars',
-      'jupiter': 'The Guardians of Jupiter',
-      'vulcan': "Vulcan's Oathsworn"
+      'thelegionsofmars': 'The Legions of Mars',
+      'theguardiansofjupiter': 'The Guardians of Jupiter',
+      'vulcansoathsworn': "Vulcan's Oathsworn"
     };
 
     const targetConferenceName = contextConferenceMap[selectedConference];
-    if (!targetConferenceName) return [];
+    if (!targetConferenceName) {
+      console.log(`⚠️ Unknown conference ID: ${selectedConference}`);
+      return [];
+    }
 
-    const season = seasons.find((s) => s.season_year === selectedSeason);
-    if (!season) return [];
+    const season = seasons.find((s) => s.season_year === selectedSeason.toString());
+    if (!season) {
+      console.log('⚠️ Season not found for specific conference');
+      return [];
+    }
 
     const conference = conferences.find((c) =>
     c.season_id === season.id && c.conference_name === targetConferenceName
     );
+    
+    console.log(`📋 Selected conference: ${targetConferenceName}, found: ${conference ? 'yes' : 'no'}`);
     return conference ? [conference] : [];
   };
 
@@ -303,7 +334,12 @@ const DraftResultsPage: React.FC = () => {
 
   const renderDraftBoard = (conference: Conference) => {
     const conferencePicks = draftPicks.filter((pick) => pick.conference_id === conference.id);
-    const roundPicks = conferencePicks.filter((pick) => pick.round === selectedRound);
+    
+    // Filter for the selected round
+    let roundPicks = conferencePicks.filter((pick) => parseInt(pick.round) === selectedRound);
+    
+    // Sort picks within this conference by draft_slot (pick within round)
+    roundPicks.sort((a, b) => parseInt(a.draft_slot) - parseInt(b.draft_slot));
 
     return (
       <Card key={conference.id}>
@@ -386,6 +422,20 @@ const DraftResultsPage: React.FC = () => {
               });
             }
             teamPicksMap.get(key).picks.push(pick);
+          });
+
+          // Sort each team's picks by round and then by draft_slot
+          teamPicksMap.forEach((team) => {
+            team.picks.sort((a, b) => {
+              const roundA = parseInt(a.round);
+              const roundB = parseInt(b.round);
+              
+              if (roundA !== roundB) {
+                return roundA - roundB;
+              }
+              
+              return parseInt(a.draft_slot) - parseInt(b.draft_slot);
+            });
           });
 
           const teamPicks = Array.from(teamPicksMap.values());
@@ -481,13 +531,25 @@ const DraftResultsPage: React.FC = () => {
 
   }
 
+  // Debug logging
+  console.log('🔍 Render debug:', {
+    selectedSeason,
+    selectedConference,
+    draftPicksCount: draftPicks.length,
+    seasonsCount: seasons.length,
+    conferencesCount: conferences.length,
+    teamsCount: teams.length
+  });
+
   const conferencesToShow = getConferencesToShow();
+  console.log('📋 Conferences to show:', conferencesToShow.length);
+  
   const totalTeams = conferencesToShow.reduce((sum, conf) => {
     const confTeams = new Set(draftPicks.filter((p) => p.conference_id === conf.id).map((p) => p.team_id));
     return sum + confTeams.size;
   }, 0);
 
-  const maxRounds = Math.max(...draftPicks.map((pick) => pick.round), 1);
+  const maxRounds = Math.max(...draftPicks.map((pick) => parseInt(pick.round)), 1);
 
   return (
     <div className="space-y-6">
@@ -557,11 +619,16 @@ const DraftResultsPage: React.FC = () => {
             <AlertCircle className="h-12 w-12 text-muted-foreground mb-4" />
             <h3 className="text-lg font-semibold mb-2">No Draft Results Found</h3>
             <p className="text-muted-foreground text-center mb-4">
-              No draft picks found for the selected season and conference.
+              No draft picks found for the {selectedSeason} season{selectedConference ? ` in ${selectedConference}` : ''}.
             </p>
-            <p className="text-sm text-muted-foreground text-center">
-              Try syncing draft data from the Admin → Data Sync → Draft Sync panel.
-            </p>
+            <div className="text-sm text-muted-foreground text-center space-y-2">
+              <p>Try:</p>
+              <ul className="list-disc list-inside space-y-1">
+                <li>Selecting a different season from the dropdown above</li>
+                <li>Choosing "All Conferences" if you have a conference selected</li>
+                <li>Syncing draft data from Admin → Data Sync → Draft Sync</li>
+              </ul>
+            </div>
           </CardContent>
         </Card> :
 

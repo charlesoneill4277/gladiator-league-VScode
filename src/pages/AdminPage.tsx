@@ -7,14 +7,16 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useToast } from '@/hooks/use-toast';
-import { Shield, Lock, Settings, Database, Clock, Activity, Calendar, Bot } from 'lucide-react';
+import { Shield, Lock, Settings, Database, Clock, Activity, Calendar, Bot, Rocket, Bug } from 'lucide-react';
 import LeagueManager from '@/components/admin/LeagueManager';
 import DataSync from '@/components/admin/DataSync';
 import MatchupsManagement from '@/components/admin/MatchupsManagement';
 import MatchupCompletionManager from '@/components/admin/MatchupCompletionManager';
 import AutoSyncManager from '@/components/admin/AutoSyncManager';
 import DataIntegrityManager from '@/components/admin/DataIntegrityManager';
-import DataIntegrityDemo from '@/components/DataIntegrityDemo';
+import SupabaseMigrationTest from '@/components/SupabaseMigrationTest';
+import DatabaseTestComponent from '@/components/DatabaseTestComponent';
+import RLSPolicyManager from '@/components/RLSPolicyManager';
 
 const AdminPage: React.FC = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -174,8 +176,16 @@ const AdminPage: React.FC = () => {
         </div>
       </div>
 
-      <Tabs defaultValue="league-manager" className="space-y-6" data-id="ojttqdptv">
-        <TabsList className="grid w-full grid-cols-6" data-id="55g8xnp5m">
+      <Tabs defaultValue="supabase-migration" className="space-y-6" data-id="ojttqdptv">
+        <TabsList className="grid w-full grid-cols-8" data-id="55g8xnp5m">
+          <TabsTrigger value="debug" className="flex items-center gap-2" data-id="debug-tab">
+            <Bug className="h-4 w-4" />
+            Debug
+          </TabsTrigger>
+          <TabsTrigger value="supabase-migration" className="flex items-center gap-2" data-id="supabase-tab">
+            <Rocket className="h-4 w-4" data-id="rocket-icon" />
+            Migration
+          </TabsTrigger>
           <TabsTrigger value="league-manager" className="flex items-center gap-2" data-id="mudt4s949">
             <Settings className="h-4 w-4" data-id="vq59l6i0o" />
             League Manager
@@ -186,7 +196,7 @@ const AdminPage: React.FC = () => {
           </TabsTrigger>
           <TabsTrigger value="matchups-management" className="flex items-center gap-2" data-id="kq8s7gvio">
             <Calendar className="h-4 w-4" data-id="930hxto7y" />
-            Matchups
+            Matchups & Overrides
           </TabsTrigger>
           <TabsTrigger value="records-management" className="flex items-center gap-2" data-id="fy9seefhn">
             <Activity className="h-4 w-4" data-id="vrxjwjjwo" />
@@ -201,6 +211,17 @@ const AdminPage: React.FC = () => {
             Data Integrity
           </TabsTrigger>
         </TabsList>
+
+        <TabsContent value="debug" data-id="debug-content">
+          <div className="space-y-6">
+            <DatabaseTestComponent />
+            <RLSPolicyManager />
+          </div>
+        </TabsContent>
+
+        <TabsContent value="supabase-migration" data-id="supabase-content">
+          <SupabaseMigrationTest data-id="migration-test" />
+        </TabsContent>
 
         <TabsContent value="league-manager" data-id="9y7vx68ag">
           <LeagueManager data-id="jqk7s5yut" />

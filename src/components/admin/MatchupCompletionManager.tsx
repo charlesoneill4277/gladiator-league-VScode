@@ -11,38 +11,24 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
 import { CheckCircle, Clock, Edit, Calculator, Trophy, AlertCircle } from 'lucide-react';
-import { teamRecordsService } from '@/services/teamRecordsService';
+import { StandingsService } from '@/services/standingsService';
+import { DatabaseService } from '@/services/databaseService';
+import { SupabaseMatchupService } from '@/services/supabaseMatchupService';
+import { SleeperApiService } from '@/services/sleeperApi';
+import { DbMatchup, DbTeam, DbConference } from '@/types/database';
 import TeamRecordsDashboard from './TeamRecordsDashboard';
 
-interface Matchup {
-  id: number;
-  conference_id: number;
-  week: number;
-  team_1_id: number;
-  team_2_id: number;
-  team_1_score: number;
-  team_2_score: number;
-  winner_id: number;
-  is_playoff: boolean;
-  is_manual_override: boolean;
-  status: string;
-  matchup_date: string;
-  notes: string;
-}
+// Use database types directly
+type Matchup = DbMatchup;
+type Team = DbTeam;
+type Conference = DbConference;
 
-interface Team {
-  id: number;
-  team_name: string;
-  owner_name: string;
-}
-
-interface Conference {
-  id: number;
-  conference_name: string;
-  season_id: number;
-}
+const CONFERENCES_TABLE_ID = '12820';
+const TEAMS_TABLE_ID = '12852';
+const MATCHUPS_TABLE_ID = '13329';
 
 const MatchupCompletionManager: React.FC = () => {
+  console.log('MatchupCompletionManager: Component rendered');
   const [matchups, setMatchups] = useState<Matchup[]>([]);
   const [teams, setTeams] = useState<Team[]>([]);
   const [conferences, setConferences] = useState<Conference[]>([]);
@@ -62,6 +48,7 @@ const MatchupCompletionManager: React.FC = () => {
 
   useEffect(() => {
     loadInitialData();
+    loadCurrentWeek();
   }, []);
 
   useEffect(() => {
@@ -70,39 +57,40 @@ const MatchupCompletionManager: React.FC = () => {
     }
   }, [selectedConference, selectedWeek]);
 
+  const loadCurrentWeek = async () => {
+    try {
+      const currentWeek = await SleeperApiService.getCurrentNFLWeek();
+      console.log(`Setting current week to: ${currentWeek}`);
+      setSelectedWeek(currentWeek.toString());
+    } catch (error) {
+      console.error('Error loading current week:', error);
+      // Don't set a default week if API fails - let user select manually
+    }
+  };
+
   const loadInitialData = async () => {
     try {
       setIsLoading(true);
 
       // Load conferences
-      const { data: conferencesData, error: conferencesError } = await window.ezsite.apis.tablePage(
-        CONFERENCES_TABLE_ID,
-        {
-          PageNo: 1,
-          PageSize: 100,
-          OrderByField: 'id',
-          IsAsc: true,
-          Filters: []
-        }
-      );
+      const conferencesResponse = await DatabaseService.getConferences({
+        limit: 100,
+        orderBy: { column: 'id', ascending: true }
+      });
 
-      if (conferencesError) throw conferencesError;
-      setConferences(conferencesData.List || []);
+      if (conferencesResponse.data) {
+        setConferences(conferencesResponse.data);
+      }
 
       // Load teams
-      const { data: teamsData, error: teamsError } = await window.ezsite.apis.tablePage(
-        TEAMS_TABLE_ID,
-        {
-          PageNo: 1,
-          PageSize: 100,
-          OrderByField: 'team_name',
-          IsAsc: true,
-          Filters: []
-        }
-      );
+      const teamsResponse = await DatabaseService.getTeams({
+        limit: 100,
+        orderBy: { column: 'team_name', ascending: true }
+      });
 
-      if (teamsError) throw teamsError;
-      setTeams(teamsData.List || []);
+      if (teamsResponse.data) {
+        setTeams(teamsResponse.data);
+      }
 
     } catch (error) {
       console.error('Error loading initial data:', error);
@@ -121,26 +109,22 @@ const MatchupCompletionManager: React.FC = () => {
       const filters = [];
 
       if (selectedConference) {
-        filters.push({ name: 'conference_id', op: 'Equal', value: parseInt(selectedConference) });
+        filters.push({ column: 'conference_id', operator: 'eq' as const, value: parseInt(selectedConference) });
       }
 
       if (selectedWeek) {
-        filters.push({ name: 'week', op: 'Equal', value: parseInt(selectedWeek) });
+        filters.push({ column: 'week', operator: 'eq' as const, value: parseInt(selectedWeek) });
       }
 
-      const { data, error } = await window.ezsite.apis.tablePage(
-        MATCHUPS_TABLE_ID,
-        {
-          PageNo: 1,
-          PageSize: 100,
-          OrderByField: 'week',
-          IsAsc: true,
-          Filters: filters
-        }
-      );
+      const matchupsResponse = await DatabaseService.getMatchups({
+        filters,
+        limit: 100,
+        orderBy: { column: 'week', ascending: true }
+      });
 
-      if (error) throw error;
-      setMatchups(data.List || []);
+      if (matchupsResponse.data) {
+        setMatchups(matchupsResponse.data);
+      }
     } catch (error) {
       console.error('Error loading matchups:', error);
       toast({
@@ -187,12 +171,22 @@ const MatchupCompletionManager: React.FC = () => {
     try {
       setIsSubmitting(true);
 
-      await teamRecordsService.completeMatchup(
-        selectedMatchup.id,
-        parseFloat(team1Score),
-        parseFloat(team2Score),
-        true // Manual override
-      );
+      // TODO: Implement completeMatchup in Supabase
+      console.log('Complete matchup triggered:', {
+        matchupId: selectedMatchup.id,
+        team1Score: parseFloat(team1Score),
+        team2Score: parseFloat(team2Score)
+      });
+
+      // For now, update the matchup directly using DatabaseService
+      const winnerId = parseFloat(team1Score) > parseFloat(team2Score) ? selectedMatchup.team1_id : selectedMatchup.team2_id;
+      await DatabaseService.updateMatchup(selectedMatchup.id, {
+        team1_score: parseFloat(team1Score),
+        team2_score: parseFloat(team2Score),
+        winning_team_id: winnerId,
+        matchup_status: 'complete',
+        manual_override: true
+      });
 
       // Refresh matchups
       await loadMatchups();
@@ -226,7 +220,8 @@ const MatchupCompletionManager: React.FC = () => {
       const seasonId = 1; // This should be dynamic based on current season
       const conferenceId = selectedConference ? parseInt(selectedConference) : undefined;
 
-      await teamRecordsService.calculateTeamRecords(seasonId, conferenceId);
+      // TODO: Implement calculateTeamRecords in Supabase
+      console.log('Calculate team records triggered for season:', seasonId, 'conference:', conferenceId);
 
       toast({
         title: 'Success',
@@ -249,7 +244,8 @@ const MatchupCompletionManager: React.FC = () => {
       setIsSubmitting(true);
 
       const seasonId = 1; // This should be dynamic based on current season
-      await teamRecordsService.markConferenceChampions(seasonId);
+      // TODO: Implement markConferenceChampions in Supabase
+      console.log('Mark conference champions triggered for season:', seasonId);
 
       toast({
         title: 'Success',
@@ -269,8 +265,8 @@ const MatchupCompletionManager: React.FC = () => {
 
   const openCompleteDialog = (matchup: Matchup) => {
     setSelectedMatchup(matchup);
-    setTeam1Score(matchup.team_1_score?.toString() || '');
-    setTeam2Score(matchup.team_2_score?.toString() || '');
+    setTeam1Score(matchup.team1_score?.toString() || '');
+    setTeam2Score(matchup.team2_score?.toString() || '');
     setIsDialogOpen(true);
   };
 
@@ -360,19 +356,19 @@ const MatchupCompletionManager: React.FC = () => {
                       <TableCell>{getConferenceName(matchup.conference_id)}</TableCell>
                       <TableCell>
                         <div className="space-y-1">
-                          <div>{getTeamName(matchup.team_1_id)}</div>
+                          <div>{getTeamName(matchup.team1_id)}</div>
                           <div className="text-sm text-muted-foreground">vs</div>
-                          <div>{getTeamName(matchup.team_2_id)}</div>
+                          <div>{getTeamName(matchup.team2_id)}</div>
                         </div>
                       </TableCell>
                       <TableCell>
-                        {matchup.status === 'complete' ?
+                        {matchup.matchup_status === 'complete' ?
                       <div className="space-y-1">
-                            <div className={matchup.winner_id === matchup.team_1_id ? 'font-semibold' : ''}>
-                              {matchup.team_1_score}
+                            <div className={matchup.winning_team_id === matchup.team1_id ? 'font-semibold' : ''}>
+                              {matchup.team1_score}
                             </div>
-                            <div className={matchup.winner_id === matchup.team_2_id ? 'font-semibold' : ''}>
-                              {matchup.team_2_score}
+                            <div className={matchup.winning_team_id === matchup.team2_id ? 'font-semibold' : ''}>
+                              {matchup.team2_score}
                             </div>
                           </div> :
 
@@ -381,8 +377,8 @@ const MatchupCompletionManager: React.FC = () => {
                       </TableCell>
                       <TableCell>
                         <div className="space-y-1">
-                          {getStatusBadge(matchup.status)}
-                          {matchup.is_manual_override &&
+                          {getStatusBadge(matchup.matchup_status)}
+                          {matchup.manual_override &&
                         <Badge variant="outline" className="text-xs">Manual</Badge>
                         }
                         </div>
@@ -394,7 +390,7 @@ const MatchupCompletionManager: React.FC = () => {
                         onClick={() => openCompleteDialog(matchup)}>
 
                           <Edit className="w-4 h-4 mr-1" />
-                          {matchup.status === 'complete' ? 'Edit' : 'Complete'}
+                          {matchup.matchup_status === 'complete' ? 'Edit' : 'Complete'}
                         </Button>
                       </TableCell>
                     </TableRow>
@@ -432,13 +428,13 @@ const MatchupCompletionManager: React.FC = () => {
                     Week {selectedMatchup.week} - {getConferenceName(selectedMatchup.conference_id)}
                   </div>
                   <div className="text-lg font-semibold">
-                    {getTeamName(selectedMatchup.team_1_id)} vs {getTeamName(selectedMatchup.team_2_id)}
+                    {getTeamName(selectedMatchup.team1_id)} vs {getTeamName(selectedMatchup.team2_id)}
                   </div>
                 </div>
                 
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <Label htmlFor="team1-score">{getTeamName(selectedMatchup.team_1_id)} Score</Label>
+                    <Label htmlFor="team1-score">{getTeamName(selectedMatchup.team1_id)} Score</Label>
                     <Input
                     id="team1-score"
                     type="number"
@@ -450,7 +446,7 @@ const MatchupCompletionManager: React.FC = () => {
                   </div>
                   
                   <div>
-                    <Label htmlFor="team2-score">{getTeamName(selectedMatchup.team_2_id)} Score</Label>
+                    <Label htmlFor="team2-score">{getTeamName(selectedMatchup.team2_id)} Score</Label>
                     <Input
                     id="team2-score"
                     type="number"

@@ -1,6 +1,6 @@
 // Service for integrating with Sleeper API
 export interface SleeperRoster {
-  starters: string[];
+  starters: string[] | null;
   settings: {
     wins: number;
     waiver_position: number;
@@ -14,8 +14,8 @@ export interface SleeperRoster {
     fpts: number;
   };
   roster_id: number;
-  reserve: string[];
-  players: string[];
+  reserve: string[] | null;
+  players: string[] | null;
   owner_id: string;
   league_id: string;
 }
@@ -111,6 +111,16 @@ export interface SleeperUser {
   };
 }
 
+export interface SleeperNFLState {
+  week: number;
+  season_type: string;
+  season: string;
+  leg: number;
+  season_start_date: string;
+  previous_season: string;
+  display_week: number;
+}
+
 // Position mapping for starting lineup slots
 const STARTING_POSITIONS = [
 'QB', // Quarterback
@@ -175,7 +185,7 @@ export class SleeperApiService {
    * Organize roster players into starters, bench, and IR
    */
   static organizeRoster(roster: SleeperRoster, allPlayers: Record<string, SleeperPlayer>): OrganizedRoster {
-    const starters = roster.starters.map((playerId, index) => {
+    const starters = (roster.starters || []).map((playerId, index) => {
       const player = allPlayers[playerId];
       const slotPosition = STARTING_POSITIONS[index] || 'BENCH';
 
@@ -187,14 +197,14 @@ export class SleeperApiService {
     });
 
     // Players not in starters array go to bench (excluding IR)
-    const bench = roster.players.filter((playerId) =>
-    !roster.starters.includes(playerId) && !roster.reserve.includes(playerId)
+    const bench = (roster.players || []).filter((playerId) =>
+      !(roster.starters || []).includes(playerId) && !(roster.reserve || []).includes(playerId)
     );
 
     return {
       starters,
       bench,
-      ir: roster.reserve
+      ir: roster.reserve || []
     };
   }
 
@@ -207,11 +217,48 @@ export class SleeperApiService {
     allPlayers: Record<string, SleeperPlayer>;
   }> {
     try {
-      // Fetch both rosters and players data
+      // Fetch rosters from Sleeper API but players from database
       const [rosters, allPlayers] = await Promise.all([
-      this.fetchLeagueRosters(leagueId),
-      this.fetchAllPlayers()]
-      );
+        this.fetchLeagueRosters(leagueId),
+        // Use robust player fetching method for complete coverage
+        (async () => {
+          const { DatabaseService } = await import('./databaseService');
+          
+          // Use the robust player fetching method
+          const allPlayersArray = await DatabaseService.getAllPlayersForMapping([
+            { column: 'playing_status', operator: 'eq', value: 'Active' },
+            { column: 'position', operator: 'in', value: ['QB', 'RB', 'WR', 'TE', 'K', 'DEF'] }
+          ]);
+          
+          // Convert to Sleeper format for compatibility
+          const playersRecord: Record<string, SleeperPlayer> = {};
+          allPlayersArray.forEach(player => {
+            if (player.sleeper_id) {
+              const nameParts = player.player_name.split(' ');
+              const firstName = nameParts[0] || '';
+              const lastName = nameParts.slice(1).join(' ') || '';
+              
+              playersRecord[player.sleeper_id] = {
+                player_id: player.sleeper_id,
+                first_name: firstName,
+                last_name: lastName,
+                position: player.position || '',
+                team: player.nfl_team || '',
+                jersey_number: player.number || 0,
+                status: player.playing_status || '',
+                injury_status: player.injury_status || '',
+                age: player.age || 0,
+                height: player.height?.toString() || '',
+                weight: player.weight || 0,
+                years_exp: 0,
+                college: player.college || ''
+              };
+            }
+          });
+          
+          return playersRecord;
+        })()
+      ]);
 
       // Find the specific roster
       const roster = rosters.find((r) => r.roster_id === rosterId);
@@ -407,19 +454,42 @@ export class SleeperApiService {
   }
 
   /**
-   * Get current NFL week
+   * Get current NFL week and state information
    */
   static async getCurrentNFLWeek(): Promise<number> {
     try {
+      console.log('Fetching current NFL week from Sleeper API...');
       const response = await fetch(`${this.baseUrl}/state/nfl`);
       if (!response.ok) {
-        throw new Error('Failed to fetch NFL state');
+        throw new Error(`Failed to fetch NFL state: ${response.status} ${response.statusText}`);
       }
-      const data = await response.json();
+      const data: SleeperNFLState = await response.json();
+      console.log('NFL State from Sleeper:', data);
+      console.log(`Current NFL week: ${data.week}`);
       return data.week || 1;
     } catch (error) {
       console.error('Error fetching current NFL week:', error);
-      return 14; // Default to week 14 as fallback
+      console.warn('Falling back to default week 1');
+      return 1; // Default to week 1 as fallback
+    }
+  }
+
+  /**
+   * Get full NFL state information
+   */
+  static async getNFLState(): Promise<SleeperNFLState> {
+    try {
+      console.log('Fetching NFL state from Sleeper API...');
+      const response = await fetch(`${this.baseUrl}/state/nfl`);
+      if (!response.ok) {
+        throw new Error(`Failed to fetch NFL state: ${response.status} ${response.statusText}`);
+      }
+      const data: SleeperNFLState = await response.json();
+      console.log('NFL State from Sleeper:', data);
+      return data;
+    } catch (error) {
+      console.error('Error fetching NFL state:', error);
+      throw error;
     }
   }
 }

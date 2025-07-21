@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { dataIntegrityService } from '@/services/dataIntegrityService';
-import { teamRecordsService } from '@/services/teamRecordsService';
+import { StandingsService } from '@/services/standingsService';
 import { CheckCircle, AlertTriangle, Play, Database } from 'lucide-react';
 
 const DataIntegrityDemo: React.FC = () => {
@@ -50,14 +50,14 @@ const DataIntegrityDemo: React.FC = () => {
       };
 
       try {
-        const standings2024 = await teamRecordsService.getStandingsData(1); // Season ID 1
+        const standings2024 = await StandingsService.getStandingsData(1); // Season ID 1
         standingsTest.season2024.count = standings2024.length;
       } catch (error) {
         standingsTest.season2024.error = error;
       }
 
       try {
-        const standings2025 = await teamRecordsService.getStandingsData(2); // Season ID 2
+        const standings2025 = await StandingsService.getStandingsData(2); // Season ID 2
         standingsTest.season2025.count = standings2025.length;
       } catch (error) {
         standingsTest.season2025.error = error;

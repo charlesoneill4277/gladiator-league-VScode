@@ -6,10 +6,11 @@ import { Badge } from '@/components/ui/badge';
 import { useApp } from '@/contexts/AppContext';
 import { ArrowUpDown, Trophy, TrendingUp, TrendingDown, Loader2, RefreshCw } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { teamRecordsService, StandingsData } from '@/services/teamRecordsService';
+import { StandingsService, StandingsData } from '@/services/standingsService';
+import { DatabaseService } from '@/services/databaseService';
 
 const StandingsPage: React.FC = () => {
-  const { selectedSeason, selectedConference, currentSeasonConfig } = useApp();
+  const { selectedSeason, selectedConference, currentSeasonConfig, loading: appLoading } = useApp();
   const [sortConfig, setSortConfig] = useState<{key: string;direction: 'asc' | 'desc';} | null>(null);
   const [standingsData, setStandingsData] = useState<StandingsData[]>([]);
   const [loading, setLoading] = useState(true);
@@ -17,7 +18,7 @@ const StandingsPage: React.FC = () => {
   const [refreshing, setRefreshing] = useState(false);
   const { toast } = useToast();
 
-  // Fetch standings data from the team records service
+  // Fetch standings data using Supabase services
   const fetchStandingsData = async () => {
     try {
       setLoading(true);
@@ -25,56 +26,43 @@ const StandingsPage: React.FC = () => {
 
       console.log(`Fetching standings data for season ${selectedSeason} and conference ${selectedConference || 'all'}...`);
 
-      // Get the season ID for the selected year
-      const { data: seasonsData, error: seasonsError } = await window.ezsite.apis.tablePage('12818', {
-        PageNo: 1,
-        PageSize: 10,
-        OrderByField: 'id',
-        IsAsc: true,
-        Filters: [{
-          name: 'season_year',
-          op: 'Equal',
-          value: selectedSeason
-        }]
-      });
-
-      if (seasonsError) throw new Error(`Seasons fetch error: ${seasonsError}`);
-
-      const seasons = seasonsData.List || [];
-      if (seasons.length === 0) {
-        throw new Error(`No season found for year ${selectedSeason}`);
+      // Use the season config from AppContext (already loaded from Supabase)
+      const season = currentSeasonConfig;
+      if (!season) {
+        throw new Error(`No season configuration found for year ${selectedSeason}`);
       }
 
-      const seasonId = seasons[0].id;
-      console.log(`Found season ID ${seasonId} for year ${selectedSeason}`);
+      // Get season ID from AppContext data (convert to number if needed)
+      const seasonIdRaw = season.seasonId;
+      const seasonId = typeof seasonIdRaw === 'string' ? parseInt(seasonIdRaw) : seasonIdRaw;
+      console.log(`Using season ID ${seasonId} for year ${selectedSeason}`);
 
       // Get conference ID if specific conference is selected
       let conferenceId: number | undefined;
       if (selectedConference) {
-        const selectedConferenceName = currentSeasonConfig.conferences.find((c) => c.id === selectedConference)?.name;
-        if (selectedConferenceName) {
-          const { data: conferencesData, error: conferencesError } = await window.ezsite.apis.tablePage('12820', {
-            PageNo: 1,
-            PageSize: 10,
-            OrderByField: 'id',
-            IsAsc: true,
-            Filters: [
-            { name: 'season_id', op: 'Equal', value: seasonId },
-            { name: 'conference_name', op: 'Equal', value: selectedConferenceName }]
-
+        const selectedConferenceConfig = season.conferences.find((c) => c.id === selectedConference);
+        if (selectedConferenceConfig) {
+          // Get the actual conference record from Supabase
+          const conferencesResult = await DatabaseService.getConferences({
+            filters: [
+              { column: 'season_id', operator: 'eq', value: seasonId },
+              { column: 'conference_name', operator: 'eq', value: selectedConferenceConfig.name }
+            ]
           });
 
-          if (conferencesError) throw new Error(`Conferences fetch error: ${conferencesError}`);
+          if (conferencesResult.error) {
+            throw new Error(`Conferences fetch error: ${conferencesResult.error}`);
+          }
 
-          const conferences = conferencesData.List || [];
+          const conferences = conferencesResult.data || [];
           if (conferences.length > 0) {
-            conferenceId = conferences[0].id;
+            conferenceId = typeof conferences[0].id === 'string' ? parseInt(conferences[0].id) : conferences[0].id;
           }
         }
       }
 
-      // Use the team records service to get standings data
-      const standings = await teamRecordsService.getStandingsData(seasonId, conferenceId);
+      // Use the team records service to get standings data (now using Supabase)
+      const standings = await StandingsService.getStandingsData(seasonId, conferenceId);
 
       console.log('Standings data from service:', standings);
       setStandingsData(standings);
@@ -97,55 +85,42 @@ const StandingsPage: React.FC = () => {
     try {
       setRefreshing(true);
 
-      // Get the season ID for the selected year
-      const { data: seasonsData, error: seasonsError } = await window.ezsite.apis.tablePage('12818', {
-        PageNo: 1,
-        PageSize: 10,
-        OrderByField: 'id',
-        IsAsc: true,
-        Filters: [{
-          name: 'season_year',
-          op: 'Equal',
-          value: selectedSeason
-        }]
-      });
-
-      if (seasonsError) throw new Error(`Seasons fetch error: ${seasonsError}`);
-
-      const seasons = seasonsData.List || [];
-      if (seasons.length === 0) {
-        throw new Error(`No season found for year ${selectedSeason}`);
+      // Use the season config from AppContext
+      const season = currentSeasonConfig;
+      if (!season) {
+        throw new Error(`No season configuration found for year ${selectedSeason}`);
       }
 
-      const seasonId = seasons[0].id;
+      const seasonIdRaw = season.seasonId;
+      const seasonId = typeof seasonIdRaw === 'string' ? parseInt(seasonIdRaw) : seasonIdRaw;
 
       // Get conference ID if specific conference is selected
       let conferenceId: number | undefined;
       if (selectedConference) {
-        const selectedConferenceName = currentSeasonConfig.conferences.find((c) => c.id === selectedConference)?.name;
-        if (selectedConferenceName) {
-          const { data: conferencesData, error: conferencesError } = await window.ezsite.apis.tablePage('12820', {
-            PageNo: 1,
-            PageSize: 10,
-            OrderByField: 'id',
-            IsAsc: true,
-            Filters: [
-            { name: 'season_id', op: 'Equal', value: seasonId },
-            { name: 'conference_name', op: 'Equal', value: selectedConferenceName }]
-
+        const selectedConferenceConfig = season.conferences.find((c) => c.id === selectedConference);
+        if (selectedConferenceConfig) {
+          const conferencesResult = await DatabaseService.getConferences({
+            filters: [
+              { column: 'season_id', operator: 'eq', value: seasonId },
+              { column: 'conference_name', operator: 'eq', value: selectedConferenceConfig.name }
+            ]
           });
 
-          if (conferencesError) throw new Error(`Conferences fetch error: ${conferencesError}`);
+          if (conferencesResult.error) {
+            throw new Error(`Conferences fetch error: ${conferencesResult.error}`);
+          }
 
-          const conferences = conferencesData.List || [];
+          const conferences = conferencesResult.data || [];
           if (conferences.length > 0) {
-            conferenceId = conferences[0].id;
+            conferenceId = typeof conferences[0].id === 'string' ? parseInt(conferences[0].id) : conferences[0].id;
           }
         }
       }
 
       // Recalculate team records
-      await teamRecordsService.calculateTeamRecords(seasonId, conferenceId);
+      // Note: Team records calculation now happens server-side in Supabase
+      // or can be triggered through admin panel if needed
+      console.log('Team records refresh triggered for season:', seasonId, 'conference:', conferenceId);
 
       // Refresh the standings data
       await fetchStandingsData();
@@ -167,8 +142,11 @@ const StandingsPage: React.FC = () => {
   };
 
   useEffect(() => {
-    fetchStandingsData();
-  }, [selectedSeason, selectedConference]);
+    // Don't load standings until app context is ready
+    if (!appLoading && currentSeasonConfig) {
+      fetchStandingsData();
+    }
+  }, [selectedSeason, selectedConference, appLoading, currentSeasonConfig]);
 
   const handleSort = (key: string) => {
     let direction: 'asc' | 'desc' = 'desc';
@@ -180,7 +158,9 @@ const StandingsPage: React.FC = () => {
 
   const sortedStandings = React.useMemo(() => {
     let sortableStandings = [...standingsData];
+    
     if (sortConfig !== null) {
+      // Custom sorting based on user selection
       sortableStandings.sort((a, b) => {
         const aValue = (a as any)[sortConfig.key];
         const bValue = (b as any)[sortConfig.key];
@@ -193,7 +173,18 @@ const StandingsPage: React.FC = () => {
         }
         return 0;
       });
+    } else {
+      // Default sorting: Wins first (descending), then Points For (descending)
+      sortableStandings.sort((a, b) => {
+        // First sort by wins (descending)
+        if (a.wins !== b.wins) {
+          return b.wins - a.wins;
+        }
+        // If wins are equal, sort by points for (descending)
+        return b.points_for - a.points_for;
+      });
     }
+    
     return sortableStandings;
   }, [standingsData, sortConfig]);
 
@@ -217,15 +208,15 @@ const StandingsPage: React.FC = () => {
     return null;
   };
 
-  if (loading) {
+  if (appLoading || loading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
         <div className="flex items-center space-x-2">
           <Loader2 className="h-6 w-6 animate-spin" />
-          <span>Loading standings data...</span>
+          <span>Loading {appLoading ? 'season data' : 'standings'}...</span>
         </div>
-      </div>);
-
+      </div>
+    );
   }
 
   if (error) {

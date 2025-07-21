@@ -8,8 +8,10 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { ArrowLeft, Users, Trophy, TrendingUp, Calendar, Star, Loader2, AlertCircle, RefreshCw } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { DatabaseService } from '@/services/databaseService';
+import { useApp } from '@/contexts/AppContext';
 import SleeperApiService, { type SleeperRoster, type SleeperPlayer, type OrganizedRoster } from '../services/sleeperApi';
-import TransactionService, { type ProcessedTransaction } from '../services/transactionService';
+import { type ProcessedTransaction } from '../services/transactionService';
 import TransactionCard from '../components/transactions/TransactionCard';
 
 interface TeamData {
@@ -34,6 +36,19 @@ interface ConferenceData {
   league_logo_url?: string;
 }
 
+interface ScheduleMatchup {
+  week: string;
+  opponent: string;
+  isHome: boolean;
+  result: 'W' | 'L' | 'T' | 'TBD';
+  teamScore: number | null;
+  opponentScore: number | null;
+  isPlayoff: boolean;
+  isOverridden: boolean;
+  overrideReason: string | null;
+  matchupStatus: string;
+}
+
 interface TeamRosterData {
   roster: SleeperRoster;
   organizedRoster: OrganizedRoster;
@@ -44,19 +59,22 @@ interface TeamRosterData {
 
 const TeamDetailPage: React.FC = () => {
   const { teamId } = useParams<{teamId: string;}>();
+  const { selectedSeason, currentSeasonConfig } = useApp();
   const [activeTab, setActiveTab] = useState('roster');
   const [teamRosterData, setTeamRosterData] = useState<TeamRosterData | null>(null);
   const [transactions, setTransactions] = useState<ProcessedTransaction[]>([]);
   const [transactionsLoading, setTransactionsLoading] = useState(false);
+  const [schedule, setSchedule] = useState<ScheduleMatchup[]>([]);
+  const [scheduleLoading, setScheduleLoading] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
 
   useEffect(() => {
-    if (teamId) {
+    if (teamId && currentSeasonConfig) {
       fetchTeamData(parseInt(teamId));
     }
-  }, [teamId]);
+  }, [teamId, currentSeasonConfig]);
 
   useEffect(() => {
     if (activeTab === 'transactions' && teamRosterData && transactions.length === 0) {
@@ -64,56 +82,63 @@ const TeamDetailPage: React.FC = () => {
     }
   }, [activeTab, teamRosterData]);
 
+  useEffect(() => {
+    if (activeTab === 'schedule' && teamRosterData && schedule.length === 0) {
+      fetchSchedule();
+    }
+  }, [activeTab, teamRosterData, selectedSeason]);
+
+  // Clear schedule when season changes
+  useEffect(() => {
+    if (schedule.length > 0) {
+      setSchedule([]);
+    }
+  }, [selectedSeason]);
+
   const fetchTeamData = async (id: number) => {
     try {
       setLoading(true);
       setError(null);
       console.log(`Fetching data for team ID: ${id}`);
 
-      // Fetch team data from database
-      const teamResponse = await window.ezsite.apis.tablePage('12852', {
-        PageNo: 1,
-        PageSize: 1,
-        Filters: [{ name: 'id', op: 'Equal', value: id }]
+      // Fetch team data from Supabase
+      const teamsResult = await DatabaseService.getTeams({
+        filters: [{ column: 'id', operator: 'eq', value: id }]
       });
 
-      if (teamResponse.error) throw new Error(teamResponse.error);
-      if (!teamResponse.data?.List?.length) {
+      if (teamsResult.error || !teamsResult.data || teamsResult.data.length === 0) {
         throw new Error('Team not found');
       }
 
-      const teamData = teamResponse.data.List[0] as TeamData;
+      const teamData = teamsResult.data[0] as TeamData;
       console.log('Team data:', teamData);
 
-      // Find the conference this team belongs to
-      const junctionResponse = await window.ezsite.apis.tablePage('12853', {
-        PageNo: 1,
-        PageSize: 1,
-        Filters: [{ name: 'team_id', op: 'Equal', value: id }]
+      // Find ALL conferences this team belongs to (across all seasons)
+      const junctionResult = await DatabaseService.getTeamConferenceJunctions({
+        filters: [{ column: 'team_id', operator: 'eq', value: id }]
       });
 
-      if (junctionResponse.error) throw new Error(junctionResponse.error);
-      if (!junctionResponse.data?.List?.length) {
+      if (junctionResult.error || !junctionResult.data || junctionResult.data.length === 0) {
         throw new Error('Team conference mapping not found');
       }
 
-      const junction = junctionResponse.data.List[0];
-      const rosterId = parseInt(junction.roster_id);
+      // For now, use the first junction for display purposes (current season)
+      // But we'll use all junctions for transaction fetching
+      const junction = junctionResult.data[0];
+      const rosterId = junction.roster_id;
       console.log('Junction data:', junction, 'Roster ID:', rosterId);
+      console.log('All junctions for this team:', junctionResult.data);
 
-      // Get conference data
-      const conferenceResponse = await window.ezsite.apis.tablePage('12820', {
-        PageNo: 1,
-        PageSize: 1,
-        Filters: [{ name: 'id', op: 'Equal', value: junction.conference_id }]
+      // Get conference data for display (use first conference)
+      const conferencesResult = await DatabaseService.getConferences({
+        filters: [{ column: 'id', operator: 'eq', value: junction.conference_id }]
       });
 
-      if (conferenceResponse.error) throw new Error(conferenceResponse.error);
-      if (!conferenceResponse.data?.List?.length) {
+      if (conferencesResult.error || !conferencesResult.data || conferencesResult.data.length === 0) {
         throw new Error('Conference not found');
       }
 
-      const conferenceData = conferenceResponse.data.List[0] as ConferenceData;
+      const conferenceData = conferencesResult.data[0] as ConferenceData;
       console.log('Conference data:', conferenceData);
 
       // Fetch roster data from Sleeper API
@@ -150,23 +175,237 @@ const TeamDetailPage: React.FC = () => {
 
     try {
       setTransactionsLoading(true);
-      console.log(`Fetching transactions for league ${teamRosterData.conferenceData.league_id}`);
+      console.log(`Fetching transactions for team ${teamRosterData.teamData.team_name} across all conferences`);
 
-      const allTransactions = await TransactionService.fetchAllSeasonTransactions(
-        teamRosterData.conferenceData.league_id
+      // Get ALL conferences this team belongs to across all seasons
+      const teamJunctionResult = await DatabaseService.getTeamConferenceJunctions({
+        filters: [{ column: 'team_id', operator: 'eq', value: teamRosterData.teamData.id }]
+      });
+
+      if (teamJunctionResult.error || !teamJunctionResult.data || teamJunctionResult.data.length === 0) {
+        throw new Error('Team conference mappings not found');
+      }
+
+      // Get all conference IDs this team participates in
+      const teamConferenceIds = teamJunctionResult.data.map(junction => junction.conference_id);
+      console.log(`Team participates in conferences: ${teamConferenceIds.join(', ')}`);
+
+      // Query transactions table for ALL conferences this team participates in
+      const transactionsResult = await DatabaseService.getTransactions({
+        filters: [
+          { column: 'conference_id', operator: 'in', value: teamConferenceIds }
+        ],
+        orderBy: { column: 'created_at', ascending: false }
+      });
+
+      if (transactionsResult.error || !transactionsResult.data) {
+        throw new Error(transactionsResult.error || 'Failed to fetch transactions');
+      }
+
+      // Get all teams for team lookup
+      const teamsResult = await DatabaseService.getTeams({});
+      
+      // Get ALL team-conference junctions for roster_id to team mapping across all conferences
+      const allJunctionResult = await DatabaseService.getTeamConferenceJunctions({
+        filters: [
+          { column: 'conference_id', operator: 'in', value: teamConferenceIds }
+        ]
+      });
+
+      // Fetch ALL players for transaction mapping
+      const allPlayers = await DatabaseService.getAllPlayersForMapping();
+
+      // Create player lookup map
+      const playerLookup = new Map<string, string>();
+      allPlayers.forEach(player => {
+        if (player.sleeper_id) {
+          playerLookup.set(String(player.sleeper_id), player.player_name);
+        }
+      });
+
+      // Process transactions and filter for this team across all conferences
+      const processedTransactions = await Promise.all(
+        transactionsResult.data
+          .map(async (tx) => {
+            let parsedData: any = {};
+            try {
+              parsedData = typeof tx.data === 'string' ? JSON.parse(tx.data) : tx.data || {};
+            } catch (e) {
+              console.warn('Failed to parse transaction data:', e);
+            }
+
+            // FIXED: Check if this transaction involves our team using BOTH roster_id AND conference_id
+            const ourTeamId = teamRosterData.teamData.id;
+            const transactionConferenceId = tx.conference_id;
+            const transactionRosterIds = parsedData.roster_ids || [];
+            
+            // Find our team's roster_id in the specific conference of this transaction
+            const ourJunctionInThisConference = teamJunctionResult.data?.find(j => 
+              j.team_id === ourTeamId && 
+              j.conference_id === transactionConferenceId
+            );
+            
+            // If we don't have a junction record for this team in this conference, skip
+            if (!ourJunctionInThisConference) {
+              return null;
+            }
+            
+            // Only process transactions that involve our team's roster_id in this specific conference
+            if (!transactionRosterIds.includes(ourJunctionInThisConference.roster_id)) {
+              return null;
+            }
+
+            // Create a helper function to get team name from roster_id and conference_id
+            const getTeamNameFromRosterId = (rosterId: number | string): string => {
+              const junction = allJunctionResult.data?.find(j => 
+                j.roster_id.toString() === rosterId.toString() && 
+                j.conference_id === tx.conference_id
+              );
+              
+              if (junction && teamsResult.data) {
+                const team = teamsResult.data.find(t => t.id === junction.team_id);
+                return team?.team_name || 'Unknown Team';
+              }
+              
+              return 'Unknown Team';
+            };
+
+            // Process added and dropped players with their respective teams
+            const addedPlayers = [];
+            const droppedPlayers = [];
+
+            // Player lookup function
+            const findPlayerName = (sleeperId: string | number): string => {
+              const idAsString = String(sleeperId);
+              return playerLookup.get(idAsString) || `Player ${idAsString}`;
+            };
+
+            // Process added players - adds: { "sleeper_id": roster_id, ... }
+            if (parsedData.adds) {
+              for (const [sleeperId, rosterId] of Object.entries(parsedData.adds)) {
+                const playerName = findPlayerName(sleeperId);
+                const addingTeam = getTeamNameFromRosterId(rosterId as string | number);
+                addedPlayers.push({ name: playerName, team: addingTeam });
+              }
+            }
+
+            // Process dropped players - drops: { "sleeper_id": roster_id, ... }
+            if (parsedData.drops) {
+              for (const [sleeperId, rosterId] of Object.entries(parsedData.drops)) {
+                const playerName = findPlayerName(sleeperId);
+                const droppingTeam = getTeamNameFromRosterId(rosterId as string | number);
+                droppedPlayers.push({ name: playerName, team: droppingTeam });
+              }
+            }
+
+            // Generate transaction description based on type and involved teams
+            let transactionDescription = '';
+            const transactionType = parsedData.type || tx.type;
+            
+            // Get all teams involved in the transaction
+            const involvedTeams = new Set();
+            if (parsedData.roster_ids) {
+              parsedData.roster_ids.forEach(rosterId => {
+                const teamName = getTeamNameFromRosterId(rosterId);
+                if (teamName !== 'Unknown Team') {
+                  involvedTeams.add(teamName);
+                }
+              });
+            }
+
+            // Get the primary team name (our team)
+            const primaryTeamName = teamRosterData.teamData.team_name;
+
+            // Get conference name for context
+            const conferenceInfo = await DatabaseService.getConferences({
+              filters: [{ column: 'id', operator: 'eq', value: tx.conference_id }]
+            });
+            const conferenceName = conferenceInfo.data?.[0]?.conference_name || 'Unknown Conference';
+
+            switch (transactionType) {
+              case 'trade':
+                if (addedPlayers.length > 0 || droppedPlayers.length > 0) {
+                  const playerMoves = [];
+                  addedPlayers.forEach(p => playerMoves.push(`${p.name} to ${p.team}`));
+                  droppedPlayers.forEach(p => playerMoves.push(`${p.name} from ${p.team}`));
+                  
+                  if (involvedTeams.size > 1) {
+                    transactionDescription = `[${conferenceName}] Trade between ${Array.from(involvedTeams).join(' and ')}: ${playerMoves.join(', ')}`;
+                  } else {
+                    transactionDescription = `[${conferenceName}] ${primaryTeamName} trade: ${playerMoves.join(', ')}`;
+                  }
+                } else if (parsedData.draft_picks && parsedData.draft_picks.length > 0) {
+                  const picks = parsedData.draft_picks.map(pick => 
+                    `${pick.season} Round ${pick.round} pick`
+                  );
+                  transactionDescription = `[${conferenceName}] Trade involving ${picks.join(', ')}`;
+                } else {
+                  transactionDescription = `[${conferenceName}] Trade between ${Array.from(involvedTeams).join(' and ')}`;
+                }
+                break;
+              
+              case 'waiver':
+                if (addedPlayers.length > 0 && droppedPlayers.length > 0) {
+                  transactionDescription = `[${conferenceName}] ${primaryTeamName} claimed ${addedPlayers.map(p => p.name).join(', ')} from waivers, dropped ${droppedPlayers.map(p => p.name).join(', ')}`;
+                } else if (addedPlayers.length > 0) {
+                  transactionDescription = `[${conferenceName}] ${primaryTeamName} claimed ${addedPlayers.map(p => p.name).join(', ')} from waivers`;
+                } else if (droppedPlayers.length > 0) {
+                  transactionDescription = `[${conferenceName}] ${primaryTeamName} dropped ${droppedPlayers.map(p => p.name).join(', ')} to waivers`;
+                } else {
+                  transactionDescription = `[${conferenceName}] ${primaryTeamName} made a waiver claim`;
+                }
+                break;
+              
+              case 'free_agent':
+                if (addedPlayers.length > 0 && droppedPlayers.length > 0) {
+                  transactionDescription = `[${conferenceName}] ${primaryTeamName} added ${addedPlayers.map(p => p.name).join(', ')}, dropped ${droppedPlayers.map(p => p.name).join(', ')}`;
+                } else if (addedPlayers.length > 0) {
+                  transactionDescription = `[${conferenceName}] ${primaryTeamName} added ${addedPlayers.map(p => p.name).join(', ')} from free agency`;
+                } else if (droppedPlayers.length > 0) {
+                  transactionDescription = `[${conferenceName}] ${primaryTeamName} dropped ${droppedPlayers.map(p => p.name).join(', ')}`;
+                } else {
+                  transactionDescription = `[${conferenceName}] ${primaryTeamName} made a free agent transaction`;
+                }
+                break;
+              
+              default:
+                transactionDescription = `[${conferenceName}] ${primaryTeamName} completed a ${transactionType || 'transaction'}`;
+            }
+
+            // Map database transaction type to ProcessedTransaction type
+            const mappedType = parsedData.type === 'trade' ? 'trade' : 
+                              parsedData.type === 'waiver' ? 'waiver' : 
+                              parsedData.type === 'free_agent' ? 'free_agent' : 
+                              'commissioner';
+
+            return {
+              id: tx.id.toString(),
+              type: mappedType as 'trade' | 'free_agent' | 'waiver' | 'commissioner',
+              date: new Date(tx.created_at || new Date()),
+              details: transactionDescription,
+              teams: [primaryTeamName],
+              players: {
+                added: addedPlayers.map(p => ({ id: '', name: p.name, team: p.team })),
+                dropped: droppedPlayers.map(p => ({ id: '', name: p.name, team: p.team }))
+              },
+              week: (parsedData.leg || 0) as number,
+              status: 'completed',
+              rosterIds: parsedData.roster_ids || [],
+              draftPicks: parsedData.draft_picks || [],
+              waiverBudget: parsedData.waiver_budget || []
+            };
+          })
       );
 
-      // Filter transactions that involve this team's roster
-      const teamTransactions = allTransactions.filter((tx) =>
-      tx.rosterIds.includes(teamRosterData.roster.roster_id)
-      );
+      // Filter out null transactions (ones that don't involve our team)
+      const teamTransactions = processedTransactions.filter(tx => tx !== null);
 
       setTransactions(teamTransactions);
-      console.log(`Loaded ${teamTransactions.length} transactions for this team`);
+      console.log(`Loaded ${teamTransactions.length} transactions for this team across all conferences`);
 
       toast({
         title: 'Transactions Loaded',
-        description: `Found ${teamTransactions.length} transactions for this team`
+        description: `Found ${teamTransactions.length} transactions for this team across all seasons`
       });
 
     } catch (error) {
@@ -179,6 +418,170 @@ const TeamDetailPage: React.FC = () => {
       });
     } finally {
       setTransactionsLoading(false);
+    }
+  };
+
+  const fetchSchedule = async () => {
+    if (!teamRosterData || !currentSeasonConfig) return;
+
+    try {
+      setScheduleLoading(true);
+      console.log(`Fetching schedule for team ${teamRosterData.teamData.team_name} for season ${selectedSeason}`);
+
+      // Get the conference ID for the selected season
+      const seasonConferences = currentSeasonConfig.conferences.filter(conf => conf.dbConferenceId);
+      if (seasonConferences.length === 0) {
+        console.log('No conferences found for selected season');
+        setSchedule([]);
+        return;
+      }
+
+      // Find the team's conference for the selected season
+      const teamJunctionResult = await DatabaseService.getTeamConferenceJunctions({
+        filters: [
+          { column: 'team_id', operator: 'eq', value: teamRosterData.teamData.id }
+        ]
+      });
+
+      if (teamJunctionResult.error || !teamJunctionResult.data) {
+        throw new Error('Failed to get team conference mappings');
+      }
+
+      // Find the junction for the selected season
+      const seasonConferenceIds = seasonConferences.map(conf => conf.dbConferenceId);
+      const teamJunctionForSeason = teamJunctionResult.data.find(junction => 
+        seasonConferenceIds.includes(junction.conference_id)
+      );
+
+      if (!teamJunctionForSeason) {
+        console.log(`Team not found in any conference for season ${selectedSeason}`);
+        setSchedule([]);
+        return;
+      }
+
+      // Query matchups where this team is involved (team1_id OR team2_id)
+      const matchupsResult = await DatabaseService.getMatchups({
+        filters: [
+          { column: 'conference_id', operator: 'eq', value: teamJunctionForSeason.conference_id }
+        ],
+        orderBy: { column: 'week', ascending: true }
+      });
+
+      if (matchupsResult.error || !matchupsResult.data) {
+        throw new Error(matchupsResult.error || 'Failed to fetch matchups');
+      }
+
+      // Filter matchups to only include those where this team is involved
+      const teamMatchups = matchupsResult.data.filter(matchup => 
+        matchup.team1_id === teamRosterData.teamData.id || 
+        matchup.team2_id === teamRosterData.teamData.id
+      );
+
+      // Get admin overrides for this season/conference
+      const overridesResult = await DatabaseService.getMatchupAdminOverrides({
+        filters: [
+          { column: 'conference_id', operator: 'eq', value: teamJunctionForSeason.conference_id },
+          { column: 'is_active', operator: 'eq', value: true }
+        ]
+      });
+
+      // Get all teams for opponent name lookup
+      const teamsResult = await DatabaseService.getTeams({});
+      const teamLookup = new Map();
+      if (teamsResult.data) {
+        teamsResult.data.forEach(team => {
+          teamLookup.set(team.id, team.team_name);
+        });
+      }
+
+      // Process matchups and apply overrides
+      const processedSchedule = teamMatchups.map(matchup => {
+        // Check if there's an admin override for this matchup
+        const override = overridesResult.data?.find(override => 
+          override.conference_id === matchup.conference_id &&
+          override.week === parseInt(matchup.week) &&
+          override.is_active
+        );
+
+        let team1Id, team2Id;
+        let isOverridden = false;
+
+        if (override) {
+          // Use overridden teams
+          team1Id = override.override_team1_id;
+          team2Id = override.override_team2_id;
+          isOverridden = true;
+        } else {
+          // Use original teams
+          team1Id = matchup.team1_id;
+          team2Id = matchup.team2_id;
+        }
+
+        // Only include if our team is involved (after overrides)
+        if (team1Id !== teamRosterData.teamData.id && team2Id !== teamRosterData.teamData.id) {
+          return null;
+        }
+
+        // Determine opponent
+        const isTeam1 = team1Id === teamRosterData.teamData.id;
+        const opponentId = isTeam1 ? team2Id : team1Id;
+        const opponentName = teamLookup.get(opponentId) || 'Unknown Team';
+
+        // Determine result
+        let result: 'W' | 'L' | 'T' | 'TBD' = 'TBD';
+        let teamScore = null;
+        let opponentScore = null;
+
+        if (matchup.team1_score !== null && matchup.team2_score !== null) {
+          if (isTeam1) {
+            teamScore = matchup.team1_score;
+            opponentScore = matchup.team2_score;
+          } else {
+            teamScore = matchup.team2_score;
+            opponentScore = matchup.team1_score;
+          }
+
+          if (teamScore > opponentScore) {
+            result = 'W';
+          } else if (teamScore < opponentScore) {
+            result = 'L';
+          } else {
+            result = 'T';
+          }
+        }
+
+        return {
+          week: matchup.week,
+          opponent: opponentName,
+          isHome: isTeam1,
+          result,
+          teamScore,
+          opponentScore,
+          isPlayoff: matchup.is_playoff || false,
+          isOverridden,
+          overrideReason: override?.override_reason || null,
+          matchupStatus: matchup.matchup_status || 'scheduled'
+        };
+      }).filter(matchup => matchup !== null);
+
+      setSchedule(processedSchedule);
+      console.log(`Loaded ${processedSchedule.length} matchups for ${selectedSeason} season`);
+
+      toast({
+        title: 'Schedule Loaded',
+        description: `Found ${processedSchedule.length} matchups for ${selectedSeason} season`
+      });
+
+    } catch (error) {
+      console.error('Error fetching schedule:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Failed to load schedule';
+      toast({
+        title: 'Error Loading Schedule',
+        description: errorMessage,
+        variant: 'destructive'
+      });
+    } finally {
+      setScheduleLoading(false);
     }
   };
 
@@ -205,7 +608,7 @@ const TeamDetailPage: React.FC = () => {
   const getInjuryBadge = (status: string | null) => {
     if (!status || status === 'Active') return null;
 
-    const variants: {[key: string]: string;} = {
+    const variants: {[key: string]: "default" | "destructive" | "secondary" | "outline"} = {
       'IR': 'destructive',
       'Out': 'destructive',
       'Doubtful': 'destructive',
@@ -562,7 +965,7 @@ const TeamDetailPage: React.FC = () => {
             <div>
               <h3 className="text-lg font-semibold">Transaction History</h3>
               <p className="text-sm text-muted-foreground">
-                All trades, waivers, and roster moves for this team
+                All trades, waivers, and roster moves for this team across all seasons
               </p>
             </div>
             <Button
@@ -636,20 +1039,179 @@ const TeamDetailPage: React.FC = () => {
 
         {/* Schedule Tab */}
         <TabsContent value="schedule" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Season Schedule</CardTitle>
-              <CardDescription>
-                Complete schedule with results and upcoming matchups
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <p className="text-muted-foreground text-center py-8">
-                Full schedule view will be implemented when connected to Sleeper's matchup API endpoints.
-                Current record: {roster.settings.wins}-{roster.settings.losses}-{roster.settings.ties}
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-lg font-semibold">Season Schedule</h3>
+              <p className="text-sm text-muted-foreground">
+                Complete schedule and results for {selectedSeason} season
               </p>
-            </CardContent>
-          </Card>
+            </div>
+            <Button
+              onClick={fetchSchedule}
+              disabled={scheduleLoading}
+              variant="outline"
+              size="sm">
+              {scheduleLoading ?
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Loading...
+                </> :
+                <>
+                  <RefreshCw className="h-4 w-4 mr-2" />
+                  Refresh
+                </>
+              }
+            </Button>
+          </div>
+
+          {scheduleLoading && schedule.length === 0 ?
+            <Card>
+              <CardContent className="flex items-center justify-center min-h-32">
+                <div className="flex items-center space-x-2">
+                  <Loader2 className="h-6 w-6 animate-spin" />
+                  <span>Loading schedule...</span>
+                </div>
+              </CardContent>
+            </Card> :
+            schedule.length === 0 ?
+            <Card>
+              <CardContent className="flex items-center justify-center min-h-32">
+                <div className="text-center space-y-2">
+                  <Calendar className="h-12 w-12 text-muted-foreground mx-auto" />
+                  <h3 className="text-lg font-semibold">No Schedule Found</h3>
+                  <p className="text-muted-foreground">
+                    No matchups found for this team in the {selectedSeason} season.
+                  </p>
+                </div>
+              </CardContent>
+            </Card> :
+
+            <div className="space-y-4">
+              {/* Schedule Summary */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center space-x-2">
+                    <Calendar className="h-5 w-5" />
+                    <span>{selectedSeason} Season Schedule</span>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
+                    <div>
+                      <div className="text-2xl font-bold">
+                        {schedule.filter(m => m.result === 'W').length}
+                      </div>
+                      <div className="text-sm text-muted-foreground">Wins</div>
+                    </div>
+                    <div>
+                      <div className="text-2xl font-bold">
+                        {schedule.filter(m => m.result === 'L').length}
+                      </div>
+                      <div className="text-sm text-muted-foreground">Losses</div>
+                    </div>
+                    <div>
+                      <div className="text-2xl font-bold">
+                        {schedule.filter(m => m.result === 'T').length}
+                      </div>
+                      <div className="text-sm text-muted-foreground">Ties</div>
+                    </div>
+                    <div>
+                      <div className="text-2xl font-bold">
+                        {schedule.filter(m => m.result === 'TBD').length}
+                      </div>
+                      <div className="text-sm text-muted-foreground">Remaining</div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Schedule Table */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Matchup Results</CardTitle>
+                  <CardDescription>
+                    Week-by-week schedule and results
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="rounded-md border">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead className="w-16">Week</TableHead>
+                          <TableHead>Opponent</TableHead>
+                          <TableHead className="w-16">@/vs</TableHead>
+                          <TableHead className="w-20">Result</TableHead>
+                          <TableHead className="w-24">Score</TableHead>
+                          <TableHead className="w-16">Status</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {schedule.map((matchup, index) => (
+                          <TableRow key={`matchup-${index}`}>
+                            <TableCell className="font-medium">
+                              {matchup.week}
+                              {matchup.isPlayoff && (
+                                <Badge variant="destructive" className="ml-1 text-xs">
+                                  PO
+                                </Badge>
+                              )}
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex items-center space-x-2">
+                                <span>{matchup.opponent}</span>
+                                {matchup.isOverridden && (
+                                  <Badge variant="outline" className="text-xs">
+                                    Override
+                                  </Badge>
+                                )}
+                              </div>
+                            </TableCell>
+                            <TableCell className="text-center">
+                              {matchup.isHome ? 'vs' : '@'}
+                            </TableCell>
+                            <TableCell>
+                              <Badge 
+                                variant={
+                                  matchup.result === 'W' ? 'default' : 
+                                  matchup.result === 'L' ? 'destructive' : 
+                                  matchup.result === 'T' ? 'secondary' : 
+                                  'outline'
+                                }
+                                className="w-8 justify-center"
+                              >
+                                {matchup.result}
+                              </Badge>
+                            </TableCell>
+                            <TableCell>
+                              {matchup.teamScore !== null && matchup.opponentScore !== null ? (
+                                <div className="text-sm">
+                                  <span className={matchup.result === 'W' ? 'font-bold' : ''}>
+                                    {matchup.teamScore}
+                                  </span>
+                                  <span className="text-muted-foreground mx-1">-</span>
+                                  <span className={matchup.result === 'L' ? 'font-bold' : ''}>
+                                    {matchup.opponentScore}
+                                  </span>
+                                </div>
+                              ) : (
+                                <span className="text-muted-foreground">-</span>
+                              )}
+                            </TableCell>
+                            <TableCell>
+                              <Badge variant="outline" className="text-xs">
+                                {matchup.matchupStatus}
+                              </Badge>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          }
         </TabsContent>
       </Tabs>
     </div>);

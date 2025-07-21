@@ -5,11 +5,11 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { useApp } from '@/contexts/AppContext';
-import { Swords, ChevronDown, Clock, Trophy, Users, RefreshCw, AlertCircle, Bug, CheckCircle, Play, Pause } from 'lucide-react';
+import { Swords, ChevronDown, ChevronUp, Clock, Trophy, Users, RefreshCw, AlertCircle, Bug, CheckCircle, Play, Pause } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import SleeperApiService, { SleeperPlayer } from '@/services/sleeperApi';
-import MatchupService, { OrganizedMatchup as ServiceOrganizedMatchup } from '@/services/matchupService';
-import StartingLineup from '@/components/StartingLineup';
+import { DatabaseService } from '@/services/databaseService';
+import SupabaseMatchupService, { OrganizedMatchup } from '@/services/supabaseMatchupService';
 
 interface Conference {
   id: number;
@@ -33,303 +33,192 @@ interface Team {
   team_secondary_color: string;
 }
 
-// Use the interface from MatchupService but alias it for the component
-type OrganizedMatchup = ServiceOrganizedMatchup;
-
 type WeekStatus = {
   week: number;
   status: 'future' | 'current' | 'live' | 'completed';
   description: string;
 };
 
+// Helper function to get lineup positions (standard order)
+const getLineupPositions = (): string[] => {
+  return ['QB', 'RB', 'RB', 'WR', 'WR', 'WR', 'TE', 'FLEX', 'SUPER_FLEX'];
+};
+
+// Helper function to format position names for display
+const formatPosition = (position: string): string => {
+  const positions: Record<string, string> = {
+    'QB': 'QB',
+    'RB': 'RB',
+    'WR': 'WR',
+    'TE': 'TE',
+    'FLEX': 'W/R/T',
+    'SUPER_FLEX': 'Q/W/R/T',
+    'K': 'K',
+    'DEF': 'DEF'
+  };
+  return positions[position] || position;
+};
+
+// Helper function to get player info
+const getPlayerInfo = (playerId: string, allPlayers: Record<string, SleeperPlayer>) => {
+  const player = allPlayers[playerId];
+  if (!player) return { name: 'Unknown Player', position: 'N/A', team: 'N/A' };
+  
+  return {
+    name: `${player.first_name || ''} ${player.last_name || ''}`.trim() || 'Unknown',
+    position: player.position || 'N/A',
+    team: player.team || 'N/A'
+  };
+};
+
 const MatchupsPage: React.FC = () => {
-  const { selectedSeason, selectedConference, currentSeasonConfig } = useApp();
+  console.log('🚀 MatchupsPage component mounting...');
+  
+  const { selectedSeason, selectedConference, currentSeasonConfig, seasonConfigs } = useApp();
   const { toast } = useToast();
 
-  const [selectedWeek, setSelectedWeek] = useState<number>(14);
-  const [currentWeek, setCurrentWeek] = useState<number>(14);
+  const [selectedWeek, setSelectedWeek] = useState<number>(1);
+  const [currentWeek, setCurrentWeek] = useState<number>(1);
   const [expandedMatchups, setExpandedMatchups] = useState<Set<string>>(new Set());
-  const [conferences, setConferences] = useState<Conference[]>([]);
-  const [teams, setTeams] = useState<Team[]>([]);
   const [matchups, setMatchups] = useState<OrganizedMatchup[]>([]);
   const [allPlayers, setAllPlayers] = useState<Record<string, SleeperPlayer>>({});
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [debugMode, setDebugMode] = useState(false);
-  const [weekStatus, setWeekStatus] = useState<WeekStatus | null>(null);
   const [apiErrors, setApiErrors] = useState<string[]>([]);
-  const [rawApiData, setRawApiData] = useState<any>(null);
 
-  // Fetch conferences and teams from database
-  const fetchDatabaseData = async () => {
+  // Load matchup data
+  const fetchMatchups = async () => {
+    if (!selectedSeason || !currentSeasonConfig || refreshing) {
+      console.log('⚠️ Skipping matchup fetch - missing data or already refreshing');
+      setLoading(false);
+      return;
+    }
+
+    setRefreshing(true);
+    setApiErrors([]);
+
     try {
-      console.log('Fetching conferences and teams from database...');
-      console.log('Selected season:', selectedSeason, 'Selected conference:', selectedConference);
+      console.log(`🎯 Fetching matchups for season ${selectedSeason}, week ${selectedWeek}, conference: ${selectedConference || 'all'}`);
 
-      // First fetch seasons to get the season ID for the selected year
-      const seasonsResponse = await window.ezsite.apis.tablePage('12818', {
-        PageNo: 1,
-        PageSize: 10,
-        OrderByField: 'season_year',
-        IsAsc: false,
-        Filters: [{
-          name: 'season_year',
-          op: 'Equal',
-          value: selectedSeason
-        }]
-      });
-
-      if (seasonsResponse.error) {
-        throw new Error(seasonsResponse.error);
+      // Determine season ID and conference ID
+      const seasonConfig = seasonConfigs.find(s => s.year === selectedSeason);
+      if (!seasonConfig) {
+        throw new Error(`Season ${selectedSeason} not found`);
       }
 
-      const seasons = seasonsResponse.data.List;
-      const currentSeason = seasons.find((s) => s.season_year === selectedSeason);
-
-      if (!currentSeason) {
-        console.warn(`No season found for year ${selectedSeason}`);
-        setConferences([]);
-        setTeams([]);
-        return { conferences: [], teams: [] };
-      }
-
-      console.log('Found season:', currentSeason);
-
-      // Fetch conferences filtered by season
-      const conferencesFilters = [{
-        name: 'season_id',
-        op: 'Equal',
-        value: currentSeason.id
-      }];
-
-      // If a specific conference is selected, add that filter
+      const seasonId = typeof seasonConfig.seasonId === 'string' ? parseInt(seasonConfig.seasonId) : (seasonConfig.seasonId || selectedSeason);
+      
+      let conferenceId: number | undefined;
       if (selectedConference) {
-        // Find the conference from the currentSeasonConfig to get the league_id
-        const targetConference = currentSeasonConfig.conferences.find((c) => c.id === selectedConference);
-        if (targetConference) {
-          conferencesFilters.push({
-            name: 'league_id',
-            op: 'Equal',
-            value: targetConference.leagueId
+        const targetConf = seasonConfig.conferences.find(c => c.id === selectedConference);
+        conferenceId = targetConf?.dbConferenceId; // Use the actual database conference ID
+        console.log(`🎯 Conference filter: ${selectedConference} -> DB conferenceId: ${conferenceId}`);
+      }
+
+      // Use the new hybrid matchup service
+      const organizedMatchups = await SupabaseMatchupService.getHybridMatchups(
+        seasonId,
+        selectedWeek,
+        conferenceId
+      );
+
+      console.log(`✅ Loaded ${organizedMatchups.length} matchups`);
+      console.log('Conference filter applied:', { 
+        selectedConference, 
+        conferenceId, 
+        matchupConferences: organizedMatchups.map(m => m.conference.conference_name) 
+      });
+      setMatchups(organizedMatchups);
+
+      // Load additional players data if needed
+      if (Object.keys(allPlayers).length === 0) {
+        try {
+          // Use the robust player fetching method that gets ALL players
+          const allPlayersArray = await DatabaseService.getAllPlayersForMapping([
+            { column: 'playing_status', operator: 'eq', value: 'Active' },
+            { column: 'position', operator: 'in', value: ['QB', 'RB', 'WR', 'TE', 'K', 'DEF'] }
+          ]);
+          
+          // Convert to Sleeper format for compatibility
+          const playersRecord: Record<string, SleeperPlayer> = {};
+          allPlayersArray.forEach(player => {
+            if (player.sleeper_id) {
+              const nameParts = player.player_name.split(' ');
+              const firstName = nameParts[0] || '';
+              const lastName = nameParts.slice(1).join(' ') || '';
+              
+              playersRecord[player.sleeper_id] = {
+                player_id: player.sleeper_id,
+                first_name: firstName,
+                last_name: lastName,
+                position: player.position || '',
+                team: player.nfl_team || '',
+                jersey_number: player.number || 0,
+                status: player.playing_status || '',
+                injury_status: player.injury_status || '',
+                age: player.age || 0,
+                height: player.height?.toString() || '',
+                weight: player.weight || 0,
+                years_exp: 0,
+                college: player.college || ''
+              };
+            }
           });
+          
+          setAllPlayers(playersRecord);
+        } catch (error) {
+          console.warn('Could not load players data:', error);
         }
       }
 
-      const conferencesResponse = await window.ezsite.apis.tablePage('12820', {
-        PageNo: 1,
-        PageSize: 50,
-        OrderByField: 'conference_name',
-        IsAsc: true,
-        Filters: conferencesFilters
-      });
-
-      if (conferencesResponse.error) {
-        throw new Error(conferencesResponse.error);
-      }
-
-      const conferenceData = conferencesResponse.data.List;
-      setConferences(conferenceData);
-      console.log(`Loaded ${conferenceData.length} conferences for season ${selectedSeason}`);
-
-      // Fetch teams
-      const teamsResponse = await window.ezsite.apis.tablePage('12852', {
-        PageNo: 1,
-        PageSize: 100,
-        OrderByField: 'team_name',
-        IsAsc: true,
-        Filters: []
-      });
-
-      if (teamsResponse.error) {
-        throw new Error(teamsResponse.error);
-      }
-
-      const teamData = teamsResponse.data.List;
-      setTeams(teamData);
-      console.log(`Loaded ${teamData.length} teams`);
-
-      return { conferences: conferenceData, teams: teamData };
     } catch (error) {
-      console.error('Error fetching database data:', error);
+      console.error('Error fetching matchups:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      setApiErrors([errorMessage]);
+      
       toast({
-        title: 'Database Error',
-        description: 'Failed to load conferences and teams from database.',
+        title: 'Error Loading Matchups',
+        description: `Failed to load matchup data: ${errorMessage}`,
         variant: 'destructive'
       });
-      throw error;
-    }
-  };
-
-  // Determine week status
-  const determineWeekStatus = (week: number, currentWeek: number): WeekStatus => {
-    console.log(`🔍 Determining status for week ${week}, current week: ${currentWeek}, selected season: ${selectedSeason}`);
-
-    // Get current year to determine if this is a historical season
-    const currentYear = new Date().getFullYear();
-    const isHistoricalSeason = selectedSeason < currentYear;
-
-    console.log(`📅 Season analysis: ${selectedSeason} (current year: ${currentYear}, historical: ${isHistoricalSeason})`);
-
-    // For historical seasons, all weeks should be treated as completed
-    if (isHistoricalSeason) {
-      return {
-        week,
-        status: 'completed',
-        description: `Week ${week} - ${selectedSeason} Season (Historical)`
-      };
-    }
-
-    // For current season, use normal logic
-    if (week > currentWeek) {
-      return {
-        week,
-        status: 'future',
-        description: `Week ${week} has not started yet`
-      };
-    } else if (week === currentWeek) {
-      return {
-        week,
-        status: 'current',
-        description: `Week ${week} is the current week`
-      };
-    } else {
-      return {
-        week,
-        status: 'completed',
-        description: `Week ${week} has been completed`
-      };
-    }
-  };
-
-  // Fetch matchup data using the new MatchupService
-  const fetchMatchupData = async (conferenceData: Conference[], teamData: Team[]) => {
-    try {
-      console.log('🚀 Starting fetchMatchupData with override support...');
-      console.log(`📊 Conference count: ${conferenceData.length}`);
-      console.log(`👥 Team count: ${teamData.length}`);
-      console.log(`📅 Selected week: ${selectedWeek}`);
-      console.log(`📅 Current week: ${currentWeek}`);
-
-      setApiErrors([]);
-      const errors: string[] = [];
-
-      // Determine and set week status
-      const status = determineWeekStatus(selectedWeek, currentWeek);
-      setWeekStatus(status);
-      console.log(`📋 Week status:`, status);
-
-      // Use all the filtered conferences from the database query
-      const targetConferences = conferenceData;
-
-      if (targetConferences.length === 0) {
-        console.warn('⚠️ No target conferences found');
-        setMatchups([]);
-        return;
-      }
-
-      console.log('🔗 Fetching players data from Sleeper API...');
-      // Fetch players data once
-      const playersData = await SleeperApiService.fetchAllPlayers();
-      setAllPlayers(playersData);
-      console.log(`✅ Loaded ${Object.keys(playersData).length} players`);
-
-      // Get current season ID
-      const seasonsResponse = await window.ezsite.apis.tablePage('12818', {
-        PageNo: 1,
-        PageSize: 10,
-        OrderByField: 'season_year',
-        IsAsc: false,
-        Filters: [{ name: 'season_year', op: 'Equal', value: selectedSeason }]
-      });
-
-      if (seasonsResponse.error || !seasonsResponse.data.List || seasonsResponse.data.List.length === 0) {
-        throw new Error('Season not found');
-      }
-
-      const currentSeason = seasonsResponse.data.List[0];
-      console.log(`🗓️ Using season ID: ${currentSeason.id} for year ${selectedSeason}`);
-
-      // Use the new MatchupService to fetch organized matchups with override support
-      const organizedMatchups = await MatchupService.fetchOrganizedMatchups(
-        targetConferences,
-        teamData,
-        selectedWeek,
-        currentSeason.id,
-        playersData
-      );
-
-      console.log(`✅ MatchupService returned ${organizedMatchups.length} matchups`);
-
-      const debugData = {
-        conferences: targetConferences.map((c) => ({
-          conference: c.conference_name,
-          leagueId: c.league_id,
-          matchupsCount: organizedMatchups.filter((m) => m.conference.id === c.id).length
-        })),
-        totalMatchups: organizedMatchups.length,
-        errors: [],
-        weekStatus: status,
-        useOverrideService: true
-      };
-
-      setRawApiData(debugData);
-      setApiErrors(errors);
-      setMatchups(organizedMatchups);
-
-      console.log(`🎉 Successfully loaded ${organizedMatchups.length} total matchups using MatchupService`);
-
-    } catch (error) {
-      const errorMsg = `Failed to fetch matchup data: ${error}`;
-      console.error('❌ Error fetching matchup data:', error);
-      setApiErrors((prev) => [...prev, errorMsg]);
-
-      toast({
-        title: 'API Error',
-        description: 'Failed to load matchup data.',
-        variant: 'destructive'
-      });
-    }
-  };
-
-  // Load all data
-  const loadData = async (isRefresh = false) => {
-    try {
-      if (isRefresh) {
-        setRefreshing(true);
-      } else {
-        setLoading(true);
-      }
-
-      const { conferences: conferenceData, teams: teamData } = await fetchDatabaseData();
-      await fetchMatchupData(conferenceData, teamData);
-
-    } catch (error) {
-      console.error('Error loading data:', error);
+      
+      setMatchups([]);
     } finally {
-      setLoading(false);
       setRefreshing(false);
+      setLoading(false);
+    }
+  };
+
+  // Load current NFL week
+  const loadCurrentWeek = async () => {
+    try {
+      console.log('🔄 Loading current NFL week...');
+      const week = await SleeperApiService.getCurrentNFLWeek();
+      console.log(`✅ Current NFL week: ${week}`);
+      setCurrentWeek(week);
+      setSelectedWeek(week);
+    } catch (error) {
+      console.error('Error getting current week:', error);
+      // Fallback to week 1 if API fails
+      setCurrentWeek(1);
+      setSelectedWeek(1);
     }
   };
 
   // Get current NFL week on mount
   useEffect(() => {
-    const getCurrentWeek = async () => {
-      try {
-        const week = await SleeperApiService.getCurrentNFLWeek();
-        setCurrentWeek(week);
-        setSelectedWeek(week);
-      } catch (error) {
-        console.error('Error getting current week:', error);
-      }
-    };
-
-    getCurrentWeek();
+    loadCurrentWeek();
   }, []);
 
   // Load data when component mounts or dependencies change
   useEffect(() => {
-    loadData();
-  }, [selectedWeek, selectedConference, selectedSeason]);
+    if (selectedSeason && currentSeasonConfig) {
+      setLoading(true);
+      fetchMatchups();
+    } else {
+      setLoading(false);
+    }
+  }, [selectedWeek, selectedConference, selectedSeason, currentSeasonConfig]);
 
   const toggleMatchupExpansion = (matchupId: string) => {
     const newExpanded = new Set(expandedMatchups);
@@ -354,14 +243,10 @@ const MatchupsPage: React.FC = () => {
     }
   };
 
-  const getPlayerName = (playerId: string): string => {
-    const player = allPlayers[playerId];
-    return SleeperApiService.getPlayerName(player);
-  };
-
   const getWinningTeam = (matchup: OrganizedMatchup) => {
     if (matchup.status !== 'completed') return null;
     const [team1, team2] = matchup.teams;
+    if (!team2) return team1; // Single team scenario
     return team1.points > team2.points ? team1 : team2;
   };
 
@@ -378,8 +263,8 @@ const MatchupsPage: React.FC = () => {
             <p>Loading matchup data...</p>
           </CardContent>
         </Card>
-      </div>);
-
+      </div>
+    );
   }
 
   return (
@@ -392,9 +277,9 @@ const MatchupsPage: React.FC = () => {
         </div>
         <p className="text-muted-foreground">
           {selectedSeason} Season • Week {selectedWeek} • {
-          selectedConference ?
-          currentSeasonConfig.conferences.find((c) => c.id === selectedConference)?.name || 'Selected Conference' :
-          conferences.length > 0 ? `${conferences.length} Conference${conferences.length !== 1 ? 's' : ''}` : 'All Conferences'
+            selectedConference ?
+              currentSeasonConfig.conferences.find((c) => c.id === selectedConference)?.name || 'Selected Conference' :
+              'All Conferences'
           }
         </p>
       </div>
@@ -407,45 +292,36 @@ const MatchupsPage: React.FC = () => {
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              {Array.from({ length: 18 }, (_, i) => i + 1).map((week) =>
-              <SelectItem key={week} value={week.toString()}>
+              {Array.from({ length: 18 }, (_, i) => i + 1).map((week) => (
+                <SelectItem key={week} value={week.toString()}>
                   <div className="flex items-center space-x-2">
                     <span>Week {week}</span>
                     {week === currentWeek && <Badge variant="outline" className="text-xs">Current</Badge>}
                   </div>
                 </SelectItem>
-              )}
+              ))}
             </SelectContent>
           </Select>
 
-          {selectedWeek === currentWeek &&
-          <div className="flex items-center space-x-2 text-sm text-muted-foreground">
+          {selectedWeek === currentWeek && (
+            <div className="flex items-center space-x-2 text-sm text-muted-foreground">
               <Clock className="h-4 w-4" />
               <span>Current week</span>
             </div>
-          }
+          )}
         </div>
 
         <div className="flex items-center space-x-4">
           <Button
             variant="outline"
             size="sm"
-            onClick={() => loadData(true)}
-            disabled={refreshing}>
-
+            onClick={() => fetchMatchups()}
+            disabled={refreshing}
+          >
             <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
             Refresh
           </Button>
-          
-          <Button
-            variant={debugMode ? "default" : "outline"}
-            size="sm"
-            onClick={() => setDebugMode(!debugMode)}>
 
-            <Bug className="h-4 w-4" />
-            Debug {debugMode ? 'ON' : 'OFF'}
-          </Button>
-          
           <div className="flex items-center space-x-2 text-sm text-muted-foreground">
             <Users className="h-4 w-4" />
             <span>{matchups.length} matchups</span>
@@ -453,42 +329,9 @@ const MatchupsPage: React.FC = () => {
         </div>
       </div>
 
-      {/* Week Status Indicator */}
-      {weekStatus &&
-      <Card className="border-l-4 border-l-blue-500">
-          <CardContent className="py-3">
-            <div className="flex items-center space-x-3">
-              {weekStatus.status === 'future' && <Clock className="h-5 w-5 text-blue-500" />}
-              {weekStatus.status === 'current' && <Play className="h-5 w-5 text-green-500" />}
-              {weekStatus.status === 'live' && <Pause className="h-5 w-5 text-yellow-500" />}
-              {weekStatus.status === 'completed' && <CheckCircle className="h-5 w-5 text-gray-500" />}
-              <div>
-                <div className="font-medium">Week {weekStatus.week} Status</div>
-                <div className="text-sm text-muted-foreground">{weekStatus.description}</div>
-                {weekStatus.status === 'future' &&
-              <div className="text-xs text-muted-foreground mt-1">
-                    ⚠️ Points will not be available until games begin
-                  </div>
-              }
-                {weekStatus.status === 'current' &&
-              <div className="text-xs text-muted-foreground mt-1">
-                    🔴 Points may update in real-time during games
-                  </div>
-              }
-                {weekStatus.status === 'completed' && selectedSeason < new Date().getFullYear() &&
-              <div className="text-xs text-muted-foreground mt-1">
-                    📊 Historical season data - All scores are final
-                  </div>
-              }
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      }
-
       {/* API Errors Display */}
-      {apiErrors.length > 0 &&
-      <Card className="border-l-4 border-l-red-500">
+      {apiErrors.length > 0 && (
+        <Card className="border-l-4 border-l-red-500">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm flex items-center space-x-2">
               <AlertCircle className="h-4 w-4 text-red-500" />
@@ -497,221 +340,234 @@ const MatchupsPage: React.FC = () => {
           </CardHeader>
           <CardContent>
             <div className="space-y-1">
-              {apiErrors.map((error, index) =>
-            <div key={index} className="text-sm text-red-600 bg-red-50 p-2 rounded">
+              {apiErrors.map((error, index) => (
+                <div key={index} className="text-sm text-red-600 bg-red-50 p-2 rounded">
                   {error}
                 </div>
-            )}
+              ))}
             </div>
           </CardContent>
         </Card>
-      }
-
-      {/* Debug Mode Display */}
-      {debugMode && rawApiData &&
-      <Card className="border-l-4 border-l-purple-500">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm flex items-center space-x-2">
-              <Bug className="h-4 w-4 text-purple-500" />
-              <span>Debug Information</span>
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              <div className="text-sm">
-                <strong>Week Status:</strong> {rawApiData.weekStatus?.status} - {rawApiData.weekStatus?.description}
-              </div>
-              <div className="text-sm">
-                <strong>Using Override Service:</strong> {rawApiData.useOverrideService ? 'Yes' : 'No'}
-              </div>
-              <div className="text-sm">
-                <strong>Total Conferences:</strong> {rawApiData.conferences.length}
-              </div>
-              <div className="text-sm">
-                <strong>Total Matchups:</strong> {rawApiData.totalMatchups}
-              </div>
-              {rawApiData.errors.length > 0 &&
-            <div className="text-sm">
-                  <strong>Errors:</strong>
-                  <pre className="mt-1 p-2 bg-red-50 rounded text-xs overflow-x-auto">
-                    {JSON.stringify(rawApiData.errors, null, 2)}
-                  </pre>
-                </div>
-            }
-              <details className="text-sm">
-                <summary className="cursor-pointer font-medium">Raw API Data</summary>
-                <pre className="mt-2 p-3 bg-gray-50 rounded text-xs overflow-x-auto max-h-96">
-                  {JSON.stringify(rawApiData, null, 2)}
-                </pre>
-              </details>
-            </div>
-          </CardContent>
-        </Card>
-      }
+      )}
 
       {/* Matchups Grid */}
-      <div className="grid gap-4">
-        {matchups.map((matchup) => {
+      <div className="grid gap-3">
+        {[...matchups]
+          .sort((a, b) => a.conference.conference_name.localeCompare(b.conference.conference_name))
+          .map((matchup) => {
           const [team1, team2] = matchup.teams;
           const winningTeam = getWinningTeam(matchup);
+          const matchupKey = `${matchup.conference.id}-${matchup.matchup_id}`;
+          const isExpanded = expandedMatchups.has(matchupKey);
 
           return (
-            <Card key={`${matchup.conference.id}-${matchup.matchup_id}`} className="hover:shadow-md transition-shadow">
-              <Collapsible>
-                <CollapsibleTrigger
-                  className="w-full"
-                  onClick={() => toggleMatchupExpansion(`${matchup.conference.id}-${matchup.matchup_id}`)}>
+            <Card key={matchupKey} className="hover:shadow-md transition-shadow">
+              {/* Compact Header */}
+              <CardHeader className="pb-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-2">
+                    <CardTitle className="text-base">
+                      {matchup.conference.conference_name}
+                    </CardTitle>
+                    {getStatusBadge(matchup.status)}
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => toggleMatchupExpansion(matchupKey)}
+                    className="h-8 w-8 p-0"
+                  >
+                    {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                  </Button>
+                </div>
+              </CardHeader>
 
-                  <CardHeader className="pb-4">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center space-x-2">
-                        <CardTitle className="text-lg">
-                          {matchup.conference.conference_name}
-                        </CardTitle>
-                        {getStatusBadge(matchup.status)}
-                        {matchup.rawData?.isOverride &&
-                        <Badge variant="outline" className="text-orange-600 border-orange-300">
-                            Override
-                          </Badge>
-                        }
-                      </div>
-                      <ChevronDown className={`h-4 w-4 transition-transform ${
-                      expandedMatchups.has(`${matchup.conference.id}-${matchup.matchup_id}`) ? 'rotate-180' : ''}`
-                      } />
+              <CardContent className="pt-0 space-y-3">
+                {/* Compact Matchup Summary */}
+                <div className="grid grid-cols-3 gap-2 items-center">
+                  {/* Team 1 */}
+                  <div className="text-right space-y-1">
+                    <div className="font-medium text-sm">
+                      {team1.team?.team_name || team1.owner?.display_name || team1.owner?.username || 'Unknown Team'}
                     </div>
-                  </CardHeader>
-                </CollapsibleTrigger>
-
-                <CardContent className="pt-0">
-                  {/* Matchup Summary */}
-                  <div className="grid grid-cols-3 gap-4 items-center">
-                    {/* Team 1 */}
-                    <div className="text-right space-y-1">
-                      <div className="font-semibold">
-                        {team1.team?.team_name || team1.owner?.display_name || team1.owner?.username || 'Unknown Team'}
-                      </div>
-                      <div className="text-sm text-muted-foreground">
-                        {team1.team?.owner_name || team1.owner?.display_name || 'Unknown Owner'}
-                      </div>
-                      <div className={`text-2xl font-bold ${winningTeam?.roster_id === team1.roster_id ? 'text-green-600' : ''}`}>
-                        {matchup.status === 'upcoming' && selectedSeason >= new Date().getFullYear() ? '--' : (team1.points ?? 0).toFixed(1)}
-                        {debugMode &&
-                        <div className="text-xs text-muted-foreground mt-1">
-                            Raw: {team1.points ?? 'null'}
-                          </div>
-                        }
-                      </div>
-                    </div>
-
-                    {/* VS Divider */}
-                    <div className="text-center">
-                      <div className="text-lg font-semibold text-muted-foreground">VS</div>
-                      {matchup.status === 'completed' && winningTeam &&
-                      <Trophy className="h-6 w-6 mx-auto mt-2 text-yellow-500" />
-                      }
-                    </div>
-
-                    {/* Team 2 */}
-                    <div className="text-left space-y-1">
-                      <div className="font-semibold">
-                        {team2.team?.team_name || team2.owner?.display_name || team2.owner?.username || 'Unknown Team'}
-                      </div>
-                      <div className="text-sm text-muted-foreground">
-                        {team2.team?.owner_name || team2.owner?.display_name || 'Unknown Owner'}
-                      </div>
-                      <div className={`text-2xl font-bold ${winningTeam?.roster_id === team2.roster_id ? 'text-green-600' : ''}`}>
-                        {matchup.status === 'upcoming' && selectedSeason >= new Date().getFullYear() ? '--' : (team2.points ?? 0).toFixed(1)}
-                        {debugMode &&
-                        <div className="text-xs text-muted-foreground mt-1">
-                            Raw: {team2.points ?? 'null'}
-                          </div>
-                        }
-                      </div>
+                    <div className={`text-lg font-bold ${winningTeam?.roster_id === team1.roster_id ? 'text-green-600' : ''}`}>
+                      {matchup.status === 'upcoming' ? '--' : (team1.points ?? 0).toFixed(1)}
                     </div>
                   </div>
 
-                  {/* Expanded Content */}
-                  <CollapsibleContent className="mt-6">
-                    <div className="border-t pt-4 space-y-4">
-                      {/* Team Starting Lineups */}
-                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                        {/* Team 1 Starting Lineup */}
-                        <StartingLineup
-                          roster={team1.roster}
-                          allPlayers={allPlayers}
-                          teamName={team1.team?.team_name || team1.owner?.display_name || 'Team 1'}
-                          playerPoints={team1.players_points}
-                          startersPoints={team1.starters_points}
-                          matchupStarters={team1.matchup_starters} />
+                  {/* VS Divider */}
+                  <div className="text-center">
+                    <div className="text-sm font-medium text-muted-foreground">VS</div>
+                    {matchup.status === 'completed' && winningTeam && (
+                      <Trophy className="h-4 w-4 mx-auto mt-1 text-yellow-500" />
+                    )}
+                  </div>
 
+                  {/* Team 2 */}
+                  <div className="text-left space-y-1">
+                    <div className="font-medium text-sm">
+                      {team2?.team?.team_name || team2?.owner?.display_name || team2?.owner?.username || 'TBD'}
+                    </div>
+                    <div className={`text-lg font-bold ${winningTeam?.roster_id === team2?.roster_id ? 'text-green-600' : ''}`}>
+                      {matchup.status === 'upcoming' ? '--' : (team2?.points ?? 0).toFixed(1)}
+                    </div>
+                  </div>
+                </div>
 
-                        {/* Team 2 Starting Lineup */}
-                        <StartingLineup
-                          roster={team2.roster}
-                          allPlayers={allPlayers}
-                          teamName={team2.team?.team_name || team2.owner?.display_name || 'Team 2'}
-                          playerPoints={team2.players_points}
-                          startersPoints={team2.starters_points}
-                          matchupStarters={team2.matchup_starters} />
-
-                      </div>
-
-                      {/* Matchup Stats */}
-                      {matchup.status !== 'upcoming' &&
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
-                          <div>
-                            <div className="text-sm text-muted-foreground">Total Points</div>
-                            <div className="font-semibold">
-                              {((team1.points ?? 0) + (team2.points ?? 0)).toFixed(1)}
-                            </div>
-                          </div>
-                          <div>
-                            <div className="text-sm text-muted-foreground">Point Spread</div>
-                            <div className="font-semibold">
-                              {Math.abs((team1.points ?? 0) - (team2.points ?? 0)).toFixed(1)}
-                            </div>
-                          </div>
-                          <div>
-                            <div className="text-sm text-muted-foreground">High Score</div>
-                            <div className="font-semibold">
-                              {Math.max(team1.points ?? 0, team2.points ?? 0).toFixed(1)}
-                            </div>
-                          </div>
-                          <div>
-                            <div className="text-sm text-muted-foreground">Status</div>
-                            <div className="text-xs capitalize">{matchup.status}</div>
-                            {debugMode && matchup.rawData &&
-                          <div className="text-xs text-muted-foreground mt-1">
-                                Override: {matchup.rawData.isOverride ? 'Yes' : 'No'}
+                {/* Expandable Roster Details */}
+                <Collapsible open={isExpanded}>
+                  <CollapsibleContent className="space-y-4">
+                    <div className="border-t pt-4">
+                      <div className="grid md:grid-cols-2 gap-6">
+                        {/* Team 1 Roster */}
+                        <div>
+                          <h4 className="font-semibold text-sm mb-3 flex items-center">
+                            <Users className="h-4 w-4 mr-2" />
+                            {team1.team?.team_name || team1.owner?.display_name || 'Team 1'} Lineup
+                          </h4>
+                          {team1.roster ? (
+                            <div className="space-y-3">
+                              {/* Starters */}
+                              <div>
+                                <h5 className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">Starters</h5>
+                                <div className="space-y-1">
+                                  {team1.matchup_starters?.map((playerId, index) => {
+                                    const playerInfo = getPlayerInfo(playerId, allPlayers);
+                                    const points = team1.players_points?.[playerId] || 0;
+                                    const lineupPositions = getLineupPositions();
+                                    const position = lineupPositions[index] || 'FLEX';
+                                    
+                                    return (
+                                      <div key={`${playerId}-${index}`} className="flex justify-between items-center py-1 px-2 bg-gray-50 rounded text-xs">
+                                        <div className="flex items-center space-x-2">
+                                          <Badge variant="outline" className="text-xs px-1 py-0">
+                                            {formatPosition(position)}
+                                          </Badge>
+                                          <span className="font-medium">{playerInfo.name}</span>
+                                          <span className="text-muted-foreground">({playerInfo.position} - {playerInfo.team})</span>
+                                        </div>
+                                        <span className="font-bold">{points.toFixed(1)}</span>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
                               </div>
-                          }
-                          </div>
+
+                              {/* Bench */}
+                              {team1.roster.players && (
+                                <div>
+                                  <h5 className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">Bench</h5>
+                                  <div className="space-y-1">
+                                    {team1.roster.players
+                                      .filter(playerId => !team1.matchup_starters?.includes(playerId))
+                                      .map((playerId) => {
+                                        const playerInfo = getPlayerInfo(playerId, allPlayers);
+                                        const points = team1.players_points?.[playerId] || 0;
+                                        
+                                        return (
+                                          <div key={playerId} className="flex justify-between items-center py-1 px-2 bg-gray-25 rounded text-xs">
+                                            <div className="flex items-center space-x-2">
+                                              <span className="font-medium">{playerInfo.name}</span>
+                                              <span className="text-muted-foreground">({playerInfo.position} - {playerInfo.team})</span>
+                                            </div>
+                                            <span className="text-muted-foreground">{points.toFixed(1)}</span>
+                                          </div>
+                                        );
+                                      })}
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          ) : (
+                            <p className="text-sm text-muted-foreground">No roster data available</p>
+                          )}
                         </div>
-                      }
+
+                        {/* Team 2 Roster */}
+                        {team2 && (
+                          <div>
+                            <h4 className="font-semibold text-sm mb-3 flex items-center">
+                              <Users className="h-4 w-4 mr-2" />
+                              {team2.team?.team_name || team2.owner?.display_name || 'Team 2'} Lineup
+                            </h4>
+                            {team2.roster ? (
+                              <div className="space-y-3">
+                                {/* Starters */}
+                                <div>
+                                  <h5 className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">Starters</h5>
+                                  <div className="space-y-1">
+                                    {team2.matchup_starters?.map((playerId, index) => {
+                                      const playerInfo = getPlayerInfo(playerId, allPlayers);
+                                      const points = team2.players_points?.[playerId] || 0;
+                                      const lineupPositions = getLineupPositions();
+                                      const position = lineupPositions[index] || 'FLEX';
+                                      
+                                      return (
+                                        <div key={`${playerId}-${index}`} className="flex justify-between items-center py-1 px-2 bg-gray-50 rounded text-xs">
+                                          <div className="flex items-center space-x-2">
+                                            <Badge variant="outline" className="text-xs px-1 py-0">
+                                              {formatPosition(position)}
+                                            </Badge>
+                                            <span className="font-medium">{playerInfo.name}</span>
+                                            <span className="text-muted-foreground">({playerInfo.position} - {playerInfo.team})</span>
+                                          </div>
+                                          <span className="font-bold">{points.toFixed(1)}</span>
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                </div>
+
+                                {/* Bench */}
+                                {team2.roster.players && (
+                                  <div>
+                                    <h5 className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">Bench</h5>
+                                    <div className="space-y-1">
+                                      {team2.roster.players
+                                        .filter(playerId => !team2.matchup_starters?.includes(playerId))
+                                        .map((playerId) => {
+                                          const playerInfo = getPlayerInfo(playerId, allPlayers);
+                                          const points = team2.players_points?.[playerId] || 0;
+                                          
+                                          return (
+                                            <div key={playerId} className="flex justify-between items-center py-1 px-2 bg-gray-25 rounded text-xs">
+                                              <div className="flex items-center space-x-2">
+                                                <span className="font-medium">{playerInfo.name}</span>
+                                                <span className="text-muted-foreground">({playerInfo.position} - {playerInfo.team})</span>
+                                              </div>
+                                              <span className="text-muted-foreground">{points.toFixed(1)}</span>
+                                            </div>
+                                          );
+                                        })}
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            ) : (
+                              <p className="text-sm text-muted-foreground">No roster data available</p>
+                            )}
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </CollapsibleContent>
-                </CardContent>
-              </Collapsible>
-            </Card>);
-
+                </Collapsible>
+              </CardContent>
+            </Card>
+          );
         })}
 
-        {matchups.length === 0 &&
-        <Card>
+        {matchups.length === 0 && (
+          <Card>
             <CardContent className="py-8 text-center">
               <AlertCircle className="h-8 w-8 mx-auto mb-4 text-muted-foreground" />
               <p className="text-muted-foreground">No matchups found for the selected filters.</p>
-              {conferences.length === 0 &&
-            <p className="text-sm text-muted-foreground mt-2">
-                  Make sure conferences are configured in the admin panel.
-                </p>
-            }
             </CardContent>
           </Card>
-        }
+        )}
       </div>
-    </div>);
-
+    </div>
+  );
 };
 
 export default MatchupsPage;
