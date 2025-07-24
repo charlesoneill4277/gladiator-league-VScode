@@ -31,6 +31,20 @@ const App = () => {
         apis: ezsiteApiReplacement
       };
     }
+
+    // Load chatbot script
+    const script = document.createElement('script');
+    script.src = 'https://studio.pickaxe.co/api/embed/bundle.js';
+    script.defer = true;
+    document.head.appendChild(script);
+
+    return () => {
+      // Cleanup script on unmount
+      const existingScript = document.querySelector('script[src="https://studio.pickaxe.co/api/embed/bundle.js"]');
+      if (existingScript) {
+        existingScript.remove();
+      }
+    };
   }, []);
 
   return (
@@ -58,6 +72,12 @@ const App = () => {
                 </Routes>
               </main>
             </div>
+
+            {/* Chatbot - Fixed position in bottom right corner */}
+            <div className="fixed bottom-4 right-4 z-50">
+              <div id="deployment-f277b3b5-018e-4ef6-a37c-d2fd421a7ba5"></div>
+            </div>
+
             <Toaster />
           </BrowserRouter>
         </AppProvider>

@@ -6,11 +6,12 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useApp } from '@/contexts/AppContext';
 import { fetchPlayersFromApi } from '@/services/api';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/lib/supabase';
-import { UserCheck, Search, Filter, ExternalLink, Loader2, ChevronLeft, ChevronRight } from 'lucide-react';
+import { UserCheck, Search, Filter, ExternalLink, Loader2, ChevronLeft, ChevronRight, TrendingUp } from 'lucide-react';
 
 const PlayersPage: React.FC = () => {
   const { selectedSeason, selectedConference, currentSeasonConfig } = useApp();
@@ -25,6 +26,7 @@ const PlayersPage: React.FC = () => {
   const [positionFilter, setPositionFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [teamLookup, setTeamLookup] = useState<Map<number, string>>(new Map());
+  const [activeTab, setActiveTab] = useState('all-players');
 
   const positions = ['QB', 'RB', 'WR', 'TE'];
 
@@ -190,126 +192,167 @@ return (
         </p>
       </div>
 
-      {/* Filters */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Search */}
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Search players..."
-            value={searchTerm}
-            onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
-            className="pl-10"
-          />
-        </div>
+      {/* Tabs */}
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+        <TabsList className="grid w-full grid-cols-2">
+          <TabsTrigger value="all-players" className="flex items-center gap-2">
+            <UserCheck className="h-4 w-4" />
+            All Players
+          </TabsTrigger>
+          <TabsTrigger value="trending" className="flex items-center gap-2">
+            <TrendingUp className="h-4 w-4" />
+            Trending Players
+          </TabsTrigger>
+        </TabsList>
 
-        {/* Position Filter */}
-        <Select value={positionFilter} onValueChange={(value) => { setPositionFilter(value); setCurrentPage(1); }}>
-          <SelectTrigger><SelectValue placeholder="All Positions" /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Positions</SelectItem>
-            {positions.map((pos) => (<SelectItem key={pos} value={pos}>{pos}</SelectItem>))}
-          </SelectContent>
-        </Select>
+        <TabsContent value="all-players" className="space-y-6">
+          {/* Filters */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            {/* Search */}
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search players..."
+                value={searchTerm}
+                onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
+                className="pl-10"
+              />
+            </div>
 
-        {/* Status Filter */}
-        <Select value={statusFilter} onValueChange={(value) => { setStatusFilter(value); setCurrentPage(1); }}>
-          <SelectTrigger><SelectValue placeholder="All Status" /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Status</SelectItem>
-            <SelectItem value="rostered">Rostered</SelectItem>
-            <SelectItem value="free_agent">Free Agent</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
+            {/* Position Filter */}
+            <Select value={positionFilter} onValueChange={(value) => { setPositionFilter(value); setCurrentPage(1); }}>
+              <SelectTrigger><SelectValue placeholder="All Positions" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Positions</SelectItem>
+                {positions.map((pos) => (<SelectItem key={pos} value={pos}>{pos}</SelectItem>))}
+              </SelectContent>
+            </Select>
 
-      {/* Players Table */}
-      <Card>
-        <CardContent className="pt-6">
-          <div className="rounded-md border">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Player</TableHead>
-                  <TableHead>Pos</TableHead>
-                  <TableHead className="hidden sm:table-cell">NFL Team</TableHead>
-                  <TableHead className="text-right">Points</TableHead>
-                  <TableHead className="text-right hidden md:table-cell">Avg</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="hidden lg:table-cell">Rostered By</TableHead>
-                  <TableHead className="w-10"></TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {loading ? (
-                  <TableRow><TableCell colSpan={8} className="text-center py-8"><Loader2 className="h-6 w-6 animate-spin mx-auto" /></TableCell></TableRow>
-                ) : apiPlayers.length === 0 ? (
-                  <TableRow><TableCell colSpan={8} className="text-center py-8">No players found.</TableCell></TableRow>
-                ) : (
-                  apiPlayers.map((player) => (
-                    <TableRow key={player.id}>
-                      <TableCell>
-                        {/* CORRECTED: The API sends 'player_name', not 'full_name' */}
-                        <div className="font-medium">{player.player_name}</div>
-                      </TableCell>
-                      <TableCell>
-                        <Badge className={getPositionColor(player.position)}>{player.position}</Badge>
-                      </TableCell>
-                      <TableCell className="hidden sm:table-cell">{player.nfl_team || 'FA'}</TableCell>
-                      <TableCell className="text-right font-mono">
-                        {/* This is safe because the VIEW guarantees a number */}
-                        {player.total_points.toFixed(1)}
-                      </TableCell>
-                      <TableCell className="text-right font-mono hidden md:table-cell">
-                        {player.avg_points.toFixed(1)}
-                      </TableCell>
-                      <TableCell>
-                        {getStatusBadge(player.is_rostered, player.injury_status)}
-                      </TableCell>
-                      <TableCell className="hidden lg:table-cell">
-                        {renderRosteredByTeams(player.rostered_by_teams)}
-                      </TableCell>
-                      <TableCell>
-                        <Link to={`/players/${player.sleeper_id}`}>
-                          <Button variant="ghost" size="sm"><ExternalLink className="h-4 w-4" /></Button>
-                        </Link>
-                      </TableCell>
+            {/* Status Filter */}
+            <Select value={statusFilter} onValueChange={(value) => { setStatusFilter(value); setCurrentPage(1); }}>
+              <SelectTrigger><SelectValue placeholder="All Status" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Status</SelectItem>
+                <SelectItem value="rostered">Rostered</SelectItem>
+                <SelectItem value="free_agent">Free Agent</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Players Table */}
+          <Card>
+            <CardContent className="pt-6">
+              <div className="rounded-md border">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Player</TableHead>
+                      <TableHead>Pos</TableHead>
+                      <TableHead className="hidden sm:table-cell">NFL Team</TableHead>
+                      <TableHead className="text-right">Points</TableHead>
+                      <TableHead className="text-right hidden md:table-cell">Avg</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead className="hidden lg:table-cell">Rostered By</TableHead>
+                      <TableHead className="w-10"></TableHead>
                     </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          </div>
+                  </TableHeader>
+                  <TableBody>
+                    {loading ? (
+                      <TableRow><TableCell colSpan={8} className="text-center py-8"><Loader2 className="h-6 w-6 animate-spin mx-auto" /></TableCell></TableRow>
+                    ) : apiPlayers.length === 0 ? (
+                      <TableRow><TableCell colSpan={8} className="text-center py-8">No players found.</TableCell></TableRow>
+                    ) : (
+                      apiPlayers.map((player) => (
+                        <TableRow key={player.id}>
+                          <TableCell>
+                            {/* CORRECTED: The API sends 'player_name', not 'full_name' */}
+                            <div className="font-medium">{player.player_name}</div>
+                          </TableCell>
+                          <TableCell>
+                            <Badge className={getPositionColor(player.position)}>{player.position}</Badge>
+                          </TableCell>
+                          <TableCell className="hidden sm:table-cell">{player.nfl_team || 'FA'}</TableCell>
+                          <TableCell className="text-right font-mono">
+                            {/* This is safe because the VIEW guarantees a number */}
+                            {player.total_points.toFixed(1)}
+                          </TableCell>
+                          <TableCell className="text-right font-mono hidden md:table-cell">
+                            {player.avg_points.toFixed(1)}
+                          </TableCell>
+                          <TableCell>
+                            {getStatusBadge(player.is_rostered, player.injury_status)}
+                          </TableCell>
+                          <TableCell className="hidden lg:table-cell">
+                            {renderRosteredByTeams(player.rostered_by_teams)}
+                          </TableCell>
+                          <TableCell>
+                            <Link to={`/players/${player.sleeper_id}`}>
+                              <Button variant="ghost" size="sm"><ExternalLink className="h-4 w-4" /></Button>
+                            </Link>
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
 
-          {/* Pagination Controls */}
-          <div className="flex items-center justify-between space-x-2 py-4">
-            <div className="text-sm text-muted-foreground">
-              Showing {Math.min(((currentPage - 1) * pageSize) + 1, totalCount)} to {Math.min(currentPage * pageSize, totalCount)} of {totalCount} players
-            </div>
-            <div className="flex items-center space-x-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-                disabled={currentPage === 1}
-              >
-                Previous
-              </Button>
-              <span className="text-sm">
-                Page {currentPage} of {Math.ceil(totalCount / pageSize)}
-              </span>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setCurrentPage(prev => prev + 1)}
-                disabled={currentPage * pageSize >= totalCount}
-              >
-                Next
-              </Button>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+              {/* Pagination Controls */}
+              <div className="flex items-center justify-between space-x-2 py-4">
+                <div className="text-sm text-muted-foreground">
+                  Showing {Math.min(((currentPage - 1) * pageSize) + 1, totalCount)} to {Math.min(currentPage * pageSize, totalCount)} of {totalCount} players
+                </div>
+                <div className="flex items-center space-x-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                    disabled={currentPage === 1}
+                  >
+                    Previous
+                  </Button>
+                  <span className="text-sm">
+                    Page {currentPage} of {Math.ceil(totalCount / pageSize)}
+                  </span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentPage(prev => prev + 1)}
+                    disabled={currentPage * pageSize >= totalCount}
+                  >
+                    Next
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="trending" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <TrendingUp className="h-5 w-5" />
+                Trending Players (Last 24 Hours)
+              </CardTitle>
+              <CardDescription>
+                Most added players across all Sleeper leagues in the past 24 hours
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="flex justify-center">
+              <iframe 
+                src="https://sleeper.app/embed/players/nfl/trending/add?lookback_hours=24&limit=25" 
+                width="350" 
+                height="500" 
+                allowTransparency={true}
+                frameBorder="0"
+                className="rounded-lg border"
+                title="Trending Players"
+              />
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 };

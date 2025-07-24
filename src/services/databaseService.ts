@@ -13,7 +13,8 @@ import {
   DbDraftResult,
   DbMatchupAdminOverride,
   DbTransaction,
-  DbPlayoffBracket
+  DbPlayoffBracket,
+  DbPlayoffFormat
 } from '@/types/database';
 
 /**
@@ -190,6 +191,88 @@ export class DatabaseService {
 
   static async updateSeason(id: number, data: Partial<DbSeason>): Promise<{ data: DbSeason | null; error: any }> {
     return this.updateRecord<DbSeason>(TABLES.SEASONS, id, data);
+  }
+
+  /**
+   * Update scoring settings for a season by fetching from Sleeper API
+   */
+  static async updateSeasonScoringSettings(seasonId: number): Promise<{ success: boolean; error?: any }> {
+    try {
+      // Get conferences for this season
+      const { data: conferences } = await this.getConferences({
+        filters: [{ column: 'season_id', operator: 'eq', value: seasonId }]
+      });
+
+      if (!conferences || conferences.length === 0) {
+        return { success: false, error: 'No conferences found for this season' };
+      }
+
+      // Use the first conference's league to get scoring settings
+      const firstConference = conferences[0];
+      
+      // Import SleeperApiService to fetch league data
+      const SleeperApiService = (await import('./sleeperApi')).SleeperApiService;
+      const leagueInfo = await SleeperApiService.fetchLeague(firstConference.league_id);
+      
+      if (!leagueInfo.scoring_settings) {
+        return { success: false, error: 'No scoring settings found in league data' };
+      }
+
+      // Update the season with scoring settings
+      const { error } = await this.updateSeason(seasonId, {
+        scoring_settings: leagueInfo.scoring_settings
+      });
+
+      if (error) {
+        return { success: false, error };
+      }
+
+      return { success: true };
+    } catch (error) {
+      console.error('Error updating season scoring settings:', error);
+      return { success: false, error };
+    }
+  }
+
+  /**
+   * Update roster positions for a season by fetching from Sleeper API
+   */
+  static async updateSeasonRosterPositions(seasonId: number): Promise<{ success: boolean; error?: any }> {
+    try {
+      // Get conferences for this season
+      const { data: conferences } = await this.getConferences({
+        filters: [{ column: 'season_id', operator: 'eq', value: seasonId }]
+      });
+
+      if (!conferences || conferences.length === 0) {
+        return { success: false, error: 'No conferences found for this season' };
+      }
+
+      // Use the first conference's league to get roster positions
+      const firstConference = conferences[0];
+      
+      // Import SleeperApiService to fetch league data
+      const SleeperApiService = (await import('./sleeperApi')).SleeperApiService;
+      const leagueInfo = await SleeperApiService.fetchLeague(firstConference.league_id);
+      
+      if (!leagueInfo.roster_positions) {
+        return { success: false, error: 'No roster positions found in league data' };
+      }
+
+      // Update the season with roster positions
+      const { error } = await this.updateSeason(seasonId, {
+        roster_positions: leagueInfo.roster_positions
+      });
+
+      if (error) {
+        return { success: false, error };
+      }
+
+      return { success: true };
+    } catch (error) {
+      console.error('Error updating season roster positions:', error);
+      return { success: false, error };
+    }
   }
 
   /**
@@ -464,6 +547,21 @@ export class DatabaseService {
   static async createPlayoffBracket(data: Partial<DbPlayoffBracket>): Promise<{ data: DbPlayoffBracket | null; error: any }> {
     return this.createRecord<DbPlayoffBracket>(TABLES.PLAYOFF_BRACKETS, data);
   }
+
+  /**
+   * Playoff Formats table operations
+   */
+  static async getPlayoffFormats(options?: DbQueryOptions): Promise<PaginatedResponse<DbPlayoffFormat>> {
+    return this.queryTable<DbPlayoffFormat>(TABLES.PLAYOFF_FORMATS, options);
+  }
+
+  static async createPlayoffFormat(data: Partial<DbPlayoffFormat>): Promise<{ data: DbPlayoffFormat | null; error: any }> {
+    return this.createRecord<DbPlayoffFormat>(TABLES.PLAYOFF_FORMATS, data);
+  }
+
+  static async updatePlayoffFormat(id: number, data: Partial<DbPlayoffFormat>): Promise<{ data: DbPlayoffFormat | null; error: any }> {
+    return this.updateRecord<DbPlayoffFormat>(TABLES.PLAYOFF_FORMATS, id, data);
+  }
 }
 
 // Export database types for components
@@ -478,7 +576,8 @@ export type {
   DbMatchupAdminOverride,
   DbTransaction,
   DbTeamConferenceJunction,
-  DbPlayoffBracket
+  DbPlayoffBracket,
+  DbPlayoffFormat
 };
 
 // Service aliases for backward compatibility

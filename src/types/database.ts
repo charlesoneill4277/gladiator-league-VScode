@@ -6,6 +6,12 @@ export interface DbSeason {
   season_name: string;
   is_current: boolean;
   season_year: string; // Note: this is text in your schema
+  scoring_settings?: Record<string, number>; // JSONB column for scoring configuration
+  roster_positions?: string[]; // JSONB column for roster position configuration
+  charter_file_url?: string; // URL to charter document in Supabase Storage
+  charter_file_name?: string; // Original filename of uploaded charter
+  charter_uploaded_at?: string; // Timestamp when charter was uploaded
+  charter_uploaded_by?: string; // User ID of admin who uploaded charter
   created_at?: string;
   updated_at?: string;
 }
@@ -144,6 +150,19 @@ export interface DbPlayoffBracket {
   week: number;
   team1_score?: number;
   team2_score?: number;
+}
+
+export interface DbPlayoffFormat {
+  id: number;
+  season_id: number;
+  playoff_teams: number;
+  week_14_byes: number; // This is first_round_byes
+  reseed: boolean;
+  playoff_start_week: number;
+  championship_week: number;
+  is_active: boolean;
+  created_at?: string;
+  updated_at?: string;
 }
 
 export interface DbTeamRoster {
