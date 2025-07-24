@@ -7,10 +7,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useToast } from '@/hooks/use-toast';
-import { Shield, Lock, Settings, Database, Clock, Activity, Calendar, Bot } from 'lucide-react';
+import { Shield, Lock, Settings, Database, Clock, Activity, Calendar, Bot, Trophy } from 'lucide-react';
 import LeagueManager from '@/components/admin/LeagueManager';
 import DataSync from '@/components/admin/DataSync';
 import MatchupsManagement from '@/components/admin/MatchupsManagement';
+import PlayoffFormatManager from '@/components/admin/PlayoffFormatManager';
 
 import AutoSyncManager from '@/components/admin/AutoSyncManager';
 
@@ -174,7 +175,7 @@ const AdminPage: React.FC = () => {
       </div>
 
       <Tabs defaultValue="league-manager" className="space-y-6" data-id="ojttqdptv">
-        <TabsList className="grid w-full grid-cols-4" data-id="55g8xnp5m">
+        <TabsList className="grid w-full grid-cols-5" data-id="55g8xnp5m">
           <TabsTrigger value="league-manager" className="flex items-center gap-2" data-id="mudt4s949">
             <Settings className="h-4 w-4" data-id="vq59l6i0o" />
             League Manager
@@ -186,6 +187,10 @@ const AdminPage: React.FC = () => {
           <TabsTrigger value="matchups-management" className="flex items-center gap-2" data-id="kq8s7gvio">
             <Calendar className="h-4 w-4" data-id="930hxto7y" />
             Matchups & Overrides
+          </TabsTrigger>
+          <TabsTrigger value="playoff-format" className="flex items-center gap-2">
+            <Trophy className="h-4 w-4" />
+            Playoff Format
           </TabsTrigger>
           <TabsTrigger value="auto-sync" className="flex items-center gap-2" data-id="ufa49dbo7">
             <Bot className="h-4 w-4" data-id="xv3rcuk8d" />
@@ -203,6 +208,10 @@ const AdminPage: React.FC = () => {
 
         <TabsContent value="matchups-management" data-id="2im6bg2ok">
           <MatchupsManagement data-id="ddqsho0df" />
+        </TabsContent>
+
+        <TabsContent value="playoff-format">
+          <PlayoffFormatManager />
         </TabsContent>
 
         <TabsContent value="auto-sync" data-id="cr5xmlzdc">
