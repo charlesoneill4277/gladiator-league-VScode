@@ -21,7 +21,7 @@ export const TABLES = {
   PLAYERS: 'players',
   DRAFT_RESULTS: 'draft_results', // Your actual table name
   MATCHUP_ADMIN_OVERRIDE: 'matchup_admin_override',
-  PLAYOFF_BRACKET: 'playoff_bracket',
+  PLAYOFF_BRACKETS: 'playoff_brackets',
   TEAM_ROSTERS: 'team_rosters',
   TRANSACTIONS: 'transactions'
 } as const;

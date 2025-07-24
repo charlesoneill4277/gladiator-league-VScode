@@ -50,8 +50,9 @@ export interface DbMatchup {
   conference_id: number;
   week: string; // Note: text in your schema
   team1_id: number;
-  team2_id: number;
+  team2_id: number | null; // Can be null for bye weeks
   is_playoff?: boolean;
+  is_bye?: boolean; // For playoff bye weeks
   manual_override?: boolean;
   matchup_status?: string;
   notes?: string;
@@ -131,13 +132,18 @@ export interface DbPlayoffBracket {
   id: number;
   season_id: number;
   round: number;
-  matchup_id: number;
-  seed_home: number;
-  seed_away: number;
-  notes?: string;
-  admin_override?: boolean;
-  created_at?: string;
-  updated_at?: string;
+  team1_seed: number;
+  team2_seed: number;
+  team1_id: number;
+  team2_id: number;
+  winner_team_id?: number;
+  sleeper_match_id?: string;
+  playoff_round_name?: string;
+  is_bye?: boolean;
+  matchup_number?: number;
+  week: number;
+  team1_score?: number;
+  team2_score?: number;
 }
 
 export interface DbTeamRoster {

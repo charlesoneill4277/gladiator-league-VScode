@@ -12,7 +12,8 @@ import {
   DbPlayer,
   DbDraftResult,
   DbMatchupAdminOverride,
-  DbTransaction
+  DbTransaction,
+  DbPlayoffBracket
 } from '@/types/database';
 
 /**
@@ -452,6 +453,17 @@ export class DatabaseService {
   static async createTransaction(data: Partial<DbTransaction>): Promise<{ data: DbTransaction | null; error: any }> {
     return this.createRecord<DbTransaction>(TABLES.TRANSACTIONS, data);
   }
+
+  /**
+   * Playoff Brackets table operations
+   */
+  static async getPlayoffBrackets(options?: DbQueryOptions): Promise<PaginatedResponse<DbPlayoffBracket>> {
+    return this.queryTable<DbPlayoffBracket>(TABLES.PLAYOFF_BRACKETS, options);
+  }
+
+  static async createPlayoffBracket(data: Partial<DbPlayoffBracket>): Promise<{ data: DbPlayoffBracket | null; error: any }> {
+    return this.createRecord<DbPlayoffBracket>(TABLES.PLAYOFF_BRACKETS, data);
+  }
 }
 
 // Export database types for components
@@ -465,7 +477,8 @@ export type {
   DbDraftResult,
   DbMatchupAdminOverride,
   DbTransaction,
-  DbTeamConferenceJunction
+  DbTeamConferenceJunction,
+  DbPlayoffBracket
 };
 
 // Service aliases for backward compatibility

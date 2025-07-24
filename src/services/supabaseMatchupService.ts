@@ -1,7 +1,7 @@
 // New Supabase-based service for handling matchup data
 import { DatabaseService } from './databaseService';
 import SleeperApiService, { SleeperMatchup, SleeperRoster, SleeperUser, SleeperPlayer } from './sleeperApi';
-import { DbMatchup, DbConference, DbTeam, DbMatchupAdminOverride } from '@/types/database';
+import { DbMatchup, DbConference, DbTeam, DbMatchupAdminOverride, DbPlayoffBracket } from '@/types/database';
 
 // Use database types directly
 export type DatabaseMatchup = DbMatchup;
@@ -43,7 +43,20 @@ export class SupabaseMatchupService {
       console.log('🔄 Getting hybrid matchups:', { seasonId, week, conferenceId });
 
       // 1. Get matchup records from database (contains team1_id, team2_id)
-      const dbMatchups = await this.getDatabaseMatchups(seasonId, week, conferenceId);
+      // Use different tables based on week: weeks 1-12 use matchups, weeks 13+ use playoff_brackets
+      let dbMatchups: DatabaseMatchup[] = [];
+      let playoffBrackets: DbPlayoffBracket[] = [];
+      
+      if (week >= 13) {
+        console.log(`🏆 Week ${week} is playoffs - using playoff_brackets table`);
+        playoffBrackets = await this.getPlayoffBrackets(seasonId, week, conferenceId);
+        const conferences = await this.getConferences(seasonId);
+        dbMatchups = this.convertPlayoffBracketsToMatchups(playoffBrackets, conferences);
+      } else {
+        console.log(`📅 Week ${week} is regular season - using matchups table`);
+        dbMatchups = await this.getDatabaseMatchups(seasonId, week, conferenceId);
+      }
+      
       console.log(`📋 Found ${dbMatchups.length} database matchups`);
 
       if (dbMatchups.length === 0) {
@@ -74,10 +87,82 @@ export class SupabaseMatchupService {
 
           // Get the teams for this matchup
           const team1 = teams.find(t => t.id === dbMatchup.team1_id);
-          const team2 = teams.find(t => t.id === dbMatchup.team2_id);
+          const team2 = dbMatchup.team2_id ? teams.find(t => t.id === dbMatchup.team2_id) : null;
           
-          if (!team1 || !team2) {
-            console.warn(`Teams not found: team1_id=${dbMatchup.team1_id}, team2_id=${dbMatchup.team2_id}`);
+          // Handle bye weeks - team1 must exist, team2 can be null for byes
+          if (!team1) {
+            console.warn(`Team1 not found: team1_id=${dbMatchup.team1_id}`);
+            continue;
+          }
+          
+          // For non-bye matchups, team2 must exist
+          if (!dbMatchup.is_bye && !team2) {
+            console.warn(`Team2 not found for non-bye matchup: team2_id=${dbMatchup.team2_id}`);
+            continue;
+          }
+          
+          // Handle bye weeks separately
+          if (dbMatchup.is_bye || !team2) {
+            console.log(`🏆 Processing bye week for team ${team1.id}`);
+            
+            // Find team1's conference junction
+            let team1Junction = teamConferenceJunctions.find(j => 
+              j.team_id === team1.id && j.conference_id === conference.id
+            );
+            
+            if (!team1Junction) {
+              team1Junction = teamConferenceJunctions.find(j => j.team_id === team1.id);
+            }
+            
+            if (!team1Junction) {
+              console.warn(`Roster mapping not found for bye team ${team1.id}`);
+              continue;
+            }
+            
+            // Get team1's conference and Sleeper data
+            const team1Conference = conferences.find(c => c.id === team1Junction.conference_id);
+            if (!team1Conference) {
+              console.warn(`Conference not found for bye team ${team1.id}`);
+              continue;
+            }
+            
+            const team1Matchups = await SleeperApiService.fetchMatchups(team1Conference.league_id, parseInt(dbMatchup.week));
+            const team1Rosters = await SleeperApiService.fetchLeagueRosters(team1Conference.league_id);
+            const team1Users = await SleeperApiService.fetchLeagueUsers(team1Conference.league_id);
+            
+            const team1SleeperMatchup = team1Matchups.find(m => m.roster_id === team1Junction.roster_id);
+            
+            if (!team1SleeperMatchup) {
+              console.warn(`Sleeper matchup not found for bye team roster ID ${team1Junction.roster_id}`);
+              continue;
+            }
+            
+            // Build bye matchup with only team1
+            const byeMatchupTeams = await this.buildByeMatchupTeam(
+              team1,
+              team1SleeperMatchup,
+              team1Rosters,
+              team1Users,
+              team1Junction.roster_id
+            );
+            
+            const organizedMatchup: OrganizedMatchup = {
+              matchup_id: team1SleeperMatchup.matchup_id || 0,
+              conference,
+              teams: byeMatchupTeams,
+              status: 'completed', // Bye weeks are automatically "completed"
+              rawData: {
+                dbMatchup,
+                team1SleeperMatchup,
+                team2SleeperMatchup: null,
+                isOverride: dbMatchup.manual_override || false,
+                isBye: true,
+                playoffBracket: week >= 13 ? playoffBrackets.find(pb => pb.id === dbMatchup.id) : undefined
+              }
+            };
+            
+            organizedMatchups.push(organizedMatchup);
+            console.log(`✅ Successfully processed bye matchup ${dbMatchup.id}`);
             continue;
           }
 
@@ -112,15 +197,21 @@ export class SupabaseMatchupService {
             continue;
           }
 
-          // For interconference matchups, we need to get Sleeper data from both conferences
-          const isInterconference = team1Junction.conference_id !== team2Junction.conference_id;
+          // For playoff matchups, always treat as interconference since teams aren't actually 
+          // playing each other in Sleeper during playoffs, even if they're in the same conference
+          const isPlayoffMatchup = dbMatchup.is_playoff || parseInt(dbMatchup.week) >= 13;
+          const isInterconference = isPlayoffMatchup || (team1Junction.conference_id !== team2Junction.conference_id);
           
           let team1SleeperMatchup, team2SleeperMatchup;
           let team1SleeperRosters, team2SleeperRosters;
           let team1SleeperUsers, team2SleeperUsers;
 
           if (isInterconference) {
-            console.log(`🔀 Processing interconference matchup: Team ${team1.id} (conf ${team1Junction.conference_id}) vs Team ${team2.id} (conf ${team2Junction.conference_id})`);
+            if (isPlayoffMatchup) {
+              console.log(`🏆 Processing playoff matchup (treated as interconference): Team ${team1.id} (conf ${team1Junction.conference_id}) vs Team ${team2.id} (conf ${team2Junction.conference_id})`);
+            } else {
+              console.log(`🔀 Processing interconference matchup: Team ${team1.id} (conf ${team1Junction.conference_id}) vs Team ${team2.id} (conf ${team2Junction.conference_id})`);
+            }
             
             // Get conference details for both teams
             const team1Conference = conferences.find(c => c.id === team1Junction.conference_id);
@@ -157,7 +248,8 @@ export class SupabaseMatchupService {
             team2SleeperUsers = team2Users;
 
           } else {
-            // Same conference - use existing logic
+            // Same conference - this should only happen for regular season now
+            console.log(`📅 Processing same-conference regular season matchup: Team ${team1.id} vs Team ${team2.id} (conf ${team1Junction.conference_id})`);
             const sleeperMatchups = await SleeperApiService.fetchMatchups(conference.league_id, parseInt(dbMatchup.week));
             const sleeperRosters = await SleeperApiService.fetchLeagueRosters(conference.league_id);
             const sleeperUsers = await SleeperApiService.fetchLeagueUsers(conference.league_id);
@@ -177,8 +269,9 @@ export class SupabaseMatchupService {
             continue;
           }
 
-          // For interconference, skip the matchup_id verification since they're in different leagues
-          if (!isInterconference && team1SleeperMatchup.matchup_id !== team2SleeperMatchup.matchup_id) {
+          // For interconference and playoff matchups, skip the matchup_id verification 
+          // since they're either in different leagues or artificially matched for playoffs
+          if (!isInterconference && !isPlayoffMatchup && team1SleeperMatchup.matchup_id !== team2SleeperMatchup.matchup_id) {
             console.warn(`Teams are not matched against each other in Sleeper: ${team1SleeperMatchup.matchup_id} vs ${team2SleeperMatchup.matchup_id}`);
             continue;
           }
@@ -204,7 +297,8 @@ export class SupabaseMatchupService {
               dbMatchup,
               team1SleeperMatchup,
               team2SleeperMatchup,
-              isOverride: dbMatchup.manual_override || false
+              isOverride: dbMatchup.manual_override || false,
+              playoffBracket: week >= 13 ? playoffBrackets.find(pb => pb.id === dbMatchup.id) : undefined
             }
           };
           
@@ -272,7 +366,88 @@ export class SupabaseMatchupService {
   }
 
   /**
-   * Get database matchups for a specific season, week, and conference
+   * Get playoff brackets for a specific season, week, and conference (weeks 13+)
+   */
+  static async getPlayoffBrackets(
+    seasonId: number,
+    week: number,
+    conferenceId?: number
+  ): Promise<DbPlayoffBracket[]> {
+    try {
+      console.log(`🏆 Getting playoff brackets for season ${seasonId}, week ${week}, conference: ${conferenceId || 'all'}`);
+
+      const filters = [
+        { column: 'season_id', operator: 'eq' as const, value: seasonId },
+        { column: 'week', operator: 'eq' as const, value: week }
+      ];
+
+      // Note: playoff_brackets table doesn't have conference_id directly
+      // We'll need to filter by teams that belong to the specified conference
+      const response = await DatabaseService.getPlayoffBrackets({
+        filters,
+        limit: 100
+      });
+
+      let playoffBrackets = response.data || [];
+
+      // If conferenceId is specified, filter by teams in that conference
+      if (conferenceId && playoffBrackets.length > 0) {
+        const teamConferenceJunctions = await this.getTeamConferenceJunctions();
+        const teamsInConference = teamConferenceJunctions
+          .filter(j => j.conference_id === conferenceId)
+          .map(j => j.team_id);
+
+        playoffBrackets = playoffBrackets.filter(bracket => 
+          teamsInConference.includes(bracket.team1_id) || 
+          teamsInConference.includes(bracket.team2_id)
+        );
+      }
+
+      console.log(`🏆 Found ${playoffBrackets.length} playoff brackets`);
+      return playoffBrackets;
+    } catch (error) {
+      console.error('Error in getPlayoffBrackets:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Convert playoff brackets to matchup format for consistent processing
+   */
+  static convertPlayoffBracketsToMatchups(
+    playoffBrackets: DbPlayoffBracket[],
+    conferences: Conference[]
+  ): DatabaseMatchup[] {
+    return playoffBrackets.map(bracket => {
+      // For playoff brackets, we need to determine which conference this matchup belongs to
+      // This is a bit tricky since playoff brackets can be interconference
+      // For now, we'll use the first conference found, but this could be enhanced
+      const conference = conferences[0]; // This is a simplification
+      
+      const matchup: DatabaseMatchup = {
+        id: bracket.id,
+        conference_id: conference?.id || 1, // Fallback to 1 if no conference
+        week: bracket.week.toString(), // Convert to string to match matchups table format
+        team1_id: bracket.team1_id,
+        team2_id: bracket.team2_id, // This can be null for bye weeks
+        is_playoff: true,
+        manual_override: false,
+        matchup_status: bracket.winner_team_id ? 'completed' : 'upcoming',
+        notes: bracket.playoff_round_name || null,
+        matchup_type: 'playoff' as any, // This might need to be adjusted based on your enum
+        team1_score: bracket.team1_score || null,
+        team2_score: bracket.team2_score || null,
+        winning_team_id: bracket.winner_team_id || null,
+        // Add is_bye flag to help with processing
+        is_bye: bracket.is_bye || false
+      };
+      
+      return matchup;
+    });
+  }
+
+  /**
+   * Get database matchups for a specific season, week, and conference (weeks 1-12)
    */
   static async getDatabaseMatchups(
     seasonId: number,
@@ -370,8 +545,18 @@ export class SupabaseMatchupService {
     try {
       console.log('Getting organized matchups:', { seasonId, week, conferenceId });
 
-      // Get database matchups
-      const dbMatchups = await this.getDatabaseMatchups(seasonId, week, conferenceId);
+      // Get database matchups (using week-based logic)
+      let dbMatchups: DatabaseMatchup[] = [];
+      
+      if (week >= 13) {
+        console.log(`🏆 Week ${week} is playoffs - using playoff_brackets table`);
+        const playoffBrackets = await this.getPlayoffBrackets(seasonId, week, conferenceId);
+        const conferences = await this.getConferences(seasonId);
+        dbMatchups = this.convertPlayoffBracketsToMatchups(playoffBrackets, conferences);
+      } else {
+        console.log(`📅 Week ${week} is regular season - using matchups table`);
+        dbMatchups = await this.getDatabaseMatchups(seasonId, week, conferenceId);
+      }
       
       // Get conferences and teams
       const conferences = await this.getConferences(seasonId);
@@ -571,6 +756,39 @@ export class SupabaseMatchupService {
   }
 
   /**
+   * Build matchup team for bye weeks (single team)
+   */
+  private static async buildByeMatchupTeam(
+    team: Team,
+    sleeperMatchup: any,
+    sleeperRosters: any[],
+    sleeperUsers: any[],
+    rosterId: number
+  ): Promise<OrganizedMatchupTeam[]> {
+    try {
+      const roster = sleeperRosters.find(r => r.roster_id === rosterId);
+      const user = sleeperUsers.find(u => u.user_id === roster?.owner_id);
+      
+      const matchupTeam: OrganizedMatchupTeam = {
+        roster_id: rosterId,
+        points: sleeperMatchup.points || 0,
+        projected_points: sleeperMatchup.projected_points || 0,
+        owner: user || null,
+        roster: roster || null,
+        team: team,
+        players_points: sleeperMatchup.players_points || {},
+        starters_points: sleeperMatchup.starters_points || [],
+        matchup_starters: sleeperMatchup.starters || []
+      };
+      
+      return [matchupTeam];
+    } catch (error) {
+      console.error('Error building bye matchup team:', error);
+      return [];
+    }
+  }
+
+  /**
    * Determine matchup status from Sleeper matchup data
    */
   private static determineMatchupStatusFromSleeper(
@@ -579,7 +797,7 @@ export class SupabaseMatchupService {
   ): 'live' | 'completed' | 'upcoming' {
     // Check if both teams have points data
     const team1HasPoints = team1SleeperMatchup.points && team1SleeperMatchup.points > 0;
-    const team2HasPoints = team2SleeperMatchup.points && team2SleeperMatchup.points > 0;
+    const team2HasPoints = team2SleeperMatchup && team2SleeperMatchup.points && team2SleeperMatchup.points > 0;
     
     // If both teams have points, it's likely completed
     if (team1HasPoints && team2HasPoints) {
