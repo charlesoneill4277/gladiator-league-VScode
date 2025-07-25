@@ -6,6 +6,7 @@ export interface StandingsData {
   team_name: string;
   owner_name: string;
   conference_name: string;
+  team_logourl: string;
   wins: number;
   losses: number;
   ties: number;
@@ -100,6 +101,7 @@ export class StandingsService {
           team_name: team?.team_name || `Team ${record.team_id}`,
           owner_name: team?.owner_name || 'Unknown Owner',
           conference_name: conference?.conference_name || 'Unknown Conference',
+          team_logourl: team?.team_logourl || '',
           wins,
           losses,
           ties,

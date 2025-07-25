@@ -47,6 +47,7 @@ interface ScheduleMatchup {
   isOverridden: boolean;
   overrideReason: string | null;
   matchupStatus: string;
+  playoffRoundName: string | null;
 }
 
 interface TeamRosterData {
@@ -57,8 +58,26 @@ interface TeamRosterData {
   conferenceData: ConferenceData;
 }
 
+interface TeamRecord {
+  id: number;
+  team_id: number;
+  conference_id: number;
+  season_id: number;
+  wins: number;
+  losses: number;
+  ties?: number; // May not be in all records
+  points_for: number;
+  points_against: number;
+  point_diff: number;
+  streak?: string;
+  rank?: number; // Conference rank
+  leagueRankPointsFor?: number; // League-wide rank for points for
+  leagueRankPointsAgainst?: number; // League-wide rank for points against
+  leagueRankPointDiff?: number; // League-wide rank for point differential
+}
+
 const TeamDetailPage: React.FC = () => {
-  const { teamId } = useParams<{teamId: string;}>();
+  const { teamId } = useParams<{ teamId: string; }>();
   const { selectedSeason, currentSeasonConfig } = useApp();
   const [activeTab, setActiveTab] = useState('roster');
   const [teamRosterData, setTeamRosterData] = useState<TeamRosterData | null>(null);
@@ -66,6 +85,7 @@ const TeamDetailPage: React.FC = () => {
   const [transactionsLoading, setTransactionsLoading] = useState(false);
   const [schedule, setSchedule] = useState<ScheduleMatchup[]>([]);
   const [scheduleLoading, setScheduleLoading] = useState(false);
+  const [teamRecord, setTeamRecord] = useState<TeamRecord | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
@@ -88,10 +108,19 @@ const TeamDetailPage: React.FC = () => {
     }
   }, [activeTab, teamRosterData, selectedSeason]);
 
-  // Clear schedule when season changes
+  useEffect(() => {
+    if ((activeTab === 'schedule' || activeTab === 'performance') && teamRosterData && !teamRecord) {
+      fetchTeamRecord();
+    }
+  }, [activeTab, teamRosterData, selectedSeason]);
+
+  // Clear schedule and team record when season changes
   useEffect(() => {
     if (schedule.length > 0) {
       setSchedule([]);
+    }
+    if (teamRecord) {
+      setTeamRecord(null);
     }
   }, [selectedSeason]);
 
@@ -204,7 +233,7 @@ const TeamDetailPage: React.FC = () => {
 
       // Get all teams for team lookup
       const teamsResult = await DatabaseService.getTeams({});
-      
+
       // Get ALL team-conference junctions for roster_id to team mapping across all conferences
       const allJunctionResult = await DatabaseService.getTeamConferenceJunctions({
         filters: [
@@ -238,18 +267,18 @@ const TeamDetailPage: React.FC = () => {
             const ourTeamId = teamRosterData.teamData.id;
             const transactionConferenceId = tx.conference_id;
             const transactionRosterIds = parsedData.roster_ids || [];
-            
+
             // Find our team's roster_id in the specific conference of this transaction
-            const ourJunctionInThisConference = teamJunctionResult.data?.find(j => 
-              j.team_id === ourTeamId && 
+            const ourJunctionInThisConference = teamJunctionResult.data?.find(j =>
+              j.team_id === ourTeamId &&
               j.conference_id === transactionConferenceId
             );
-            
+
             // If we don't have a junction record for this team in this conference, skip
             if (!ourJunctionInThisConference) {
               return null;
             }
-            
+
             // Only process transactions that involve our team's roster_id in this specific conference
             if (!transactionRosterIds.includes(ourJunctionInThisConference.roster_id)) {
               return null;
@@ -257,16 +286,16 @@ const TeamDetailPage: React.FC = () => {
 
             // Create a helper function to get team name from roster_id and conference_id
             const getTeamNameFromRosterId = (rosterId: number | string): string => {
-              const junction = allJunctionResult.data?.find(j => 
-                j.roster_id.toString() === rosterId.toString() && 
+              const junction = allJunctionResult.data?.find(j =>
+                j.roster_id.toString() === rosterId.toString() &&
                 j.conference_id === tx.conference_id
               );
-              
+
               if (junction && teamsResult.data) {
                 const team = teamsResult.data.find(t => t.id === junction.team_id);
                 return team?.team_name || 'Unknown Team';
               }
-              
+
               return 'Unknown Team';
             };
 
@@ -301,7 +330,7 @@ const TeamDetailPage: React.FC = () => {
             // Generate transaction description based on type and involved teams
             let transactionDescription = '';
             const transactionType = parsedData.type || tx.type;
-            
+
             // Get all teams involved in the transaction
             const involvedTeams = new Set();
             if (parsedData.roster_ids) {
@@ -328,14 +357,14 @@ const TeamDetailPage: React.FC = () => {
                   const playerMoves = [];
                   addedPlayers.forEach(p => playerMoves.push(`${p.name} to ${p.team}`));
                   droppedPlayers.forEach(p => playerMoves.push(`${p.name} from ${p.team}`));
-                  
+
                   if (involvedTeams.size > 1) {
                     transactionDescription = `[${conferenceName}] Trade between ${Array.from(involvedTeams).join(' and ')}: ${playerMoves.join(', ')}`;
                   } else {
                     transactionDescription = `[${conferenceName}] ${primaryTeamName} trade: ${playerMoves.join(', ')}`;
                   }
                 } else if (parsedData.draft_picks && parsedData.draft_picks.length > 0) {
-                  const picks = parsedData.draft_picks.map(pick => 
+                  const picks = parsedData.draft_picks.map(pick =>
                     `${pick.season} Round ${pick.round} pick`
                   );
                   transactionDescription = `[${conferenceName}] Trade involving ${picks.join(', ')}`;
@@ -343,7 +372,7 @@ const TeamDetailPage: React.FC = () => {
                   transactionDescription = `[${conferenceName}] Trade between ${Array.from(involvedTeams).join(' and ')}`;
                 }
                 break;
-              
+
               case 'waiver':
                 if (addedPlayers.length > 0 && droppedPlayers.length > 0) {
                   transactionDescription = `[${conferenceName}] ${primaryTeamName} claimed ${addedPlayers.map(p => p.name).join(', ')} from waivers, dropped ${droppedPlayers.map(p => p.name).join(', ')}`;
@@ -355,7 +384,7 @@ const TeamDetailPage: React.FC = () => {
                   transactionDescription = `[${conferenceName}] ${primaryTeamName} made a waiver claim`;
                 }
                 break;
-              
+
               case 'free_agent':
                 if (addedPlayers.length > 0 && droppedPlayers.length > 0) {
                   transactionDescription = `[${conferenceName}] ${primaryTeamName} added ${addedPlayers.map(p => p.name).join(', ')}, dropped ${droppedPlayers.map(p => p.name).join(', ')}`;
@@ -367,16 +396,16 @@ const TeamDetailPage: React.FC = () => {
                   transactionDescription = `[${conferenceName}] ${primaryTeamName} made a free agent transaction`;
                 }
                 break;
-              
+
               default:
                 transactionDescription = `[${conferenceName}] ${primaryTeamName} completed a ${transactionType || 'transaction'}`;
             }
 
             // Map database transaction type to ProcessedTransaction type
-            const mappedType = parsedData.type === 'trade' ? 'trade' : 
-                              parsedData.type === 'waiver' ? 'waiver' : 
-                              parsedData.type === 'free_agent' ? 'free_agent' : 
-                              'commissioner';
+            const mappedType = parsedData.type === 'trade' ? 'trade' :
+              parsedData.type === 'waiver' ? 'waiver' :
+                parsedData.type === 'free_agent' ? 'free_agent' :
+                  'commissioner';
 
             return {
               id: tx.id.toString(),
@@ -449,7 +478,7 @@ const TeamDetailPage: React.FC = () => {
 
       // Find the junction for the selected season
       const seasonConferenceIds = seasonConferences.map(conf => conf.dbConferenceId);
-      const teamJunctionForSeason = teamJunctionResult.data.find(junction => 
+      const teamJunctionForSeason = teamJunctionResult.data.find(junction =>
         seasonConferenceIds.includes(junction.conference_id)
       );
 
@@ -458,32 +487,6 @@ const TeamDetailPage: React.FC = () => {
         setSchedule([]);
         return;
       }
-
-      // Query matchups where this team is involved (team1_id OR team2_id)
-      const matchupsResult = await DatabaseService.getMatchups({
-        filters: [
-          { column: 'conference_id', operator: 'eq', value: teamJunctionForSeason.conference_id }
-        ],
-        orderBy: { column: 'week', ascending: true }
-      });
-
-      if (matchupsResult.error || !matchupsResult.data) {
-        throw new Error(matchupsResult.error || 'Failed to fetch matchups');
-      }
-
-      // Filter matchups to only include those where this team is involved
-      const teamMatchups = matchupsResult.data.filter(matchup => 
-        matchup.team1_id === teamRosterData.teamData.id || 
-        matchup.team2_id === teamRosterData.teamData.id
-      );
-
-      // Get admin overrides for this season/conference
-      const overridesResult = await DatabaseService.getMatchupAdminOverrides({
-        filters: [
-          { column: 'conference_id', operator: 'eq', value: teamJunctionForSeason.conference_id },
-          { column: 'is_active', operator: 'eq', value: true }
-        ]
-      });
 
       // Get all teams for opponent name lookup
       const teamsResult = await DatabaseService.getTeams({});
@@ -494,10 +497,77 @@ const TeamDetailPage: React.FC = () => {
         });
       }
 
-      // Process matchups and apply overrides
-      const processedSchedule = teamMatchups.map(matchup => {
+      // Get season ID for playoff bracket lookup
+      const seasonResult = await DatabaseService.getSeasons({
+        filters: [{ column: 'season_year', operator: 'eq', value: selectedSeason }]
+      });
+
+      if (seasonResult.error || !seasonResult.data || seasonResult.data.length === 0) {
+        throw new Error('Season not found');
+      }
+
+      const seasonId = seasonResult.data[0].id;
+
+      // Get all conferences for this season to handle cross-conference manual overrides
+      const allSeasonConferences = await DatabaseService.getConferences({
+        filters: [{ column: 'season_id', operator: 'eq', value: seasonId }]
+      });
+
+      const allConferenceIds = allSeasonConferences.data?.map(conf => conf.id) || [];
+
+      // REGULAR SEASON: First get matchups from team's own conference
+      const regularSeasonMatchupsResult = await DatabaseService.getMatchups({
+        filters: [
+          { column: 'conference_id', operator: 'eq', value: teamJunctionForSeason.conference_id },
+          { column: 'week', operator: 'lte', value: 12 }
+        ],
+        orderBy: { column: 'week', ascending: true }
+      });
+
+      // Find weeks with manual overrides in the team's conference
+      const manualOverrideWeeks = new Set();
+      regularSeasonMatchupsResult.data?.forEach(matchup => {
+        if (matchup.manual_override) {
+          manualOverrideWeeks.add(matchup.week);
+        }
+      });
+
+      // For manual override weeks, get ALL matchups across ALL conferences in the season
+      let crossConferenceMatchups = [];
+      if (manualOverrideWeeks.size > 0) {
+        console.log(`Found manual override weeks: ${Array.from(manualOverrideWeeks).join(', ')}`);
+
+        const crossConferenceResult = await DatabaseService.getMatchups({
+          filters: [
+            { column: 'conference_id', operator: 'in', value: allConferenceIds },
+            { column: 'week', operator: 'in', value: Array.from(manualOverrideWeeks) }
+          ],
+          orderBy: { column: 'week', ascending: true }
+        });
+
+        crossConferenceMatchups = crossConferenceResult.data || [];
+        console.log(`Found ${crossConferenceMatchups.length} cross-conference matchups for manual override weeks`);
+      }
+
+      // Get admin overrides for regular season
+      const overridesResult = await DatabaseService.getMatchupAdminOverrides({
+        filters: [
+          { column: 'conference_id', operator: 'eq', value: teamJunctionForSeason.conference_id },
+          { column: 'is_active', operator: 'eq', value: true }
+        ]
+      });
+
+      // Process regular season matchups
+      const regularSeasonSchedule = [];
+
+      // Process normal conference matchups (non-manual override weeks)
+      const normalMatchups = (regularSeasonMatchupsResult.data || []).filter(matchup =>
+        !matchup.manual_override
+      );
+
+      normalMatchups.forEach(matchup => {
         // Check if there's an admin override for this matchup
-        const override = overridesResult.data?.find(override => 
+        const override = overridesResult.data?.find(override =>
           override.conference_id === matchup.conference_id &&
           override.week === parseInt(matchup.week) &&
           override.is_active
@@ -505,40 +575,181 @@ const TeamDetailPage: React.FC = () => {
 
         let team1Id, team2Id;
         let isOverridden = false;
+        let overrideReason = null;
 
         if (override) {
-          // Use overridden teams
+          // Use overridden teams from admin override table
           team1Id = override.override_team1_id;
           team2Id = override.override_team2_id;
           isOverridden = true;
+          overrideReason = override.override_reason;
+          console.log(`Week ${matchup.week}: Using admin override - teams ${team1Id} vs ${team2Id}`);
         } else {
           // Use original teams
           team1Id = matchup.team1_id;
           team2Id = matchup.team2_id;
         }
 
-        // Only include if our team is involved (after overrides)
-        if (team1Id !== teamRosterData.teamData.id && team2Id !== teamRosterData.teamData.id) {
-          return null;
-        }
+        // Only include if our team is involved
+        if (team1Id === teamRosterData.teamData.id || team2Id === teamRosterData.teamData.id) {
+          // Determine opponent
+          const isTeam1 = team1Id === teamRosterData.teamData.id;
+          const opponentId = isTeam1 ? team2Id : team1Id;
+          const opponentName = teamLookup.get(opponentId) || 'Unknown Team';
 
-        // Determine opponent
-        const isTeam1 = team1Id === teamRosterData.teamData.id;
-        const opponentId = isTeam1 ? team2Id : team1Id;
-        const opponentName = teamLookup.get(opponentId) || 'Unknown Team';
+          // Determine result
+          let result: 'W' | 'L' | 'T' | 'TBD' = 'TBD';
+          let teamScore = null;
+          let opponentScore = null;
+
+          if (matchup.team1_score !== null && matchup.team2_score !== null) {
+            if (isTeam1) {
+              teamScore = matchup.team1_score;
+              opponentScore = matchup.team2_score;
+            } else {
+              teamScore = matchup.team2_score;
+              opponentScore = matchup.team1_score;
+            }
+
+            if (teamScore > opponentScore) {
+              result = 'W';
+            } else if (teamScore < opponentScore) {
+              result = 'L';
+            } else {
+              result = 'T';
+            }
+          }
+
+          regularSeasonSchedule.push({
+            week: matchup.week,
+            opponent: opponentName,
+            isHome: isTeam1,
+            result,
+            teamScore,
+            opponentScore,
+            isPlayoff: false,
+            isOverridden,
+            overrideReason,
+            matchupStatus: matchup.matchup_status || 'scheduled',
+            playoffRoundName: null
+          });
+        }
+      });
+
+      // Process cross-conference matchups for manual override weeks
+      crossConferenceMatchups.forEach(matchup => {
+        // For manual overrides, the teams in the matchup are already correct
+        const team1Id = matchup.team1_id;
+        const team2Id = matchup.team2_id;
+
+        // Only include if our team is involved
+        if (team1Id === teamRosterData.teamData.id || team2Id === teamRosterData.teamData.id) {
+          console.log(`Week ${matchup.week}: Found cross-conference manual override matchup - teams ${team1Id} vs ${team2Id}`);
+
+          // Determine opponent
+          const isTeam1 = team1Id === teamRosterData.teamData.id;
+          const opponentId = isTeam1 ? team2Id : team1Id;
+          const opponentName = teamLookup.get(opponentId) || 'Unknown Team';
+
+          // Determine result
+          let result: 'W' | 'L' | 'T' | 'TBD' = 'TBD';
+          let teamScore = null;
+          let opponentScore = null;
+
+          if (matchup.team1_score !== null && matchup.team2_score !== null) {
+            if (isTeam1) {
+              teamScore = matchup.team1_score;
+              opponentScore = matchup.team2_score;
+            } else {
+              teamScore = matchup.team2_score;
+              opponentScore = matchup.team1_score;
+            }
+
+            if (teamScore > opponentScore) {
+              result = 'W';
+            } else if (teamScore < opponentScore) {
+              result = 'L';
+            } else {
+              result = 'T';
+            }
+          }
+
+          regularSeasonSchedule.push({
+            week: matchup.week,
+            opponent: opponentName,
+            isHome: isTeam1,
+            result,
+            teamScore,
+            opponentScore,
+            isPlayoff: false,
+            isOverridden: true,
+            overrideReason: 'Interconference',
+            matchupStatus: matchup.matchup_status || 'scheduled',
+            playoffRoundName: null
+          });
+        }
+      });
+
+      // PLAYOFFS: Query playoff brackets for weeks 13+
+      const playoffBracketsResult = await DatabaseService.getPlayoffBrackets({
+        filters: [
+          { column: 'season_id', operator: 'eq', value: seasonId }
+        ],
+        orderBy: { column: 'week', ascending: true }
+      });
+
+      // Filter playoff brackets to only include those where this team is involved
+      const teamPlayoffMatchups = playoffBracketsResult.data?.filter(bracket =>
+        bracket.team1_id === teamRosterData.teamData.id ||
+        bracket.team2_id === teamRosterData.teamData.id
+      ) || [];
+
+      // Define playoff round names based on week
+      const getPlayoffRoundName = (week: number): string => {
+        switch (week) {
+          case 13: return 'Conference Championship';
+          case 14: return 'Wildcard';
+          case 15: return 'Quarterfinals';
+          case 16: return 'Semifinals';
+          case 17: return 'Colosseum Championship';
+          default: return `Playoff Week ${week}`;
+        }
+      };
+
+      // Process playoff matchups
+      const playoffSchedule = teamPlayoffMatchups.map(bracket => {
+        // Check if this is a bye week (Week 14 only)
+        let opponentName = 'Unknown Team';
+        let isTeam1 = true;
+
+        if (bracket.is_bye && bracket.week === 14) {
+          // This is a bye week
+          opponentName = 'BYE';
+          isTeam1 = bracket.team1_id === teamRosterData.teamData.id;
+        } else {
+          // Regular playoff matchup
+          isTeam1 = bracket.team1_id === teamRosterData.teamData.id;
+          const opponentId = isTeam1 ? bracket.team2_id : bracket.team1_id;
+          opponentName = teamLookup.get(opponentId) || 'Unknown Team';
+        }
 
         // Determine result
         let result: 'W' | 'L' | 'T' | 'TBD' = 'TBD';
         let teamScore = null;
         let opponentScore = null;
 
-        if (matchup.team1_score !== null && matchup.team2_score !== null) {
+        if (bracket.is_bye && bracket.week === 14) {
+          // Bye weeks are automatic wins
+          result = 'W';
+          teamScore = null; // No score for bye weeks
+          opponentScore = null;
+        } else if (bracket.team1_score !== null && bracket.team2_score !== null) {
           if (isTeam1) {
-            teamScore = matchup.team1_score;
-            opponentScore = matchup.team2_score;
+            teamScore = bracket.team1_score;
+            opponentScore = bracket.team2_score;
           } else {
-            teamScore = matchup.team2_score;
-            opponentScore = matchup.team1_score;
+            teamScore = bracket.team2_score;
+            opponentScore = bracket.team1_score;
           }
 
           if (teamScore > opponentScore) {
@@ -551,25 +762,32 @@ const TeamDetailPage: React.FC = () => {
         }
 
         return {
-          week: matchup.week,
+          week: bracket.week.toString(),
           opponent: opponentName,
-          isHome: isTeam1,
+          isHome: isTeam1, // For playoffs, this might not be as meaningful
           result,
           teamScore,
           opponentScore,
-          isPlayoff: matchup.is_playoff || false,
-          isOverridden,
-          overrideReason: override?.override_reason || null,
-          matchupStatus: matchup.matchup_status || 'scheduled'
+          isPlayoff: true,
+          isOverridden: false,
+          overrideReason: null,
+          matchupStatus: bracket.winning_team_id ? 'completed' : 'scheduled',
+          playoffRoundName: getPlayoffRoundName(bracket.week)
         };
-      }).filter(matchup => matchup !== null);
+      });
 
-      setSchedule(processedSchedule);
-      console.log(`Loaded ${processedSchedule.length} matchups for ${selectedSeason} season`);
+      // Sort regular season schedule by week
+      regularSeasonSchedule.sort((a, b) => parseInt(a.week) - parseInt(b.week));
+
+      // Combine regular season and playoff schedules
+      const combinedSchedule = [...regularSeasonSchedule, ...playoffSchedule];
+
+      setSchedule(combinedSchedule);
+      console.log(`Loaded ${combinedSchedule.length} matchups for ${selectedSeason} season (${regularSeasonSchedule.length} regular season, ${playoffSchedule.length} playoff)`);
 
       toast({
         title: 'Schedule Loaded',
-        description: `Found ${processedSchedule.length} matchups for ${selectedSeason} season`
+        description: `Found ${combinedSchedule.length} matchups for ${selectedSeason} season`
       });
 
     } catch (error) {
@@ -585,30 +803,153 @@ const TeamDetailPage: React.FC = () => {
     }
   };
 
+  const fetchTeamRecord = async () => {
+    if (!teamRosterData || !currentSeasonConfig) return;
+
+    try {
+      console.log(`Fetching team record for team ${teamRosterData.teamData.team_name} for season ${selectedSeason}`);
+
+      // Get season ID
+      const seasonResult = await DatabaseService.getSeasons({
+        filters: [{ column: 'season_year', operator: 'eq', value: selectedSeason }]
+      });
+
+      if (seasonResult.error || !seasonResult.data || seasonResult.data.length === 0) {
+        throw new Error('Season not found');
+      }
+
+      const seasonId = seasonResult.data[0].id;
+
+      // Find the team's conference for the selected season
+      const seasonConferences = currentSeasonConfig.conferences.filter(conf => conf.dbConferenceId);
+      if (seasonConferences.length === 0) {
+        console.log('No conferences found for selected season');
+        return;
+      }
+
+      const teamJunctionResult = await DatabaseService.getTeamConferenceJunctions({
+        filters: [
+          { column: 'team_id', operator: 'eq', value: teamRosterData.teamData.id }
+        ]
+      });
+
+      if (teamJunctionResult.error || !teamJunctionResult.data) {
+        throw new Error('Failed to get team conference mappings');
+      }
+
+      const seasonConferenceIds = seasonConferences.map(conf => conf.dbConferenceId);
+      const teamJunctionForSeason = teamJunctionResult.data.find(junction =>
+        seasonConferenceIds.includes(junction.conference_id)
+      );
+
+      if (!teamJunctionForSeason) {
+        console.log(`Team not found in any conference for season ${selectedSeason}`);
+        return;
+      }
+
+      // Fetch team record
+      const teamRecordResult = await DatabaseService.getTeamRecords({
+        filters: [
+          { column: 'team_id', operator: 'eq', value: teamRosterData.teamData.id },
+          { column: 'conference_id', operator: 'eq', value: teamJunctionForSeason.conference_id },
+          { column: 'season_id', operator: 'eq', value: seasonId }
+        ]
+      });
+
+      if (teamRecordResult.error || !teamRecordResult.data || teamRecordResult.data.length === 0) {
+        console.log('No team record found for this season');
+        return;
+      }
+
+      const record = teamRecordResult.data[0] as TeamRecord;
+
+      // Fetch all team records in the same conference for conference ranking
+      const conferenceRecordsResult = await DatabaseService.getTeamRecords({
+        filters: [
+          { column: 'conference_id', operator: 'eq', value: teamJunctionForSeason.conference_id },
+          { column: 'season_id', operator: 'eq', value: seasonId }
+        ]
+      });
+
+      if (conferenceRecordsResult.data) {
+        // Sort teams by wins (desc), then by points_for (desc) to calculate conference rank
+        const sortedRecords = conferenceRecordsResult.data.sort((a, b) => {
+          if (b.wins !== a.wins) {
+            return b.wins - a.wins; // More wins = better rank
+          }
+          return b.points_for - a.points_for; // More points = better rank
+        });
+
+        // Find the conference rank of our team
+        const rank = sortedRecords.findIndex(r => r.team_id === teamRosterData.teamData.id) + 1;
+        record.rank = rank;
+      }
+
+      // Fetch ALL team records across ALL conferences for league-wide rankings
+      const allLeagueRecordsResult = await DatabaseService.getTeamRecords({
+        filters: [
+          { column: 'season_id', operator: 'eq', value: seasonId }
+        ]
+      });
+
+      if (allLeagueRecordsResult.data) {
+        // Calculate league-wide ranking for Points For (highest = rank 1)
+        const sortedByPointsFor = allLeagueRecordsResult.data
+          .slice()
+          .sort((a, b) => b.points_for - a.points_for);
+        const pointsForRank = sortedByPointsFor.findIndex(r => r.team_id === teamRosterData.teamData.id) + 1;
+        record.leagueRankPointsFor = pointsForRank;
+
+        // Calculate league-wide ranking for Points Against (lowest = rank 1)
+        const sortedByPointsAgainst = allLeagueRecordsResult.data
+          .slice()
+          .sort((a, b) => a.points_against - b.points_against);
+        const pointsAgainstRank = sortedByPointsAgainst.findIndex(r => r.team_id === teamRosterData.teamData.id) + 1;
+        record.leagueRankPointsAgainst = pointsAgainstRank;
+
+        // Calculate league-wide ranking for Point Differential (highest = rank 1)
+        const sortedByPointDiff = allLeagueRecordsResult.data
+          .slice()
+          .sort((a, b) => b.point_diff - a.point_diff);
+        const pointDiffRank = sortedByPointDiff.findIndex(r => r.team_id === teamRosterData.teamData.id) + 1;
+        record.leagueRankPointDiff = pointDiffRank;
+
+        console.log(`League rankings - Points For: #${pointsForRank}, Points Against: #${pointsAgainstRank}, Point Diff: #${pointDiffRank}`);
+      }
+
+      setTeamRecord(record);
+      console.log(`Loaded team record:`, record);
+
+    } catch (error) {
+      console.error('Error fetching team record:', error);
+      // Don't show toast for team record errors as it's not critical
+    }
+  };
+
   const getPositionColor = (position: string) => {
     switch (position) {
-      case 'QB':return 'bg-red-100 text-red-800';
-      case 'RB':return 'bg-green-100 text-green-800';
-      case 'WR':return 'bg-blue-100 text-blue-800';
-      case 'TE':return 'bg-yellow-100 text-yellow-800';
-      case 'K':return 'bg-purple-100 text-purple-800';
-      case 'DEF':return 'bg-gray-100 text-gray-800';
-      default:return 'bg-gray-100 text-gray-800';
+      case 'QB': return 'bg-red-100 text-red-800';
+      case 'RB': return 'bg-green-100 text-green-800';
+      case 'WR': return 'bg-blue-100 text-blue-800';
+      case 'TE': return 'bg-yellow-100 text-yellow-800';
+      case 'K': return 'bg-purple-100 text-purple-800';
+      case 'DEF': return 'bg-gray-100 text-gray-800';
+      default: return 'bg-gray-100 text-gray-800';
     }
   };
 
   const getSlotPositionColor = (position: string) => {
     switch (position) {
-      case 'FLEX':return 'bg-orange-100 text-orange-800';
-      case 'SUPER_FLEX':return 'bg-pink-100 text-pink-800';
-      default:return 'bg-slate-100 text-slate-800';
+      case 'FLEX': return 'bg-orange-100 text-orange-800';
+      case 'SUPER_FLEX': return 'bg-pink-100 text-pink-800';
+      default: return 'bg-slate-100 text-slate-800';
     }
   };
 
   const getInjuryBadge = (status: string | null) => {
     if (!status || status === 'Active') return null;
 
-    const variants: {[key: string]: "default" | "destructive" | "secondary" | "outline"} = {
+    const variants: { [key: string]: "default" | "destructive" | "secondary" | "outline" } = {
       'IR': 'destructive',
       'Out': 'destructive',
       'Doubtful': 'destructive',
@@ -657,12 +998,12 @@ const TeamDetailPage: React.FC = () => {
 
   const { roster, organizedRoster, allPlayers, teamData, conferenceData } = teamRosterData;
 
-  // Calculate additional stats
-  const totalPoints = SleeperApiService.formatPoints(roster.settings.fpts, roster.settings.fpts_decimal);
-  const totalPointsAgainst = SleeperApiService.formatPoints(roster.settings.fpts_against, roster.settings.fpts_against_decimal);
-  const gamesPlayed = roster.settings.wins + roster.settings.losses + roster.settings.ties;
+  // Calculate additional stats - use team_records data if available, fallback to Sleeper data
+  const totalPoints = teamRecord?.points_for ?? SleeperApiService.formatPoints(roster.settings.fpts, roster.settings.fpts_decimal);
+  const totalPointsAgainst = teamRecord?.points_against ?? SleeperApiService.formatPoints(roster.settings.fpts_against, roster.settings.fpts_against_decimal);
+  const gamesPlayed = teamRecord ? (teamRecord.wins + teamRecord.losses + (teamRecord.ties || 0)) : (roster.settings.wins + roster.settings.losses + roster.settings.ties);
   const avgPointsPerGame = SleeperApiService.calculatePointsPerGame(totalPoints, gamesPlayed);
-  const winPercentage = gamesPlayed > 0 ? roster.settings.wins / gamesPlayed * 100 : 0;
+  const winPercentage = gamesPlayed > 0 ? ((teamRecord?.wins ?? roster.settings.wins) / gamesPlayed * 100) : 0;
 
   return (
     <div className="space-y-6">
@@ -687,7 +1028,7 @@ const TeamDetailPage: React.FC = () => {
             <h1 className="text-3xl font-bold">{teamData.team_name}</h1>
             <p className="text-muted-foreground">Owned by {teamData.owner_name}</p>
             {teamData.co_owner_name &&
-            <p className="text-sm text-muted-foreground">Co-owner: {teamData.co_owner_name}</p>
+              <p className="text-sm text-muted-foreground">Co-owner: {teamData.co_owner_name}</p>
             }
             <div className="flex items-center space-x-2 mt-2">
               <Badge variant="outline">{conferenceData.conference_name}</Badge>
@@ -765,7 +1106,7 @@ const TeamDetailPage: React.FC = () => {
                                 {player ? SleeperApiService.getPlayerName(player) : 'Unknown Player'}
                               </span>
                               {player &&
-                              <Badge className={getPositionColor(player.position)}>
+                                <Badge className={getPositionColor(player.position)}>
                                   {player.position}
                                 </Badge>
                               }
@@ -816,7 +1157,7 @@ const TeamDetailPage: React.FC = () => {
                           </TableCell>
                           <TableCell>
                             {player &&
-                            <Badge className={getPositionColor(player.position)}>
+                              <Badge className={getPositionColor(player.position)}>
                                 {player.position}
                               </Badge>
                             }
@@ -829,7 +1170,7 @@ const TeamDetailPage: React.FC = () => {
 
                     })}
                     {organizedRoster.bench.length === 0 &&
-                    <TableRow>
+                      <TableRow>
                         <TableCell colSpan={4} className="text-center text-muted-foreground py-4">
                           No bench players
                         </TableCell>
@@ -843,7 +1184,7 @@ const TeamDetailPage: React.FC = () => {
 
           {/* Injured Reserve */}
           {organizedRoster.ir.length > 0 &&
-          <Card>
+            <Card>
               <CardHeader>
                 <CardTitle className="flex items-center space-x-2">
                   <AlertCircle className="h-5 w-5" />
@@ -866,18 +1207,18 @@ const TeamDetailPage: React.FC = () => {
                     </TableHeader>
                     <TableBody>
                       {organizedRoster.ir.map((playerId) => {
-                      const player = allPlayers[playerId];
-                      return (
-                        <TableRow key={`ir-${playerId}`}>
+                        const player = allPlayers[playerId];
+                        return (
+                          <TableRow key={`ir-${playerId}`}>
                             <TableCell className="font-medium">
                               {player ? SleeperApiService.getPlayerName(player) : 'Unknown Player'}
                             </TableCell>
                             <TableCell>
                               {player &&
-                            <Badge className={getPositionColor(player.position)}>
+                                <Badge className={getPositionColor(player.position)}>
                                   {player.position}
                                 </Badge>
-                            }
+                              }
                             </TableCell>
                             <TableCell>{player?.team || 'N/A'}</TableCell>
                             <TableCell>
@@ -885,7 +1226,7 @@ const TeamDetailPage: React.FC = () => {
                             </TableCell>
                           </TableRow>);
 
-                    })}
+                      })}
                     </TableBody>
                   </Table>
                 </div>
@@ -901,8 +1242,11 @@ const TeamDetailPage: React.FC = () => {
               <CardHeader>
                 <CardTitle className="flex items-center space-x-2">
                   <Trophy className="h-5 w-5" />
-                  <span>Season Stats</span>
+                  <span>{selectedSeason} Season Stats</span>
                 </CardTitle>
+                <CardDescription>
+                  {teamRecord ? 'Official season statistics from team records' : 'Statistics from current roster data'}
+                </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
@@ -924,6 +1268,22 @@ const TeamDetailPage: React.FC = () => {
                     <p className="text-sm text-muted-foreground">Win Percentage</p>
                     <p className="text-2xl font-bold">{winPercentage.toFixed(1)}%</p>
                   </div>
+                  {teamRecord && (
+                    <>
+                      <div>
+                        <p className="text-sm text-muted-foreground">Conference Rank</p>
+                        <p className="text-2xl font-bold text-blue-600">
+                          {teamRecord.rank ? `#${teamRecord.rank}` : '-'}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-muted-foreground">Current Streak</p>
+                        <p className="text-2xl font-bold">
+                          {teamRecord.streak || '-'}
+                        </p>
+                      </div>
+                    </>
+                  )}
                 </div>
               </CardContent>
             </Card>
@@ -975,12 +1335,12 @@ const TeamDetailPage: React.FC = () => {
               size="sm">
 
               {transactionsLoading ?
-              <>
+                <>
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                   Loading...
                 </> :
 
-              <>
+                <>
                   <RefreshCw className="h-4 w-4 mr-2" />
                   Refresh
                 </>
@@ -989,7 +1349,7 @@ const TeamDetailPage: React.FC = () => {
           </div>
 
           {transactionsLoading && transactions.length === 0 ?
-          <Card>
+            <Card>
               <CardContent className="flex items-center justify-center min-h-32">
                 <div className="flex items-center space-x-2">
                   <Loader2 className="h-6 w-6 animate-spin" />
@@ -997,43 +1357,43 @@ const TeamDetailPage: React.FC = () => {
                 </div>
               </CardContent>
             </Card> :
-          transactions.length === 0 ?
-          <Card>
-              <CardContent className="flex items-center justify-center min-h-32">
-                <div className="text-center space-y-2">
-                  <Calendar className="h-12 w-12 text-muted-foreground mx-auto" />
-                  <h3 className="text-lg font-semibold">No Transactions Found</h3>
-                  <p className="text-muted-foreground">
-                    This team hasn't made any trades, waiver claims, or free agent pickups this season.
-                  </p>
-                  <div className="mt-4">
-                    <Badge variant="secondary">
-                      Total moves: {roster.settings.total_moves}
-                    </Badge>
+            transactions.length === 0 ?
+              <Card>
+                <CardContent className="flex items-center justify-center min-h-32">
+                  <div className="text-center space-y-2">
+                    <Calendar className="h-12 w-12 text-muted-foreground mx-auto" />
+                    <h3 className="text-lg font-semibold">No Transactions Found</h3>
+                    <p className="text-muted-foreground">
+                      This team hasn't made any trades, waiver claims, or free agent pickups this season.
+                    </p>
+                    <div className="mt-4">
+                      <Badge variant="secondary">
+                        Total moves: {roster.settings.total_moves}
+                      </Badge>
+                    </div>
                   </div>
+                </CardContent>
+              </Card> :
+
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <p className="text-sm text-muted-foreground">
+                    Showing {transactions.length} transaction{transactions.length !== 1 ? 's' : ''}
+                  </p>
+                  <Badge variant="secondary">
+                    Total moves: {roster.settings.total_moves}
+                  </Badge>
                 </div>
-              </CardContent>
-            </Card> :
 
-          <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <p className="text-sm text-muted-foreground">
-                  Showing {transactions.length} transaction{transactions.length !== 1 ? 's' : ''}
-                </p>
-                <Badge variant="secondary">
-                  Total moves: {roster.settings.total_moves}
-                </Badge>
-              </div>
-              
-              <div className="space-y-3">
-                {transactions.map((transaction) =>
-              <TransactionCard
-                key={transaction.id}
-                transaction={transaction} />
+                <div className="space-y-3">
+                  {transactions.map((transaction) =>
+                    <TransactionCard
+                      key={transaction.id}
+                      transaction={transaction} />
 
-              )}
+                  )}
+                </div>
               </div>
-            </div>
           }
         </TabsContent>
 
@@ -1074,143 +1434,158 @@ const TeamDetailPage: React.FC = () => {
               </CardContent>
             </Card> :
             schedule.length === 0 ?
-            <Card>
-              <CardContent className="flex items-center justify-center min-h-32">
-                <div className="text-center space-y-2">
-                  <Calendar className="h-12 w-12 text-muted-foreground mx-auto" />
-                  <h3 className="text-lg font-semibold">No Schedule Found</h3>
-                  <p className="text-muted-foreground">
-                    No matchups found for this team in the {selectedSeason} season.
-                  </p>
-                </div>
-              </CardContent>
-            </Card> :
-
-            <div className="space-y-4">
-              {/* Schedule Summary */}
               <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center space-x-2">
-                    <Calendar className="h-5 w-5" />
-                    <span>{selectedSeason} Season Schedule</span>
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
-                    <div>
-                      <div className="text-2xl font-bold">
-                        {schedule.filter(m => m.result === 'W').length}
-                      </div>
-                      <div className="text-sm text-muted-foreground">Wins</div>
-                    </div>
-                    <div>
-                      <div className="text-2xl font-bold">
-                        {schedule.filter(m => m.result === 'L').length}
-                      </div>
-                      <div className="text-sm text-muted-foreground">Losses</div>
-                    </div>
-                    <div>
-                      <div className="text-2xl font-bold">
-                        {schedule.filter(m => m.result === 'T').length}
-                      </div>
-                      <div className="text-sm text-muted-foreground">Ties</div>
-                    </div>
-                    <div>
-                      <div className="text-2xl font-bold">
-                        {schedule.filter(m => m.result === 'TBD').length}
-                      </div>
-                      <div className="text-sm text-muted-foreground">Remaining</div>
-                    </div>
+                <CardContent className="flex items-center justify-center min-h-32">
+                  <div className="text-center space-y-2">
+                    <Calendar className="h-12 w-12 text-muted-foreground mx-auto" />
+                    <h3 className="text-lg font-semibold">No Schedule Found</h3>
+                    <p className="text-muted-foreground">
+                      No matchups found for this team in the {selectedSeason} season.
+                    </p>
                   </div>
                 </CardContent>
-              </Card>
+              </Card> :
 
-              {/* Schedule Table */}
-              <Card>
-                <CardHeader>
-                  <CardTitle>Matchup Results</CardTitle>
-                  <CardDescription>
-                    Week-by-week schedule and results
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="rounded-md border">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead className="w-16">Week</TableHead>
-                          <TableHead>Opponent</TableHead>
-                          <TableHead className="w-16">@/vs</TableHead>
-                          <TableHead className="w-20">Result</TableHead>
-                          <TableHead className="w-24">Score</TableHead>
-                          <TableHead className="w-16">Status</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {schedule.map((matchup, index) => (
-                          <TableRow key={`matchup-${index}`}>
-                            <TableCell className="font-medium">
-                              {matchup.week}
-                              {matchup.isPlayoff && (
-                                <Badge variant="destructive" className="ml-1 text-xs">
-                                  PO
-                                </Badge>
-                              )}
-                            </TableCell>
-                            <TableCell>
-                              <div className="flex items-center space-x-2">
-                                <span>{matchup.opponent}</span>
-                                {matchup.isOverridden && (
-                                  <Badge variant="outline" className="text-xs">
-                                    Override
-                                  </Badge>
-                                )}
-                              </div>
-                            </TableCell>
-                            <TableCell className="text-center">
-                              {matchup.isHome ? 'vs' : '@'}
-                            </TableCell>
-                            <TableCell>
-                              <Badge 
-                                variant={
-                                  matchup.result === 'W' ? 'default' : 
-                                  matchup.result === 'L' ? 'destructive' : 
-                                  matchup.result === 'T' ? 'secondary' : 
-                                  'outline'
-                                }
-                                className="w-8 justify-center"
-                              >
-                                {matchup.result}
-                              </Badge>
-                            </TableCell>
-                            <TableCell>
-                              {matchup.teamScore !== null && matchup.opponentScore !== null ? (
-                                <div className="text-sm">
-                                  <span className={matchup.result === 'W' ? 'font-bold' : ''}>
-                                    {matchup.teamScore}
-                                  </span>
-                                  <span className="text-muted-foreground mx-1">-</span>
-                                  <span className={matchup.result === 'L' ? 'font-bold' : ''}>
-                                    {matchup.opponentScore}
-                                  </span>
-                                </div>
-                              ) : (
-                                <span className="text-muted-foreground">-</span>
-                              )}
-                            </TableCell>
-                            <TableCell>
-                              <Badge variant="outline" className="text-xs">
-                                {matchup.matchupStatus}
-                              </Badge>
-                            </TableCell>
+              <div className="space-y-4">
+                {/* Schedule Summary */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center space-x-2">
+                      <Calendar className="h-5 w-5" />
+                      <span>{selectedSeason} Season Schedule</span>
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-2 md:grid-cols-5 gap-4 text-center">
+                      <div>
+                        <div className="text-2xl font-bold">
+                          {teamRecord?.wins ?? schedule.filter(m => m.result === 'W').length}
+                        </div>
+                        <div className="text-sm text-muted-foreground">Wins</div>
+                      </div>
+                      <div>
+                        <div className="text-2xl font-bold">
+                          {teamRecord?.losses ?? schedule.filter(m => m.result === 'L').length}
+                        </div>
+                        <div className="text-sm text-muted-foreground">Losses</div>
+                      </div>
+                      <div>
+                        <div className="text-2xl font-bold">
+                          {teamRecord?.ties ?? schedule.filter(m => m.result === 'T').length}
+                        </div>
+                        <div className="text-sm text-muted-foreground">Ties</div>
+                      </div>
+                      <div>
+                        <div className="text-2xl font-bold">
+                          {schedule.filter(m => m.result === 'TBD').length}
+                        </div>
+                        <div className="text-sm text-muted-foreground">Remaining</div>
+                      </div>
+                      <div>
+                        <div className="text-2xl font-bold text-blue-600">
+                          {teamRecord?.rank ? `#${teamRecord.rank}` : '-'}
+                        </div>
+                        <div className="text-sm text-muted-foreground">Rank</div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Schedule Table */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Matchup Results</CardTitle>
+                    <CardDescription>
+                      Week-by-week schedule and results
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="rounded-md border">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead className="w-16">Week</TableHead>
+                            <TableHead>Opponent</TableHead>
+                            <TableHead className="w-16">@/vs</TableHead>
+                            <TableHead className="w-20">Result</TableHead>
+                            <TableHead className="w-24">Score</TableHead>
+                            <TableHead className="w-16">Status</TableHead>
                           </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
+                        </TableHeader>
+                        <TableBody>
+                          {schedule.map((matchup, index) => (
+                            <TableRow key={`matchup-${index}`}>
+                              <TableCell className="font-medium">
+                                <div className="flex flex-col">
+                                  <span>{matchup.week}</span>
+                                  {matchup.isPlayoff && matchup.playoffRoundName && (
+                                    <Badge variant="secondary" className="text-xs mt-1 w-fit bg-purple-100 text-purple-800">
+                                      {matchup.playoffRoundName}
+                                    </Badge>
+                                  )}
+                                </div>
+                              </TableCell>
+                              <TableCell>
+                                <div className="flex items-center space-x-2">
+                                  <span>{matchup.opponent}</span>
+                                  {matchup.isOverridden && (
+                                    <Badge
+                                      variant="outline"
+                                      className={`text-xs ${matchup.overrideReason === 'Interconference'
+                                          ? 'bg-orange-100 text-orange-800 border-orange-300'
+                                          : 'bg-blue-100 text-blue-800 border-blue-300'
+                                        }`}
+                                      title={matchup.overrideReason || 'Matchup Override'}
+                                    >
+                                      {matchup.overrideReason === 'Interconference' ? 'Interconference' : 'Override'}
+                                    </Badge>
+                                  )}
+                                </div>
+                              </TableCell>
+                              <TableCell className="text-center">
+                                {matchup.isHome ? 'vs' : '@'}
+                              </TableCell>
+                              <TableCell>
+                                <Badge
+                                  variant={
+                                    matchup.result === 'W' ? 'default' :
+                                      matchup.result === 'L' ? 'destructive' :
+                                        matchup.result === 'T' ? 'secondary' :
+                                          'outline'
+                                  }
+                                  className="w-8 justify-center"
+                                >
+                                  {matchup.result}
+                                </Badge>
+                              </TableCell>
+                              <TableCell>
+                                {matchup.teamScore !== null && matchup.opponentScore !== null ? (
+                                  <div className="text-sm">
+                                    <span className={matchup.result === 'W' ? 'font-bold' : ''}>
+                                      {matchup.teamScore}
+                                    </span>
+                                    <span className="text-muted-foreground mx-1">-</span>
+                                    <span className={matchup.result === 'L' ? 'font-bold' : ''}>
+                                      {matchup.opponentScore}
+                                    </span>
+                                  </div>
+                                ) : (
+                                  <span className="text-muted-foreground">-</span>
+                                )}
+                              </TableCell>
+                              <TableCell>
+                                <Badge variant="outline" className="text-xs">
+                                  {matchup.matchupStatus}
+                                </Badge>
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
           }
         </TabsContent>
       </Tabs>

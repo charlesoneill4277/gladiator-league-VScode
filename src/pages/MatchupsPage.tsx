@@ -578,16 +578,7 @@ const MatchupsPage: React.FC = () => {
         </Card>
       )}
 
-      {/* Performance Stats (Development only) */}
-      {process.env.NODE_ENV === 'development' && (
-        <Card className="border-l-4 border-l-blue-500">
-          <CardContent className="py-2">
-            <div className="text-xs text-muted-foreground">
-              Cache Stats: {JSON.stringify(MatchupCache.getStats())}
-            </div>
-          </CardContent>
-        </Card>
-      )}
+
 
       {/* Matchups Grid */}
       <div className="grid gap-3">

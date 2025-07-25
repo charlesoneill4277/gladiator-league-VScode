@@ -283,23 +283,16 @@ Table: team_records
 Description: Seasonal records of each team.
 Columns:
 ●	id (bigint): Primary key.
-
 ●	team_id (integer): FK to teams.id.
-
 ●	conference_id (integer): FK to conferences.id.
-
 ●	season_id (integer): FK to seasons.id.
-
 ●	wins (integer): Number of wins.
-
 ●	losses (integer): Number of losses.
-
+●	Ties (integer): Number of ties.
 ●	points_for (integer): Points scored.
-
 ●	points_against (integer): Points allowed.
-
 ●	point_diff (integer): Net point difference.
-
+●	streak (text): How many wins or losses in a row a team has
 ●	created_at (timestamp): Record creation time.
 
 ________________________________________

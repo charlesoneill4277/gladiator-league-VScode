@@ -335,11 +335,15 @@ const StandingsPage: React.FC = () => {
                       Team <ArrowUpDown className="ml-1 h-3 w-3" />
                     </Button>
                   </TableHead>
-                  <TableHead className="hidden md:table-cell">Owner</TableHead>
                   <TableHead className="hidden lg:table-cell">Conference</TableHead>
                   <TableHead>
                     <Button variant="ghost" size="sm" onClick={() => handleSort('wins')}>
                       Record <ArrowUpDown className="ml-1 h-3 w-3" />
+                    </Button>
+                  </TableHead>
+                  <TableHead className="text-right hidden md:table-cell">
+                    <Button variant="ghost" size="sm" onClick={() => handleSort('win_percentage')}>
+                      Win% <ArrowUpDown className="ml-1 h-3 w-3" />
                     </Button>
                   </TableHead>
                   <TableHead className="text-right">
@@ -352,9 +356,9 @@ const StandingsPage: React.FC = () => {
                       PA <ArrowUpDown className="ml-1 h-3 w-3" />
                     </Button>
                   </TableHead>
-                  <TableHead className="text-right hidden md:table-cell">
-                    <Button variant="ghost" size="sm" onClick={() => handleSort('win_percentage')}>
-                      Win% <ArrowUpDown className="ml-1 h-3 w-3" />
+                  <TableHead className="text-right hidden sm:table-cell">
+                    <Button variant="ghost" size="sm" onClick={() => handleSort('point_diff')}>
+                      Diff <ArrowUpDown className="ml-1 h-3 w-3" />
                     </Button>
                   </TableHead>
                   <TableHead className="hidden lg:table-cell">Status</TableHead>
@@ -370,10 +374,24 @@ const StandingsPage: React.FC = () => {
                       </div>
                     </TableCell>
                     <TableCell>
-                      <div className="font-medium">{team.team_name}</div>
-                      <div className="text-sm text-muted-foreground md:hidden">{team.owner_name}</div>
+                      <div className="flex items-center space-x-3">
+                        <div className="flex-shrink-0">
+                          <img
+                            src={team.team_logourl ? `https://sleepercdn.com/avatars/thumbs/${team.team_logourl}` : '/placeholder-team-logo.png'}
+                            alt={`${team.team_name} logo`}
+                            className="w-10 h-10 rounded-full object-cover"
+                            onError={(e) => {
+                              const target = e.target as HTMLImageElement;
+                              target.src = '/placeholder-team-logo.png';
+                            }}
+                          />
+                        </div>
+                        <div className="flex flex-col">
+                          <div className="font-medium text-sm">{team.team_name}</div>
+                          <div className="text-xs text-muted-foreground">{team.owner_name}</div>
+                        </div>
+                      </div>
                     </TableCell>
-                    <TableCell className="hidden md:table-cell">{team.owner_name}</TableCell>
                     <TableCell className="hidden lg:table-cell">
                       <Badge variant="outline" className="text-xs">
                         {team.conference_name}
@@ -385,21 +403,23 @@ const StandingsPage: React.FC = () => {
                         {team.ties > 0 && `-${team.ties}`}
                       </Badge>
                     </TableCell>
+                    <TableCell className="text-right font-mono hidden md:table-cell">
+                      {(team.win_percentage * 100).toFixed(1)}%
+                    </TableCell>
                     <TableCell className="text-right font-mono">
                       {team.points_for.toFixed(1)}
                     </TableCell>
                     <TableCell className="text-right font-mono hidden sm:table-cell">
                       {team.points_against.toFixed(1)}
                     </TableCell>
-                    <TableCell className="text-right font-mono hidden md:table-cell">
-                      {(team.win_percentage * 100).toFixed(1)}%
+                    <TableCell className="text-right font-mono hidden sm:table-cell">
+                      <span className={team.point_diff >= 0 ? 'text-green-600' : 'text-red-600'}>
+                        {team.point_diff >= 0 ? '+' : ''}{team.point_diff.toFixed(1)}
+                      </span>
                     </TableCell>
                     <TableCell className="hidden lg:table-cell">
                       <div className="flex items-center space-x-1">
                         {getPlayoffBadge(team.playoff_eligible, team.is_conference_champion)}
-                        <Badge variant="outline" className="text-xs">
-                          C{team.conference_rank}
-                        </Badge>
                       </div>
                     </TableCell>
                   </TableRow>

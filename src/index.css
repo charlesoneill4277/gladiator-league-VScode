@@ -62,46 +62,59 @@
   }
 
   .dark {
-    --background: 0 0% 3.9%;
-    --foreground: 0 0% 98%;
+    /* Primary backgrounds - Dark greyish blue (#1E2A3C equivalent) */
+    --background: 210 25% 18%;
+    --foreground: 210 20% 94%;
 
-    --card: 0 0% 3.9%;
-    --card-foreground: 0 0% 98%;
+    /* Secondary backgrounds - Slightly lighter for hierarchy (#2C3E50 equivalent) */
+    --card: 210 25% 22%;
+    --card-foreground: 210 20% 94%;
 
-    --popover: 0 0% 3.9%;
-    --popover-foreground: 0 0% 98%;
+    /* Popovers and dropdowns */
+    --popover: 210 25% 22%;
+    --popover-foreground: 210 20% 94%;
 
-    --primary: 0 0% 98%;
-    --primary-foreground: 0 0% 9%;
+    /* Primary elements - Soft blue accent for buttons and links */
+    --primary: 195 85% 41%;
+    --primary-foreground: 0 0% 100%;
 
-    --secondary: 0 0% 14.9%;
-    --secondary-foreground: 0 0% 98%;
+    /* Secondary elements - Darker shade for secondary buttons */
+    --secondary: 210 25% 12%;
+    --secondary-foreground: 210 20% 94%;
 
-    --muted: 0 0% 14.9%;
-    --muted-foreground: 0 0% 63.9%;
+    /* Muted elements - For subtle backgrounds and secondary text */
+    --muted: 210 25% 20%;
+    --muted-foreground: 210 15% 82%;
 
-    --accent: 0 0% 14.9%;
-    --accent-foreground: 0 0% 98%;
+    /* Accent - Soft blue tint for hover states and highlights */
+    --accent: 195 85% 68%;
+    --accent-foreground: 210 25% 12%;
 
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 0 0% 98%;
+    /* Destructive colors - Error states */
+    --destructive: 0 75% 55%;
+    --destructive-foreground: 0 0% 100%;
 
-    --border: 0 0% 14.9%;
-    --input: 0 0% 14.9%;
-    --ring: 0 0% 83.1%;
-    --sidebar-background: 240 5.9% 10%;
-    --sidebar-foreground: 240 4.8% 95.9%;
-    --sidebar-primary: 224.3 76.3% 48%;
+    /* Borders and inputs - Visible but subtle */
+    --border: 210 25% 30%;
+    --input: 210 25% 25%;
+    --ring: 195 85% 68%;
+
+    /* Sidebar - Cohesive with main theme */
+    --sidebar-background: 210 25% 16%;
+    --sidebar-foreground: 210 20% 90%;
+    --sidebar-primary: 195 85% 41%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 240 3.7% 15.9%;
-    --sidebar-accent-foreground: 240 4.8% 95.9%;
-    --sidebar-border: 240 3.7% 15.9%;
-    --sidebar-ring: 217.2 91.2% 59.8%;
-    --chart-1: 220 70% 50%;
-    --chart-2: 160 60% 45%;
-    --chart-3: 30 80% 55%;
-    --chart-4: 280 65% 60%;
-    --chart-5: 340 75% 55%;
+    --sidebar-accent: 210 25% 20%;
+    --sidebar-accent-foreground: 210 20% 90%;
+    --sidebar-border: 210 25% 28%;
+    --sidebar-ring: 195 85% 68%;
+
+    /* Chart colors - Harmonized with the new palette */
+    --chart-1: 195 85% 41%;
+    --chart-2: 142 76% 36%;
+    --chart-3: 47 96% 53%;
+    --chart-4: 280 100% 70%;
+    --chart-5: 12 76% 61%;
   }
 }
 
@@ -112,6 +125,73 @@
 
   body {
     @apply bg-background text-foreground;
+    font-family: 'Inter', 'Roboto', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    font-size: 16px;
+    font-weight: 400;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+  
+  /* Enhanced dark theme typography and accessibility */
+  .dark {
+    color-scheme: dark;
+  }
+  
+  /* Heading hierarchy with improved contrast */
+  .dark h1, .dark h2, .dark h3, .dark h4, .dark h5, .dark h6 {
+    color: hsl(0 0% 100%);
+    font-weight: 600;
+    letter-spacing: 0.5px;
+  }
+  
+  .dark h1 {
+    font-size: 32px;
+    line-height: 1.2;
+  }
+  
+  .dark h2 {
+    font-size: 28px;
+    line-height: 1.3;
+  }
+  
+  .dark h3 {
+    font-size: 24px;
+    line-height: 1.4;
+  }
+  
+  /* Body text with optimal readability */
+  .dark p {
+    color: hsl(210 20% 94%);
+    font-size: 16px;
+    line-height: 1.6;
+  }
+  
+  /* Links with soft blue accent */
+  .dark a {
+    color: hsl(195 85% 68%);
+    text-decoration: none;
+    transition: color 0.2s ease-in-out;
+  }
+  
+  .dark a:hover {
+    color: hsl(195 85% 78%);
+    text-decoration: underline;
+  }
+  
+  /* Navigation and page titles */
+  .dark .nav-title, .dark .page-title {
+    color: hsl(0 0% 100%);
+    font-size: 24px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+  }
+  
+  /* Secondary text and labels */
+  .dark .text-secondary {
+    color: hsl(210 15% 82%);
+    font-size: 14px;
+    font-weight: 500;
   }
 }
 
@@ -122,21 +202,201 @@
   background-size: 20px 20px;
 }
 
-/* Custom scrollbar */
+/* Enhanced grid for dark theme */
+.dark .bg-grid-white\/10 {
+  background-image: linear-gradient(to right, rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+                    linear-gradient(to bottom, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+  background-size: 20px 20px;
+}
+
+/* Subtle accent grid variant */
+.dark .bg-grid-accent\/5 {
+  background-image: linear-gradient(to right, hsl(195 85% 68% / 0.05) 1px, transparent 1px),
+                    linear-gradient(to bottom, hsl(195 85% 68% / 0.05) 1px, transparent 1px);
+  background-size: 20px 20px;
+}
+
+/* Enhanced scrollbar for dark theme */
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 8px;
+  height: 8px;
 }
 
 ::-webkit-scrollbar-track {
   background: hsl(var(--muted));
+  border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb {
   background: hsl(var(--muted-foreground));
-  border-radius: 3px;
+  border-radius: 4px;
+  border: 1px solid hsl(var(--border));
+  transition: background-color 0.2s ease-in-out;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: hsl(var(--foreground));
+  background: hsl(var(--accent));
+}
+
+/* Enhanced dark theme utilities and component styles */
+@layer utilities {
+  /* Improved shadows for depth */
+  .dark .shadow-lg {
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.5), 0 4px 6px -2px rgba(0, 0, 0, 0.3);
+  }
+  
+  .dark .shadow-md {
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.4), 0 2px 4px -1px rgba(0, 0, 0, 0.2);
+  }
+  
+  .dark .shadow-sm {
+    box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.3);
+  }
+  
+  /* Enhanced focus states for accessibility */
+  .dark .focus-visible\:ring-ring:focus-visible {
+    --tw-ring-color: hsl(195 85% 68%);
+    --tw-ring-offset-color: hsl(210 25% 18%);
+    outline: 2px solid hsl(195 85% 68%);
+    outline-offset: 2px;
+  }
+  
+  /* Button enhancements */
+  .dark .btn-primary {
+    background: linear-gradient(135deg, hsl(195 85% 41%), hsl(195 85% 35%));
+    color: hsl(0 0% 100%);
+    border: 1px solid hsl(195 85% 50%);
+    font-weight: 500;
+    transition: all 0.2s ease-in-out;
+  }
+  
+  .dark .btn-primary:hover {
+    background: linear-gradient(135deg, hsl(195 85% 45%), hsl(195 85% 39%));
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+    transform: translateY(-1px);
+  }
+  
+  .dark .btn-secondary {
+    background: hsl(210 25% 12%);
+    color: hsl(210 20% 94%);
+    border: 1px solid hsl(210 25% 30%);
+    font-weight: 500;
+  }
+  
+  .dark .btn-secondary:hover {
+    background: hsl(210 25% 16%);
+    border-color: hsl(210 25% 35%);
+  }
+  
+  /* Dropdown and menu enhancements */
+  .dark .dropdown-content {
+    background: hsl(210 25% 22%);
+    border: 1px solid hsl(210 25% 30%);
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.4);
+  }
+  
+  .dark .dropdown-item {
+    color: hsl(210 20% 94%);
+    transition: all 0.15s ease-in-out;
+  }
+  
+  .dark .dropdown-item:hover {
+    background: hsl(195 85% 68%);
+    color: hsl(210 25% 12%);
+  }
+  
+  /* Input field enhancements */
+  .dark .input-field {
+    background: hsl(210 25% 20%);
+    border: 1px solid hsl(210 25% 30%);
+    color: hsl(210 20% 94%);
+    transition: all 0.2s ease-in-out;
+  }
+  
+  .dark .input-field:focus {
+    border-color: hsl(195 85% 68%);
+    box-shadow: 0 0 0 3px hsl(195 85% 68% / 0.1);
+  }
+  
+  .dark .input-field::placeholder {
+    color: hsl(210 15% 65%);
+  }
+  
+  /* Navigation bar enhancements */
+  .dark .nav-bar {
+    background: linear-gradient(135deg, hsl(210 25% 18%), hsl(210 25% 16%));
+    border-bottom: 1px solid hsl(210 25% 30%);
+    backdrop-filter: blur(10px);
+  }
+  
+  .dark .nav-item {
+    color: hsl(210 20% 90%);
+    font-weight: 500;
+    transition: all 0.2s ease-in-out;
+  }
+  
+  .dark .nav-item:hover {
+    color: hsl(195 85% 68%);
+  }
+  
+  .dark .nav-item.active {
+    color: hsl(0 0% 100%);
+    border-bottom: 2px solid hsl(195 85% 68%);
+  }
+  
+  /* Card and panel enhancements */
+  .dark .card-enhanced {
+    background: linear-gradient(145deg, hsl(210 25% 22%), hsl(210 25% 20%));
+    border: 1px solid hsl(210 25% 30%);
+    transition: all 0.2s ease-in-out;
+  }
+  
+  .dark .card-enhanced:hover {
+    border-color: hsl(210 25% 35%);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  }
+  
+  /* Table enhancements */
+  .dark .table-row:nth-child(even) {
+    background: hsl(210 25% 20%);
+  }
+  
+  .dark .table-row:nth-child(odd) {
+    background: hsl(210 25% 18%);
+  }
+  
+  .dark .table-header {
+    background: hsl(210 25% 16%);
+    color: hsl(0 0% 100%);
+    font-weight: 600;
+    border-bottom: 2px solid hsl(210 25% 30%);
+  }
+  
+  /* Selection and highlight colors */
+  .dark ::selection {
+    background-color: hsl(195 85% 68% / 0.3);
+    color: hsl(0 0% 100%);
+  }
+  
+  /* Improved text contrast utilities */
+  .dark .text-high-contrast {
+    color: hsl(0 0% 100%);
+  }
+  
+  .dark .text-medium-contrast {
+    color: hsl(210 20% 94%);
+  }
+  
+  .dark .text-low-contrast {
+    color: hsl(210 15% 82%);
+  }
+  
+  /* Responsive font scaling */
+  @media (max-width: 768px) {
+    .dark h1 { font-size: 28px; }
+    .dark h2 { font-size: 24px; }
+    .dark h3 { font-size: 20px; }
+    .dark p { font-size: 14px; }
+    .dark .nav-title { font-size: 20px; }
+  }
 }
