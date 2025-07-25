@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Separator } from "@/components/ui/separator";
 import { useApp } from '@/contexts/AppContext';
 import { useStandingsData } from '@/hooks/useStandingsData';
 import { StandingsService } from '@/services/standingsService';
@@ -24,7 +25,8 @@ import {
   Star,
   Loader2,
   AlertCircle,
-  RefreshCw
+  RefreshCw,
+  Link as LinkIcon
 } from 'lucide-react';
 
 const HomePage: React.FC = () => {
@@ -36,6 +38,7 @@ const HomePage: React.FC = () => {
   const [transactionsLoading, setTransactionsLoading] = useState(true);
   const [matchupsError, setMatchupsError] = useState<string | null>(null);
   const [transactionsError, setTransactionsError] = useState<string | null>(null);
+
   
   const { 
     selectedSeason,
@@ -397,6 +400,8 @@ const HomePage: React.FC = () => {
   useEffect(() => {
     loadTransactions();
   }, [selectedConference, currentSeasonConfig]);
+
+
 
   // --- CONDITIONAL RETURNS AFTER ALL HOOKS ---
   // Show loading state while app context loads
@@ -882,6 +887,32 @@ const HomePage: React.FC = () => {
                   </Button>
                 </Link>
               </div>
+
+              {/* ======== START: NEW LEAGUE PAGES SECTION ======== */}
+              {currentSeasonConfig?.conferences && currentSeasonConfig.conferences.length > 0 && (
+                <div className="mt-4">
+                  <Separator className="my-3" />
+                  <div className="flex items-center space-x-2 mb-3">
+                    <LinkIcon className="h-5 w-5 text-primary" />
+                    <h3 className="text-sm font-semibold">League Pages</h3>
+                  </div>
+                  <div className="flex flex-col space-y-2">
+                    {currentSeasonConfig.conferences.map((conf) => (
+                      <a
+                        key={conf.leagueId}
+                        href={`https://sleeper.com/leagues/${conf.leagueId}/league`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        <Button variant="outline" className="w-full justify-start">
+                          {conf.name}
+                        </Button>
+                      </a>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {/* ======== END: NEW LEAGUE PAGES SECTION ======== */}
             </CardContent>
           </Card>
 

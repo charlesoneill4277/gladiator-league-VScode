@@ -142,8 +142,7 @@ export interface DbPlayoffBracket {
   team2_seed: number;
   team1_id: number;
   team2_id: number;
-  winner_team_id?: number;
-  sleeper_match_id?: string;
+  winning_team_id?: number;
   playoff_round_name?: string;
   is_bye?: boolean;
   matchup_number?: number;

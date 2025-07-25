@@ -145,6 +145,12 @@ export class SleeperApiService {
   static async fetchLeagueRosters(leagueId: string): Promise<SleeperRoster[]> {
     try {
       console.log(`Fetching rosters for league: ${leagueId}`);
+      
+      // Track API call
+      if (typeof window !== 'undefined') {
+        (window as any).__apiCallCount = ((window as any).__apiCallCount || 0) + 1;
+      }
+      
       const response = await fetch(`${this.baseUrl}/league/${leagueId}/rosters`);
 
       if (!response.ok) {
@@ -309,6 +315,12 @@ export class SleeperApiService {
   static async fetchMatchups(leagueId: string, week: number): Promise<SleeperMatchup[]> {
     try {
       console.log(`🔗 Fetching matchups for league: ${leagueId}, week: ${week}`);
+      
+      // Track API call
+      if (typeof window !== 'undefined') {
+        (window as any).__apiCallCount = ((window as any).__apiCallCount || 0) + 1;
+      }
+      
       const response = await fetch(`${this.baseUrl}/league/${leagueId}/matchups/${week}`);
 
       if (!response.ok) {
@@ -394,6 +406,12 @@ export class SleeperApiService {
   static async fetchLeagueUsers(leagueId: string): Promise<SleeperUser[]> {
     try {
       console.log(`Fetching users for league: ${leagueId}`);
+      
+      // Track API call
+      if (typeof window !== 'undefined') {
+        (window as any).__apiCallCount = ((window as any).__apiCallCount || 0) + 1;
+      }
+      
       const response = await fetch(`${this.baseUrl}/league/${leagueId}/users`);
 
       if (!response.ok) {

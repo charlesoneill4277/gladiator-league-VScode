@@ -1,7 +1,8 @@
-// New Supabase-based service for handling matchup data
+// Enhanced Supabase-based service for handling matchup data with performance optimizations
 import { DatabaseService } from './databaseService';
 import SleeperApiService, { SleeperMatchup, SleeperRoster, SleeperUser, SleeperPlayer } from './sleeperApi';
 import { DbMatchup, DbConference, DbTeam, DbMatchupAdminOverride, DbPlayoffBracket } from '@/types/database';
+import MatchupCache from './matchupCache';
 
 // Use database types directly
 export type DatabaseMatchup = DbMatchup;
@@ -32,7 +33,7 @@ export interface OrganizedMatchup {
 export class SupabaseMatchupService {
   /**
    * Get comprehensive matchup data combining Sleeper API with database overrides
-   * This is the main method for getting matchup data with override support
+   * Enhanced with caching and parallel processing for better performance
    */
   static async getHybridMatchups(
     seasonId: number,
@@ -40,34 +41,39 @@ export class SupabaseMatchupService {
     conferenceId?: number
   ): Promise<OrganizedMatchup[]> {
     try {
-      console.log('🔄 Getting hybrid matchups:', { seasonId, week, conferenceId });
+      console.log('🚀 Getting optimized hybrid matchups:', { seasonId, week, conferenceId });
+      const startTime = performance.now();
 
-      // 1. Get matchup records from database (contains team1_id, team2_id)
-      // Use different tables based on week: weeks 1-12 use matchups, weeks 13+ use playoff_brackets
+      // 1. Batch all database queries in parallel for better performance
+      const [dbMatchupsResult, conferencesResult, teamsResult, junctionsResult] = await Promise.all([
+        week >= 13 
+          ? this.getPlayoffBrackets(seasonId, week, conferenceId)
+          : this.getDatabaseMatchups(seasonId, week, conferenceId),
+        this.getConferences(seasonId),
+        this.getTeams(),
+        this.getTeamConferenceJunctions()
+      ]);
+
+      // Process results based on week type
       let dbMatchups: DatabaseMatchup[] = [];
-      let playoffBrackets: DbPlayoffBracket[] = [];
-      
       if (week >= 13) {
         console.log(`🏆 Week ${week} is playoffs - using playoff_brackets table`);
-        playoffBrackets = await this.getPlayoffBrackets(seasonId, week, conferenceId);
-        const conferences = await this.getConferences(seasonId);
-        dbMatchups = this.convertPlayoffBracketsToMatchups(playoffBrackets, conferences);
+        dbMatchups = this.convertPlayoffBracketsToMatchups(dbMatchupsResult as DbPlayoffBracket[], conferencesResult);
       } else {
         console.log(`📅 Week ${week} is regular season - using matchups table`);
-        dbMatchups = await this.getDatabaseMatchups(seasonId, week, conferenceId);
+        dbMatchups = dbMatchupsResult as DatabaseMatchup[];
       }
       
-      console.log(`📋 Found ${dbMatchups.length} database matchups`);
+      console.log(`📋 Found ${dbMatchups.length} database matchups in ${(performance.now() - startTime).toFixed(2)}ms`);
 
       if (dbMatchups.length === 0) {
         console.warn('No database matchups found for the specified criteria');
         return [];
       }
 
-      // 2. Get supporting data
-      const conferences = await this.getConferences(seasonId);
-      const teams = await this.getTeams();
-      const teamConferenceJunctions = await this.getTeamConferenceJunctions();
+      const conferences = conferencesResult;
+      const teams = teamsResult;
+      const teamConferenceJunctions = junctionsResult;
       
       console.log(`🏢 Loaded ${conferences.length} conferences, ${teams.length} teams`);
 
@@ -320,6 +326,262 @@ export class SupabaseMatchupService {
   }
 
   /**
+   * Get minimal matchup data for fast initial loading
+   * Only includes essential information without detailed roster data
+   */
+  static async getMinimalMatchups(
+    seasonId: number,
+    week: number,
+    conferenceId?: number
+  ): Promise<{
+    id: number;
+    matchup_id: number;
+    conference: { id: number; name: string };
+    teams: { id: number; name: string; owner: string; points: number; roster_id: number }[];
+    status: 'live' | 'completed' | 'upcoming';
+    week: number;
+    is_playoff: boolean;
+    is_bye?: boolean;
+    playoff_round_name?: string;
+  }[]> {
+    try {
+      console.log('🚀 Loading minimal matchups (optimized)...');
+      const startTime = performance.now();
+
+      // Batch all database queries in parallel
+      const [dbMatchupsResult, conferences, teams, junctions] = await Promise.all([
+        week >= 13 
+          ? this.getPlayoffBrackets(seasonId, week, conferenceId)
+          : this.getDatabaseMatchups(seasonId, week, conferenceId),
+        this.getConferences(seasonId),
+        this.getTeams(),
+        this.getTeamConferenceJunctions()
+      ]);
+
+      // Process matchups based on week type
+      let dbMatchups: DatabaseMatchup[] = [];
+      if (week >= 13) {
+        dbMatchups = this.convertPlayoffBracketsToMatchups(dbMatchupsResult as DbPlayoffBracket[], conferences);
+      } else {
+        dbMatchups = dbMatchupsResult as DatabaseMatchup[];
+      }
+
+      console.log(`📊 Batch data loaded in ${(performance.now() - startTime).toFixed(2)}ms`);
+
+      // Process matchups with minimal data only
+      const minimalMatchups = [];
+
+      for (const dbMatchup of dbMatchups) {
+        const conference = conferences.find(c => c.id === dbMatchup.conference_id);
+        if (!conference) continue;
+
+        const team1 = teams.find(t => t.id === dbMatchup.team1_id);
+        const team2 = dbMatchup.team2_id ? teams.find(t => t.id === dbMatchup.team2_id) : null;
+
+        if (!team1) continue;
+
+        // Get roster IDs for teams
+        const team1Junction = junctions.find(j => j.team_id === team1.id);
+        const team2Junction = team2 ? junctions.find(j => j.team_id === team2.id) : null;
+
+        // Build minimal matchup
+        const minimalMatchup = {
+          id: dbMatchup.id,
+          matchup_id: 0, // Will be populated from Sleeper data if needed
+          conference: {
+            id: conference.id,
+            name: conference.conference_name
+          },
+          teams: [
+            {
+              id: team1.id,
+              name: team1.team_name,
+              owner: team1.owner_name,
+              points: dbMatchup.team1_score || 0,
+              roster_id: team1Junction?.roster_id || 0
+            }
+          ],
+          status: this.determineMatchupStatusFromDb(dbMatchup),
+          week: parseInt(dbMatchup.week),
+          is_playoff: dbMatchup.is_playoff || false,
+          is_bye: dbMatchup.is_bye || false
+        };
+
+        // Add team2 if not a bye
+        if (team2 && team2Junction && !dbMatchup.is_bye) {
+          minimalMatchup.teams.push({
+            id: team2.id,
+            name: team2.team_name,
+            owner: team2.owner_name,
+            points: dbMatchup.team2_score || 0,
+            roster_id: team2Junction.roster_id
+          });
+        }
+
+        // Add playoff round name if applicable
+        if (week >= 13 && 'playoff_round_name' in dbMatchup) {
+          (minimalMatchup as any).playoff_round_name = (dbMatchup as any).playoff_round_name;
+        }
+
+        minimalMatchups.push(minimalMatchup);
+      }
+
+      console.log(`✅ Minimal matchups loaded in ${(performance.now() - startTime).toFixed(2)}ms`);
+      return minimalMatchups;
+
+    } catch (error) {
+      console.error('Error loading minimal matchups:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Get detailed matchup data on-demand (when expanded)
+   */
+  static async getMatchupDetails(
+    matchupId: number,
+    seasonId: number,
+    week: number
+  ): Promise<{
+    players_points: Record<string, Record<string, number>>;
+    starters: Record<string, string[]>;
+    bench_players: Record<string, string[]>;
+    rosters: Record<string, SleeperRoster>;
+    users: Record<string, SleeperUser>;
+  } | null> {
+    try {
+      console.log(`🔍 Loading details for matchup ${matchupId}...`);
+      const startTime = performance.now();
+
+      // Check cache first
+      const cached = MatchupCache.getCachedMatchupDetails(matchupId, week);
+      if (cached) {
+        return cached;
+      }
+
+      // Get matchup from database
+      const matchupResult = week >= 13 
+        ? await DatabaseService.getPlayoffBrackets({
+            filters: [{ column: 'id', operator: 'eq', value: matchupId }]
+          })
+        : await DatabaseService.getMatchups({
+            filters: [{ column: 'id', operator: 'eq', value: matchupId }]
+          });
+
+      const dbMatchup = matchupResult.data?.[0];
+      if (!dbMatchup) return null;
+
+      // Get conference and team data
+      const [conferences, teams, junctions] = await Promise.all([
+        DatabaseService.getConferences({
+          filters: [{ column: 'season_id', operator: 'eq', value: seasonId }]
+        }),
+        DatabaseService.getTeams({ limit: 500 }),
+        DatabaseService.getTeamConferenceJunctions({ limit: 1000 })
+      ]);
+
+      const conference = conferences.data?.find(c => c.id === dbMatchup.conference_id);
+      if (!conference) return null;
+
+      // Check cache for Sleeper data
+      let sleeperMatchups, sleeperRosters, sleeperUsers;
+      const cachedSleeperData = MatchupCache.getCachedConferenceData(conference.league_id, week);
+      
+      if (cachedSleeperData) {
+        ({ matchups: sleeperMatchups, rosters: sleeperRosters, users: sleeperUsers } = cachedSleeperData);
+      } else {
+        // Fetch Sleeper data for this specific conference
+        [sleeperMatchups, sleeperRosters, sleeperUsers] = await Promise.all([
+          SleeperApiService.fetchMatchups(conference.league_id, week),
+          SleeperApiService.fetchLeagueRosters(conference.league_id),
+          SleeperApiService.fetchLeagueUsers(conference.league_id)
+        ]);
+
+        // Cache the Sleeper data
+        MatchupCache.setCachedConferenceData(conference.league_id, week, {
+          matchups: sleeperMatchups,
+          rosters: sleeperRosters,
+          users: sleeperUsers
+        });
+      }
+
+      // Build detailed data
+      const detailedData = {
+        players_points: {} as Record<string, Record<string, number>>,
+        starters: {} as Record<string, string[]>,
+        bench_players: {} as Record<string, string[]>,
+        rosters: {} as Record<string, SleeperRoster>,
+        users: {} as Record<string, SleeperUser>
+      };
+
+      // Process team data
+      const team1 = teams.data?.find(t => t.id === dbMatchup.team1_id);
+      const team2 = dbMatchup.team2_id ? teams.data?.find(t => t.id === dbMatchup.team2_id) : null;
+
+      if (team1) {
+        const team1Junction = junctions.data?.find(j => j.team_id === team1.id);
+        if (team1Junction) {
+          const team1SleeperMatchup = sleeperMatchups.find(m => m.roster_id === team1Junction.roster_id);
+          const team1Roster = sleeperRosters.find(r => r.roster_id === team1Junction.roster_id);
+          const team1User = sleeperUsers.find(u => u.user_id === team1Roster?.owner_id);
+
+          if (team1SleeperMatchup && team1Roster) {
+            detailedData.players_points[team1.id.toString()] = team1SleeperMatchup.players_points || {};
+            detailedData.starters[team1.id.toString()] = team1SleeperMatchup.starters || [];
+            detailedData.bench_players[team1.id.toString()] = (team1Roster.players || [])
+              .filter(p => !team1SleeperMatchup.starters?.includes(p));
+            detailedData.rosters[team1.id.toString()] = team1Roster;
+            if (team1User) detailedData.users[team1.id.toString()] = team1User;
+          }
+        }
+      }
+
+      if (team2) {
+        const team2Junction = junctions.data?.find(j => j.team_id === team2.id);
+        if (team2Junction) {
+          const team2SleeperMatchup = sleeperMatchups.find(m => m.roster_id === team2Junction.roster_id);
+          const team2Roster = sleeperRosters.find(r => r.roster_id === team2Junction.roster_id);
+          const team2User = sleeperUsers.find(u => u.user_id === team2Roster?.owner_id);
+
+          if (team2SleeperMatchup && team2Roster) {
+            detailedData.players_points[team2.id.toString()] = team2SleeperMatchup.players_points || {};
+            detailedData.starters[team2.id.toString()] = team2SleeperMatchup.starters || [];
+            detailedData.bench_players[team2.id.toString()] = (team2Roster.players || [])
+              .filter(p => !team2SleeperMatchup.starters?.includes(p));
+            detailedData.rosters[team2.id.toString()] = team2Roster;
+            if (team2User) detailedData.users[team2.id.toString()] = team2User;
+          }
+        }
+      }
+
+      // Cache the result
+      MatchupCache.setCachedMatchupDetails(matchupId, week, detailedData);
+
+      console.log(`✅ Matchup details loaded in ${(performance.now() - startTime).toFixed(2)}ms`);
+      return detailedData;
+
+    } catch (error) {
+      console.error(`Error loading matchup details for ${matchupId}:`, error);
+      return null;
+    }
+  }
+
+  /**
+   * Determine matchup status from database data
+   */
+  private static determineMatchupStatusFromDb(matchup: any): 'live' | 'completed' | 'upcoming' {
+    if (matchup.matchup_status === 'completed' || matchup.winning_team_id) {
+      return 'completed';
+    }
+    
+    if (matchup.team1_score > 0 || matchup.team2_score > 0) {
+      return 'live';
+    }
+    
+    return 'upcoming';
+  }
+
+  /**
    * Get conferences for a specific season
    */
   static async getConferences(seasonId: number): Promise<Conference[]> {
@@ -432,12 +694,12 @@ export class SupabaseMatchupService {
         team2_id: bracket.team2_id, // This can be null for bye weeks
         is_playoff: true,
         manual_override: false,
-        matchup_status: bracket.winner_team_id ? 'completed' : 'upcoming',
+        matchup_status: bracket.winning_team_id ? 'completed' : 'upcoming',
         notes: bracket.playoff_round_name || null,
         matchup_type: 'playoff' as any, // This might need to be adjusted based on your enum
         team1_score: bracket.team1_score || null,
         team2_score: bracket.team2_score || null,
-        winning_team_id: bracket.winner_team_id || null,
+        winning_team_id: bracket.winning_team_id || null,
         // Add is_bye flag to help with processing
         is_bye: bracket.is_bye || false
       };

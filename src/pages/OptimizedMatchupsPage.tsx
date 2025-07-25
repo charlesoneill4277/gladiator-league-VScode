@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
@@ -8,34 +8,7 @@ import { useApp } from '@/contexts/AppContext';
 import { Swords, ChevronDown, ChevronUp, Clock, Trophy, Users, RefreshCw, AlertCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import SleeperApiService, { SleeperPlayer } from '@/services/sleeperApi';
-import SupabaseMatchupService, { OrganizedMatchup } from '@/services/supabaseMatchupService';
-import MatchupCache from '@/services/matchupCache';
-import PerformanceMonitor, { trackApiCall, trackCacheHit, resetPerformanceMetrics } from '@/components/PerformanceMonitor';
-import MatchupsDebug from '@/components/MatchupsDebug';
-
-// Minimal matchup interface for fast initial loading
-interface MinimalMatchup {
-  id: number;
-  matchup_id: number;
-  conference: { id: number; name: string };
-  teams: { id: number; name: string; owner: string; points: number; roster_id: number }[];
-  status: 'live' | 'completed' | 'upcoming';
-  week: number;
-  is_playoff: boolean;
-  is_bye?: boolean;
-  playoff_round_name?: string;
-}
-
-// Detailed matchup data loaded on-demand
-interface DetailedMatchupData {
-  players_points: Record<string, Record<string, number>>;
-  starters: Record<string, string[]>;
-  bench_players: Record<string, string[]>;
-  rosters: Record<string, any>;
-  users: Record<string, any>;
-}
-
-
+import OptimizedMatchupService, { MinimalMatchup, DetailedMatchupData } from '@/services/optimizedMatchupService';
 
 // Memoized matchup card component for better performance
 const MatchupCard = React.memo<{
@@ -256,13 +229,8 @@ const MatchupCard = React.memo<{
 
 MatchupCard.displayName = 'MatchupCard';
 
-const MatchupsPage: React.FC = () => {
-  const renderCountRef = useRef(0);
-  renderCountRef.current += 1;
-  
-  if (renderCountRef.current % 10 === 0) {
-    console.warn(`🚨 MatchupsPage render count: ${renderCountRef.current}`);
-  }
+const OptimizedMatchupsPage: React.FC = () => {
+  console.log('🚀 OptimizedMatchupsPage component mounting...');
 
   const { selectedSeason, selectedConference, currentSeasonConfig, seasonConfigs } = useApp();
   const { toast } = useToast();
@@ -276,13 +244,6 @@ const MatchupsPage: React.FC = () => {
   const [allPlayers, setAllPlayers] = useState<Record<string, SleeperPlayer>>({});
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [apiErrors, setApiErrors] = useState<string[]>([]);
-  
-  // Ref to track if we're currently fetching to prevent duplicate calls
-  const isFetchingRef = useRef(false);
-  
-  // Ref to track matchup details to avoid dependency issues
-  const matchupDetailsRef = useRef<Map<number, DetailedMatchupData>>(new Map());
 
   // Memoized season configuration
   const seasonConfig = useMemo(() => 
@@ -290,34 +251,48 @@ const MatchupsPage: React.FC = () => {
     [seasonConfigs, selectedSeason]
   );
 
+  // Load current NFL week
+  const loadCurrentWeek = useCallback(async () => {
+    try {
+      console.log('🔄 Loading current NFL week...');
+      const week = await SleeperApiService.getCurrentNFLWeek();
+      console.log(`✅ Current NFL week: ${week}`);
+      setCurrentWeek(week);
+      setSelectedWeek(week);
+    } catch (error) {
+      console.error('Error getting current week:', error);
+      setCurrentWeek(1);
+      setSelectedWeek(1);
+    }
+  }, []);
+
   // Load player data with caching
   const loadPlayerData = useCallback(async () => {
     try {
       console.log('🔄 Loading player data...');
       const startTime = performance.now();
       
-      // Use the cached player loading from MatchupCache
-      const players = await MatchupCache.getPlayers();
+      // Use the optimized service's cached player loading
+      const players = await OptimizedMatchupService['MatchupDataCache']?.getPlayers() || {};
       
       console.log(`✅ Player data loaded in ${(performance.now() - startTime).toFixed(2)}ms`);
       setAllPlayers(players);
     } catch (error) {
       console.error('Error loading player data:', error);
+      // Fallback to empty object
       setAllPlayers({});
     }
   }, []);
 
-  // Load minimal matchup data for fast initial rendering
+  // Load minimal matchup data
   const fetchMatchups = useCallback(async () => {
-    if (!selectedSeason || !seasonConfig || refreshing || isFetchingRef.current) {
+    if (!selectedSeason || !seasonConfig || refreshing) {
       console.log('⚠️ Skipping matchup fetch - missing data or already refreshing');
       setLoading(false);
       return;
     }
 
-    isFetchingRef.current = true;
     setRefreshing(true);
-    setApiErrors([]);
 
     try {
       console.log(`🎯 Fetching optimized matchups for season ${selectedSeason}, week ${selectedWeek}`);
@@ -335,8 +310,8 @@ const MatchupsPage: React.FC = () => {
         console.log(`🎯 Conference filter: ${selectedConference} -> DB conferenceId: ${conferenceId}`);
       }
 
-      // Use optimized minimal matchup loading
-      const minimalMatchups = await SupabaseMatchupService.getMinimalMatchups(
+      // Use optimized service for fast initial load
+      const minimalMatchups = await OptimizedMatchupService.getMinimalMatchups(
         seasonId,
         selectedWeek,
         conferenceId
@@ -347,13 +322,11 @@ const MatchupsPage: React.FC = () => {
 
       // Clear previous details when matchups change
       setMatchupDetails(new Map());
-      matchupDetailsRef.current = new Map();
       setExpandedMatchups(new Set());
 
     } catch (error) {
       console.error('Error fetching matchups:', error);
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      setApiErrors([errorMessage]);
 
       toast({
         title: 'Error Loading Matchups',
@@ -363,16 +336,15 @@ const MatchupsPage: React.FC = () => {
 
       setMatchups([]);
     } finally {
-      isFetchingRef.current = false;
       setRefreshing(false);
       setLoading(false);
     }
-  }, [selectedWeek, selectedConference, selectedSeason, seasonConfig, toast]);
+  }, [selectedWeek, selectedConference, selectedSeason, seasonConfig, refreshing, toast]);
 
   // Load detailed matchup data on-demand
   const loadMatchupDetails = useCallback(async (matchupId: number) => {
-    if (!selectedSeason || !seasonConfig) {
-      return; // Missing data
+    if (!selectedSeason || !seasonConfig || matchupDetails.has(matchupId)) {
+      return; // Already loaded or missing data
     }
 
     setLoadingDetails(prev => new Set(prev).add(matchupId));
@@ -385,18 +357,14 @@ const MatchupsPage: React.FC = () => {
         ? parseInt(seasonConfig.seasonId) 
         : (seasonConfig.seasonId || selectedSeason);
 
-      const details = await SupabaseMatchupService.getMatchupDetails(
+      const details = await OptimizedMatchupService.getMatchupDetails(
         matchupId,
         seasonId,
         selectedWeek
       );
 
       if (details) {
-        setMatchupDetails(prev => {
-          const newMap = new Map(prev).set(matchupId, details);
-          matchupDetailsRef.current = newMap;
-          return newMap;
-        });
+        setMatchupDetails(prev => new Map(prev).set(matchupId, details));
         console.log(`✅ Matchup ${matchupId} details loaded in ${(performance.now() - startTime).toFixed(2)}ms`);
       }
 
@@ -409,55 +377,28 @@ const MatchupsPage: React.FC = () => {
         return newSet;
       });
     }
-  }, [selectedSeason, seasonConfig, selectedWeek]);
-
-  // Load current NFL week
-  const loadCurrentWeek = useCallback(async () => {
-    try {
-      console.log('🔄 Loading current NFL week...');
-      const week = await SleeperApiService.getCurrentNFLWeek();
-      console.log(`✅ Current NFL week: ${week}`);
-      setCurrentWeek(week);
-      setSelectedWeek(week);
-    } catch (error) {
-      console.error('Error getting current week:', error);
-      setCurrentWeek(1);
-      setSelectedWeek(1);
-    }
-  }, []);
+  }, [selectedSeason, seasonConfig, selectedWeek, matchupDetails]);
 
   // Toggle matchup expansion with lazy loading
   const toggleMatchupExpansion = useCallback((matchupId: number) => {
-    const isCurrentlyExpanded = expandedMatchups.has(matchupId);
+    const newExpanded = new Set(expandedMatchups);
     
-    if (isCurrentlyExpanded) {
-      // Collapsing
-      setExpandedMatchups(prev => {
-        const newExpanded = new Set(prev);
-        newExpanded.delete(matchupId);
-        return newExpanded;
-      });
+    if (newExpanded.has(matchupId)) {
+      newExpanded.delete(matchupId);
     } else {
-      // Expanding
-      setExpandedMatchups(prev => {
-        const newExpanded = new Set(prev);
-        newExpanded.add(matchupId);
-        return newExpanded;
-      });
-      
-      // Load details if not already loaded (using ref to avoid dependency)
-      if (!matchupDetailsRef.current.has(matchupId)) {
-        loadMatchupDetails(matchupId);
-      }
+      newExpanded.add(matchupId);
+      // Load details when expanding
+      loadMatchupDetails(matchupId);
     }
+    
+    setExpandedMatchups(newExpanded);
   }, [expandedMatchups, loadMatchupDetails]);
 
   // Initialize data on mount
   useEffect(() => {
-    resetPerformanceMetrics();
     loadCurrentWeek();
     loadPlayerData();
-  }, []);
+  }, [loadCurrentWeek, loadPlayerData]);
 
   // Load matchups when dependencies change
   useEffect(() => {
@@ -480,7 +421,7 @@ const MatchupsPage: React.FC = () => {
       <div className="space-y-6">
         <div className="flex items-center space-x-2">
           <Swords className="h-6 w-6 text-primary" />
-          <h1 className="text-3xl font-bold">Matchups</h1>
+          <h1 className="text-3xl font-bold">Matchups (Optimized)</h1>
         </div>
         <Card>
           <CardContent className="py-8 text-center">
@@ -498,7 +439,7 @@ const MatchupsPage: React.FC = () => {
       <div className="flex flex-col space-y-2">
         <div className="flex items-center space-x-2">
           <Swords className="h-6 w-6 text-primary" />
-          <h1 className="text-3xl font-bold">Matchups (Enhanced)</h1>
+          <h1 className="text-3xl font-bold">Matchups (Optimized)</h1>
         </div>
         <p className="text-muted-foreground">
           {selectedSeason} Season • Week {selectedWeek} • {
@@ -541,7 +482,7 @@ const MatchupsPage: React.FC = () => {
             variant="outline"
             size="sm"
             onClick={() => {
-              MatchupCache.clearAll();
+              OptimizedMatchupService.clearCache();
               fetchMatchups();
             }}
             disabled={refreshing}
@@ -557,33 +498,12 @@ const MatchupsPage: React.FC = () => {
         </div>
       </div>
 
-      {/* API Errors Display */}
-      {apiErrors.length > 0 && (
-        <Card className="border-l-4 border-l-red-500">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm flex items-center space-x-2">
-              <AlertCircle className="h-4 w-4 text-red-500" />
-              <span>API Errors ({apiErrors.length})</span>
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-1">
-              {apiErrors.map((error, index) => (
-                <div key={index} className="text-sm text-red-600 bg-red-50 p-2 rounded">
-                  {error}
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
       {/* Performance Stats (Development only) */}
       {process.env.NODE_ENV === 'development' && (
         <Card className="border-l-4 border-l-blue-500">
           <CardContent className="py-2">
             <div className="text-xs text-muted-foreground">
-              Cache Stats: {JSON.stringify(MatchupCache.getStats())}
+              Cache Stats: {JSON.stringify(OptimizedMatchupService.getCacheStats())}
             </div>
           </CardContent>
         </Card>
@@ -612,14 +532,8 @@ const MatchupsPage: React.FC = () => {
           </Card>
         )}
       </div>
-
-      {/* Performance Monitor - Temporarily disabled */}
-      {/* <PerformanceMonitor /> */}
-      
-      {/* Debug Component (Development only) - Temporarily disabled */}
-      {/* {process.env.NODE_ENV === 'development' && <MatchupsDebug />} */}
     </div>
   );
 };
 
-export default MatchupsPage;
+export default OptimizedMatchupsPage;

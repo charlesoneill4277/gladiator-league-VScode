@@ -548,6 +548,10 @@ export class DatabaseService {
     return this.createRecord<DbPlayoffBracket>(TABLES.PLAYOFF_BRACKETS, data);
   }
 
+  static async updatePlayoffBracket(id: number, data: Partial<DbPlayoffBracket>): Promise<{ data: DbPlayoffBracket | null; error: any }> {
+    return this.updateRecord<DbPlayoffBracket>(TABLES.PLAYOFF_BRACKETS, id, data);
+  }
+
   /**
    * Playoff Formats table operations
    */

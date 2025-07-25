@@ -211,9 +211,7 @@ Columns:
 
 ●	team2_id (integer): FK to teams.id.
 
-●	winner_team_id (integer): FK to teams.id.
-
-●	sleeper_match_id (varchar): External match ID.
+●	winning_team_id (integer): FK to teams.id.
 
 ●	playoff_round_name (varchar): Name of the round.
 
@@ -223,9 +221,9 @@ Columns:
 
 ●	week (integer): Week number.
 
-●	team1_score (integer): Score of team 1.
+●	team1_score (numeric): Score of team 1.
 
-●	team2_score (integer): Score of team 2.
+●	team2_score (numeric): Score of team 2.
 
 ________________________________________
 Table: playoff_formats
@@ -256,12 +254,17 @@ Table: seasons
 Description: Stores season metadata.
 Columns:
 ●	id (integer): Primary key.
-
 ●	season_name (text): Unique season name.
-
 ●	is_current (boolean): Whether it's the current season.
-
 ●	season_year (text): Unique identifier year.
+●	league_settings (jsonb): Settings for league
+●	roster_positions (jsonb): Settings for roster positions
+●	scoring_settings (jsonb): Settings for player scoring
+●	charter_file_url (text): File URL for league charter
+●	charter_file_name (text): Name of league charter
+●	charter_uploaded_at (timestampz): When charter was last updated
+●	charter_uploaded_by (text): Admin who updated charter
+
 
 ________________________________________
 Table: team_conference_junction
