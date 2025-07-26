@@ -18,6 +18,7 @@ import {
 'lucide-react';
 import { StandingsService, StandingsData } from '@/services/standingsService';
 import { DatabaseService } from '@/services/databaseService';
+import { getConferenceBadgeClasses } from '@/utils/conferenceColors';
 import { DbTeamRecord } from '@/types/database';
 
 // Use database type for team records
@@ -397,7 +398,12 @@ const TeamRecordsDashboard: React.FC = () => {
                           </div>
                         </TableCell>
                         <TableCell>
-                          <Badge variant="outline">{team.conference_name}</Badge>
+                          <Badge 
+                            variant="secondary" 
+                            className={getConferenceBadgeClasses(team.conference_name)}
+                          >
+                            {team.conference_name}
+                          </Badge>
                         </TableCell>
                         <TableCell>
                           <span className="font-mono">

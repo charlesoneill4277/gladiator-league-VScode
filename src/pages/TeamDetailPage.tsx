@@ -10,6 +10,7 @@ import { ArrowLeft, Users, Trophy, TrendingUp, Calendar, Star, Loader2, AlertCir
 import { useToast } from '@/hooks/use-toast';
 import { DatabaseService } from '@/services/databaseService';
 import { useApp } from '@/contexts/AppContext';
+import { getConferenceBadgeClasses } from '@/utils/conferenceColors';
 import SleeperApiService, { type SleeperRoster, type SleeperPlayer, type OrganizedRoster } from '../services/sleeperApi';
 import { type ProcessedTransaction } from '../services/transactionService';
 import TransactionCard from '../components/transactions/TransactionCard';
@@ -86,6 +87,14 @@ const TeamDetailPage: React.FC = () => {
   const [schedule, setSchedule] = useState<ScheduleMatchup[]>([]);
   const [scheduleLoading, setScheduleLoading] = useState(false);
   const [teamRecord, setTeamRecord] = useState<TeamRecord | null>(null);
+  const [seasonWaiverData, setSeasonWaiverData] = useState<{ position: number; budget: number } | null>(null);
+  const [seasonTransactionCount, setSeasonTransactionCount] = useState<number>(0);
+  const [headerStats, setHeaderStats] = useState<{
+    wins: number;
+    losses: number;
+    pointsFor: number;
+    gamesPlayed: number;
+  } | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
@@ -114,6 +123,24 @@ const TeamDetailPage: React.FC = () => {
     }
   }, [activeTab, teamRosterData, selectedSeason]);
 
+  useEffect(() => {
+    if (activeTab === 'performance' && teamRosterData && !seasonWaiverData) {
+      fetchSeasonWaiverData();
+    }
+  }, [activeTab, teamRosterData, selectedSeason]);
+
+  useEffect(() => {
+    if (activeTab === 'performance' && teamRosterData && seasonTransactionCount === 0) {
+      fetchSeasonTransactionCount();
+    }
+  }, [activeTab, teamRosterData, selectedSeason]);
+
+  useEffect(() => {
+    if (teamRosterData && !headerStats) {
+      fetchHeaderStats();
+    }
+  }, [teamRosterData, selectedSeason]);
+
   // Clear schedule and team record when season changes
   useEffect(() => {
     if (schedule.length > 0) {
@@ -122,6 +149,13 @@ const TeamDetailPage: React.FC = () => {
     if (teamRecord) {
       setTeamRecord(null);
     }
+  }, [selectedSeason]);
+
+  // Clear season-specific data when season changes
+  useEffect(() => {
+    setSeasonWaiverData(null);
+    setSeasonTransactionCount(0);
+    setHeaderStats(null);
   }, [selectedSeason]);
 
   const fetchTeamData = async (id: number) => {
@@ -926,6 +960,321 @@ const TeamDetailPage: React.FC = () => {
     }
   };
 
+  const fetchSeasonWaiverData = async () => {
+    if (!teamRosterData || !currentSeasonConfig) return;
+
+    try {
+      console.log(`Fetching season waiver data for team ${teamRosterData.teamData.team_name} for season ${selectedSeason}`);
+
+      // Find the team's conference for the selected season
+      const seasonConferences = currentSeasonConfig.conferences.filter(conf => conf.dbConferenceId);
+      if (seasonConferences.length === 0) {
+        console.log('No conferences found for selected season');
+        return;
+      }
+
+      const teamJunctionResult = await DatabaseService.getTeamConferenceJunctions({
+        filters: [
+          { column: 'team_id', operator: 'eq', value: teamRosterData.teamData.id }
+        ]
+      });
+
+      if (teamJunctionResult.error || !teamJunctionResult.data) {
+        throw new Error('Failed to get team conference mappings');
+      }
+
+      const seasonConferenceIds = seasonConferences.map(conf => conf.dbConferenceId);
+      const teamJunctionForSeason = teamJunctionResult.data.find(junction =>
+        seasonConferenceIds.includes(junction.conference_id)
+      );
+
+      if (!teamJunctionForSeason) {
+        console.log(`Team not found in any conference for season ${selectedSeason}`);
+        return;
+      }
+
+      // Get conference data to find the league_id for Sleeper API call
+      const conferenceResult = await DatabaseService.getConferences({
+        filters: [{ column: 'id', operator: 'eq', value: teamJunctionForSeason.conference_id }]
+      });
+
+      if (conferenceResult.error || !conferenceResult.data || conferenceResult.data.length === 0) {
+        throw new Error('Conference not found');
+      }
+
+      const conferenceData = conferenceResult.data[0];
+      const leagueId = conferenceData.league_id;
+      const rosterId = teamJunctionForSeason.roster_id;
+
+      // Fetch roster data from Sleeper API for the specific season
+      console.log(`Fetching Sleeper roster data for league ${leagueId}, roster ${rosterId}`);
+      const rosterData = await SleeperApiService.getTeamRosterData(leagueId, rosterId);
+
+      // Calculate waiver budget remaining (100 - waiver_budget_used)
+      const waiverBudgetRemaining = 100 - rosterData.roster.settings.waiver_budget_used;
+
+      setSeasonWaiverData({
+        position: rosterData.roster.settings.waiver_position,
+        budget: waiverBudgetRemaining
+      });
+
+      console.log(`Loaded season waiver data: position ${rosterData.roster.settings.waiver_position}, budget remaining $${waiverBudgetRemaining}`);
+
+    } catch (error) {
+      console.error('Error fetching season waiver data:', error);
+      // Don't show toast for waiver data errors as it's not critical
+    }
+  };
+
+  const fetchSeasonTransactionCount = async () => {
+    if (!teamRosterData || !currentSeasonConfig) return;
+
+    try {
+      console.log(`Fetching season transaction count for team ${teamRosterData.teamData.team_name} for season ${selectedSeason}`);
+
+      // Get season ID
+      const seasonResult = await DatabaseService.getSeasons({
+        filters: [{ column: 'season_year', operator: 'eq', value: selectedSeason }]
+      });
+
+      if (seasonResult.error || !seasonResult.data || seasonResult.data.length === 0) {
+        throw new Error('Season not found');
+      }
+
+      const seasonId = seasonResult.data[0].id;
+
+      // Find the team's conference for the selected season
+      const seasonConferences = currentSeasonConfig.conferences.filter(conf => conf.dbConferenceId);
+      if (seasonConferences.length === 0) {
+        console.log('No conferences found for selected season');
+        return;
+      }
+
+      const teamJunctionResult = await DatabaseService.getTeamConferenceJunctions({
+        filters: [
+          { column: 'team_id', operator: 'eq', value: teamRosterData.teamData.id }
+        ]
+      });
+
+      if (teamJunctionResult.error || !teamJunctionResult.data) {
+        throw new Error('Failed to get team conference mappings');
+      }
+
+      const seasonConferenceIds = seasonConferences.map(conf => conf.dbConferenceId);
+      const teamJunctionForSeason = teamJunctionResult.data.find(junction =>
+        seasonConferenceIds.includes(junction.conference_id)
+      );
+
+      if (!teamJunctionForSeason) {
+        console.log(`Team not found in any conference for season ${selectedSeason}`);
+        setSeasonTransactionCount(0);
+        return;
+      }
+
+      // Query transactions table for this team in this season
+      const transactionsResult = await DatabaseService.getTransactions({
+        filters: [
+          { column: 'season_id', operator: 'eq', value: seasonId },
+          { column: 'conference_id', operator: 'eq', value: teamJunctionForSeason.conference_id }
+        ]
+      });
+
+      if (transactionsResult.error || !transactionsResult.data) {
+        throw new Error('Failed to fetch transactions');
+      }
+
+      // Count transactions that involve this team
+      let transactionCount = 0;
+      for (const transaction of transactionsResult.data) {
+        let parsedData: any = {};
+        try {
+          parsedData = typeof transaction.data === 'string' ? JSON.parse(transaction.data) : transaction.data || {};
+        } catch (e) {
+          console.warn('Failed to parse transaction data:', e);
+          continue;
+        }
+
+        // Check if this transaction involves our team's roster_id
+        const transactionRosterIds = parsedData.roster_ids || [];
+        if (transactionRosterIds.includes(teamJunctionForSeason.roster_id)) {
+          transactionCount++;
+        }
+      }
+
+      setSeasonTransactionCount(transactionCount);
+      console.log(`Loaded season transaction count: ${transactionCount} for season ${selectedSeason}`);
+
+    } catch (error) {
+      console.error('Error fetching season transaction count:', error);
+      // Don't show toast for transaction count errors as it's not critical
+      setSeasonTransactionCount(0);
+    }
+  };
+
+  const fetchHeaderStats = async () => {
+    if (!teamRosterData || !currentSeasonConfig) return;
+
+    try {
+      console.log(`Fetching header stats for team ${teamRosterData.teamData.team_name} for season ${selectedSeason}`);
+
+      // Get season ID
+      const seasonResult = await DatabaseService.getSeasons({
+        filters: [{ column: 'season_year', operator: 'eq', value: selectedSeason.toString() }]
+      });
+
+      if (seasonResult.error || !seasonResult.data || seasonResult.data.length === 0) {
+        throw new Error('Season not found');
+      }
+
+      const seasonId = seasonResult.data[0].id;
+
+      // Find the team's conference for the selected season
+      const seasonConferences = currentSeasonConfig.conferences.filter(conf => conf.dbConferenceId);
+      if (seasonConferences.length === 0) {
+        console.log('No conferences found for selected season');
+        return;
+      }
+
+      const teamJunctionResult = await DatabaseService.getTeamConferenceJunctions({
+        filters: [
+          { column: 'team_id', operator: 'eq', value: teamRosterData.teamData.id }
+        ]
+      });
+
+      if (teamJunctionResult.error || !teamJunctionResult.data) {
+        throw new Error('Failed to get team conference mappings');
+      }
+
+      const seasonConferenceIds = seasonConferences.map(conf => conf.dbConferenceId);
+      const teamJunctionForSeason = teamJunctionResult.data.find(junction =>
+        seasonConferenceIds.includes(junction.conference_id)
+      );
+
+      if (!teamJunctionForSeason) {
+        console.log(`Team not found in any conference for season ${selectedSeason}`);
+        // Set default values if team not found in season
+        setHeaderStats({
+          wins: 0,
+          losses: 0,
+          pointsFor: 0,
+          gamesPlayed: 0
+        });
+        return;
+      }
+
+      // Get team record from team_records table
+      const teamRecordResult = await DatabaseService.getTeamRecords({
+        filters: [
+          { column: 'team_id', operator: 'eq', value: teamRosterData.teamData.id },
+          { column: 'conference_id', operator: 'eq', value: teamJunctionForSeason.conference_id },
+          { column: 'season_id', operator: 'eq', value: seasonId }
+        ]
+      });
+
+      let wins = 0;
+      let losses = 0;
+      let pointsFor = 0;
+
+      if (teamRecordResult.data && teamRecordResult.data.length > 0) {
+        const record = teamRecordResult.data[0];
+        wins = record.wins;
+        losses = record.losses;
+        pointsFor = record.points_for;
+        console.log(`Found team record: ${wins}-${losses}, Points For: ${pointsFor}`);
+      } else {
+        console.log('No team record found, using default values');
+      }
+
+      // Calculate games played from completed matchups (regular season only, weeks 1-12)
+      const matchupsResult = await DatabaseService.getMatchups({
+        filters: [
+          { column: 'conference_id', operator: 'eq', value: teamJunctionForSeason.conference_id },
+          { column: 'week', operator: 'lte', value: 12 } // Regular season only
+        ]
+      });
+
+      let gamesPlayed = 0;
+      if (matchupsResult.data) {
+        // Count completed games where this team was involved
+        const completedGames = matchupsResult.data.filter(matchup => {
+          const isTeamInvolved = matchup.team1_id === teamRosterData.teamData.id || 
+                                matchup.team2_id === teamRosterData.teamData.id;
+          const isCompleted = matchup.team1_score !== null && matchup.team2_score !== null;
+          return isTeamInvolved && isCompleted;
+        });
+        gamesPlayed = completedGames.length;
+
+        // Also check for cross-conference manual overrides (similar to schedule logic)
+        const manualOverrideWeeks = new Set();
+        matchupsResult.data.forEach(matchup => {
+          if (matchup.manual_override) {
+            manualOverrideWeeks.add(matchup.week);
+          }
+        });
+
+        // For manual override weeks, get ALL matchups across ALL conferences in the season
+        if (manualOverrideWeeks.size > 0) {
+          const allSeasonConferences = await DatabaseService.getConferences({
+            filters: [{ column: 'season_id', operator: 'eq', value: seasonId }]
+          });
+
+          const allConferenceIds = allSeasonConferences.data?.map(conf => conf.id) || [];
+
+          const crossConferenceResult = await DatabaseService.getMatchups({
+            filters: [
+              { column: 'conference_id', operator: 'in', value: allConferenceIds },
+              { column: 'week', operator: 'in', value: Array.from(manualOverrideWeeks) },
+              { column: 'week', operator: 'lte', value: 12 } // Still regular season only
+            ]
+          });
+
+          if (crossConferenceResult.data) {
+            const crossConferenceCompleted = crossConferenceResult.data.filter(matchup => {
+              const isTeamInvolved = matchup.team1_id === teamRosterData.teamData.id || 
+                                    matchup.team2_id === teamRosterData.teamData.id;
+              const isCompleted = matchup.team1_score !== null && matchup.team2_score !== null;
+              // Make sure it's not already counted in the conference matchups
+              const isNotAlreadyCounted = matchup.conference_id !== teamJunctionForSeason.conference_id;
+              return isTeamInvolved && isCompleted && isNotAlreadyCounted;
+            });
+            gamesPlayed += crossConferenceCompleted.length;
+          }
+        }
+
+        console.log(`Games played from completed matchups: ${gamesPlayed}`);
+      }
+
+      // For ended seasons, ensure we have 12 games (full regular season)
+      // Check if season has ended by looking at current season config
+      const currentYear = new Date().getFullYear();
+      const isCurrentSeason = selectedSeason === currentYear;
+      if (!isCurrentSeason && gamesPlayed === 0) {
+        // If it's a past season and no completed games found, assume full 12-game season
+        gamesPlayed = 12;
+        console.log(`Past season detected, setting games played to 12`);
+      }
+
+      setHeaderStats({
+        wins,
+        losses,
+        pointsFor,
+        gamesPlayed
+      });
+
+      console.log(`Loaded header stats: ${wins}-${losses}, Points For: ${pointsFor}, Games Played: ${gamesPlayed}`);
+
+    } catch (error) {
+      console.error('Error fetching header stats:', error);
+      // Set fallback values on error
+      setHeaderStats({
+        wins: 0,
+        losses: 0,
+        pointsFor: 0,
+        gamesPlayed: 0
+      });
+    }
+  };
+
   const getPositionColor = (position: string) => {
     switch (position) {
       case 'QB': return 'bg-red-100 text-red-800';
@@ -1005,6 +1354,14 @@ const TeamDetailPage: React.FC = () => {
   const avgPointsPerGame = SleeperApiService.calculatePointsPerGame(totalPoints, gamesPlayed);
   const winPercentage = gamesPlayed > 0 ? ((teamRecord?.wins ?? roster.settings.wins) / gamesPlayed * 100) : 0;
 
+  // Header statistics - use database data when available, fallback to Sleeper data
+  const headerWins = headerStats?.wins ?? roster.settings.wins;
+  const headerLosses = headerStats?.losses ?? roster.settings.losses;
+  const headerPointsFor = headerStats?.pointsFor ?? SleeperApiService.formatPoints(roster.settings.fpts, roster.settings.fpts_decimal);
+  const headerGamesPlayed = headerStats?.gamesPlayed ?? (roster.settings.wins + roster.settings.losses + roster.settings.ties);
+  const headerAvgPointsPerGame = headerGamesPlayed > 0 ? (headerPointsFor / headerGamesPlayed) : 0;
+  const headerWinPercentage = headerGamesPlayed > 0 ? (headerWins / headerGamesPlayed * 100) : 0;
+
   return (
     <div className="space-y-6">
       {/* Back Button */}
@@ -1031,7 +1388,12 @@ const TeamDetailPage: React.FC = () => {
               <p className="text-sm text-muted-foreground">Co-owner: {teamData.co_owner_name}</p>
             }
             <div className="flex items-center space-x-2 mt-2">
-              <Badge variant="outline">{conferenceData.conference_name}</Badge>
+              <Badge 
+                variant="secondary" 
+                className={getConferenceBadgeClasses(conferenceData.conference_name)}
+              >
+                {conferenceData.conference_name}
+              </Badge>
               <Badge variant="secondary">Roster #{roster.roster_id}</Badge>
             </div>
           </div>
@@ -1039,19 +1401,27 @@ const TeamDetailPage: React.FC = () => {
 
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
           <div>
-            <div className="text-2xl font-bold">{roster.settings.wins}-{roster.settings.losses}</div>
+            <div className="text-2xl font-bold">
+              {headerStats ? `${headerWins}-${headerLosses}` : `${roster.settings.wins}-${roster.settings.losses}`}
+            </div>
             <div className="text-sm text-muted-foreground">Record</div>
           </div>
           <div>
-            <div className="text-2xl font-bold">{totalPoints.toFixed(1)}</div>
+            <div className="text-2xl font-bold">
+              {headerStats ? headerPointsFor.toFixed(1) : totalPoints.toFixed(1)}
+            </div>
             <div className="text-sm text-muted-foreground">Points For</div>
           </div>
           <div>
-            <div className="text-2xl font-bold">{avgPointsPerGame.toFixed(1)}</div>
+            <div className="text-2xl font-bold">
+              {headerStats ? headerAvgPointsPerGame.toFixed(1) : avgPointsPerGame.toFixed(1)}
+            </div>
             <div className="text-sm text-muted-foreground">Avg/Game</div>
           </div>
           <div>
-            <div className="text-2xl font-bold text-blue-600">{winPercentage.toFixed(1)}%</div>
+            <div className="text-2xl font-bold text-blue-600">
+              {headerStats ? headerWinPercentage.toFixed(1) : winPercentage.toFixed(1)}%
+            </div>
             <div className="text-sm text-muted-foreground">Win %</div>
           </div>
         </div>
@@ -1294,20 +1664,27 @@ const TeamDetailPage: React.FC = () => {
                   <TrendingUp className="h-5 w-5" />
                   <span>Team Management</span>
                 </CardTitle>
+                <CardDescription>
+                  Waiver and transaction data for {selectedSeason} season
+                </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <p className="text-sm text-muted-foreground">Waiver Position</p>
-                    <p className="text-2xl font-bold">{roster.settings.waiver_position}</p>
+                    <p className="text-2xl font-bold">
+                      {seasonWaiverData ? seasonWaiverData.position : roster.settings.waiver_position}
+                    </p>
                   </div>
                   <div>
-                    <p className="text-sm text-muted-foreground">Waiver Budget Used</p>
-                    <p className="text-2xl font-bold">${roster.settings.waiver_budget_used}</p>
+                    <p className="text-sm text-muted-foreground">Waiver Budget</p>
+                    <p className="text-2xl font-bold">
+                      ${seasonWaiverData ? seasonWaiverData.budget : (100 - roster.settings.waiver_budget_used)}
+                    </p>
                   </div>
                   <div>
                     <p className="text-sm text-muted-foreground">Total Moves</p>
-                    <p className="text-2xl font-bold">{roster.settings.total_moves}</p>
+                    <p className="text-2xl font-bold">{seasonTransactionCount}</p>
                   </div>
                   <div>
                     <p className="text-sm text-muted-foreground">Games Played</p>
@@ -1368,7 +1745,7 @@ const TeamDetailPage: React.FC = () => {
                     </p>
                     <div className="mt-4">
                       <Badge variant="secondary">
-                        Total moves: {roster.settings.total_moves}
+                        Total moves: {roster.settings.total_moves} (all seasons)
                       </Badge>
                     </div>
                   </div>
@@ -1381,7 +1758,7 @@ const TeamDetailPage: React.FC = () => {
                     Showing {transactions.length} transaction{transactions.length !== 1 ? 's' : ''}
                   </p>
                   <Badge variant="secondary">
-                    Total moves: {roster.settings.total_moves}
+                    Total moves: {roster.settings.total_moves} (all seasons)
                   </Badge>
                 </div>
 

@@ -8,30 +8,10 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useApp } from '@/contexts/AppContext';
 import { Users, Search, ExternalLink, Trophy, TrendingUp, RefreshCw, AlertCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { DatabaseService } from '@/services/databaseService';
+import { getConferenceBadgeClasses } from '@/utils/conferenceColors';
 
-// Interface for Sleeper API roster data
-interface SleeperRoster {
-  starters: string[];
-  settings: {
-    wins: number;
-    waiver_position: number;
-    waiver_budget_used: number;
-    total_moves: number;
-    ties: number;
-    losses: number;
-    fpts_decimal: number;
-    fpts_against_decimal: number;
-    fpts_against: number;
-    fpts: number;
-  };
-  roster_id: number;
-  reserve: string[];
-  players: string[];
-  owner_id: string;
-  league_id: string;
-}
-
-// Interface for team data combining database and API data
+// Interface for team data from database tables
 interface TeamData {
   id: string;
   teamName: string;
@@ -44,11 +24,6 @@ interface TeamData {
   pointsAgainst: number;
   rank: number;
   streak: string;
-  rosterCount: number;
-  waiversCount: number;
-  tradesCount: number;
-  rosterId: number;
-  leagueId: string;
 }
 
 
@@ -60,7 +35,7 @@ const TeamsPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Fetch team data from database and Sleeper API
+  // Fetch team data from database tables
   const fetchTeamsData = async () => {
     setLoading(true);
     setError(null);
@@ -68,108 +43,117 @@ const TeamsPage: React.FC = () => {
     try {
       console.log('Fetching teams data for season:', selectedSeason);
 
-      // Get conferences for current season
-      const conferencesToFetch = selectedConference ?
-      currentSeasonConfig.conferences.filter((c) => c.id === selectedConference) :
-      currentSeasonConfig.conferences;
-
-      console.log('Conferences to fetch:', conferencesToFetch);
-
-      // Fetch teams from database
-      const { data: teamsResponse, error: teamsError } = await window.ezsite.apis.tablePage('12852', {
-        PageNo: 1,
-        PageSize: 100,
-        OrderByField: 'team_name',
-        IsAsc: true,
-        Filters: []
+      // Get season ID
+      const seasonResult = await DatabaseService.getSeasons({
+        filters: [{ column: 'season_year', operator: 'eq', value: selectedSeason.toString() }]
       });
 
-      if (teamsError) throw new Error(teamsError);
-
-      const dbTeams = teamsResponse?.List || [];
-      console.log('Database teams:', dbTeams);
-
-      // Fetch conferences from database to get league IDs
-      const { data: conferencesResponse, error: conferencesError } = await window.ezsite.apis.tablePage('12820', {
-        PageNo: 1,
-        PageSize: 50,
-        OrderByField: 'conference_name',
-        IsAsc: true,
-        Filters: []
-      });
-
-      if (conferencesError) throw new Error(conferencesError);
-
-      const dbConferences = conferencesResponse?.List || [];
-      console.log('Database conferences:', dbConferences);
-
-      // Fetch roster data from Sleeper API for each conference
-      const allRosterData: SleeperRoster[] = [];
-
-      for (const conference of conferencesToFetch) {
-        try {
-          console.log(`Fetching roster data for league: ${conference.leagueId}`);
-          const response = await fetch(`https://api.sleeper.app/v1/league/${conference.leagueId}/rosters`);
-
-          if (!response.ok) {
-            console.warn(`Failed to fetch roster data for league ${conference.leagueId}:`, response.statusText);
-            continue;
-          }
-
-          const rosterData: SleeperRoster[] = await response.json();
-          console.log(`Roster data for ${conference.name}:`, rosterData);
-
-          allRosterData.push(...rosterData.map((roster) => ({
-            ...roster,
-            league_id: conference.leagueId
-          })));
-        } catch (apiError) {
-          console.warn(`Error fetching roster data for league ${conference.leagueId}:`, apiError);
-        }
+      if (seasonResult.error || !seasonResult.data || seasonResult.data.length === 0) {
+        throw new Error('Season not found');
       }
 
-      console.log('All roster data:', allRosterData);
+      const seasonId = seasonResult.data[0].id;
 
-      // Combine database teams with Sleeper API data
+      // Get conferences for current season
+      let conferencesToFetch = currentSeasonConfig.conferences.filter(conf => conf.dbConferenceId);
+      
+      if (selectedConference) {
+        conferencesToFetch = conferencesToFetch.filter(c => c.id === selectedConference);
+      }
+
+      if (conferencesToFetch.length === 0) {
+        console.log('No conferences found for selected season');
+        setTeamsData([]);
+        return;
+      }
+
+      const conferenceIds = conferencesToFetch.map(c => c.dbConferenceId);
+
+      // Fetch teams from database
+      const teamsResult = await DatabaseService.getTeams({});
+
+      if (teamsResult.error || !teamsResult.data) {
+        throw new Error('Failed to fetch teams');
+      }
+
+      // Fetch team-conference junctions to find teams in selected conferences
+      const junctionsResult = await DatabaseService.getTeamConferenceJunctions({
+        filters: [
+          { column: 'conference_id', operator: 'in', value: conferenceIds }
+        ]
+      });
+
+      if (junctionsResult.error || !junctionsResult.data) {
+        throw new Error('Failed to fetch team conference mappings');
+      }
+
+      // Get team IDs that are in the selected conferences
+      const teamIdsInConferences = junctionsResult.data.map(junction => junction.team_id);
+
+      // Filter teams to only those in selected conferences
+      const teamsInConferences = teamsResult.data.filter(team => 
+        teamIdsInConferences.includes(team.id)
+      );
+
+      // Fetch team records for these teams
+      const teamRecordsResult = await DatabaseService.getTeamRecords({
+        filters: [
+          { column: 'season_id', operator: 'eq', value: seasonId },
+          { column: 'conference_id', operator: 'in', value: conferenceIds }
+        ]
+      });
+
+      if (teamRecordsResult.error || !teamRecordsResult.data) {
+        throw new Error('Failed to fetch team records');
+      }
+
+      // Get conferences for name mapping
+      const conferencesResult = await DatabaseService.getConferences({
+        filters: [{ column: 'id', operator: 'in', value: conferenceIds }]
+      });
+
+      const conferenceMap = new Map();
+      if (conferencesResult.data) {
+        conferencesResult.data.forEach(conf => {
+          conferenceMap.set(conf.id, conf.conference_name);
+        });
+      }
+
+      // Combine team data with records
       const combinedTeams: TeamData[] = [];
 
-      for (const dbTeam of dbTeams) {
-        // Find matching roster from Sleeper API
-        const matchingRoster = allRosterData.find((roster) =>
-        roster.owner_id === dbTeam.owner_id
-        );
+      for (const team of teamsInConferences) {
+        // Find the team's record
+        const teamRecord = teamRecordsResult.data.find(record => record.team_id === team.id);
+        
+        if (teamRecord) {
+          // Find the team's conference
+          const teamJunction = junctionsResult.data.find(junction => junction.team_id === team.id);
+          const conferenceName = teamJunction ? conferenceMap.get(teamJunction.conference_id) : 'Unknown';
 
-        if (matchingRoster) {
-          const conference = conferencesToFetch.find((c) => c.leagueId === matchingRoster.league_id);
+          // Calculate streak (simplified - would need match history for accuracy)
+          const streak = calculateStreak(teamRecord.wins, teamRecord.losses);
 
-          // Calculate win streak
-          const streak = calculateStreak(matchingRoster.settings.wins, matchingRoster.settings.losses);
+          // Format avatar URL
+          const avatarUrl = team.team_logourl ? `https://sleepercdn.com/avatars/thumbs/${team.team_logourl}` : null;
 
           combinedTeams.push({
-            id: dbTeam.id.toString(),
-            teamName: dbTeam.team_name,
-            ownerName: dbTeam.owner_name,
-            coOwnerName: dbTeam.co_owner_name || undefined,
-            ownerAvatar: dbTeam.team_logo_url || null,
-            conference: conference?.name || 'Unknown Conference',
+            id: team.id.toString(),
+            teamName: team.team_name,
+            ownerName: team.owner_name,
+            coOwnerName: team.co_owner_name || undefined,
+            ownerAvatar: avatarUrl,
+            conference: conferenceName,
             record: {
-              wins: matchingRoster.settings.wins,
-              losses: matchingRoster.settings.losses,
-              ties: matchingRoster.settings.ties
+              wins: teamRecord.wins,
+              losses: teamRecord.losses,
+              ties: 0 // Ties not currently tracked in team_records
             },
-            pointsFor: matchingRoster.settings.fpts + matchingRoster.settings.fpts_decimal / 100,
-            pointsAgainst: matchingRoster.settings.fpts_against + matchingRoster.settings.fpts_against_decimal / 100,
+            pointsFor: teamRecord.points_for,
+            pointsAgainst: teamRecord.points_against,
             rank: 0, // Will be calculated after sorting
-            streak,
-            rosterCount: matchingRoster.players?.length || 0,
-            waiversCount: matchingRoster.settings.total_moves || 0,
-            tradesCount: 0, // Would need additional API call to get trade data
-            rosterId: matchingRoster.roster_id,
-            leagueId: matchingRoster.league_id
+            streak
           });
-        } else {
-          // Team exists in database but no matching roster found
-          console.warn(`No matching roster found for team: ${dbTeam.team_name} (owner_id: ${dbTeam.owner_id})`);
         }
       }
 
@@ -287,7 +271,7 @@ const TeamsPage: React.FC = () => {
           <CardContent className="py-12 text-center">
             <RefreshCw className="h-12 w-12 mx-auto text-muted-foreground mb-4 animate-spin" />
             <h3 className="text-lg font-semibold mb-2">Loading Teams</h3>
-            <p className="text-muted-foreground">Fetching team data from Sleeper API...</p>
+            <p className="text-muted-foreground">Fetching team data from database...</p>
           </CardContent>
         </Card>
       }
@@ -312,18 +296,18 @@ const TeamsPage: React.FC = () => {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredTeams.map((team) =>
         <Card key={team.id} className="hover:shadow-lg transition-shadow">
-            <CardHeader className="pb-4">
+            <CardHeader className="pb-2">
               <div className="flex items-start justify-between">
                 <div className="flex items-center space-x-3">
-                  <Avatar className="h-12 w-12">
+                  <Avatar className="h-10 w-10">
                     <AvatarImage src={team.ownerAvatar || undefined} />
                     <AvatarFallback className="bg-primary/10">
                       {team.ownerName.split(' ').map((n) => n[0]).join('').toUpperCase()}
                     </AvatarFallback>
                   </Avatar>
                   <div>
-                    <CardTitle className="text-lg leading-tight">{team.teamName}</CardTitle>
-                    <CardDescription>
+                    <CardTitle className="text-base leading-tight">{team.teamName}</CardTitle>
+                    <CardDescription className="text-sm">
                       {team.ownerName}
                       {team.coOwnerName && ` & ${team.coOwnerName}`}
                     </CardDescription>
@@ -336,26 +320,29 @@ const TeamsPage: React.FC = () => {
               </div>
             </CardHeader>
 
-            <CardContent className="space-y-4">
+            <CardContent className="space-y-3">
               {/* Conference Badge */}
-              <Badge variant="outline" className="text-xs">
+              <Badge 
+                variant="secondary" 
+                className={`text-xs ${getConferenceBadgeClasses(team.conference)}`}
+              >
                 {team.conference}
               </Badge>
 
               {/* Record and Stats */}
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <p className="text-sm text-muted-foreground">Record</p>
+                  <p className="text-xs text-muted-foreground">Record</p>
                   <Badge variant={getRecordBadgeVariant(team.record.wins, team.record.losses)}>
                     {team.record.wins}-{team.record.losses}
                     {team.record.ties > 0 && `-${team.record.ties}`}
                   </Badge>
                 </div>
                 <div>
-                  <p className="text-sm text-muted-foreground">Streak</p>
+                  <p className="text-xs text-muted-foreground">Streak</p>
                   <div className="flex items-center space-x-1">
-                    <TrendingUp className={`h-4 w-4 ${getStreakColor(team.streak)}`} />
-                    <span className={`font-semibold ${getStreakColor(team.streak)}`}>
+                    <TrendingUp className={`h-3 w-3 ${getStreakColor(team.streak)}`} />
+                    <span className={`text-sm font-semibold ${getStreakColor(team.streak)}`}>
                       {team.streak}
                     </span>
                   </div>
@@ -363,37 +350,21 @@ const TeamsPage: React.FC = () => {
               </div>
 
               {/* Points */}
-              <div className="grid grid-cols-2 gap-4 text-sm">
+              <div className="grid grid-cols-2 gap-3 text-sm">
                 <div>
-                  <p className="text-muted-foreground">Points For</p>
+                  <p className="text-xs text-muted-foreground">Points For</p>
                   <p className="font-semibold">{team.pointsFor.toFixed(1)}</p>
                 </div>
                 <div>
-                  <p className="text-muted-foreground">Points Against</p>
+                  <p className="text-xs text-muted-foreground">Points Against</p>
                   <p className="font-semibold">{team.pointsAgainst.toFixed(1)}</p>
-                </div>
-              </div>
-
-              {/* Team Activity */}
-              <div className="grid grid-cols-3 gap-2 text-xs text-muted-foreground">
-                <div className="text-center">
-                  <p className="font-medium">{team.rosterCount}</p>
-                  <p>Roster</p>
-                </div>
-                <div className="text-center">
-                  <p className="font-medium">{team.waiversCount}</p>
-                  <p>Moves</p>
-                </div>
-                <div className="text-center">
-                  <p className="font-medium">#{team.rosterId}</p>
-                  <p>Roster ID</p>
                 </div>
               </div>
 
               {/* View Team Button */}
               <Link to={`/teams/${team.id}`} className="w-full">
-                <Button variant="outline" className="w-full">
-                  <ExternalLink className="mr-2 h-4 w-4" />
+                <Button variant="outline" className="w-full text-sm py-1.5">
+                  <ExternalLink className="mr-2 h-3 w-3" />
                   View Team Details
                 </Button>
               </Link>
@@ -421,7 +392,7 @@ const TeamsPage: React.FC = () => {
 
       {/* Summary Stats */}
       {!loading && !error && filteredTeams.length > 0 &&
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <Card>
             <CardHeader className="pb-2">
               <CardDescription>Average Points For</CardDescription>
@@ -433,20 +404,11 @@ const TeamsPage: React.FC = () => {
           
           <Card>
             <CardHeader className="pb-2">
-              <CardDescription>Most Active Team</CardDescription>
+              <CardDescription>Highest Scoring Team</CardDescription>
               <CardTitle className="text-lg">
                 {filteredTeams.reduce((prev, current) =>
-              prev.waiversCount > current.waiversCount ? prev : current
+              prev.pointsFor > current.pointsFor ? prev : current
               ).teamName}
-              </CardTitle>
-            </CardHeader>
-          </Card>
-
-          <Card>
-            <CardHeader className="pb-2">
-              <CardDescription>Total Moves</CardDescription>
-              <CardTitle className="text-2xl">
-                {filteredTeams.reduce((sum, team) => sum + team.waiversCount, 0)}
               </CardTitle>
             </CardHeader>
           </Card>

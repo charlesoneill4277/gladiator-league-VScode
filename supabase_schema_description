@@ -192,6 +192,7 @@ Columns:
 ●	college (text): College attended.
 
 ●	years_exp (integer): Years of experience.
+●	espn_id (integer): Espn id for player
 
 ________________________________________
 Table: playoff_brackets

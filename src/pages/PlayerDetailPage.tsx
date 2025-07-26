@@ -13,6 +13,7 @@ import { DatabaseService } from '@/services/databaseService';
 import { SleeperApiService } from '@/services/sleeperApi';
 import { useToast } from '@/hooks/use-toast';
 import { DbPlayer } from '@/types/database';
+import { getConferenceBadgeClasses } from '@/utils/conferenceColors';
 
 // Interface for player roster information
 interface PlayerRosterInfo {
@@ -637,7 +638,12 @@ const PlayerDetailPage: React.FC = () => {
                     <div key={idx} className="p-4 border rounded-lg">
                       <div className="flex items-center justify-between mb-2">
                         <h4 className="font-semibold">{roster.team_name}</h4>
-                        <Badge variant="outline">{roster.conference_name}</Badge>
+                        <Badge 
+                          variant="secondary" 
+                          className={getConferenceBadgeClasses(roster.conference_name)}
+                        >
+                          {roster.conference_name}
+                        </Badge>
                       </div>
                       <div className="grid grid-cols-2 gap-4 text-sm">
                         <div>
