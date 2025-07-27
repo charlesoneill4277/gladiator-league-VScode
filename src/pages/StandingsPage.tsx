@@ -326,7 +326,7 @@ const StandingsPage: React.FC = () => {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-12">
+                  <TableHead className="w-12 text-center">
                     <Button variant="ghost" size="sm" onClick={() => handleSort('overall_rank')}>
                       Rank <ArrowUpDown className="ml-1 h-3 w-3" />
                     </Button>
@@ -336,28 +336,28 @@ const StandingsPage: React.FC = () => {
                       Team <ArrowUpDown className="ml-1 h-3 w-3" />
                     </Button>
                   </TableHead>
-                  <TableHead className="hidden lg:table-cell">Conference</TableHead>
-                  <TableHead>
+                  <TableHead className="hidden lg:table-cell text-center">Conference</TableHead>
+                  <TableHead className="text-center">
                     <Button variant="ghost" size="sm" onClick={() => handleSort('wins')}>
                       Record <ArrowUpDown className="ml-1 h-3 w-3" />
                     </Button>
                   </TableHead>
-                  <TableHead className="text-right hidden md:table-cell">
+                  <TableHead className="text-center hidden md:table-cell">
                     <Button variant="ghost" size="sm" onClick={() => handleSort('win_percentage')}>
                       Win% <ArrowUpDown className="ml-1 h-3 w-3" />
                     </Button>
                   </TableHead>
-                  <TableHead className="text-right">
+                  <TableHead className="text-center">
                     <Button variant="ghost" size="sm" onClick={() => handleSort('points_for')}>
                       PF <ArrowUpDown className="ml-1 h-3 w-3" />
                     </Button>
                   </TableHead>
-                  <TableHead className="text-right hidden sm:table-cell">
+                  <TableHead className="text-center hidden sm:table-cell">
                     <Button variant="ghost" size="sm" onClick={() => handleSort('points_against')}>
                       PA <ArrowUpDown className="ml-1 h-3 w-3" />
                     </Button>
                   </TableHead>
-                  <TableHead className="text-right hidden sm:table-cell">
+                  <TableHead className="text-center hidden sm:table-cell">
                     <Button variant="ghost" size="sm" onClick={() => handleSort('point_diff')}>
                       Diff <ArrowUpDown className="ml-1 h-3 w-3" />
                     </Button>
@@ -368,8 +368,8 @@ const StandingsPage: React.FC = () => {
               <TableBody>
                 {sortedStandings.map((team, index) =>
                 <TableRow key={team.team_id} className="hover:bg-muted/50">
-                    <TableCell className="font-medium">
-                      <div className="flex items-center space-x-1">
+                    <TableCell className="font-medium text-center">
+                      <div className="flex items-center justify-center space-x-1">
                         {team.overall_rank === 1 && <Trophy className="h-4 w-4 text-yellow-500" />}
                         <span>{team.overall_rank}</span>
                       </div>
@@ -393,25 +393,25 @@ const StandingsPage: React.FC = () => {
                         </div>
                       </div>
                     </TableCell>
-                    <TableCell className="hidden lg:table-cell">
+                    <TableCell className="hidden lg:table-cell text-center">
                       <ConferenceBadge conferenceName={team.conference_name} variant="outline" size="sm" />
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="text-center">
                       <Badge variant={getRecordBadgeVariant(team.wins, team.losses)}>
                         {team.wins}-{team.losses}
                         {team.ties > 0 && `-${team.ties}`}
                       </Badge>
                     </TableCell>
-                    <TableCell className="text-right font-mono hidden md:table-cell">
+                    <TableCell className="text-center font-mono hidden md:table-cell">
                       {(team.win_percentage * 100).toFixed(1)}%
                     </TableCell>
-                    <TableCell className="text-right font-mono">
+                    <TableCell className="text-center font-mono">
                       {team.points_for.toFixed(1)}
                     </TableCell>
-                    <TableCell className="text-right font-mono hidden sm:table-cell">
+                    <TableCell className="text-center font-mono hidden sm:table-cell">
                       {team.points_against.toFixed(1)}
                     </TableCell>
-                    <TableCell className="text-right font-mono hidden sm:table-cell">
+                    <TableCell className="text-center font-mono hidden sm:table-cell">
                       <span className={team.point_diff >= 0 ? 'text-green-600' : 'text-red-600'}>
                         {team.point_diff >= 0 ? '+' : ''}{team.point_diff.toFixed(1)}
                       </span>

@@ -9,6 +9,7 @@ import Header from './components/layout/Header';
 import HomePage from "./pages/HomePage";
 import StandingsPage from './pages/StandingsPage';
 import MatchupsPage from './pages/MatchupsPage';
+import MatchupDetailPage from './pages/MatchupDetailPage';
 import TeamsPage from './pages/TeamsPage';
 import TeamDetailPage from './pages/TeamDetailPage';
 import PlayersPage from './pages/PlayersPage';
@@ -59,6 +60,7 @@ const App = () => {
                   <Route path="/" element={<HomePage />} />
                   <Route path="/standings" element={<StandingsPage />} />
                   <Route path="/matchups" element={<MatchupsPage />} />
+                  <Route path="/matchups/:matchupId" element={<MatchupDetailPage />} />
                   <Route path="/teams" element={<TeamsPage />} />
                   <Route path="/teams/:teamId" element={<TeamDetailPage />} />
                   <Route path="/players" element={<PlayersPage />} />

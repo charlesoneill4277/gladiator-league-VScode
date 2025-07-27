@@ -1091,3 +1091,182 @@ export class SupabaseMatchupService {
 }
 
 export default SupabaseMatchupService;
+  /**
+   * Get detailed matchup data for the matchup detail page
+   */
+  static async getDetailedMatchup(
+    matchupId: number,
+    seasonId: number
+  ): Promise<any | null> {
+    try {
+      console.log(`🔍 Loading detailed matchup ${matchupId} for season ${seasonId}...`);
+      
+      // Get matchup from database
+      const matchupResult = await DatabaseService.getMatchups({
+        filters: [{ column: 'id', operator: 'eq', value: matchupId }]
+      });
+
+      const dbMatchup = matchupResult.data?.[0];
+      if (!dbMatchup) return null;
+
+      // Get related data
+      const [conferences, teams, junctions] = await Promise.all([
+        this.getConferences(seasonId),
+        this.getTeams(),
+        this.getTeamConferenceJunctions()
+      ]);
+
+      const conference = conferences.find(c => c.id === dbMatchup.conference_id);
+      if (!conference) return null;
+
+      const team1 = teams.find(t => t.id === dbMatchup.team1_id);
+      const team2 = dbMatchup.team2_id ? teams.find(t => t.id === dbMatchup.team2_id) : null;
+
+      if (!team1) return null;
+
+      // Get roster mappings
+      const team1Junction = junctions.find(j => j.team_id === team1.id);
+      const team2Junction = team2 ? junctions.find(j => j.team_id === team2.id) : null;
+
+      if (!team1Junction || (team2 && !team2Junction)) return null;
+
+      // Get Sleeper data
+      const [sleeperMatchups, sleeperRosters, sleeperUsers] = await Promise.all([
+        SleeperApiService.fetchMatchups(conference.league_id, parseInt(dbMatchup.week)),
+        SleeperApiService.fetchLeagueRosters(conference.league_id),
+        SleeperApiService.fetchLeagueUsers(conference.league_id)
+      ]);
+
+      // Build detailed matchup object
+      const detailedMatchup = {
+        id: dbMatchup.id,
+        week: parseInt(dbMatchup.week),
+        status: this.determineMatchupStatusFromDb(dbMatchup),
+        isPlayoff: dbMatchup.is_playoff || false,
+        playoffRound: dbMatchup.notes,
+        conference: {
+          id: conference.id,
+          name: conference.conference_name
+        },
+        teams: [] as any[],
+        isBye: dbMatchup.is_bye || false,
+        scoreDifferential: Math.abs((dbMatchup.team1_score || 0) - (dbMatchup.team2_score || 0)),
+        gameTimeRemaining: undefined // Would need to be calculated from NFL data
+      };
+
+      // Build team data
+      const team1SleeperMatchup = sleeperMatchups.find(m => m.roster_id === team1Junction.roster_id);
+      const team1Roster = sleeperRosters.find(r => r.roster_id === team1Junction.roster_id);
+      const team1User = sleeperUsers.find(u => u.user_id === team1Roster?.owner_id);
+
+      if (team1SleeperMatchup && team1Roster) {
+        detailedMatchup.teams.push({
+          id: team1.id,
+          name: team1.team_name,
+          owner: team1.owner_name,
+          avatar: team1.team_logourl,
+          record: { wins: 0, losses: 0 }, // Would need to be fetched from team_records
+          points: dbMatchup.team1_score || 0,
+          projectedPoints: team1SleeperMatchup.projected_points || 0,
+          rosterId: team1Junction.roster_id,
+          starters: team1SleeperMatchup.starters || [],
+          bench: (team1Roster.players || []).filter(p => !team1SleeperMatchup.starters?.includes(p)),
+          playersPoints: team1SleeperMatchup.players_points || {},
+          playersProjected: {} // Would need to be calculated from projections
+        });
+      }
+
+      if (team2 && team2Junction && !dbMatchup.is_bye) {
+        const team2SleeperMatchup = sleeperMatchups.find(m => m.roster_id === team2Junction.roster_id);
+        const team2Roster = sleeperRosters.find(r => r.roster_id === team2Junction.roster_id);
+        const team2User = sleeperUsers.find(u => u.user_id === team2Roster?.owner_id);
+
+        if (team2SleeperMatchup && team2Roster) {
+          detailedMatchup.teams.push({
+            id: team2.id,
+            name: team2.team_name,
+            owner: team2.owner_name,
+            avatar: team2.team_logourl,
+            record: { wins: 0, losses: 0 }, // Would need to be fetched from team_records
+            points: dbMatchup.team2_score || 0,
+            projectedPoints: team2SleeperMatchup.projected_points || 0,
+            rosterId: team2Junction.roster_id,
+            starters: team2SleeperMatchup.starters || [],
+            bench: (team2Roster.players || []).filter(p => !team2SleeperMatchup.starters?.includes(p)),
+            playersPoints: team2SleeperMatchup.players_points || {},
+            playersProjected: {} // Would need to be calculated from projections
+          });
+        }
+      }
+
+      return detailedMatchup;
+
+    } catch (error) {
+      console.error(`Error loading detailed matchup ${matchupId}:`, error);
+      return null;
+    }
+  }
+
+  /**
+   * Get head-to-head history between two teams
+   */
+  static async getHeadToHeadHistory(
+    team1Id: number,
+    team2Id: number,
+    seasonId: number
+  ): Promise<any[]> {
+    try {
+      console.log(`📊 Loading head-to-head history for teams ${team1Id} vs ${team2Id}...`);
+      
+      // Get all matchups between these teams
+      const matchupsResult = await DatabaseService.getMatchups({
+        filters: [
+          { column: 'season_id', operator: 'eq', value: seasonId }
+        ],
+        limit: 100
+      });
+
+      const allMatchups = matchupsResult.data || [];
+      
+      // Filter for matchups between these specific teams
+      const headToHeadMatchups = allMatchups.filter(matchup => 
+        (matchup.team1_id === team1Id && matchup.team2_id === team2Id) ||
+        (matchup.team1_id === team2Id && matchup.team2_id === team1Id)
+      );
+
+      // Get team names for display
+      const teams = await this.getTeams();
+      const team1 = teams.find(t => t.id === team1Id);
+      const team2 = teams.find(t => t.id === team2Id);
+
+      // Convert to history format
+      const history = headToHeadMatchups.map(matchup => {
+        const isTeam1First = matchup.team1_id === team1Id;
+        const team1Score = isTeam1First ? (matchup.team1_score || 0) : (matchup.team2_score || 0);
+        const team2Score = isTeam1First ? (matchup.team2_score || 0) : (matchup.team1_score || 0);
+        
+        let winner = 'Tie';
+        if (team1Score > team2Score) {
+          winner = team1?.team_name || 'Team 1';
+        } else if (team2Score > team1Score) {
+          winner = team2?.team_name || 'Team 2';
+        }
+
+        return {
+          week: parseInt(matchup.week),
+          season: '2024', // Would need to be dynamic based on season
+          team1Score,
+          team2Score,
+          winner,
+          date: new Date(matchup.created_at || Date.now())
+        };
+      });
+
+      return history.sort((a, b) => b.week - a.week); // Most recent first
+
+    } catch (error) {
+      console.error(`Error loading head-to-head history:`, error);
+      return [];
+    }
+  }
+}

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
@@ -47,7 +48,8 @@ const MatchupCard = React.memo<{
   detailedData?: DetailedMatchupData | null;
   allPlayers: Record<string, SleeperPlayer>;
   loading?: boolean;
-}>(({ matchup, isExpanded, onToggleExpand, detailedData, allPlayers, loading }) => {
+  onViewDetails: (matchupId: number) => void;
+}>(({ matchup, isExpanded, onToggleExpand, detailedData, allPlayers, loading, onViewDetails }) => {
   const [team1, team2] = matchup.teams;
   const winningTeam = matchup.status === 'completed' 
     ? (team1.points > (team2?.points || 0) ? team1 : team2)
@@ -181,15 +183,19 @@ const MatchupCard = React.memo<{
 
       <CardContent className="pt-0 space-y-3">
         {/* Compact Matchup Summary */}
-        <div className="grid grid-cols-3 gap-2 items-center">
-          {/* Team 1 */}
-          <div className="text-right space-y-1">
+        <div className="grid grid-cols-5 gap-2 items-center">
+          {/* Team 1 Name */}
+          <div className="text-right">
             <div className="flex items-center justify-end space-x-2">
               {isInterconference && team1.conference && (
                 <ConferenceBadge conferenceName={team1.conference.name} size="sm" />
               )}
               <div className="font-medium text-sm">{team1.name}</div>
             </div>
+          </div>
+
+          {/* Team 1 Score */}
+          <div className="text-right">
             <div className={`text-lg font-bold ${winningTeam?.id === team1.id ? 'text-green-600' : ''}`}>
               {matchup.status === 'upcoming' ? '--' : team1.points.toFixed(1)}
             </div>
@@ -203,8 +209,17 @@ const MatchupCard = React.memo<{
             )}
           </div>
 
-          {/* Team 2 */}
-          <div className="text-left space-y-1">
+          {/* Team 2 Score */}
+          <div className="text-left">
+            <div className={`text-lg font-bold ${winningTeam?.id === team2?.id ? 'text-green-600' : ''}`}>
+              {matchup.is_bye || !team2 
+                ? 'BYE' 
+                : matchup.status === 'upcoming' ? '--' : team2.points.toFixed(1)}
+            </div>
+          </div>
+
+          {/* Team 2 Name */}
+          <div className="text-left">
             <div className="flex items-center space-x-2">
               <div className="font-medium text-sm">
                 {matchup.is_bye || !team2 ? 'BYE' : team2.name}
@@ -212,11 +227,6 @@ const MatchupCard = React.memo<{
               {isInterconference && team2 && team2.conference && (
                 <ConferenceBadge conferenceName={team2.conference.name} size="sm" />
               )}
-            </div>
-            <div className={`text-lg font-bold ${winningTeam?.id === team2?.id ? 'text-green-600' : ''}`}>
-              {matchup.is_bye || !team2 
-                ? 'BYE' 
-                : matchup.status === 'upcoming' ? '--' : team2.points.toFixed(1)}
             </div>
           </div>
         </div>
@@ -257,25 +267,35 @@ const MatchupCard = React.memo<{
               </div>
             </CollapsibleContent>
 
-            <CollapsibleTrigger asChild>
+            <div className="flex gap-2 mt-3">
+              <CollapsibleTrigger asChild>
+                <Button
+                  variant="outline"
+                  className="flex-1"
+                  onClick={() => onToggleExpand(matchup.id)}
+                >
+                  {isExpanded ? (
+                    <>
+                      Hide Details
+                      <ChevronUp className="h-4 w-4 ml-2" />
+                    </>
+                  ) : (
+                    <>
+                      Quick View
+                      <ChevronDown className="h-4 w-4 ml-2" />
+                    </>
+                  )}
+                </Button>
+              </CollapsibleTrigger>
+              
               <Button
-                variant="outline"
-                className="w-full mt-3"
-                onClick={() => onToggleExpand(matchup.id)}
+                variant="default"
+                className="flex-1"
+                onClick={() => onViewDetails(matchup.id)}
               >
-                {isExpanded ? (
-                  <>
-                    Hide Details
-                    <ChevronUp className="h-4 w-4 ml-2" />
-                  </>
-                ) : (
-                  <>
-                    View Details
-                    <ChevronDown className="h-4 w-4 ml-2" />
-                  </>
-                )}
+                Full Details
               </Button>
-            </CollapsibleTrigger>
+            </div>
           </Collapsible>
         )}
       </CardContent>
@@ -286,6 +306,7 @@ const MatchupCard = React.memo<{
 MatchupCard.displayName = 'MatchupCard';
 
 const MatchupsPage: React.FC = () => {
+  const navigate = useNavigate();
   const renderCountRef = useRef(0);
   renderCountRef.current += 1;
   
@@ -620,6 +641,7 @@ const MatchupsPage: React.FC = () => {
             detailedData={matchupDetails.get(matchup.id)}
             allPlayers={allPlayers}
             loading={loadingDetails.has(matchup.id)}
+            onViewDetails={(id) => navigate(`/matchups/${id}`)}
           />
         ))}
 

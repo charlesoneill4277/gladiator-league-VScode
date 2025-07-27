@@ -526,9 +526,9 @@ const HomePage: React.FC = () => {
         {standings.map((team) => (
           <div key={team.team_id} className="flex items-center justify-between p-3 rounded-lg bg-accent/50">
             <div className="flex items-center space-x-3">
-              <div className="flex items-center space-x-1">
+              <div className="flex items-center justify-center space-x-1 w-8">
                 {team.overall_rank === 1 && <Star className="h-4 w-4 text-yellow-500" />}
-                <span className="font-semibold w-6">#{team.overall_rank}</span>
+                <span className="font-semibold">#{team.overall_rank}</span>
               </div>
               <div>
                 <p className="font-medium">{team.team_name}</p>
@@ -576,31 +576,53 @@ const HomePage: React.FC = () => {
 
     return (
       <div className="space-y-2">
-        {matchups.map((matchup) => (
-          <div key={matchup.matchup_id} className="p-2 border rounded-lg">
-            <div className="flex items-center justify-between mb-1">
-              <ConferenceBadge conferenceName={matchup.conference.conference_name} variant="outline" size="sm" />
-              {getStatusBadge(matchup.status)}
+        {matchups.map((matchup) => {
+          // Determine winning team (same logic as MatchupsPage)
+          const team1 = matchup.teams[0];
+          const team2 = matchup.teams[1];
+          const winningTeam = matchup.status === 'completed' 
+            ? (team1?.points > (team2?.points || 0) ? team1 : team2)
+            : null;
+
+          return (
+            <div key={matchup.matchup_id} className="p-2 border rounded-lg">
+              <div className="flex items-center justify-between mb-1">
+                <ConferenceBadge conferenceName={matchup.conference.conference_name} variant="outline" size="sm" />
+                {getStatusBadge(matchup.status)}
+              </div>
+              <div className="grid grid-cols-5 gap-2 items-center text-sm">
+                {/* Team 1 Name */}
+                <div className="text-right">
+                  <p className="font-medium truncate text-xs">{team1?.team?.team_name || 'Team 1'}</p>
+                </div>
+                
+                {/* Team 1 Score */}
+                <div className="text-right">
+                  <p className={`text-sm font-bold ${winningTeam === team1 ? 'text-green-600' : ''}`}>
+                    {matchup.status === 'upcoming' ? '--' : team1?.points.toFixed(1)}
+                  </p>
+                </div>
+
+                {/* VS Divider */}
+                <div className="text-center text-muted-foreground font-semibold text-xs">
+                  VS
+                </div>
+
+                {/* Team 2 Score */}
+                <div className="text-left">
+                  <p className={`text-sm font-bold ${winningTeam === team2 ? 'text-green-600' : ''}`}>
+                    {matchup.status === 'upcoming' ? '--' : team2?.points.toFixed(1)}
+                  </p>
+                </div>
+
+                {/* Team 2 Name */}
+                <div className="text-left">
+                  <p className="font-medium truncate text-xs">{team2?.team?.team_name || 'Team 2'}</p>
+                </div>
+              </div>
             </div>
-            <div className="grid grid-cols-3 gap-2 items-center text-sm">
-              <div className="text-right">
-                <p className="font-medium truncate text-xs">{matchup.teams[0]?.team?.team_name || 'Team 1'}</p>
-                <p className="text-sm font-bold">
-                  {matchup.status === 'upcoming' ? '--' : matchup.teams[0]?.points.toFixed(1)}
-                </p>
-              </div>
-              <div className="text-center text-muted-foreground font-semibold text-xs">
-                VS
-              </div>
-              <div className="text-left">
-                <p className="font-medium truncate text-xs">{matchup.teams[1]?.team?.team_name || 'Team 2'}</p>
-                <p className="text-sm font-bold">
-                  {matchup.status === 'upcoming' ? '--' : matchup.teams[1]?.points.toFixed(1)}
-                </p>
-              </div>
-            </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     );
   };
