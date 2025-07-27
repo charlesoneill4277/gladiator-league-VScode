@@ -337,12 +337,13 @@ export class SupabaseMatchupService {
     id: number;
     matchup_id: number;
     conference: { id: number; name: string };
-    teams: { id: number; name: string; owner: string; points: number; roster_id: number }[];
+    teams: { id: number; name: string; owner: string; points: number; roster_id: number; conference?: { id: number; name: string } }[];
     status: 'live' | 'completed' | 'upcoming';
     week: number;
     is_playoff: boolean;
     is_bye?: boolean;
     playoff_round_name?: string;
+    manual_override?: boolean;
   }[]> {
     try {
       console.log('🚀 Loading minimal matchups (optimized)...');
@@ -380,9 +381,13 @@ export class SupabaseMatchupService {
 
         if (!team1) continue;
 
-        // Get roster IDs for teams
+        // Get roster IDs for teams and their conferences
         const team1Junction = junctions.find(j => j.team_id === team1.id);
         const team2Junction = team2 ? junctions.find(j => j.team_id === team2.id) : null;
+
+        // Get team conferences for interconference matchup detection
+        const team1Conference = team1Junction ? conferences.find(c => c.id === team1Junction.conference_id) : null;
+        const team2Conference = team2Junction ? conferences.find(c => c.id === team2Junction.conference_id) : null;
 
         // Build minimal matchup
         const minimalMatchup = {
@@ -398,13 +403,18 @@ export class SupabaseMatchupService {
               name: team1.team_name,
               owner: team1.owner_name,
               points: dbMatchup.team1_score || 0,
-              roster_id: team1Junction?.roster_id || 0
+              roster_id: team1Junction?.roster_id || 0,
+              conference: team1Conference ? {
+                id: team1Conference.id,
+                name: team1Conference.conference_name
+              } : undefined
             }
           ],
           status: this.determineMatchupStatusFromDb(dbMatchup),
           week: parseInt(dbMatchup.week),
           is_playoff: dbMatchup.is_playoff || false,
-          is_bye: dbMatchup.is_bye || false
+          is_bye: dbMatchup.is_bye || false,
+          manual_override: dbMatchup.manual_override || false
         };
 
         // Add team2 if not a bye
@@ -414,7 +424,11 @@ export class SupabaseMatchupService {
             name: team2.team_name,
             owner: team2.owner_name,
             points: dbMatchup.team2_score || 0,
-            roster_id: team2Junction.roster_id
+            roster_id: team2Junction.roster_id,
+            conference: team2Conference ? {
+              id: team2Conference.id,
+              name: team2Conference.conference_name
+            } : undefined
           });
         }
 

@@ -391,12 +391,332 @@
     color: hsl(210 15% 82%);
   }
   
+  /* Specific UI element styling for dark theme */
+  
+  /* App-wide filters (Conference and Season) text color in header */
+  .dark header .select-trigger,
+  .dark header .select-trigger span,
+  .dark header .select-content,
+  .dark header .select-item,
+  .dark header [role="combobox"],
+  .dark header [role="option"] {
+    color: hsl(0 0% 100%) !important;
+  }
+  
+  /* All "Refresh" buttons text color */
+  .dark button:has(svg[data-lucide="refresh-cw"]),
+  .dark button:has(.lucide-refresh-cw),
+  .dark .refresh-button,
+  .dark button[aria-label*="refresh" i],
+  .dark button[title*="refresh" i] {
+    color: hsl(0 0% 100%) !important;
+  }
+  
+  /* Refresh button text specifically */
+  .dark button:has(svg[data-lucide="refresh-cw"]) span,
+  .dark button:has(.lucide-refresh-cw) span,
+  .dark button:contains("Refresh"),
+  .dark button span:contains("Refresh") {
+    color: hsl(0 0% 100%) !important;
+  }
+  
+  /* Light/Dark theme toggle button icon */
+  .dark button:has(svg[data-lucide="moon"]) svg,
+  .dark button:has(svg[data-lucide="sun"]) svg,
+  .dark button:has(.lucide-moon) svg,
+  .dark button:has(.lucide-sun) svg,
+  .dark .theme-toggle svg,
+  .dark [data-testid="theme-toggle"] svg,
+  .dark button[aria-label*="theme" i] svg {
+    color: hsl(0 0% 100%) !important;
+  }
+  
+  /* Week filter text on MatchupsPage */
+  .dark .select-trigger:has([value*="week" i]),
+  .dark .select-trigger:has(span:contains("Week")),
+  .dark .select-content:has([value*="week" i]),
+  .dark .select-item:has(span:contains("Week")),
+  .dark .week-filter,
+  .dark .week-select {
+    color: hsl(0 0% 100%) !important;
+  }
+  
+  .dark .select-trigger:has([value*="week" i]) span,
+  .dark .select-content:has([value*="week" i]) span,
+  .dark .select-item:has(span:contains("Week")) span {
+    color: hsl(0 0% 100%) !important;
+  }
+  
+  /* "Clear" button text on TeamsPage */
+  .dark button:has(span:contains("Clear")),
+  .dark .clear-button,
+  .dark button[aria-label*="clear" i] {
+    color: hsl(0 0% 100%) !important;
+  }
+  
+  .dark button:has(span:contains("Clear")) span {
+    color: hsl(0 0% 100%) !important;
+  }
+  
+  /* All filter text colors on PlayersPage */
+  .dark .select-trigger:has([placeholder*="position" i]),
+  .dark .select-trigger:has([placeholder*="status" i]),
+  .dark .select-trigger:has([placeholder*="search" i]),
+  .dark .position-filter,
+  .dark .status-filter,
+  .dark .search-filter {
+    color: hsl(0 0% 100%) !important;
+  }
+  
+  .dark .select-trigger:has([placeholder*="position" i]) span,
+  .dark .select-trigger:has([placeholder*="status" i]) span,
+  .dark .select-content span,
+  .dark .select-item span {
+    color: hsl(0 0% 100%) !important;
+  }
+  
+  /* "Round" filter text on DraftResultsPage */
+  .dark .select-trigger:has([value*="round" i]),
+  .dark .select-trigger:has(span:contains("Round")),
+  .dark .round-filter,
+  .dark .round-select {
+    color: hsl(0 0% 100%) !important;
+  }
+  
+  .dark .select-trigger:has(span:contains("Round")) span,
+  .dark .select-content:has(span:contains("Round")) span {
+    color: hsl(0 0% 100%) !important;
+  }
+  
+  /* HomePage font sizes to match light theme */
+  .dark .home-page h1 {
+    font-size: 2.25rem; /* 36px - matches light theme */
+    line-height: 2.5rem;
+  }
+  
+  .dark .home-page h2 {
+    font-size: 1.875rem; /* 30px - matches light theme */
+    line-height: 2.25rem;
+  }
+  
+  .dark .home-page h3 {
+    font-size: 1.5rem; /* 24px - matches light theme */
+    line-height: 2rem;
+  }
+  
+  .dark .home-page p {
+    font-size: 1rem; /* 16px - matches light theme */
+    line-height: 1.5rem;
+  }
+  
+  .dark .home-page .text-sm {
+    font-size: 0.875rem; /* 14px - matches light theme */
+    line-height: 1.25rem;
+  }
+  
+  .dark .home-page .text-xs {
+    font-size: 0.75rem; /* 12px - matches light theme */
+    line-height: 1rem;
+  }
+  
+  /* Navigation bar "Gladiator League" title font size to match light theme */
+  .dark header h1,
+  .dark header h2,
+  .dark .nav-title,
+  .dark .navbar-title,
+  .dark .app-title {
+    font-size: 1.25rem !important; /* 20px - matches the text-xl class */
+    line-height: 1.75rem !important;
+    font-weight: 700 !important;
+    color: hsl(0 0% 100%) !important;
+  }
+  
+  /* Header navigation links */
+  .dark header nav a,
+  .dark header nav button {
+    color: hsl(210 15% 82%) !important;
+  }
+  
+  .dark header nav a:hover,
+  .dark header nav button:hover {
+    color: hsl(0 0% 100%) !important;
+  }
+  
+  .dark header nav a.bg-primary {
+    color: hsl(0 0% 100%) !important;
+  }
+  
+  /* General button text improvements for dark theme */
+  .dark button,
+  .dark button span,
+  .dark .btn,
+  .dark .btn span {
+    color: hsl(0 0% 100%) !important;
+  }
+  
+  .dark .btn-outline,
+  .dark button[variant="outline"],
+  .dark .button-outline {
+    color: hsl(0 0% 100%) !important;
+    border-color: hsl(210 25% 30%);
+  }
+  
+  .dark .btn-outline:hover,
+  .dark button[variant="outline"]:hover {
+    background: hsl(210 25% 25%);
+    color: hsl(0 0% 100%) !important;
+  }
+  
+  /* Select component text improvements */
+  .dark .select-trigger,
+  .dark .select-trigger span,
+  .dark .select-content,
+  .dark .select-content span,
+  .dark .select-item,
+  .dark .select-item span,
+  .dark [role="combobox"],
+  .dark [role="combobox"] span,
+  .dark [role="option"],
+  .dark [role="option"] span {
+    color: hsl(0 0% 100%) !important;
+  }
+  
+  .dark .select-item:hover,
+  .dark [role="option"]:hover {
+    background: hsl(195 85% 68%);
+    color: hsl(210 25% 12%) !important;
+  }
+  
+  /* Input placeholders */
+  .dark input::placeholder,
+  .dark textarea::placeholder {
+    color: hsl(210 15% 65%) !important;
+  }
+  
+  /* Badge text improvements */
+  .dark .badge,
+  .dark .badge span {
+    color: hsl(0 0% 100%);
+  }
+  
+  /* Ensure all text in controls is white */
+  .dark .controls,
+  .dark .controls span,
+  .dark .filters,
+  .dark .filters span,
+  .dark .toolbar,
+  .dark .toolbar span {
+    color: hsl(0 0% 100%) !important;
+  }
+  
+  /* HomePage-specific component font size adjustments for dark theme */
+  
+  /* League Standings component - match light theme font sizes */
+  .dark .standings-team-name {
+    font-size: 0.875rem !important; /* 14px - matches light theme */
+    line-height: 1.25rem !important;
+    font-weight: 500 !important;
+  }
+  
+  .dark .standings-owner-info {
+    font-size: 0.75rem !important; /* 12px - matches light theme */
+    line-height: 1rem !important;
+  }
+  
+  .dark .standings-points {
+    font-size: 0.75rem !important; /* 12px - matches light theme */
+    line-height: 1rem !important;
+  }
+  
+  .dark .standings-record {
+    font-size: 0.875rem !important; /* 14px - matches light theme */
+    line-height: 1.25rem !important;
+    font-weight: 600 !important;
+  }
+  
+  /* Matchups component - match light theme font sizes */
+  .dark .matchup-team-name {
+    font-size: 0.75rem !important; /* 12px - matches light theme */
+    line-height: 1rem !important;
+    font-weight: 500 !important;
+  }
+  
+  .dark .matchup-score {
+    font-size: 0.875rem !important; /* 14px - matches light theme */
+    line-height: 1.25rem !important;
+    font-weight: 700 !important;
+  }
+  
+  .dark .matchup-vs {
+    font-size: 0.75rem !important; /* 12px - matches light theme */
+    line-height: 1rem !important;
+    font-weight: 600 !important;
+  }
+  
+  /* Alternative selectors for HomePage standings and matchups */
+  .dark [data-component="standings"] .font-medium {
+    font-size: 0.875rem !important;
+    line-height: 1.25rem !important;
+  }
+  
+  .dark [data-component="standings"] .text-xs {
+    font-size: 0.75rem !important;
+    line-height: 1rem !important;
+  }
+  
+  .dark [data-component="matchups"] .font-medium {
+    font-size: 0.75rem !important;
+    line-height: 1rem !important;
+  }
+  
+  .dark [data-component="matchups"] .text-sm {
+    font-size: 0.875rem !important;
+    line-height: 1.25rem !important;
+  }
+  
+  /* More specific selectors for HomePage components */
+  .dark .space-y-3 > div:has(.font-semibold) .font-medium {
+    font-size: 0.875rem !important; /* Team name in standings */
+    line-height: 1.25rem !important;
+  }
+  
+  .dark .space-y-3 > div:has(.font-semibold) .text-xs {
+    font-size: 0.75rem !important; /* Owner info and points in standings */
+    line-height: 1rem !important;
+  }
+  
+  .dark .space-y-2 > div:has(.grid-cols-3) .font-medium {
+    font-size: 0.75rem !important; /* Team names in matchups */
+    line-height: 1rem !important;
+  }
+  
+  .dark .space-y-2 > div:has(.grid-cols-3) .text-sm.font-bold {
+    font-size: 0.875rem !important; /* Scores in matchups */
+    line-height: 1.25rem !important;
+  }
+  
+  .dark .space-y-2 > div:has(.grid-cols-3) .text-xs {
+    font-size: 0.75rem !important; /* VS text in matchups */
+    line-height: 1rem !important;
+  }
+  
   /* Responsive font scaling */
   @media (max-width: 768px) {
     .dark h1 { font-size: 28px; }
     .dark h2 { font-size: 24px; }
     .dark h3 { font-size: 20px; }
     .dark p { font-size: 14px; }
-    .dark .nav-title { font-size: 20px; }
+    .dark .nav-title { font-size: 20px !important; }
+    
+    .dark .home-page h1 { font-size: 2rem; }
+    .dark .home-page h2 { font-size: 1.75rem; }
+    .dark .home-page h3 { font-size: 1.25rem; }
+    
+    /* Mobile adjustments for HomePage components */
+    .dark .standings-team-name { font-size: 0.8125rem !important; }
+    .dark .standings-owner-info { font-size: 0.6875rem !important; }
+    .dark .standings-points { font-size: 0.6875rem !important; }
+    .dark .matchup-team-name { font-size: 0.6875rem !important; }
+    .dark .matchup-score { font-size: 0.8125rem !important; }
   }
 }

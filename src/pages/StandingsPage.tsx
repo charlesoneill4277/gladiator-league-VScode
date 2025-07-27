@@ -8,6 +8,7 @@ import { ArrowUpDown, Trophy, TrendingUp, TrendingDown, Loader2, RefreshCw } fro
 import { useToast } from '@/hooks/use-toast';
 import { StandingsService, StandingsData } from '@/services/standingsService';
 import { DatabaseService } from '@/services/databaseService';
+import { ConferenceBadge } from '@/components/ui/conference-badge';
 
 const StandingsPage: React.FC = () => {
   const { selectedSeason, selectedConference, currentSeasonConfig, loading: appLoading } = useApp();
@@ -393,9 +394,7 @@ const StandingsPage: React.FC = () => {
                       </div>
                     </TableCell>
                     <TableCell className="hidden lg:table-cell">
-                      <Badge variant="outline" className="text-xs">
-                        {team.conference_name}
-                      </Badge>
+                      <ConferenceBadge conferenceName={team.conference_name} variant="outline" size="sm" />
                     </TableCell>
                     <TableCell>
                       <Badge variant={getRecordBadgeVariant(team.wins, team.losses)}>

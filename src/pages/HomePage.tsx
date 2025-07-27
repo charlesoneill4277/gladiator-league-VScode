@@ -13,6 +13,7 @@ import { SleeperApiService } from '@/services/sleeperApi';
 import { MatchupService, OrganizedMatchup } from '@/services/matchupService';
 import { ProcessedTransaction } from '@/services/transactionService';
 import { DatabaseService } from '@/services/databaseService';
+import { ConferenceBadge } from '@/components/ui/conference-badge';
 import {
   Shield,
   Trophy,
@@ -578,9 +579,7 @@ const HomePage: React.FC = () => {
         {matchups.map((matchup) => (
           <div key={matchup.matchup_id} className="p-2 border rounded-lg">
             <div className="flex items-center justify-between mb-1">
-              <Badge variant="outline" className="text-xs">
-                {matchup.conference.conference_name}
-              </Badge>
+              <ConferenceBadge conferenceName={matchup.conference.conference_name} variant="outline" size="sm" />
               {getStatusBadge(matchup.status)}
             </div>
             <div className="grid grid-cols-3 gap-2 items-center text-sm">

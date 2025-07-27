@@ -10,7 +10,8 @@ import { ArrowLeft, Users, Trophy, TrendingUp, Calendar, Star, Loader2, AlertCir
 import { useToast } from '@/hooks/use-toast';
 import { DatabaseService } from '@/services/databaseService';
 import { useApp } from '@/contexts/AppContext';
-import { getConferenceBadgeClasses } from '@/utils/conferenceColors';
+import { ConferenceBadge } from '@/components/ui/conference-badge';
+
 import SleeperApiService, { type SleeperRoster, type SleeperPlayer, type OrganizedRoster } from '../services/sleeperApi';
 import { type ProcessedTransaction } from '../services/transactionService';
 import TransactionCard from '../components/transactions/TransactionCard';
@@ -1197,8 +1198,8 @@ const TeamDetailPage: React.FC = () => {
       if (matchupsResult.data) {
         // Count completed games where this team was involved
         const completedGames = matchupsResult.data.filter(matchup => {
-          const isTeamInvolved = matchup.team1_id === teamRosterData.teamData.id || 
-                                matchup.team2_id === teamRosterData.teamData.id;
+          const isTeamInvolved = matchup.team1_id === teamRosterData.teamData.id ||
+            matchup.team2_id === teamRosterData.teamData.id;
           const isCompleted = matchup.team1_score !== null && matchup.team2_score !== null;
           return isTeamInvolved && isCompleted;
         });
@@ -1230,8 +1231,8 @@ const TeamDetailPage: React.FC = () => {
 
           if (crossConferenceResult.data) {
             const crossConferenceCompleted = crossConferenceResult.data.filter(matchup => {
-              const isTeamInvolved = matchup.team1_id === teamRosterData.teamData.id || 
-                                    matchup.team2_id === teamRosterData.teamData.id;
+              const isTeamInvolved = matchup.team1_id === teamRosterData.teamData.id ||
+                matchup.team2_id === teamRosterData.teamData.id;
               const isCompleted = matchup.team1_score !== null && matchup.team2_score !== null;
               // Make sure it's not already counted in the conference matchups
               const isNotAlreadyCounted = matchup.conference_id !== teamJunctionForSeason.conference_id;
@@ -1388,12 +1389,7 @@ const TeamDetailPage: React.FC = () => {
               <p className="text-sm text-muted-foreground">Co-owner: {teamData.co_owner_name}</p>
             }
             <div className="flex items-center space-x-2 mt-2">
-              <Badge 
-                variant="secondary" 
-                className={getConferenceBadgeClasses(conferenceData.conference_name)}
-              >
-                {conferenceData.conference_name}
-              </Badge>
+              <ConferenceBadge conferenceName={conferenceData.conference_name} variant="secondary" />
               <Badge variant="secondary">Roster #{roster.roster_id}</Badge>
             </div>
           </div>
@@ -1622,17 +1618,38 @@ const TeamDetailPage: React.FC = () => {
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <p className="text-sm text-muted-foreground">Total Points For</p>
-                    <p className="text-2xl font-bold">{totalPoints.toFixed(1)}</p>
+                    <div className="flex items-center space-x-2">
+                      <p className="text-2xl font-bold">{totalPoints.toFixed(1)}</p>
+                      {teamRecord?.leagueRankPointsFor && (
+                        <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700">
+                          #{teamRecord.leagueRankPointsFor}
+                        </Badge>
+                      )}
+                    </div>
                   </div>
                   <div>
                     <p className="text-sm text-muted-foreground">Total Points Against</p>
-                    <p className="text-2xl font-bold">{totalPointsAgainst.toFixed(1)}</p>
+                    <div className="flex items-center space-x-2">
+                      <p className="text-2xl font-bold">{totalPointsAgainst.toFixed(1)}</p>
+                      {teamRecord?.leagueRankPointsAgainst && (
+                        <Badge variant="outline" className="text-xs bg-green-50 text-green-700">
+                          #{teamRecord.leagueRankPointsAgainst}
+                        </Badge>
+                      )}
+                    </div>
                   </div>
                   <div>
                     <p className="text-sm text-muted-foreground">Point Differential</p>
-                    <p className={`text-2xl font-bold ${totalPoints - totalPointsAgainst > 0 ? 'text-green-600' : 'text-red-600'}`}>
-                      {totalPoints - totalPointsAgainst > 0 ? '+' : ''}{(totalPoints - totalPointsAgainst).toFixed(1)}
-                    </p>
+                    <div className="flex items-center space-x-2">
+                      <p className={`text-2xl font-bold ${totalPoints - totalPointsAgainst > 0 ? 'text-green-600' : 'text-red-600'}`}>
+                        {totalPoints - totalPointsAgainst > 0 ? '+' : ''}{(totalPoints - totalPointsAgainst).toFixed(1)}
+                      </p>
+                      {teamRecord?.leagueRankPointDiff && (
+                        <Badge variant="outline" className="text-xs bg-purple-50 text-purple-700">
+                          #{teamRecord.leagueRankPointDiff}
+                        </Badge>
+                      )}
+                    </div>
                   </div>
                   <div>
                     <p className="text-sm text-muted-foreground">Win Percentage</p>
@@ -1909,8 +1926,8 @@ const TeamDetailPage: React.FC = () => {
                                     <Badge
                                       variant="outline"
                                       className={`text-xs ${matchup.overrideReason === 'Interconference'
-                                          ? 'bg-orange-100 text-orange-800 border-orange-300'
-                                          : 'bg-blue-100 text-blue-800 border-blue-300'
+                                        ? 'bg-orange-100 text-orange-800 border-orange-300'
+                                        : 'bg-blue-100 text-blue-800 border-blue-300'
                                         }`}
                                       title={matchup.overrideReason || 'Matchup Override'}
                                     >

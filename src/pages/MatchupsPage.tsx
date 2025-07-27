@@ -12,18 +12,20 @@ import SupabaseMatchupService, { OrganizedMatchup } from '@/services/supabaseMat
 import MatchupCache from '@/services/matchupCache';
 import PerformanceMonitor, { trackApiCall, trackCacheHit, resetPerformanceMetrics } from '@/components/PerformanceMonitor';
 import MatchupsDebug from '@/components/MatchupsDebug';
+import { ConferenceBadge } from '@/components/ui/conference-badge';
 
 // Minimal matchup interface for fast initial loading
 interface MinimalMatchup {
   id: number;
   matchup_id: number;
   conference: { id: number; name: string };
-  teams: { id: number; name: string; owner: string; points: number; roster_id: number }[];
+  teams: { id: number; name: string; owner: string; points: number; roster_id: number; conference?: { id: number; name: string } }[];
   status: 'live' | 'completed' | 'upcoming';
   week: number;
   is_playoff: boolean;
   is_bye?: boolean;
   playoff_round_name?: string;
+  manual_override?: boolean;
 }
 
 // Detailed matchup data loaded on-demand
@@ -149,13 +151,30 @@ const MatchupCard = React.memo<{
     );
   };
 
+  // Check if this is an interconference matchup (manual override in regular season weeks 1-12)
+  const isInterconference = matchup.manual_override && matchup.week >= 1 && matchup.week <= 12;
+
   return (
     <Card className="hover:shadow-md transition-shadow">
       <CardHeader className="pb-3">
-        <div className="flex items-center space-x-2">
-          <CardTitle className="text-base">
-            {matchup.playoff_round_name || matchup.conference.name}
-          </CardTitle>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-2">
+            {matchup.playoff_round_name && (
+              <CardTitle className="text-base">
+                {matchup.playoff_round_name}
+              </CardTitle>
+            )}
+            {isInterconference ? (
+              <Badge 
+                variant="outline" 
+                className="text-xs bg-orange-100 text-orange-800 border-orange-300"
+              >
+                Interconference
+              </Badge>
+            ) : (
+              <ConferenceBadge conferenceName={matchup.conference.name} size="sm" />
+            )}
+          </div>
           {getStatusBadge(matchup.status)}
         </div>
       </CardHeader>
@@ -165,7 +184,12 @@ const MatchupCard = React.memo<{
         <div className="grid grid-cols-3 gap-2 items-center">
           {/* Team 1 */}
           <div className="text-right space-y-1">
-            <div className="font-medium text-sm">{team1.name}</div>
+            <div className="flex items-center justify-end space-x-2">
+              {isInterconference && team1.conference && (
+                <ConferenceBadge conferenceName={team1.conference.name} size="sm" />
+              )}
+              <div className="font-medium text-sm">{team1.name}</div>
+            </div>
             <div className={`text-lg font-bold ${winningTeam?.id === team1.id ? 'text-green-600' : ''}`}>
               {matchup.status === 'upcoming' ? '--' : team1.points.toFixed(1)}
             </div>
@@ -181,8 +205,13 @@ const MatchupCard = React.memo<{
 
           {/* Team 2 */}
           <div className="text-left space-y-1">
-            <div className="font-medium text-sm">
-              {matchup.is_bye || !team2 ? 'BYE' : team2.name}
+            <div className="flex items-center space-x-2">
+              <div className="font-medium text-sm">
+                {matchup.is_bye || !team2 ? 'BYE' : team2.name}
+              </div>
+              {isInterconference && team2 && team2.conference && (
+                <ConferenceBadge conferenceName={team2.conference.name} size="sm" />
+              )}
             </div>
             <div className={`text-lg font-bold ${winningTeam?.id === team2?.id ? 'text-green-600' : ''}`}>
               {matchup.is_bye || !team2 
@@ -498,7 +527,7 @@ const MatchupsPage: React.FC = () => {
       <div className="flex flex-col space-y-2">
         <div className="flex items-center space-x-2">
           <Swords className="h-6 w-6 text-primary" />
-          <h1 className="text-3xl font-bold">Matchups (Enhanced)</h1>
+          <h1 className="text-3xl font-bold">Matchups</h1>
         </div>
         <p className="text-muted-foreground">
           {selectedSeason} Season • Week {selectedWeek} • {

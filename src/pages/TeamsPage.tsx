@@ -9,7 +9,7 @@ import { useApp } from '@/contexts/AppContext';
 import { Users, Search, ExternalLink, Trophy, TrendingUp, RefreshCw, AlertCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { DatabaseService } from '@/services/databaseService';
-import { getConferenceBadgeClasses } from '@/utils/conferenceColors';
+import { ConferenceBadge } from '@/components/ui/conference-badge';
 
 // Interface for team data from database tables
 interface TeamData {
@@ -322,12 +322,7 @@ const TeamsPage: React.FC = () => {
 
             <CardContent className="space-y-3">
               {/* Conference Badge */}
-              <Badge 
-                variant="secondary" 
-                className={`text-xs ${getConferenceBadgeClasses(team.conference)}`}
-              >
-                {team.conference}
-              </Badge>
+              <ConferenceBadge conferenceName={team.conference} size="sm" />
 
               {/* Record and Stats */}
               <div className="grid grid-cols-2 gap-3">
