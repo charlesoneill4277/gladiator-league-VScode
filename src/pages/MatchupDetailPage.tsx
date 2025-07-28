@@ -12,6 +12,8 @@ import { useApp } from '@/contexts/AppContext';
 import { useToast } from '@/hooks/use-toast';
 import MobileMatchupHeader from '@/components/matchup/MobileMatchupHeader';
 import PlayerCard from '@/components/matchup/PlayerCard';
+import SimpleLineChart from '@/components/charts/SimpleLineChart';
+import SimpleBarChart from '@/components/charts/SimpleBarChart';
 import { 
   ArrowLeft, 
   Trophy, 
@@ -461,8 +463,8 @@ const TeamCard: React.FC<{
 };
 
 export default MatchupDetailPage;
-// Quic
-k Stats Bar Component
+
+// Quick Stats Bar Component
 const QuickStatsBar: React.FC<{ matchup: DetailedMatchup }> = ({ matchup }) => {
   const [team1, team2] = matchup.teams;
   
@@ -479,43 +481,68 @@ const QuickStatsBar: React.FC<{ matchup: DetailedMatchup }> = ({ matchup }) => {
     }, 0);
   };
 
+  const stats = [
+    {
+      label: "Projected vs Actual",
+      value: team2 
+        ? `${team1.points.toFixed(1)}/${team1.projectedPoints.toFixed(1)} vs ${team2.points.toFixed(1)}/${team2.projectedPoints.toFixed(1)}`
+        : `${team1.points.toFixed(1)} / ${team1.projectedPoints.toFixed(1)}`,
+      mobileValue: team2
+        ? `${team1.points.toFixed(1)}/${team1.projectedPoints.toFixed(1)}\nvs\n${team2.points.toFixed(1)}/${team2.projectedPoints.toFixed(1)}`
+        : `${team1.points.toFixed(1)} / ${team1.projectedPoints.toFixed(1)}`
+    },
+    {
+      label: "Players Playing",
+      value: team2 
+        ? `${getPlayersStillPlaying(team1)} vs ${getPlayersStillPlaying(team2)}`
+        : `${getPlayersStillPlaying(team1)}`,
+      mobileValue: team2
+        ? `${getPlayersStillPlaying(team1)} vs ${getPlayersStillPlaying(team2)}`
+        : `${getPlayersStillPlaying(team1)}`
+    },
+    {
+      label: "Bench Points",
+      value: team2 
+        ? `${getBenchPoints(team1).toFixed(1)} vs ${getBenchPoints(team2).toFixed(1)}`
+        : `${getBenchPoints(team1).toFixed(1)}`,
+      mobileValue: team2
+        ? `${getBenchPoints(team1).toFixed(1)} vs ${getBenchPoints(team2).toFixed(1)}`
+        : `${getBenchPoints(team1).toFixed(1)}`
+    },
+    {
+      label: "Season Record",
+      value: team2 
+        ? `${team1.record.wins}-${team1.record.losses} vs ${team2.record.wins}-${team2.record.losses}`
+        : `${team1.record.wins}-${team1.record.losses}`,
+      mobileValue: team2
+        ? `${team1.record.wins}-${team1.record.losses} vs ${team2.record.wins}-${team2.record.losses}`
+        : `${team1.record.wins}-${team1.record.losses}`
+    }
+  ];
+
   return (
     <Card>
       <CardContent className="py-4">
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
-          <div>
-            <div className="text-sm text-muted-foreground">Projected vs Actual</div>
-            <div className="text-lg font-semibold">
-              {team1.points.toFixed(1)} / {team1.projectedPoints.toFixed(1)}
-              {team2 && (
-                <> vs {team2.points.toFixed(1)} / {team2.projectedPoints.toFixed(1)}</>
-              )}
+        {/* Mobile Layout - 2x2 Grid */}
+        <div className="grid grid-cols-2 gap-3 md:hidden">
+          {stats.map((stat, index) => (
+            <div key={index} className="text-center">
+              <div className="text-xs text-muted-foreground mb-1">{stat.label}</div>
+              <div className="text-sm font-semibold whitespace-pre-line">
+                {stat.mobileValue}
+              </div>
             </div>
-          </div>
-          
-          <div>
-            <div className="text-sm text-muted-foreground">Players Playing</div>
-            <div className="text-lg font-semibold">
-              {getPlayersStillPlaying(team1)}
-              {team2 && <> vs {getPlayersStillPlaying(team2)}</>}
+          ))}
+        </div>
+
+        {/* Desktop Layout - 1x4 Grid */}
+        <div className="hidden md:grid md:grid-cols-4 gap-4 text-center">
+          {stats.map((stat, index) => (
+            <div key={index}>
+              <div className="text-sm text-muted-foreground mb-1">{stat.label}</div>
+              <div className="text-lg font-semibold">{stat.value}</div>
             </div>
-          </div>
-          
-          <div>
-            <div className="text-sm text-muted-foreground">Bench Points</div>
-            <div className="text-lg font-semibold">
-              {getBenchPoints(team1).toFixed(1)}
-              {team2 && <> vs {getBenchPoints(team2).toFixed(1)}</>}
-            </div>
-          </div>
-          
-          <div>
-            <div className="text-sm text-muted-foreground">Season Record</div>
-            <div className="text-lg font-semibold">
-              {team1.record.wins}-{team1.record.losses}
-              {team2 && <> vs {team2.record.wins}-{team2.record.losses}</>}
-            </div>
-          </div>
+          ))}
         </div>
       </CardContent>
     </Card>
@@ -556,45 +583,20 @@ const LiveScoringTab: React.FC<{
     const playerInfo = getPlayerInfo(playerId);
     
     return (
-      <div
+      <PlayerCard
         key={playerId}
-        className={`flex justify-between items-center p-3 rounded-lg border ${
-          isStarter ? 'bg-white' : 'bg-gray-50'
-        } ${
-          playerInfo.isOutperforming ? 'border-green-200' : 
-          playerInfo.variance < -2 ? 'border-red-200' : 'border-gray-200'
-        }`}
-      >
-        <div className="flex items-center space-x-3">
-          <Badge variant="outline" className="text-xs">
-            {position}
-          </Badge>
-          <div>
-            <div className="font-medium text-sm">{playerInfo.name}</div>
-            <div className="text-xs text-muted-foreground">
-              {playerInfo.position} - {playerInfo.team}
-            </div>
-          </div>
-          {playerInfo.isOutperforming && (
-            <TrendingUp className="h-4 w-4 text-green-500" />
-          )}
-          {playerInfo.variance < -2 && (
-            <TrendingDown className="h-4 w-4 text-red-500" />
-          )}
-        </div>
-        
-        <div className="text-right">
-          <div className={`font-bold ${
-            playerInfo.isOutperforming ? 'text-green-600' : 
-            playerInfo.variance < -2 ? 'text-red-600' : ''
-          }`}>
-            {playerInfo.points.toFixed(1)}
-          </div>
-          <div className="text-xs text-muted-foreground">
-            Proj: {playerInfo.projected.toFixed(1)}
-          </div>
-        </div>
-      </div>
+        playerId={playerId}
+        name={playerInfo.name}
+        position={playerInfo.position}
+        team={playerInfo.team}
+        points={playerInfo.points}
+        projected={playerInfo.projected}
+        status={playerInfo.status}
+        positionSlot={position}
+        isStarter={isStarter}
+        gameTimeRemaining={playerInfo.gameTimeRemaining}
+        expandable={false}
+      />
     );
   };
 
@@ -602,37 +604,54 @@ const LiveScoringTab: React.FC<{
     const positions = ['QB', 'RB', 'RB', 'WR', 'WR', 'WR', 'TE', 'FLEX', 'K', 'DEF'];
     
     return (
-      <div className="space-y-4">
-        <h3 className="font-semibold text-lg flex items-center">
-          <Users className="h-5 w-5 mr-2" />
-          {teamName} Lineup
-        </h3>
-        
-        {/* Starters */}
-        <div className="space-y-2">
-          <h4 className="text-sm font-medium text-muted-foreground uppercase tracking-wide">
-            Starting Lineup
-          </h4>
-          {team.starters.map((playerId, index) => 
-            renderPlayerCard(playerId, positions[index] || 'FLEX', true)
-          )}
-        </div>
-        
-        {/* Bench */}
-        <div className="space-y-2">
-          <h4 className="text-sm font-medium text-muted-foreground uppercase tracking-wide">
-            Bench
-          </h4>
-          {team.bench.map((playerId) => 
-            renderPlayerCard(playerId, 'BENCH', false)
-          )}
-        </div>
-      </div>
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-lg flex items-center">
+            <Users className="h-5 w-5 mr-2" />
+            {teamName}
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {/* Starters */}
+          <div className="space-y-2">
+            <h4 className="text-sm font-medium text-muted-foreground uppercase tracking-wide">
+              Starting Lineup
+            </h4>
+            <div className="space-y-2">
+              {team.starters.map((playerId, index) => 
+                renderPlayerCard(playerId, positions[index] || 'FLEX', true)
+              )}
+            </div>
+          </div>
+          
+          {/* Bench - Collapsible on Mobile */}
+          <Collapsible defaultOpen={false}>
+            <CollapsibleTrigger asChild>
+              <Button variant="outline" size="sm" className="w-full md:hidden">
+                <Users className="h-4 w-4 mr-2" />
+                Show Bench ({team.bench.length})
+              </Button>
+            </CollapsibleTrigger>
+            <CollapsibleContent className="md:block">
+              <div className="space-y-2 mt-2 md:mt-0">
+                <h4 className="text-sm font-medium text-muted-foreground uppercase tracking-wide hidden md:block">
+                  Bench
+                </h4>
+                <div className="space-y-2">
+                  {team.bench.map((playerId) => 
+                    renderPlayerCard(playerId, 'BENCH', false)
+                  )}
+                </div>
+              </div>
+            </CollapsibleContent>
+          </Collapsible>
+        </CardContent>
+      </Card>
     );
   };
 
   return (
-    <div className="grid md:grid-cols-2 gap-6">
+    <div className="space-y-4 lg:grid lg:grid-cols-2 lg:gap-6 lg:space-y-0">
       {renderTeamLineup(team1, team1.name)}
       {team2 && renderTeamLineup(team2, team2.name)}
     </div>
@@ -662,53 +681,42 @@ const TeamAnalysisTab: React.FC<{ matchup: DetailedMatchup }> = ({ matchup }) =>
   ];
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 md:space-y-6">
       {/* Weekly Performance Chart */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center">
-            <BarChart3 className="h-5 w-5 mr-2" />
-            Weekly Performance Comparison
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="h-64 flex items-center justify-center text-muted-foreground">
-            <div className="text-center">
-              <Activity className="h-12 w-12 mx-auto mb-2" />
-              <p>Weekly performance chart would be rendered here</p>
-              <p className="text-sm">Using Recharts or similar charting library</p>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+      <SimpleLineChart
+        title="Weekly Performance Comparison"
+        data={weeklyPerformanceData}
+        team1Name={team1.name}
+        team2Name={team2?.name || 'BYE'}
+        height={200}
+      />
 
       {/* Position Group Performance */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center">
-            <Target className="h-5 w-5 mr-2" />
-            Position Group Performance
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            {positionPerformanceData.map((pos) => (
-              <div key={pos.position} className="space-y-2">
-                <div className="flex justify-between text-sm">
-                  <span className="font-medium">{pos.position}</span>
-                  <span className="text-muted-foreground">
-                    {team1.name}: {pos.team1}% | {team2?.name}: {pos.team2}%
-                  </span>
-                </div>
-                <div className="grid grid-cols-2 gap-2">
-                  <Progress value={pos.team1} className="h-2" />
-                  <Progress value={pos.team2} className="h-2" />
-                </div>
-              </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
+      <div className="grid md:grid-cols-2 gap-4">
+        <SimpleBarChart
+          title={`${team1.name} Position Performance`}
+          data={positionPerformanceData.map(pos => ({
+            label: pos.position,
+            value: pos.team1,
+            color: 'bg-blue-500'
+          }))}
+          maxValue={100}
+          height={180}
+        />
+        
+        {team2 && (
+          <SimpleBarChart
+            title={`${team2.name} Position Performance`}
+            data={positionPerformanceData.map(pos => ({
+              label: pos.position,
+              value: pos.team2,
+              color: 'bg-red-500'
+            }))}
+            maxValue={100}
+            height={180}
+          />
+        )}
+      </div>
 
       {/* Consistency Metrics */}
       <div className="grid md:grid-cols-2 gap-4">

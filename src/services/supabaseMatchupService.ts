@@ -1088,9 +1088,7 @@ export class SupabaseMatchupService {
     // No points yet, probably upcoming
     return 'upcoming';
   }
-}
 
-export default SupabaseMatchupService;
   /**
    * Get detailed matchup data for the matchup detail page
    */
@@ -1270,3 +1268,5 @@ export default SupabaseMatchupService;
     }
   }
 }
+
+export default SupabaseMatchupService;
