@@ -510,6 +510,115 @@ export class SleeperApiService {
       throw error;
     }
   }
+
+  /**
+   * Fetch detailed weekly stats for a specific player and season
+   */
+  static async fetchPlayerSeasonStats(playerId: string, season: string): Promise<any[]> {
+    try {
+      console.log(`🔄 Fetching season stats for player: ${playerId}, season: ${season}`);
+      
+      // Validate inputs
+      if (!playerId || !season) {
+        console.error('❌ Invalid parameters: playerId or season is missing');
+        return [];
+      }
+      
+      // Track API call
+      if (typeof window !== 'undefined') {
+        (window as any).__apiCallCount = ((window as any).__apiCallCount || 0) + 1;
+      }
+      
+      const response = await fetch(`https://api.sleeper.com/stats/nfl/player/${playerId}?season_type=regular&season=${season}&grouping=week`);
+
+      if (!response.ok) {
+        console.warn(`Failed to fetch player stats: ${response.status} ${response.statusText}`);
+        return [];
+      }
+
+      const data = await response.json();
+      
+      // Log the raw response for debugging
+      console.log(`🔍 Raw API response for player ${playerId}, season ${season}:`, data);
+      console.log(`📊 Response type: ${typeof data}, is array: ${Array.isArray(data)}`);
+      
+      // Check if response is empty or null
+      if (!data) {
+        console.log(`ℹ️ No data returned for player ${playerId}, season ${season}`);
+        return [];
+      }
+      
+      // The API returns an object where keys are week numbers and values contain stats
+      // Example: { "1": { stats: {...}, week: 1, ... }, "2": { stats: {...}, week: 2, ... } }
+      if (data && typeof data === 'object' && !Array.isArray(data)) {
+        const dataKeys = Object.keys(data);
+        console.log(`📋 Found ${dataKeys.length} weeks in response:`, dataKeys);
+        
+        if (dataKeys.length === 0) {
+          console.log(`ℹ️ Empty object returned for player ${playerId}, season ${season}`);
+          return [];
+        }
+        const weeklyStats = Object.keys(data)
+          .map(weekKey => {
+            const weekData = data[weekKey];
+            const weekNumber = parseInt(weekKey);
+            
+            // Skip null or invalid week data
+            if (!weekData || typeof weekData !== 'object') {
+              console.warn(`⚠️ Skipping invalid week data for week ${weekKey}:`, weekData);
+              return null;
+            }
+            
+            // Extract stats from the nested stats object and flatten with week info
+            const stats = weekData.stats || {};
+            
+            // Ensure we have some meaningful data
+            if (!stats || typeof stats !== 'object') {
+              console.warn(`⚠️ No stats found for week ${weekKey}:`, weekData);
+              return null;
+            }
+            
+            return {
+              week: weekNumber,
+              season: weekData.season || season,
+              team: weekData.team || null,
+              opponent: weekData.opponent || null,
+              date: weekData.date || null,
+              // Flatten all the stats
+              ...stats
+            };
+          })
+          .filter(stat => stat !== null); // Remove null entries
+        
+        console.log(`✅ Parsed ${weeklyStats.length} weekly stats for player ${playerId}, season ${season}`);
+        if (weeklyStats.length > 0) {
+          console.log('Sample stat object:', weeklyStats[0]);
+        } else {
+          console.log('⚠️ No valid weekly stats found');
+        }
+        return weeklyStats;
+      }
+      
+      // Fallback for array format (if API changes)
+      if (Array.isArray(data)) {
+        console.log(`Fetched ${data.length} weekly stats (array format) for player ${playerId}, season ${season}`);
+        return data;
+      }
+      
+      // Handle case where API returns a different format or error message
+      if (typeof data === 'string') {
+        console.warn(`⚠️ API returned string response for player ${playerId}, season ${season}:`, data);
+        return [];
+      }
+      
+      console.warn(`⚠️ Unexpected data format for player ${playerId}, season ${season}:`, data);
+      console.warn(`Data type: ${typeof data}, keys:`, Object.keys(data || {}));
+      return [];
+    } catch (error) {
+      console.error(`Error fetching player season stats for ${playerId}, season ${season}:`, error);
+      return [];
+    }
+  }
 }
 
 export default SleeperApiService;

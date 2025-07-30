@@ -7,6 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Progress } from '@/components/ui/progress';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ArrowLeft, User, TrendingUp, Calendar, AlertCircle, Trophy, Loader2, RefreshCw } from 'lucide-react';
 import { useApp } from '@/contexts/AppContext';
 import { DatabaseService } from '@/services/databaseService';
@@ -75,12 +76,19 @@ interface PlayerDetail {
 
 const PlayerDetailPage: React.FC = () => {
   const { playerId } = useParams<{playerId: string;}>();
-  const { selectedSeason, selectedConference, currentSeasonConfig } = useApp();
+  const { selectedSeason: appSelectedSeason, selectedConference, currentSeasonConfig } = useApp();
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState('overview');
   const [player, setPlayer] = useState<PlayerDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  
+  // New state variables for performance data
+  const [performanceStats, setPerformanceStats] = useState<any[]>([]);
+  const [availableSeasons, setAvailableSeasons] = useState<string[]>([]);
+  const [selectedPerformanceSeason, setSelectedPerformanceSeason] = useState<string>('');
+  const [loadingPerformanceStats, setLoadingPerformanceStats] = useState(false);
+  const [performanceSubTab, setPerformanceSubTab] = useState('weekly');
 
   // Fetch comprehensive player data
   const fetchPlayerData = async () => {
@@ -106,6 +114,33 @@ const PlayerDetailPage: React.FC = () => {
 
       const dbPlayer = playerResult.data[0];
       console.log('Found player:', dbPlayer);
+
+      // Step 1.5: Calculate available seasons based on player experience
+      const currentYear = new Date().getFullYear();
+      const yearsExp = dbPlayer.years_exp || 0;
+      const seasons: string[] = [];
+      
+      // Add past seasons based on experience (most recent first)
+      for (let i = 0; i < yearsExp; i++) {
+        seasons.push((currentYear - 1 - i).toString());
+      }
+      
+      // Add upcoming season at the beginning
+      seasons.unshift(currentYear.toString());
+      
+      setAvailableSeasons(seasons);
+      // Set to most recent completed season (first past season) or current if no experience
+      const defaultSeason = seasons.length > 1 ? seasons[1] : seasons[0];
+      setSelectedPerformanceSeason(defaultSeason);
+      
+      // Fetch stats for the default season immediately
+      if (defaultSeason) {
+        console.log(`🚀 Loading initial stats for default season: ${defaultSeason}`);
+        const defaultStats = await SleeperApiService.fetchPlayerSeasonStats(playerId, defaultSeason);
+        const statsWithSeason = defaultStats.map(stat => ({ ...stat, season: defaultSeason }));
+        setPerformanceStats(statsWithSeason);
+        console.log(`📊 Initial stats loaded: ${defaultStats.length} weeks for season ${defaultSeason}`);
+      }
 
       // Step 2: Get roster ownership info (similar to PlayersPage)
       let targetConferences = currentSeasonConfig.conferences;
@@ -299,11 +334,214 @@ const PlayerDetailPage: React.FC = () => {
     }
   };
 
+  // Separate function to fetch performance stats for a specific season
+  const fetchPerformanceStats = async (season: string) => {
+    if (!playerId || !season) return;
+
+    try {
+      setLoadingPerformanceStats(true);
+      console.log(`🔄 Fetching performance stats for player ${playerId}, season ${season}`);
+      
+      const stats = await SleeperApiService.fetchPlayerSeasonStats(playerId, season);
+      console.log(`📊 Raw stats received:`, stats);
+      
+      // Add season information to each stat object (season should already be there from API)
+      const statsWithSeason = stats.map(stat => ({ ...stat, season }));
+      
+      // Update performance stats for this season
+      setPerformanceStats(prevStats => {
+        // Remove existing stats for this season and add new ones
+        const filteredStats = prevStats.filter(stat => stat.season !== season);
+        const newStats = [...filteredStats, ...statsWithSeason];
+        console.log(`📈 Updated performance stats. Total: ${newStats.length}, For season ${season}: ${statsWithSeason.length}`);
+        return newStats;
+      });
+      
+      if (stats.length > 0) {
+        console.log(`✅ Successfully loaded ${stats.length} weekly stats for season ${season}`);
+        toast({
+          title: 'Data Loaded',
+          description: `Loaded ${stats.length} weeks of data for ${season}`,
+          variant: 'default'
+        });
+      } else {
+        console.log(`ℹ️ No data found for player ${playerId}, season ${season}`);
+        toast({
+          title: 'No Data Available',
+          description: `No performance data found for ${season} season. This could be because the player wasn't active or the season hasn't started yet.`,
+          variant: 'default'
+        });
+      }
+    } catch (error) {
+      console.error(`❌ Error fetching performance stats for season ${season}:`, error);
+      toast({
+        title: 'Error Loading Performance Data',
+        description: `Failed to load stats for ${season} season`,
+        variant: 'destructive'
+      });
+    } finally {
+      setLoadingPerformanceStats(false);
+    }
+  };
+
+  // Handle season selection change
+  const handleSeasonChange = (season: string) => {
+    console.log(`🔄 Season changed to: ${season}`);
+    setSelectedPerformanceSeason(season);
+    fetchPerformanceStats(season);
+  };
+
+  // Debug function - you can call this from browser console
+  (window as any).debugPlayerStats = () => {
+    console.log('🔍 Debug Info:');
+    console.log('Player ID:', playerId);
+    console.log('Available Seasons:', availableSeasons);
+    console.log('Selected Season:', selectedPerformanceSeason);
+    console.log('Performance Sub Tab:', performanceSubTab);
+    console.log('Performance Stats Count:', performanceStats.length);
+    console.log('Performance Stats:', performanceStats);
+    console.log('Seasons in data:', [...new Set(performanceStats.map(s => s.season))]);
+    console.log('Season Totals:', calculateSeasonTotals());
+  };
+
+  // Calculate season totals from weekly stats
+  const calculateSeasonTotals = () => {
+    const seasonTotals: Record<string, any> = {};
+    
+    // Group stats by season
+    performanceStats.forEach(stat => {
+      const season = stat.season;
+      if (!seasonTotals[season]) {
+        seasonTotals[season] = {
+          season,
+          pts_ppr: 0,
+          rush_att: 0,
+          rush_yd: 0,
+          rush_td: 0,
+          rec: 0,
+          rec_tgt: 0,
+          rec_yd: 0,
+          rec_td: 0,
+          pass_comp: 0,
+          pass_inc: 0,
+          pass_yd: 0,
+          pass_int: 0,
+          pass_td: 0,
+          fum: 0,
+          rush_2pt: 0,
+          rec_2pt: 0,
+          pass_2pt: 0,
+          games: 0
+        };
+      }
+      
+      // Add weekly stats to season totals
+      const totals = seasonTotals[season];
+      totals.pts_ppr += stat.pts_ppr || 0;
+      totals.rush_att += stat.rush_att || 0;
+      totals.rush_yd += stat.rush_yd || 0;
+      totals.rush_td += stat.rush_td || 0;
+      totals.rec += stat.rec || 0;
+      totals.rec_tgt += stat.rec_tgt || 0;
+      totals.rec_yd += stat.rec_yd || 0;
+      totals.rec_td += stat.rec_td || 0;
+      totals.pass_comp += stat.pass_comp || 0;
+      totals.pass_inc += stat.pass_inc || 0;
+      totals.pass_yd += stat.pass_yd || 0;
+      totals.pass_int += stat.pass_int || 0;
+      totals.pass_td += stat.pass_td || 0;
+      totals.fum += stat.fum || 0;
+      totals.rush_2pt += stat.rush_2pt || 0;
+      totals.rec_2pt += stat.rec_2pt || 0;
+      totals.pass_2pt += stat.pass_2pt || 0;
+      totals.games += 1;
+    });
+    
+    // Convert to array and sort by season (newest first)
+    return Object.values(seasonTotals).sort((a: any, b: any) => parseInt(b.season) - parseInt(a.season));
+  };
+
+  // Test API function - you can call this from browser console
+  (window as any).testPlayerAPI = async (testPlayerId?: string, testSeason?: string) => {
+    const pid = testPlayerId || playerId;
+    const season = testSeason || selectedPerformanceSeason;
+    console.log(`🧪 Testing API for player ${pid}, season ${season}`);
+    
+    try {
+      const url = `https://api.sleeper.com/stats/nfl/player/${pid}?season_type=regular&season=${season}&grouping=week`;
+      console.log('🔗 API URL:', url);
+      
+      const response = await fetch(url);
+      console.log('📡 Response status:', response.status, response.statusText);
+      
+      const data = await response.json();
+      console.log('📊 Raw response:', data);
+      console.log('📋 Response type:', typeof data);
+      console.log('🔑 Keys:', Object.keys(data || {}));
+      
+      return data;
+    } catch (error) {
+      console.error('❌ API test failed:', error);
+      return null;
+    }
+  };
+
   useEffect(() => {
     if (playerId && currentSeasonConfig) {
       fetchPlayerData();
     }
-  }, [playerId, selectedSeason, selectedConference, currentSeasonConfig]);
+  }, [playerId, appSelectedSeason, selectedConference, currentSeasonConfig]);
+
+  // Fetch performance stats when the selected performance season changes
+  useEffect(() => {
+    if (selectedPerformanceSeason && playerId) {
+      fetchPerformanceStats(selectedPerformanceSeason);
+    }
+  }, [selectedPerformanceSeason, playerId]);
+
+  // Load all seasons data when switching to season totals tab
+  const loadAllSeasonsData = async () => {
+    if (!playerId || availableSeasons.length === 0) return;
+    
+    console.log('🔄 Loading all seasons data for season totals view...');
+    setLoadingPerformanceStats(true);
+    
+    try {
+      // Get seasons that we haven't loaded yet
+      const loadedSeasons = [...new Set(performanceStats.map(s => s.season))];
+      const seasonsToLoad = availableSeasons.filter(season => !loadedSeasons.includes(season));
+      
+      console.log('📋 Seasons to load:', seasonsToLoad);
+      console.log('📋 Already loaded:', loadedSeasons);
+      
+      if (seasonsToLoad.length > 0) {
+        const allSeasonStats = await Promise.all(
+          seasonsToLoad.map(async (season) => {
+            const stats = await SleeperApiService.fetchPlayerSeasonStats(playerId, season);
+            return stats.map(stat => ({ ...stat, season }));
+          })
+        );
+        
+        const newStats = allSeasonStats.flat();
+        setPerformanceStats(prevStats => [...prevStats, ...newStats]);
+        
+        console.log(`✅ Loaded ${newStats.length} additional weekly stats across ${seasonsToLoad.length} seasons`);
+      } else {
+        console.log('ℹ️ All seasons already loaded');
+      }
+    } catch (error) {
+      console.error('❌ Error loading all seasons data:', error);
+    } finally {
+      setLoadingPerformanceStats(false);
+    }
+  };
+
+  // Load all seasons when switching to season totals tab
+  useEffect(() => {
+    if (performanceSubTab === 'season' && availableSeasons.length > 0) {
+      loadAllSeasonsData();
+    }
+  }, [performanceSubTab, availableSeasons]);
 
   // Helper to get current NFL week (simplified - in real app might use external API)
   const getCurrentWeek = (): number => {
@@ -580,44 +818,276 @@ const PlayerDetailPage: React.FC = () => {
             <CardHeader>
               <CardTitle className="flex items-center space-x-2">
                 <TrendingUp className="h-5 w-5" />
-                <span>Weekly Performance</span>
+                <span>Player Performance</span>
               </CardTitle>
               <CardDescription>
-                Fantasy points by week across all leagues
+                Detailed statistics and game logs
               </CardDescription>
             </CardHeader>
-            <CardContent>
-              {player.season_stats.weeklyPerformance.length > 0 ? (
-                <div className="rounded-md border">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Week</TableHead>
-                        <TableHead>Conference</TableHead>
-                        <TableHead className="text-right">Points</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {player.season_stats.weeklyPerformance
-                        .sort((a, b) => b.week - a.week)
-                        .slice(0, 10)
-                        .map((week, idx) => (
-                        <TableRow key={idx}>
-                          <TableCell className="font-medium">Week {week.week}</TableCell>
-                          <TableCell>{week.conference_name}</TableCell>
-                          <TableCell className="text-right font-mono">
-                            {week.points.toFixed(1)}
-                          </TableCell>
+            <CardContent className="space-y-4">
+              {/* Performance Sub-Tabs */}
+              <Tabs value={performanceSubTab} onValueChange={setPerformanceSubTab} className="w-full">
+                <TabsList className="grid w-full grid-cols-2">
+                  <TabsTrigger value="weekly">Weekly Stats</TabsTrigger>
+                  <TabsTrigger value="season">Season Totals</TabsTrigger>
+                </TabsList>
+
+                {/* Weekly Stats Tab */}
+                <TabsContent value="weekly" className="space-y-4">
+                  {/* Season Filter Dropdown */}
+                  <div className="flex items-center space-x-2">
+                    <label htmlFor="season-select" className="text-sm font-medium">Season:</label>
+                    <Select value={selectedPerformanceSeason} onValueChange={handleSeasonChange}>
+                      <SelectTrigger className="w-32">
+                        <SelectValue placeholder="Select season" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {availableSeasons.map((season) => (
+                          <SelectItem key={season} value={season}>
+                            {season}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* Loading Indicator */}
+                  {loadingPerformanceStats && (
+                    <div className="flex items-center justify-center py-4">
+                      <Loader2 className="h-6 w-6 animate-spin mr-2" />
+                      <span className="text-sm text-muted-foreground">Loading performance data...</span>
+                    </div>
+                  )}
+                  
+                  {/* Weekly Statistics Table */}
+                  <div className="rounded-md border">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      {/* Fantasy Group */}
+                      <TableHead className="text-center border-r" colSpan={3}>Fantasy</TableHead>
+                      {/* Rushing Group */}
+                      <TableHead className="text-center border-r" colSpan={3}>Rushing</TableHead>
+                      {/* Receiving Group */}
+                      <TableHead className="text-center border-r" colSpan={3}>Receiving</TableHead>
+                      {/* Passing Group */}
+                      <TableHead className="text-center border-r" colSpan={4}>Passing</TableHead>
+                      {/* Misc Group */}
+                      <TableHead className="text-center" colSpan={2}>Misc</TableHead>
+                    </TableRow>
+                    <TableRow>
+                      {/* Fantasy columns */}
+                      <TableHead>Week</TableHead>
+                      <TableHead>Pts</TableHead>
+                      <TableHead className="border-r">Pos Rank</TableHead>
+                      {/* Rushing columns */}
+                      <TableHead>Att</TableHead>
+                      <TableHead>Yds</TableHead>
+                      <TableHead className="border-r">TD</TableHead>
+                      {/* Receiving columns */}
+                      <TableHead>Rec</TableHead>
+                      <TableHead>Tar</TableHead>
+                      <TableHead className="border-r">Yds</TableHead>
+                      {/* Passing columns */}
+                      <TableHead>Cmp</TableHead>
+                      <TableHead>Att</TableHead>
+                      <TableHead>Yds</TableHead>
+                      <TableHead>Int</TableHead>
+                      <TableHead className="border-r">TD</TableHead>
+                      {/* Misc columns */}
+                      <TableHead>Fum</TableHead>
+                      <TableHead>2pt</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {(() => {
+                      // Filter stats for selected season
+                      const seasonStats = performanceStats.filter(stat => stat.season === selectedPerformanceSeason);
+                      console.log(`📊 Displaying ${seasonStats.length} stats for season ${selectedPerformanceSeason}`);
+                      console.log('Available seasons in data:', [...new Set(performanceStats.map(s => s.season))]);
+                      console.log('Sample stat for debugging:', seasonStats[0]);
+                      
+                      // Calculate totals
+                      const totals = seasonStats.reduce((acc, stat) => ({
+                        pts_ppr: acc.pts_ppr + (stat.pts_ppr || 0),
+                        rush_att: acc.rush_att + (stat.rush_att || 0),
+                        rush_yd: acc.rush_yd + (stat.rush_yd || 0),
+                        rush_td: acc.rush_td + (stat.rush_td || 0),
+                        rec: acc.rec + (stat.rec || 0),
+                        rec_tgt: acc.rec_tgt + (stat.rec_tgt || 0),
+                        rec_yd: acc.rec_yd + (stat.rec_yd || 0),
+                        rec_td: acc.rec_td + (stat.rec_td || 0),
+                        pass_comp: acc.pass_comp + (stat.pass_comp || 0),
+                        pass_inc: acc.pass_inc + (stat.pass_inc || 0),
+                        pass_yd: acc.pass_yd + (stat.pass_yd || 0),
+                        pass_int: acc.pass_int + (stat.pass_int || 0),
+                        pass_td: acc.pass_td + (stat.pass_td || 0),
+                        fum: acc.fum + (stat.fum || 0),
+                        rush_2pt: acc.rush_2pt + (stat.rush_2pt || 0),
+                        rec_2pt: acc.rec_2pt + (stat.rec_2pt || 0),
+                        pass_2pt: acc.pass_2pt + (stat.pass_2pt || 0)
+                      }), {
+                        pts_ppr: 0, rush_att: 0, rush_yd: 0, rush_td: 0,
+                        rec: 0, rec_tgt: 0, rec_yd: 0, rec_td: 0,
+                        pass_comp: 0, pass_inc: 0, pass_yd: 0, pass_int: 0, pass_td: 0,
+                        fum: 0, rush_2pt: 0, rec_2pt: 0, pass_2pt: 0
+                      });
+
+                      return (
+                        <>
+                          {/* Totals Row */}
+                          <TableRow className="font-semibold bg-muted/50">
+                            <TableCell>Total</TableCell>
+                            <TableCell className="font-bold">{totals.pts_ppr.toFixed(1)}</TableCell>
+                            <TableCell className="border-r">-</TableCell>
+                            <TableCell>{totals.rush_att}</TableCell>
+                            <TableCell>{totals.rush_yd}</TableCell>
+                            <TableCell className="border-r">{totals.rush_td}</TableCell>
+                            <TableCell>{totals.rec}</TableCell>
+                            <TableCell>{totals.rec_tgt}</TableCell>
+                            <TableCell className="border-r">{totals.rec_yd}</TableCell>
+                            <TableCell>{totals.pass_comp}</TableCell>
+                            <TableCell>{totals.pass_comp + totals.pass_inc}</TableCell>
+                            <TableCell>{totals.pass_yd}</TableCell>
+                            <TableCell>{totals.pass_int}</TableCell>
+                            <TableCell className="border-r">{totals.pass_td}</TableCell>
+                            <TableCell>{totals.fum}</TableCell>
+                            <TableCell>{totals.rush_2pt + totals.rec_2pt + totals.pass_2pt}</TableCell>
+                          </TableRow>
+                          
+                          {/* Game Log Rows */}
+                          {seasonStats.length > 0 ? (
+                            seasonStats
+                              .sort((a, b) => (b.week || 0) - (a.week || 0))
+                              .map((stat, idx) => (
+                                <TableRow key={idx}>
+                                  <TableCell>{stat.week || '-'}</TableCell>
+                                  <TableCell className="font-bold">{(stat.pts_ppr || 0).toFixed(1)}</TableCell>
+                                  <TableCell className="border-r">{stat.pos_rank_ppr || '-'}</TableCell>
+                                  <TableCell>{stat.rush_att || 0}</TableCell>
+                                  <TableCell>{stat.rush_yd || 0}</TableCell>
+                                  <TableCell className="border-r">{stat.rush_td || 0}</TableCell>
+                                  <TableCell>{stat.rec || 0}</TableCell>
+                                  <TableCell>{stat.rec_tgt || 0}</TableCell>
+                                  <TableCell className="border-r">{stat.rec_yd || 0}</TableCell>
+                                  <TableCell>{stat.pass_comp || 0}</TableCell>
+                                  <TableCell>{(stat.pass_comp || 0) + (stat.pass_inc || 0)}</TableCell>
+                                  <TableCell>{stat.pass_yd || 0}</TableCell>
+                                  <TableCell>{stat.pass_int || 0}</TableCell>
+                                  <TableCell className="border-r">{stat.pass_td || 0}</TableCell>
+                                  <TableCell>{stat.fum || 0}</TableCell>
+                                  <TableCell>{(stat.rush_2pt || 0) + (stat.rec_2pt || 0) + (stat.pass_2pt || 0)}</TableCell>
+                                </TableRow>
+                              ))
+                          ) : (
+                            <TableRow>
+                              <TableCell colSpan={16} className="text-center py-8 text-muted-foreground">
+                                No data available for {selectedPerformanceSeason} season
+                              </TableCell>
+                            </TableRow>
+                          )}
+                        </>
+                      );
+                    })()}
+                  </TableBody>
+                </Table>
+              </div>
+                </TabsContent>
+
+                {/* Season Totals Tab */}
+                <TabsContent value="season" className="space-y-4">
+                  <div className="mb-4">
+                    <p className="text-sm text-muted-foreground">
+                      Career totals by season. Most recent season highlighted.
+                    </p>
+                  </div>
+                  
+                  {/* Loading Indicator for Season Totals */}
+                  {loadingPerformanceStats && (
+                    <div className="flex items-center justify-center py-4">
+                      <Loader2 className="h-6 w-6 animate-spin mr-2" />
+                      <span className="text-sm text-muted-foreground">Loading career statistics...</span>
+                    </div>
+                  )}
+                  
+                  <div className="rounded-md border">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          {/* Fantasy Group */}
+                          <TableHead className="text-center border-r" colSpan={3}>Fantasy</TableHead>
+                          {/* Rushing Group */}
+                          <TableHead className="text-center border-r" colSpan={3}>Rushing</TableHead>
+                          {/* Receiving Group */}
+                          <TableHead className="text-center border-r" colSpan={3}>Receiving</TableHead>
+                          {/* Passing Group */}
+                          <TableHead className="text-center border-r" colSpan={4}>Passing</TableHead>
+                          {/* Misc Group */}
+                          <TableHead className="text-center" colSpan={2}>Misc</TableHead>
                         </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
-              ) : (
-                <div className="text-center py-8">
-                  <p className="text-muted-foreground">No performance data available</p>
-                </div>
-              )}
+                        <TableRow>
+                          {/* Fantasy columns */}
+                          <TableHead>Season</TableHead>
+                          <TableHead>Pts</TableHead>
+                          <TableHead className="border-r">Games</TableHead>
+                          {/* Rushing columns */}
+                          <TableHead>Att</TableHead>
+                          <TableHead>Yds</TableHead>
+                          <TableHead className="border-r">TD</TableHead>
+                          {/* Receiving columns */}
+                          <TableHead>Rec</TableHead>
+                          <TableHead>Tar</TableHead>
+                          <TableHead className="border-r">Yds</TableHead>
+                          {/* Passing columns */}
+                          <TableHead>Cmp</TableHead>
+                          <TableHead>Att</TableHead>
+                          <TableHead>Yds</TableHead>
+                          <TableHead>Int</TableHead>
+                          <TableHead className="border-r">TD</TableHead>
+                          {/* Misc columns */}
+                          <TableHead>Fum</TableHead>
+                          <TableHead>2pt</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {(() => {
+                          const seasonTotals = calculateSeasonTotals();
+                          console.log('📊 Season totals calculated:', seasonTotals);
+                          
+                          return seasonTotals.length > 0 ? (
+                            seasonTotals.map((totals, idx) => (
+                              <TableRow key={idx} className={idx === 0 ? 'bg-muted/30' : ''}>
+                                <TableCell className="font-semibold">{totals.season}</TableCell>
+                                <TableCell className="font-bold">{totals.pts_ppr.toFixed(1)}</TableCell>
+                                <TableCell className="border-r">{totals.games}</TableCell>
+                                <TableCell>{totals.rush_att}</TableCell>
+                                <TableCell>{totals.rush_yd}</TableCell>
+                                <TableCell className="border-r">{totals.rush_td}</TableCell>
+                                <TableCell>{totals.rec}</TableCell>
+                                <TableCell>{totals.rec_tgt}</TableCell>
+                                <TableCell className="border-r">{totals.rec_yd}</TableCell>
+                                <TableCell>{totals.pass_comp}</TableCell>
+                                <TableCell>{totals.pass_comp + totals.pass_inc}</TableCell>
+                                <TableCell>{totals.pass_yd}</TableCell>
+                                <TableCell>{totals.pass_int}</TableCell>
+                                <TableCell className="border-r">{totals.pass_td}</TableCell>
+                                <TableCell>{totals.fum}</TableCell>
+                                <TableCell>{totals.rush_2pt + totals.rec_2pt + totals.pass_2pt}</TableCell>
+                              </TableRow>
+                            ))
+                          ) : (
+                            <TableRow>
+                              <TableCell colSpan={16} className="text-center py-8 text-muted-foreground">
+                                No season data available. Load some weekly stats first.
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })()}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </TabsContent>
+              </Tabs>
             </CardContent>
           </Card>
         </TabsContent>
