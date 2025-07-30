@@ -585,42 +585,44 @@ const HomePage: React.FC = () => {
             : null;
 
           return (
-            <div key={matchup.matchup_id} className="p-2 border rounded-lg">
-              <div className="flex items-center justify-between mb-1">
-                <ConferenceBadge conferenceName={matchup.conference.conference_name} variant="outline" size="sm" />
-                {getStatusBadge(matchup.status)}
+            <Link key={matchup.matchup_id} to={`/matchups/${matchup.matchup_id}`}>
+              <div className="p-2 border rounded-lg hover:bg-accent/50 transition-colors cursor-pointer">
+                <div className="flex items-center justify-between mb-1">
+                  <ConferenceBadge conferenceName={matchup.conference.conference_name} variant="outline" size="sm" />
+                  {getStatusBadge(matchup.status)}
+                </div>
+                <div className="grid grid-cols-5 gap-2 items-center text-sm">
+                  {/* Team 1 Name */}
+                  <div className="text-right">
+                    <p className="font-medium truncate text-xs">{team1?.team?.team_name || 'Team 1'}</p>
+                  </div>
+                  
+                  {/* Team 1 Score */}
+                  <div className="text-right">
+                    <p className={`text-sm font-bold ${winningTeam === team1 ? 'text-green-600' : ''}`}>
+                      {matchup.status === 'upcoming' ? '--' : team1?.points.toFixed(1)}
+                    </p>
+                  </div>
+
+                  {/* VS Divider */}
+                  <div className="text-center text-muted-foreground font-semibold text-xs">
+                    VS
+                  </div>
+
+                  {/* Team 2 Score */}
+                  <div className="text-left">
+                    <p className={`text-sm font-bold ${winningTeam === team2 ? 'text-green-600' : ''}`}>
+                      {matchup.status === 'upcoming' ? '--' : team2?.points.toFixed(1)}
+                    </p>
+                  </div>
+
+                  {/* Team 2 Name */}
+                  <div className="text-left">
+                    <p className="font-medium truncate text-xs">{team2?.team?.team_name || 'Team 2'}</p>
+                  </div>
+                </div>
               </div>
-              <div className="grid grid-cols-5 gap-2 items-center text-sm">
-                {/* Team 1 Name */}
-                <div className="text-right">
-                  <p className="font-medium truncate text-xs">{team1?.team?.team_name || 'Team 1'}</p>
-                </div>
-                
-                {/* Team 1 Score */}
-                <div className="text-right">
-                  <p className={`text-sm font-bold ${winningTeam === team1 ? 'text-green-600' : ''}`}>
-                    {matchup.status === 'upcoming' ? '--' : team1?.points.toFixed(1)}
-                  </p>
-                </div>
-
-                {/* VS Divider */}
-                <div className="text-center text-muted-foreground font-semibold text-xs">
-                  VS
-                </div>
-
-                {/* Team 2 Score */}
-                <div className="text-left">
-                  <p className={`text-sm font-bold ${winningTeam === team2 ? 'text-green-600' : ''}`}>
-                    {matchup.status === 'upcoming' ? '--' : team2?.points.toFixed(1)}
-                  </p>
-                </div>
-
-                {/* Team 2 Name */}
-                <div className="text-left">
-                  <p className="font-medium truncate text-xs">{team2?.team?.team_name || 'Team 2'}</p>
-                </div>
-              </div>
-            </div>
+            </Link>
           );
         })}
       </div>
@@ -678,10 +680,6 @@ const HomePage: React.FC = () => {
             </div>
             
             <div className="space-y-2">
-              <div className="flex items-center space-x-2">
-                <span className="text-sm font-medium">{transaction.teams[0]}</span>
-              </div>
-              
               {(transaction.players.added.length > 0 || transaction.players.dropped.length > 0) && (
                 <div className="space-y-2">
                   {transaction.players.added.length > 0 && (
