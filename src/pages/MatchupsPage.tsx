@@ -11,8 +11,7 @@ import { useToast } from '@/hooks/use-toast';
 import SleeperApiService, { SleeperPlayer } from '@/services/sleeperApi';
 import SupabaseMatchupService, { OrganizedMatchup } from '@/services/supabaseMatchupService';
 import MatchupCache from '@/services/matchupCache';
-import PerformanceMonitor, { trackApiCall, trackCacheHit, resetPerformanceMetrics } from '@/components/PerformanceMonitor';
-import MatchupsDebug from '@/components/MatchupsDebug';
+// Removed unused debug component imports
 import { ConferenceBadge } from '@/components/ui/conference-badge';
 
 // Minimal matchup interface for fast initial loading
@@ -504,7 +503,6 @@ const MatchupsPage: React.FC = () => {
 
   // Initialize data on mount
   useEffect(() => {
-    resetPerformanceMetrics();
     loadCurrentWeek();
     loadPlayerData();
   }, []);
@@ -655,11 +653,7 @@ const MatchupsPage: React.FC = () => {
         )}
       </div>
 
-      {/* Performance Monitor - Temporarily disabled */}
-      {/* <PerformanceMonitor /> */}
-      
-      {/* Debug Component (Development only) - Temporarily disabled */}
-      {/* {process.env.NODE_ENV === 'development' && <MatchupsDebug />} */}
+      {/* Debug components removed to reduce bundle size */}
     </div>
   );
 };
