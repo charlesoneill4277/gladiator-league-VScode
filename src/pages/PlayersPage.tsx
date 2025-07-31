@@ -11,6 +11,7 @@ import { useApp } from '@/contexts/AppContext';
 import { fetchPlayersFromApi } from '@/services/api';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/lib/supabase';
+import { SleeperApiService, SleeperPlayerResearch } from '@/services/sleeperApi';
 import { UserCheck, Search, Filter, ExternalLink, Loader2, ChevronLeft, ChevronRight, TrendingUp } from 'lucide-react';
 
 const PlayersPage: React.FC = () => {
@@ -28,8 +29,40 @@ const PlayersPage: React.FC = () => {
   const [teamLookup, setTeamLookup] = useState<Map<number, string>>(new Map());
   const [teamNameToIdLookup, setTeamNameToIdLookup] = useState<Map<string, number>>(new Map());
   const [activeTab, setActiveTab] = useState('all-players');
+  const [ownershipData, setOwnershipData] = useState<SleeperPlayerResearch>({});
+  const [ownershipLoading, setOwnershipLoading] = useState(false);
 
   const positions = ['QB', 'RB', 'WR', 'TE'];
+
+  // Function to fetch ownership data
+  const fetchOwnershipData = async () => {
+    setOwnershipLoading(true);
+    try {
+      // Get current NFL state to determine week and season
+      const nflState = await SleeperApiService.getNFLState();
+      const currentWeek = nflState.week === 0 ? 1 : nflState.week; // Use week 1 if current week is 0
+      const currentSeason = nflState.season;
+
+      console.log(`Fetching ownership data for season ${currentSeason}, week ${currentWeek}`);
+      
+      const research = await SleeperApiService.fetchPlayerResearch('regular', currentSeason, currentWeek);
+      setOwnershipData(research);
+      
+      toast({
+        title: 'Ownership Data Loaded',
+        description: `Loaded ownership percentages for week ${currentWeek}`
+      });
+    } catch (error) {
+      console.error('Error fetching ownership data:', error);
+      toast({
+        title: 'Error Loading Ownership Data',
+        description: 'Could not load player ownership percentages',
+        variant: 'destructive'
+      });
+    } finally {
+      setOwnershipLoading(false);
+    }
+  };
 
   // Load team data for team name lookup
   useEffect(() => {
@@ -58,6 +91,11 @@ const PlayersPage: React.FC = () => {
     };
 
     loadTeamData();
+  }, []);
+
+  // Load ownership data
+  useEffect(() => {
+    fetchOwnershipData();
   }, []);
 
   // New API-based data fetching
@@ -122,6 +160,14 @@ const PlayersPage: React.FC = () => {
       return <Badge variant="default" className="text-xs">Rostered</Badge>;
     }
     return <Badge variant="outline" className="text-xs">FA</Badge>;
+  };
+
+  const getOwnershipPercentage = (sleeperId: string): string => {
+    if (!ownershipData[sleeperId]) {
+      return '-';
+    }
+    const owned = ownershipData[sleeperId].owned;
+    return `${owned.toFixed(1)}%`;
   };
 
   const renderRosteredByTeams = (rosteredByTeams: any) => {
@@ -282,6 +328,7 @@ return (
                       <TableHead className="hidden sm:table-cell">NFL Team</TableHead>
                       <TableHead className="text-right">Points</TableHead>
                       <TableHead className="text-right hidden md:table-cell">Avg</TableHead>
+                      <TableHead className="text-right hidden md:table-cell">Own%</TableHead>
                       <TableHead>Status</TableHead>
                       <TableHead className="hidden lg:table-cell">Rostered By</TableHead>
                       <TableHead className="w-10"></TableHead>
@@ -289,9 +336,9 @@ return (
                   </TableHeader>
                   <TableBody>
                     {loading ? (
-                      <TableRow><TableCell colSpan={8} className="text-center py-8"><Loader2 className="h-6 w-6 animate-spin mx-auto" /></TableCell></TableRow>
+                      <TableRow><TableCell colSpan={9} className="text-center py-8"><Loader2 className="h-6 w-6 animate-spin mx-auto" /></TableCell></TableRow>
                     ) : apiPlayers.length === 0 ? (
-                      <TableRow><TableCell colSpan={8} className="text-center py-8">No players found.</TableCell></TableRow>
+                      <TableRow><TableCell colSpan={9} className="text-center py-8">No players found.</TableCell></TableRow>
                     ) : (
                       apiPlayers.map((player) => (
                         <TableRow key={player.id}>
@@ -309,6 +356,13 @@ return (
                           </TableCell>
                           <TableCell className="text-right font-mono hidden md:table-cell">
                             {player.avg_points.toFixed(1)}
+                          </TableCell>
+                          <TableCell className="text-right font-mono hidden md:table-cell">
+                            {ownershipLoading ? (
+                              <Loader2 className="h-3 w-3 animate-spin" />
+                            ) : (
+                              getOwnershipPercentage(player.sleeper_id)
+                            )}
                           </TableCell>
                           <TableCell>
                             {getStatusBadge(player.is_rostered, player.injury_status)}

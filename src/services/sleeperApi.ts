@@ -258,17 +258,17 @@ export interface SleeperTrendingPlayer {
 
 // Position mapping for starting lineup slots
 const STARTING_POSITIONS = [
-'QB', // Quarterback
-'RB', // Running Back 1
-'RB', // Running Back 2
-'WR', // Wide Receiver 1
-'WR', // Wide Receiver 2
-'WR', // Wide Receiver 3
-'TE', // Tight End
-'FLEX', // Flex (WR/RB/TE)
-'SUPER_FLEX', // Super Flex (QB/WR/RB/TE)
-'K', // Kicker
-'DEF' // Defense
+  'QB', // Quarterback
+  'RB', // Running Back 1
+  'RB', // Running Back 2
+  'WR', // Wide Receiver 1
+  'WR', // Wide Receiver 2
+  'WR', // Wide Receiver 3
+  'TE', // Tight End
+  'FLEX', // Flex (WR/RB/TE)
+  'SUPER_FLEX', // Super Flex (QB/WR/RB/TE)
+  'K', // Kicker
+  'DEF' // Defense
 ];
 
 export class SleeperApiService {
@@ -281,12 +281,12 @@ export class SleeperApiService {
   static async fetchLeagueRosters(leagueId: string): Promise<SleeperRoster[]> {
     try {
       console.log(`Fetching rosters for league: ${leagueId}`);
-      
+
       // Track API call
       if (typeof window !== 'undefined') {
         (window as any).__apiCallCount = ((window as any).__apiCallCount || 0) + 1;
       }
-      
+
       const response = await fetch(`${this.baseUrl}/league/${leagueId}/rosters`);
 
       if (!response.ok) {
@@ -365,13 +365,13 @@ export class SleeperApiService {
         // Use robust player fetching method for complete coverage
         (async () => {
           const { DatabaseService } = await import('./databaseService');
-          
+
           // Use the robust player fetching method
           const allPlayersArray = await DatabaseService.getAllPlayersForMapping([
             { column: 'playing_status', operator: 'eq', value: 'Active' },
             { column: 'position', operator: 'in', value: ['QB', 'RB', 'WR', 'TE', 'K', 'DEF'] }
           ]);
-          
+
           // Convert to Sleeper format for compatibility
           const playersRecord: Record<string, SleeperPlayer> = {};
           allPlayersArray.forEach(player => {
@@ -379,7 +379,7 @@ export class SleeperApiService {
               const nameParts = player.player_name.split(' ');
               const firstName = nameParts[0] || '';
               const lastName = nameParts.slice(1).join(' ') || '';
-              
+
               playersRecord[player.sleeper_id] = {
                 player_id: player.sleeper_id,
                 first_name: firstName,
@@ -397,7 +397,7 @@ export class SleeperApiService {
               };
             }
           });
-          
+
           return playersRecord;
         })()
       ]);
@@ -451,12 +451,12 @@ export class SleeperApiService {
   static async fetchMatchups(leagueId: string, week: number): Promise<SleeperMatchup[]> {
     try {
       console.log(`🔗 Fetching matchups for league: ${leagueId}, week: ${week}`);
-      
+
       // Track API call
       if (typeof window !== 'undefined') {
         (window as any).__apiCallCount = ((window as any).__apiCallCount || 0) + 1;
       }
-      
+
       const response = await fetch(`${this.baseUrl}/league/${leagueId}/matchups/${week}`);
 
       if (!response.ok) {
@@ -542,12 +542,12 @@ export class SleeperApiService {
   static async fetchLeagueUsers(leagueId: string): Promise<SleeperUser[]> {
     try {
       console.log(`Fetching users for league: ${leagueId}`);
-      
+
       // Track API call
       if (typeof window !== 'undefined') {
         (window as any).__apiCallCount = ((window as any).__apiCallCount || 0) + 1;
       }
-      
+
       const response = await fetch(`${this.baseUrl}/league/${leagueId}/users`);
 
       if (!response.ok) {
@@ -567,18 +567,18 @@ export class SleeperApiService {
    * Organize matchups by pairing teams
    */
   static organizeMatchups(
-  matchups: SleeperMatchup[],
-  rosters: SleeperRoster[],
-  users: SleeperUser[])
-  : Array<{
-    matchup_id: number;
-    teams: Array<{
-      roster_id: number;
-      points: number;
-      owner: SleeperUser | null;
-      roster: SleeperRoster | null;
-    }>;
-  }> {
+    matchups: SleeperMatchup[],
+    rosters: SleeperRoster[],
+    users: SleeperUser[])
+    : Array<{
+      matchup_id: number;
+      teams: Array<{
+        roster_id: number;
+        points: number;
+        owner: SleeperUser | null;
+        roster: SleeperRoster | null;
+      }>;
+    }> {
     const matchupGroups = new Map<number, SleeperMatchup[]>();
 
     // Group matchups by matchup_id
@@ -591,20 +591,20 @@ export class SleeperApiService {
 
     // Convert to organized format
     return Array.from(matchupGroups.entries()).
-    filter(([_, teams]) => teams.length === 2) // Only include complete matchup pairs
-    .map(([matchup_id, teams]) => ({
-      matchup_id,
-      teams: teams.map((team) => {
-        const roster = rosters.find((r) => r.roster_id === team.roster_id);
-        const owner = roster ? users.find((u) => u.user_id === roster.owner_id) : null;
-        return {
-          roster_id: team.roster_id,
-          points: team.points,
-          owner,
-          roster
-        };
-      })
-    }));
+      filter(([_, teams]) => teams.length === 2) // Only include complete matchup pairs
+      .map(([matchup_id, teams]) => ({
+        matchup_id,
+        teams: teams.map((team) => {
+          const roster = rosters.find((r) => r.roster_id === team.roster_id);
+          const owner = roster ? users.find((u) => u.user_id === roster.owner_id) : null;
+          return {
+            roster_id: team.roster_id,
+            points: team.points,
+            owner,
+            roster
+          };
+        })
+      }));
   }
 
   /**
@@ -653,18 +653,18 @@ export class SleeperApiService {
   static async fetchPlayerSeasonStats(playerId: string, season: string): Promise<any[]> {
     try {
       console.log(`🔄 Fetching season stats for player: ${playerId}, season: ${season}`);
-      
+
       // Validate inputs
       if (!playerId || !season) {
         console.error('❌ Invalid parameters: playerId or season is missing');
         return [];
       }
-      
+
       // Track API call
       if (typeof window !== 'undefined') {
         (window as any).__apiCallCount = ((window as any).__apiCallCount || 0) + 1;
       }
-      
+
       const response = await fetch(`${this.baseUrlNoVersion}/stats/nfl/player/${playerId}?season_type=regular&season=${season}&grouping=week`);
 
       if (!response.ok) {
@@ -673,23 +673,23 @@ export class SleeperApiService {
       }
 
       const data = await response.json();
-      
+
       // Log the raw response for debugging
       console.log(`🔍 Raw API response for player ${playerId}, season ${season}:`, data);
       console.log(`📊 Response type: ${typeof data}, is array: ${Array.isArray(data)}`);
-      
+
       // Check if response is empty or null
       if (!data) {
         console.log(`ℹ️ No data returned for player ${playerId}, season ${season}`);
         return [];
       }
-      
+
       // The API returns an object where keys are week numbers and values contain stats
       // Example: { "1": { stats: {...}, week: 1, ... }, "2": { stats: {...}, week: 2, ... } }
       if (data && typeof data === 'object' && !Array.isArray(data)) {
         const dataKeys = Object.keys(data);
         console.log(`📋 Found ${dataKeys.length} weeks in response:`, dataKeys);
-        
+
         if (dataKeys.length === 0) {
           console.log(`ℹ️ Empty object returned for player ${playerId}, season ${season}`);
           return [];
@@ -698,22 +698,22 @@ export class SleeperApiService {
           .map(weekKey => {
             const weekData = data[weekKey];
             const weekNumber = parseInt(weekKey);
-            
+
             // Skip null or invalid week data
             if (!weekData || typeof weekData !== 'object') {
               console.warn(`⚠️ Skipping invalid week data for week ${weekKey}:`, weekData);
               return null;
             }
-            
+
             // Extract stats from the nested stats object and flatten with week info
             const stats = weekData.stats || {};
-            
+
             // Ensure we have some meaningful data
             if (!stats || typeof stats !== 'object') {
               console.warn(`⚠️ No stats found for week ${weekKey}:`, weekData);
               return null;
             }
-            
+
             return {
               week: weekNumber,
               season: weekData.season || season,
@@ -725,7 +725,7 @@ export class SleeperApiService {
             };
           })
           .filter(stat => stat !== null); // Remove null entries
-        
+
         console.log(`✅ Parsed ${weeklyStats.length} weekly stats for player ${playerId}, season ${season}`);
         if (weeklyStats.length > 0) {
           console.log('Sample stat object:', weeklyStats[0]);
@@ -734,19 +734,19 @@ export class SleeperApiService {
         }
         return weeklyStats;
       }
-      
+
       // Fallback for array format (if API changes)
       if (Array.isArray(data)) {
         console.log(`Fetched ${data.length} weekly stats (array format) for player ${playerId}, season ${season}`);
         return data;
       }
-      
+
       // Handle case where API returns a different format or error message
       if (typeof data === 'string') {
         console.warn(`⚠️ API returned string response for player ${playerId}, season ${season}:`, data);
         return [];
       }
-      
+
       console.warn(`⚠️ Unexpected data format for player ${playerId}, season ${season}:`, data);
       console.warn(`Data type: ${typeof data}, keys:`, Object.keys(data || {}));
       return [];
@@ -1179,11 +1179,11 @@ export class SleeperApiService {
     if (!avatarId) {
       return '';
     }
-    
-    const baseUrl = isThumb 
-      ? 'https://sleepercdn.com/avatars/thumbs/' 
+
+    const baseUrl = isThumb
+      ? 'https://sleepercdn.com/avatars/thumbs/'
       : 'https://sleepercdn.com/avatars/';
-    
+
     return `${baseUrl}${avatarId}`;
   }
 }
