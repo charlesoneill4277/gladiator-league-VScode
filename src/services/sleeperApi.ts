@@ -121,6 +121,141 @@ export interface SleeperNFLState {
   display_week: number;
 }
 
+export interface SleeperDraft {
+  draft_id: string;
+  season: string;
+  league_id: string;
+  type: string;
+  status: string;
+  start_time: number;
+  sport: string;
+  settings: {
+    teams: number;
+    slots_qb: number;
+    slots_rb: number;
+    slots_wr: number;
+    slots_te: number;
+    slots_k: number;
+    slots_def: number;
+    slots_bn: number;
+    rounds: number;
+    reversal_round: number;
+  };
+  season_type: string;
+  creators: string[] | null;
+}
+
+export interface SleeperDraftPick {
+  player_id: string;
+  pick_no: number;
+  round: number;
+  roster_id: number;
+  draft_slot: number;
+  draft_id: string;
+  picked_by: string;
+  metadata: {
+    team: string;
+    status: string;
+    sport: string;
+    position: string;
+    player_id: string;
+    number: string;
+    news_updated: string;
+    last_name: string;
+    injury_status: string;
+    first_name: string;
+  };
+}
+
+export interface SleeperTradedPick {
+  season: string;
+  round: number;
+  roster_id: number;
+  previous_owner_id: string;
+  owner_id: string;
+}
+
+export interface SleeperTransaction {
+  transaction_id: string;
+  type: 'trade' | 'waiver' | 'free_agent';
+  status: 'complete' | 'failed';
+  creator: string;
+  created: number;
+  roster_ids: number[];
+  settings: {
+    waiver_bid: number;
+    seq: number;
+  } | null;
+  metadata: Record<string, any>;
+  leg: number;
+  drops: Record<string, number> | null;
+  draft_picks: any[];
+  consenter_ids: number[];
+  adds: Record<string, number> | null;
+}
+
+export interface SleeperPlayoffBracket {
+  r: number; // round
+  m: number; // match
+  t1: number; // team 1
+  t2: number; // team 2
+  w: number; // winner
+  l: number; // loser
+  t1_from: { winner_of?: number; loser_of?: number } | null;
+  t2_from: { winner_of?: number; loser_of?: number } | null;
+}
+
+export interface SleeperPlayerStats {
+  date: any;
+  stats: Record<string, number>;
+  category: string;
+  last_modified: any;
+  week: any;
+  season: string;
+  season_type: string;
+  sport: string;
+  player_id: string;
+  game_id: string;
+  updated_at: any;
+  team: string;
+  company: string;
+  opponent: any;
+  player: SleeperPlayer;
+}
+
+export interface SleeperPlayerResearch {
+  [playerId: string]: {
+    owned: number;
+    started?: number;
+  };
+}
+
+export interface SleeperProjection {
+  player_id: string;
+  stats: Record<string, number>;
+  week: number;
+  season: string;
+  season_type: string;
+}
+
+export interface SleeperScheduleGame {
+  status: 'pre_game' | 'in_game' | 'complete';
+  date: string;
+  home: string;
+  away: string;
+  week: number;
+  game_id: string;
+}
+
+export interface SleeperDepthChart {
+  [position: string]: string[];
+}
+
+export interface SleeperTrendingPlayer {
+  player_id: string;
+  count: number;
+}
+
 // Position mapping for starting lineup slots
 const STARTING_POSITIONS = [
 'QB', // Quarterback
@@ -138,6 +273,7 @@ const STARTING_POSITIONS = [
 
 export class SleeperApiService {
   private static baseUrl = 'https://api.sleeper.app/v1';
+  private static baseUrlNoVersion = 'https://api.sleeper.app';
 
   /**
    * Fetch roster data for a specific league
@@ -529,7 +665,7 @@ export class SleeperApiService {
         (window as any).__apiCallCount = ((window as any).__apiCallCount || 0) + 1;
       }
       
-      const response = await fetch(`https://api.sleeper.com/stats/nfl/player/${playerId}?season_type=regular&season=${season}&grouping=week`);
+      const response = await fetch(`${this.baseUrlNoVersion}/stats/nfl/player/${playerId}?season_type=regular&season=${season}&grouping=week`);
 
       if (!response.ok) {
         console.warn(`Failed to fetch player stats: ${response.status} ${response.statusText}`);
@@ -618,6 +754,437 @@ export class SleeperApiService {
       console.error(`Error fetching player season stats for ${playerId}, season ${season}:`, error);
       return [];
     }
+  }
+
+  // User Endpoints
+
+  /**
+   * Get user by username or user ID
+   */
+  static async fetchUser(usernameOrId: string): Promise<SleeperUser> {
+    try {
+      console.log(`Fetching user: ${usernameOrId}`);
+      const response = await fetch(`${this.baseUrl}/user/${usernameOrId}`);
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch user: ${response.status} ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      console.log(`Fetched user info for ${usernameOrId}`);
+      return data;
+    } catch (error) {
+      console.error('Error fetching user:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get all leagues for a user
+   */
+  static async fetchUserLeagues(userId: string, season: string): Promise<SleeperLeague[]> {
+    try {
+      console.log(`Fetching leagues for user: ${userId}, season: ${season}`);
+      const response = await fetch(`${this.baseUrl}/user/${userId}/leagues/nfl/${season}`);
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch user leagues: ${response.status} ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      console.log(`Fetched ${data.length} leagues for user ${userId}`);
+      return data;
+    } catch (error) {
+      console.error('Error fetching user leagues:', error);
+      throw error;
+    }
+  }
+
+  // Draft Endpoints
+
+  /**
+   * Get all drafts for a user
+   */
+  static async fetchUserDrafts(userId: string, season: string): Promise<SleeperDraft[]> {
+    try {
+      console.log(`Fetching drafts for user: ${userId}, season: ${season}`);
+      const response = await fetch(`${this.baseUrl}/user/${userId}/drafts/nfl/${season}`);
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch user drafts: ${response.status} ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      console.log(`Fetched ${data.length} drafts for user ${userId}`);
+      return data;
+    } catch (error) {
+      console.error('Error fetching user drafts:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get all drafts for a league
+   */
+  static async fetchLeagueDrafts(leagueId: string): Promise<SleeperDraft[]> {
+    try {
+      console.log(`Fetching drafts for league: ${leagueId}`);
+      const response = await fetch(`${this.baseUrl}/league/${leagueId}/drafts`);
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch league drafts: ${response.status} ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      console.log(`Fetched ${data.length} drafts for league ${leagueId}`);
+      return data;
+    } catch (error) {
+      console.error('Error fetching league drafts:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get a specific draft
+   */
+  static async fetchDraft(draftId: string): Promise<SleeperDraft> {
+    try {
+      console.log(`Fetching draft: ${draftId}`);
+      const response = await fetch(`${this.baseUrl}/draft/${draftId}`);
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch draft: ${response.status} ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      console.log(`Fetched draft info for ${draftId}`);
+      return data;
+    } catch (error) {
+      console.error('Error fetching draft:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get all picks in a draft
+   */
+  static async fetchDraftPicks(draftId: string): Promise<SleeperDraftPick[]> {
+    try {
+      console.log(`Fetching draft picks: ${draftId}`);
+      const response = await fetch(`${this.baseUrl}/draft/${draftId}/picks`);
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch draft picks: ${response.status} ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      console.log(`Fetched ${data.length} picks for draft ${draftId}`);
+      return data;
+    } catch (error) {
+      console.error('Error fetching draft picks:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get traded picks in a draft
+   */
+  static async fetchDraftTradedPicks(draftId: string): Promise<SleeperTradedPick[]> {
+    try {
+      console.log(`Fetching traded picks for draft: ${draftId}`);
+      const response = await fetch(`${this.baseUrl}/draft/${draftId}/traded_picks`);
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch traded picks: ${response.status} ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      console.log(`Fetched ${data.length} traded picks for draft ${draftId}`);
+      return data;
+    } catch (error) {
+      console.error('Error fetching traded picks:', error);
+      throw error;
+    }
+  }
+
+  // League Transaction and Playoff Endpoints
+
+  /**
+   * Get playoff bracket (winners)
+   */
+  static async fetchWinnersBracket(leagueId: string): Promise<SleeperPlayoffBracket[]> {
+    try {
+      console.log(`Fetching winners bracket for league: ${leagueId}`);
+      const response = await fetch(`${this.baseUrl}/league/${leagueId}/winners_bracket`);
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch winners bracket: ${response.status} ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      console.log(`Fetched winners bracket for league ${leagueId}`);
+      return data;
+    } catch (error) {
+      console.error('Error fetching winners bracket:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get playoff bracket (losers)
+   */
+  static async fetchLosersBracket(leagueId: string): Promise<SleeperPlayoffBracket[]> {
+    try {
+      console.log(`Fetching losers bracket for league: ${leagueId}`);
+      const response = await fetch(`${this.baseUrl}/league/${leagueId}/losers_bracket`);
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch losers bracket: ${response.status} ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      console.log(`Fetched losers bracket for league ${leagueId}`);
+      return data;
+    } catch (error) {
+      console.error('Error fetching losers bracket:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get transactions for a league
+   */
+  static async fetchTransactions(leagueId: string, round: number): Promise<SleeperTransaction[]> {
+    try {
+      console.log(`Fetching transactions for league: ${leagueId}, round: ${round}`);
+      const response = await fetch(`${this.baseUrl}/league/${leagueId}/transactions/${round}`);
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch transactions: ${response.status} ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      console.log(`Fetched ${data.length} transactions for league ${leagueId}, round ${round}`);
+      return data;
+    } catch (error) {
+      console.error('Error fetching transactions:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get traded picks in a league
+   */
+  static async fetchLeagueTradedPicks(leagueId: string): Promise<SleeperTradedPick[]> {
+    try {
+      console.log(`Fetching traded picks for league: ${leagueId}`);
+      const response = await fetch(`${this.baseUrl}/league/${leagueId}/traded_picks`);
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch league traded picks: ${response.status} ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      console.log(`Fetched ${data.length} traded picks for league ${leagueId}`);
+      return data;
+    } catch (error) {
+      console.error('Error fetching league traded picks:', error);
+      throw error;
+    }
+  }
+
+  // Player Research and Statistics Endpoints
+
+  /**
+   * Get trending players by add/drop
+   */
+  static async fetchTrendingPlayers(
+    sport: string = 'nfl',
+    type: 'add' | 'drop' = 'add',
+    lookbackHours: number = 24,
+    limit: number = 25
+  ): Promise<SleeperTrendingPlayer[]> {
+    try {
+      console.log(`Fetching trending ${type} players for ${sport}`);
+      const response = await fetch(
+        `${this.baseUrl}/players/${sport}/trending/${type}?lookback_hours=${lookbackHours}&limit=${limit}`
+      );
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch trending players: ${response.status} ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      console.log(`Fetched ${data.length} trending ${type} players`);
+      return data;
+    } catch (error) {
+      console.error('Error fetching trending players:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get specific NFL player information
+   */
+  static async fetchPlayerInfo(playerId: string): Promise<SleeperPlayer> {
+    try {
+      console.log(`Fetching player info: ${playerId}`);
+      const response = await fetch(`${this.baseUrlNoVersion}/players/nfl/${playerId}`);
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch player info: ${response.status} ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      console.log(`Fetched player info for ${playerId}`);
+      return data;
+    } catch (error) {
+      console.error('Error fetching player info:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get NFL player research (ownership/starter percentages)
+   */
+  static async fetchPlayerResearch(
+    seasonType: 'regular' | 'post',
+    year: string,
+    week: number
+  ): Promise<SleeperPlayerResearch> {
+    try {
+      console.log(`Fetching player research for ${seasonType} season ${year}, week ${week}`);
+      const response = await fetch(`${this.baseUrlNoVersion}/players/nfl/research/${seasonType}/${year}/${week}`);
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch player research: ${response.status} ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      console.log(`Fetched player research data for ${seasonType} season ${year}, week ${week}`);
+      return data;
+    } catch (error) {
+      console.error('Error fetching player research:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get NFL player season stats (full season)
+   */
+  static async fetchPlayerSeasonStatsComplete(
+    playerId: string,
+    seasonType: 'regular' | 'post',
+    season: string
+  ): Promise<SleeperPlayerStats[]> {
+    try {
+      console.log(`Fetching complete season stats for player: ${playerId}, ${seasonType} ${season}`);
+      const response = await fetch(
+        `${this.baseUrlNoVersion}/stats/nfl/player/${playerId}?season_type=${seasonType}&season=${season}`
+      );
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch player season stats: ${response.status} ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      console.log(`Fetched complete season stats for player ${playerId}`);
+      return Array.isArray(data) ? data : [data];
+    } catch (error) {
+      console.error('Error fetching player season stats:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get NFL player projections
+   */
+  static async fetchPlayerProjections(
+    season: string,
+    week: number,
+    seasonType: 'regular' | 'post' = 'regular',
+    positions: string[] = ['FLEX', 'QB', 'RB', 'TE', 'WR']
+  ): Promise<SleeperProjection[]> {
+    try {
+      console.log(`Fetching player projections for ${seasonType} season ${season}, week ${week}`);
+      const positionParams = positions.map(pos => `position[]=${pos}`).join('&');
+      const response = await fetch(
+        `${this.baseUrlNoVersion}/projections/nfl/${season}/${week}?season_type=${seasonType}&${positionParams}`
+      );
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch player projections: ${response.status} ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      console.log(`Fetched projections for ${data.length} players`);
+      return data;
+    } catch (error) {
+      console.error('Error fetching player projections:', error);
+      throw error;
+    }
+  }
+
+  // NFL Schedule and Team Information
+
+  /**
+   * Get NFL schedule
+   */
+  static async fetchNFLSchedule(
+    seasonType: 'regular' | 'post',
+    year: string
+  ): Promise<SleeperScheduleGame[]> {
+    try {
+      console.log(`Fetching NFL schedule for ${seasonType} ${year}`);
+      const response = await fetch(`${this.baseUrlNoVersion}/schedule/nfl/${seasonType}/${year}`);
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch NFL schedule: ${response.status} ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      console.log(`Fetched ${data.length} games from NFL schedule`);
+      return data;
+    } catch (error) {
+      console.error('Error fetching NFL schedule:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get NFL team depth chart
+   */
+  static async fetchTeamDepthChart(team: string): Promise<SleeperDepthChart> {
+    try {
+      console.log(`Fetching depth chart for team: ${team}`);
+      const response = await fetch(`${this.baseUrlNoVersion}/players/nfl/${team}/depth_chart`);
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch team depth chart: ${response.status} ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      console.log(`Fetched depth chart for team ${team}`);
+      return data;
+    } catch (error) {
+      console.error('Error fetching team depth chart:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Helper method to get avatar URL
+   */
+  static getAvatarUrl(avatarId: string | null, isThumb: boolean = false): string {
+    if (!avatarId) {
+      return '';
+    }
+    
+    const baseUrl = isThumb 
+      ? 'https://sleepercdn.com/avatars/thumbs/' 
+      : 'https://sleepercdn.com/avatars/';
+    
+    return `${baseUrl}${avatarId}`;
   }
 }
 
