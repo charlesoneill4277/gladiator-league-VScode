@@ -37,6 +37,7 @@ const PlayersPage: React.FC = () => {
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
   const [cachedPlayers, setCachedPlayers] = useState<any[]>([]);
   const [cacheKey, setCacheKey] = useState<string>('');
+  const [sortTrigger, setSortTrigger] = useState<number>(0);
 
   const positions = ['QB', 'RB', 'WR', 'TE'];
   const nflTeams = ['ARI', 'ATL', 'BAL', 'BUF', 'CAR', 'CHI', 'CIN', 'CLE', 'DAL', 'DEN', 'DET', 'GB', 'HOU', 'IND', 'JAX', 'KC', 'LV', 'LAC', 'LAR', 'MIA', 'MIN', 'NE', 'NO', 'NYG', 'NYJ', 'PHI', 'PIT', 'SF', 'SEA', 'TB', 'TEN', 'WAS'];
@@ -167,6 +168,23 @@ const PlayersPage: React.FC = () => {
     fetchOwnershipData();
   }, []);
 
+  // Auto-sort by ownership percentage when ownership data is loaded and cache is created
+  useEffect(() => {
+    if (Object.keys(ownershipData).length > 0 && cachedPlayers.length > 0 && sortField === '') {
+      console.log('Auto-setting sort to ownership');
+      setSortField('ownership');
+      setSortDirection('desc');
+    }
+  }, [ownershipData, cachedPlayers, sortField]);
+
+  // Force re-render when ownership data loads and we're sorting by ownership
+  useEffect(() => {
+    if (Object.keys(ownershipData).length > 0 && sortField === 'ownership') {
+      console.log('Ownership data loaded, re-triggering sort');
+      setSortTrigger(prev => prev + 1);
+    }
+  }, [ownershipData, sortField]);
+
   // New API-based data fetching
   useEffect(() => {
     const loadPlayers = async () => {
@@ -211,18 +229,23 @@ const PlayersPage: React.FC = () => {
         // Now sort the cached data based on current sort settings
         let sortedData = [...allFilteredData];
         
-        if (sortField === 'ownership' && Object.keys(ownershipData).length > 0) {
-          // Sort by ownership
-          sortedData.sort((a, b) => {
-            const aOwnership = ownershipData[a.sleeper_id]?.owned || 0;
-            const bOwnership = ownershipData[b.sleeper_id]?.owned || 0;
-            
-            if (sortDirection === 'asc') {
-              return aOwnership - bOwnership;
-            } else {
-              return bOwnership - aOwnership;
-            }
-          });
+        if (sortField === 'ownership') {
+          // Sort by ownership - only if ownership data is available
+          if (Object.keys(ownershipData).length > 0) {
+            sortedData.sort((a, b) => {
+              const aOwnership = ownershipData[a.sleeper_id]?.owned || 0;
+              const bOwnership = ownershipData[b.sleeper_id]?.owned || 0;
+              
+              if (sortDirection === 'asc') {
+                return aOwnership - bOwnership;
+              } else {
+                return bOwnership - aOwnership;
+              }
+            });
+          } else {
+            // If ownership data isn't loaded yet, fall back to default sort
+            sortedData.sort((a, b) => b.total_points - a.total_points);
+          }
         } else if (sortField === 'total_points') {
           // Sort by total points
           sortedData.sort((a, b) => {
@@ -269,7 +292,7 @@ const PlayersPage: React.FC = () => {
     };
 
     loadPlayers();
-  }, [searchTerm, positionFilter, statusFilter, nflTeamFilter, sortField, sortDirection, currentPage, selectedSeason, selectedConference, ownershipData]);
+  }, [searchTerm, positionFilter, statusFilter, nflTeamFilter, sortField, sortDirection, currentPage, selectedSeason, selectedConference, sortTrigger]);
 
   const getPositionColor = (position: string) => {
     switch (position) {

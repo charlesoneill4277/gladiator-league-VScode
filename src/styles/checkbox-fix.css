@@ -1,0 +1,21 @@
+/* Fix for checkbox data-state CSS generation issue */
+.checkbox-root[data-state="checked"] {
+  background-color: hsl(var(--primary));
+  color: hsl(var(--primary-foreground));
+}
+
+.switch-root[data-state="checked"] {
+  background-color: hsl(var(--primary));
+}
+
+.switch-root[data-state="unchecked"] {
+  background-color: hsl(var(--input));
+}
+
+.switch-thumb[data-state="checked"] {
+  transform: translateX(1rem);
+}
+
+.switch-thumb[data-state="unchecked"] {
+  transform: translateX(0);
+}

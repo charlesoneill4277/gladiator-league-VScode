@@ -1,4 +1,5 @@
 // Service for integrating with Sleeper API
+import { DatabaseService } from './databaseService';
 export interface SleeperRoster {
   starters: string[] | null;
   settings: {
@@ -364,7 +365,6 @@ export class SleeperApiService {
         this.fetchLeagueRosters(leagueId),
         // Use robust player fetching method for complete coverage
         (async () => {
-          const { DatabaseService } = await import('./databaseService');
 
           // Use the robust player fetching method
           const allPlayersArray = await DatabaseService.getAllPlayersForMapping([
