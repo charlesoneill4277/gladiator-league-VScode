@@ -25,7 +25,9 @@ const PlayersPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [positionFilter, setPositionFilter] = useState<string>('all');
-  const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [statusFilter, setStatusFilter] = useState<string>('free_agent');
+  const [nflTeamFilter, setNflTeamFilter] = useState<string>('all');
+  const [seasonFilter, setSeasonFilter] = useState<string>(selectedSeason.toString());
   const [teamLookup, setTeamLookup] = useState<Map<number, string>>(new Map());
   const [teamNameToIdLookup, setTeamNameToIdLookup] = useState<Map<string, number>>(new Map());
   const [activeTab, setActiveTab] = useState('all-players');
@@ -33,6 +35,8 @@ const PlayersPage: React.FC = () => {
   const [ownershipLoading, setOwnershipLoading] = useState(false);
 
   const positions = ['QB', 'RB', 'WR', 'TE'];
+  const nflTeams = ['ARI', 'ATL', 'BAL', 'BUF', 'CAR', 'CHI', 'CIN', 'CLE', 'DAL', 'DEN', 'DET', 'GB', 'HOU', 'IND', 'JAX', 'KC', 'LV', 'LAC', 'LAR', 'MIA', 'MIN', 'NE', 'NO', 'NYG', 'NYJ', 'PHI', 'PIT', 'SF', 'SEA', 'TB', 'TEN', 'WAS'];
+  const seasons = ['2020', '2021', '2022', '2023', '2024', '2025'];
 
   // Function to fetch ownership data
   const fetchOwnershipData = async () => {
@@ -110,6 +114,8 @@ const PlayersPage: React.FC = () => {
           search: searchTerm,
           position: positionFilter,
           is_rostered: statusFilter === 'rostered' ? true : (statusFilter === 'free_agent' ? false : ''),
+          nfl_team: nflTeamFilter === 'all' ? '' : nflTeamFilter,
+          season: seasonFilter,
         };
 
         const { data, count } = await fetchPlayersFromApi(filters, currentPage, pageSize);
@@ -132,7 +138,7 @@ const PlayersPage: React.FC = () => {
     };
 
     loadPlayers();
-  }, [searchTerm, positionFilter, statusFilter, currentPage, selectedSeason, selectedConference]);
+  }, [searchTerm, positionFilter, statusFilter, nflTeamFilter, seasonFilter, currentPage, selectedSeason, selectedConference]);
 
   const getPositionColor = (position: string) => {
     switch (position) {
@@ -265,7 +271,7 @@ return (
           <h1 className="text-3xl font-bold">Players</h1>
         </div>
         <p className="text-muted-foreground">
-          {selectedSeason} Season • {totalCount} players
+          {seasonFilter} Season • {totalCount} players
         </p>
       </div>
 
@@ -284,7 +290,7 @@ return (
 
         <TabsContent value="all-players" className="space-y-6">
           {/* Filters */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
             {/* Search */}
             <div className="relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -314,6 +320,23 @@ return (
                 <SelectItem value="free_agent">Free Agent</SelectItem>
               </SelectContent>
             </Select>
+
+            {/* NFL Team Filter */}
+            <Select value={nflTeamFilter} onValueChange={(value) => { setNflTeamFilter(value); setCurrentPage(1); }}>
+              <SelectTrigger><SelectValue placeholder="All Teams" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Teams</SelectItem>
+                {nflTeams.map((team) => (<SelectItem key={team} value={team}>{team}</SelectItem>))}
+              </SelectContent>
+            </Select>
+
+            {/* Season Filter */}
+            <Select value={seasonFilter} onValueChange={(value) => { setSeasonFilter(value); setCurrentPage(1); }}>
+              <SelectTrigger><SelectValue placeholder="Season" /></SelectTrigger>
+              <SelectContent>
+                {seasons.map((season) => (<SelectItem key={season} value={season}>{season}</SelectItem>))}
+              </SelectContent>
+            </Select>
           </div>
 
           {/* Players Table */}
@@ -324,13 +347,13 @@ return (
                   <TableHeader>
                     <TableRow>
                       <TableHead>Player</TableHead>
-                      <TableHead>Pos</TableHead>
-                      <TableHead className="hidden sm:table-cell">NFL Team</TableHead>
-                      <TableHead className="text-right">Points</TableHead>
-                      <TableHead className="text-right hidden md:table-cell">Avg</TableHead>
-                      <TableHead className="text-right hidden md:table-cell">Own%</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead className="hidden lg:table-cell">Rostered By</TableHead>
+                      <TableHead className="text-center">Pos</TableHead>
+                      <TableHead className="text-center hidden md:table-cell">Own%</TableHead>
+                      <TableHead className="text-center hidden sm:table-cell">NFL Team</TableHead>
+                      <TableHead className="text-center">Points</TableHead>
+                      <TableHead className="text-center hidden md:table-cell">Avg</TableHead>
+                      <TableHead className="text-center">Status</TableHead>
+                      <TableHead className="text-center hidden lg:table-cell">Rostered By</TableHead>
                       <TableHead className="w-10"></TableHead>
                     </TableRow>
                   </TableHeader>
@@ -346,28 +369,28 @@ return (
                             {/* CORRECTED: The API sends 'player_name', not 'full_name' */}
                             <div className="font-medium">{player.player_name}</div>
                           </TableCell>
-                          <TableCell>
+                          <TableCell className="text-center">
                             <Badge className={getPositionColor(player.position)}>{player.position}</Badge>
                           </TableCell>
-                          <TableCell className="hidden sm:table-cell">{player.nfl_team || 'FA'}</TableCell>
-                          <TableCell className="text-right font-mono">
-                            {/* This is safe because the VIEW guarantees a number */}
-                            {player.total_points.toFixed(1)}
-                          </TableCell>
-                          <TableCell className="text-right font-mono hidden md:table-cell">
-                            {player.avg_points.toFixed(1)}
-                          </TableCell>
-                          <TableCell className="text-right font-mono hidden md:table-cell">
+                          <TableCell className="text-center font-mono hidden md:table-cell">
                             {ownershipLoading ? (
                               <Loader2 className="h-3 w-3 animate-spin" />
                             ) : (
                               getOwnershipPercentage(player.sleeper_id)
                             )}
                           </TableCell>
-                          <TableCell>
+                          <TableCell className="text-center hidden sm:table-cell">{player.nfl_team || 'FA'}</TableCell>
+                          <TableCell className="text-center font-mono">
+                            {/* This is safe because the VIEW guarantees a number */}
+                            {player.total_points.toFixed(1)}
+                          </TableCell>
+                          <TableCell className="text-center font-mono hidden md:table-cell">
+                            {player.avg_points.toFixed(1)}
+                          </TableCell>
+                          <TableCell className="text-center">
                             {getStatusBadge(player.is_rostered, player.injury_status)}
                           </TableCell>
-                          <TableCell className="hidden lg:table-cell">
+                          <TableCell className="text-center hidden lg:table-cell">
                             {renderRosteredByTeams(player.rostered_by_teams)}
                           </TableCell>
                           <TableCell>
