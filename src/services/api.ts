@@ -4,9 +4,13 @@ interface PlayerFilters {
   search?: string;
   position?: string;
   is_rostered?: boolean | string;
+  nfl_team?: string;
+  season?: string;
+  sort_field?: string;
+  sort_direction?: 'asc' | 'desc';
 }
 
-export async function fetchPlayersFromApi(filters: PlayerFilters = {}, page = 1, pageSize = 25) {
+export async function fetchPlayersFromApi(filters: PlayerFilters = {}, page = 1, pageSize = 25, fetchAll = false) {
   try {
     // Get the current session
     const { data: { session }, error: sessionError } = await supabase.auth.getSession();
@@ -50,13 +54,41 @@ export async function fetchPlayersFromApi(filters: PlayerFilters = {}, page = 1,
       query = query.eq('is_rostered', filters.is_rostered);
     }
 
-    // Apply pagination
-    const from = (page - 1) * pageSize;
-    const to = from + pageSize - 1;
-    
-    query = query
-      .range(from, to)
-      .order('total_points', { ascending: false });
+    if (filters.nfl_team && filters.nfl_team !== '') {
+      query = query.eq('nfl_team', filters.nfl_team);
+    }
+
+    // TODO: Season filtering will be implemented later when we have season-specific data
+    // For now, season filter is just a placeholder and doesn't affect the query
+
+    // Apply sorting
+    let sortField = 'total_points'; // default sort field
+    let sortAscending = false; // default to descending
+
+    if (filters.sort_field && filters.sort_field !== '') {
+      sortField = filters.sort_field;
+      sortAscending = filters.sort_direction === 'asc';
+    }
+
+    // Handle special case for ownership sorting (this will be handled client-side for now)
+    if (sortField === 'ownership') {
+      // For ownership, we'll sort by total_points as fallback since ownership data comes from Sleeper API
+      sortField = 'total_points';
+    }
+
+    query = query.order(sortField, { ascending: sortAscending });
+
+    // Apply pagination (unless fetching all data)
+    if (!fetchAll) {
+      const from = (page - 1) * pageSize;
+      const to = from + pageSize - 1;
+      query = query.range(from, to);
+    } else {
+      // When fetching all data, set a very high limit to ensure we get all records
+      // Supabase has a default limit of 1000 rows when no range is specified
+      // Setting range to 0-49999 should cover any reasonable number of players
+      query = query.range(0, 49999);
+    }
 
     // Execute the query
     const { data, error, count } = await query;
@@ -70,7 +102,7 @@ export async function fetchPlayersFromApi(filters: PlayerFilters = {}, page = 1,
     
     return {
       data: data || [],
-      count: count || 0
+      count: fetchAll ? (data?.length || 0) : (count || 0)
     };
 
   } catch (error) {

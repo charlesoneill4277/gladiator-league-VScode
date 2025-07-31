@@ -12,7 +12,7 @@ import { fetchPlayersFromApi } from '@/services/api';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/lib/supabase';
 import { SleeperApiService, SleeperPlayerResearch } from '@/services/sleeperApi';
-import { UserCheck, Search, Filter, ExternalLink, Loader2, ChevronLeft, ChevronRight, TrendingUp } from 'lucide-react';
+import { UserCheck, Search, Filter, ExternalLink, Loader2, ChevronLeft, ChevronRight, TrendingUp, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
 
 const PlayersPage: React.FC = () => {
   const { selectedSeason, selectedConference, currentSeasonConfig } = useApp();
@@ -33,10 +33,75 @@ const PlayersPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState('all-players');
   const [ownershipData, setOwnershipData] = useState<SleeperPlayerResearch>({});
   const [ownershipLoading, setOwnershipLoading] = useState(false);
+  const [sortField, setSortField] = useState<string>('');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
+  const [cachedPlayers, setCachedPlayers] = useState<any[]>([]);
+  const [cacheKey, setCacheKey] = useState<string>('');
 
   const positions = ['QB', 'RB', 'WR', 'TE'];
   const nflTeams = ['ARI', 'ATL', 'BAL', 'BUF', 'CAR', 'CHI', 'CIN', 'CLE', 'DAL', 'DEN', 'DET', 'GB', 'HOU', 'IND', 'JAX', 'KC', 'LV', 'LAC', 'LAR', 'MIA', 'MIN', 'NE', 'NO', 'NYG', 'NYJ', 'PHI', 'PIT', 'SF', 'SEA', 'TB', 'TEN', 'WAS'];
   const seasons = ['2020', '2021', '2022', '2023', '2024', '2025'];
+
+  // Function to handle sorting
+  const handleSort = (field: string) => {
+    if (sortField === field) {
+      // Toggle direction if same field
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      // New field, default to descending for numerical values
+      setSortField(field);
+      setSortDirection('desc');
+    }
+    setCurrentPage(1); // Reset to first page when sorting
+  };
+
+  // Function to render sort icon
+  const renderSortIcon = (field: string) => {
+    if (sortField !== field) {
+      return <ArrowUpDown className="h-4 w-4 ml-1 opacity-50" />;
+    }
+    return sortDirection === 'asc' ? 
+      <ArrowUp className="h-4 w-4 ml-1" /> : 
+      <ArrowDown className="h-4 w-4 ml-1" />;
+  };
+
+  // Function to generate cache key based on filters (excluding sort)
+  const generateCacheKey = (filters: any) => {
+    return JSON.stringify({
+      search: filters.search,
+      position: filters.position,
+      is_rostered: filters.is_rostered,
+      nfl_team: filters.nfl_team,
+    });
+  };
+
+  // Function to fetch all filtered data with pagination workaround
+  const fetchAllFilteredData = async (filters: any) => {
+    let allData: any[] = [];
+    let page = 1;
+    const batchSize = 1000;
+    let hasMore = true;
+
+    while (hasMore) {
+      const { data, count } = await fetchPlayersFromApi(filters, page, batchSize);
+      
+      if (data && data.length > 0) {
+        allData = [...allData, ...data];
+        hasMore = data.length === batchSize; // Continue if we got a full batch
+        page++;
+      } else {
+        hasMore = false;
+      }
+      
+      // Safety check to prevent infinite loops
+      if (page > 10) {
+        console.warn('Reached maximum page limit, stopping fetch');
+        break;
+      }
+    }
+
+    return { data: allData, count: allData.length };
+  };
 
   // Function to fetch ownership data
   const fetchOwnershipData = async () => {
@@ -109,23 +174,89 @@ const PlayersPage: React.FC = () => {
       setError(null);
 
       try {
-        // Prepare filters from component state
+        // Prepare filters from component state (excluding sort for cache key)
         const filters = {
           search: searchTerm,
           position: positionFilter,
           is_rostered: statusFilter === 'rostered' ? true : (statusFilter === 'free_agent' ? false : ''),
           nfl_team: nflTeamFilter === 'all' ? '' : nflTeamFilter,
-          season: seasonFilter,
+          // season: seasonFilter, // TODO: Season filtering not implemented yet - placeholder only
+          sort_field: sortField,
+          sort_direction: sortDirection,
         };
 
-        const { data, count } = await fetchPlayersFromApi(filters, currentPage, pageSize);
-        
-        setApiPlayers(data || []);
-        setTotalCount(count || 0);
+        const currentCacheKey = generateCacheKey(filters);
+        let allFilteredData = cachedPlayers;
 
+        // Check if we need to refresh the cache (filters changed)
+        if (cacheKey !== currentCacheKey || cachedPlayers.length === 0) {
+          console.log('Cache miss - fetching all filtered data...');
+          
+          // Fetch all data for the current filters
+          const { data: fetchedData, count } = await fetchAllFilteredData({
+            ...filters,
+            sort_field: '', // Don't sort at database level when caching
+            sort_direction: 'desc'
+          });
+          
+          allFilteredData = fetchedData;
+          setCachedPlayers(fetchedData);
+          setCacheKey(currentCacheKey);
+          
+          console.log(`Cached ${fetchedData.length} players for filters:`, currentCacheKey);
+        } else {
+          console.log('Cache hit - using cached data');
+        }
+
+        // Now sort the cached data based on current sort settings
+        let sortedData = [...allFilteredData];
+        
+        if (sortField === 'ownership' && Object.keys(ownershipData).length > 0) {
+          // Sort by ownership
+          sortedData.sort((a, b) => {
+            const aOwnership = ownershipData[a.sleeper_id]?.owned || 0;
+            const bOwnership = ownershipData[b.sleeper_id]?.owned || 0;
+            
+            if (sortDirection === 'asc') {
+              return aOwnership - bOwnership;
+            } else {
+              return bOwnership - aOwnership;
+            }
+          });
+        } else if (sortField === 'total_points') {
+          // Sort by total points
+          sortedData.sort((a, b) => {
+            if (sortDirection === 'asc') {
+              return a.total_points - b.total_points;
+            } else {
+              return b.total_points - a.total_points;
+            }
+          });
+        } else if (sortField === 'avg_points') {
+          // Sort by average points
+          sortedData.sort((a, b) => {
+            if (sortDirection === 'asc') {
+              return a.avg_points - b.avg_points;
+            } else {
+              return b.avg_points - a.avg_points;
+            }
+          });
+        } else if (sortField === '') {
+          // Default sort by total points descending
+          sortedData.sort((a, b) => b.total_points - a.total_points);
+        }
+
+        // Apply pagination to sorted data
+        const startIndex = (currentPage - 1) * pageSize;
+        const endIndex = startIndex + pageSize;
+        const paginatedData = sortedData.slice(startIndex, endIndex);
+        
+        setApiPlayers(paginatedData);
+        setTotalCount(sortedData.length);
+        
         toast({
           title: 'Players Loaded',
-          description: `Found ${count || 0} players for ${selectedSeason} season`
+          description: `Found ${sortedData.length} players for ${seasonFilter} season${sortField ? ` (sorted by ${sortField})` : ''}`
         });
 
       } catch (err) {
@@ -138,7 +269,7 @@ const PlayersPage: React.FC = () => {
     };
 
     loadPlayers();
-  }, [searchTerm, positionFilter, statusFilter, nflTeamFilter, seasonFilter, currentPage, selectedSeason, selectedConference]);
+  }, [searchTerm, positionFilter, statusFilter, nflTeamFilter, sortField, sortDirection, currentPage, selectedSeason, selectedConference, ownershipData]);
 
   const getPositionColor = (position: string) => {
     switch (position) {
@@ -348,10 +479,34 @@ return (
                     <TableRow>
                       <TableHead>Player</TableHead>
                       <TableHead className="text-center">Pos</TableHead>
-                      <TableHead className="text-center hidden md:table-cell">Own%</TableHead>
+                      <TableHead 
+                        className="text-center hidden md:table-cell cursor-pointer hover:bg-muted/50 select-none"
+                        onClick={() => handleSort('ownership')}
+                      >
+                        <div className="flex items-center justify-center">
+                          Own%
+                          {renderSortIcon('ownership')}
+                        </div>
+                      </TableHead>
                       <TableHead className="text-center hidden sm:table-cell">NFL Team</TableHead>
-                      <TableHead className="text-center">Points</TableHead>
-                      <TableHead className="text-center hidden md:table-cell">Avg</TableHead>
+                      <TableHead 
+                        className="text-center cursor-pointer hover:bg-muted/50 select-none"
+                        onClick={() => handleSort('total_points')}
+                      >
+                        <div className="flex items-center justify-center">
+                          Points
+                          {renderSortIcon('total_points')}
+                        </div>
+                      </TableHead>
+                      <TableHead 
+                        className="text-center hidden md:table-cell cursor-pointer hover:bg-muted/50 select-none"
+                        onClick={() => handleSort('avg_points')}
+                      >
+                        <div className="flex items-center justify-center">
+                          Avg
+                          {renderSortIcon('avg_points')}
+                        </div>
+                      </TableHead>
                       <TableHead className="text-center">Status</TableHead>
                       <TableHead className="text-center hidden lg:table-cell">Rostered By</TableHead>
                       <TableHead className="w-10"></TableHead>
