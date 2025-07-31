@@ -26,6 +26,7 @@ const PlayersPage: React.FC = () => {
   const [positionFilter, setPositionFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [teamLookup, setTeamLookup] = useState<Map<number, string>>(new Map());
+  const [teamNameToIdLookup, setTeamNameToIdLookup] = useState<Map<string, number>>(new Map());
   const [activeTab, setActiveTab] = useState('all-players');
 
   const positions = ['QB', 'RB', 'WR', 'TE'];
@@ -44,10 +45,13 @@ const PlayersPage: React.FC = () => {
         }
 
         const lookup = new Map();
+        const nameToIdLookup = new Map();
         (data || []).forEach(team => {
           lookup.set(team.id, team.team_name);
+          nameToIdLookup.set(team.team_name, team.id);
         });
         setTeamLookup(lookup);
+        setTeamNameToIdLookup(nameToIdLookup);
       } catch (err) {
         console.error('Error setting up team lookup:', err);
       }
@@ -120,15 +124,42 @@ const PlayersPage: React.FC = () => {
     return <Badge variant="outline" className="text-xs">FA</Badge>;
   };
 
-  const renderRosteredByTeams = (teamIds: number[]) => {
-    if (!teamIds || teamIds.length === 0) {
+  const renderRosteredByTeams = (rosteredByTeams: any) => {
+    if (!rosteredByTeams || rosteredByTeams.length === 0) {
       return null; // Show nothing for free agents instead of "N/A"
     }
 
     return (
       <div className="flex flex-col gap-1">
-        {teamIds.map(teamId => {
-          const teamName = teamLookup.get(teamId) || `Team ${teamId}`;
+        {rosteredByTeams.map((teamData: any, index: number) => {
+          let teamId: number;
+          let teamName: string;
+          
+          // Handle both cases: team IDs (numbers) or team names (strings)
+          if (typeof teamData === 'number') {
+            // If it's a number, it's a team ID
+            teamId = teamData;
+            teamName = teamLookup.get(teamId) || `Team ${teamId}`;
+          } else if (typeof teamData === 'string') {
+            // If it's a string, it's a team name - look up the ID
+            teamName = teamData;
+            teamId = teamNameToIdLookup.get(teamName) || 0;
+          } else {
+            // Fallback for unexpected data structure
+            console.warn('Unexpected team data structure:', teamData);
+            return null;
+          }
+
+          // Only render if we have a valid team ID
+          if (teamId === 0) {
+            console.warn(`Could not find team ID for team name: ${teamName}`);
+            return (
+              <Badge key={index} variant="outline" className="text-xs">
+                {teamName}
+              </Badge>
+            );
+          }
+
           return (
             <Link key={teamId} to={`/teams/${teamId}`}>
               <Badge 
