@@ -1108,10 +1108,14 @@ export class SupabaseMatchupService {
       if (!dbMatchup) return null;
 
       // Get related data
-      const [conferences, teams, junctions] = await Promise.all([
+      const [conferences, teams, junctions, teamRecords] = await Promise.all([
         this.getConferences(seasonId),
         this.getTeams(),
-        this.getTeamConferenceJunctions()
+        this.getTeamConferenceJunctions(),
+        DatabaseService.getTeamRecords({
+          filters: [{ column: 'season_id', operator: 'eq', value: seasonId }],
+          limit: 500
+        })
       ]);
 
       const conference = conferences.find(c => c.id === dbMatchup.conference_id);
@@ -1127,6 +1131,18 @@ export class SupabaseMatchupService {
       const team2Junction = team2 ? junctions.find(j => j.team_id === team2.id) : null;
 
       if (!team1Junction || (team2 && !team2Junction)) return null;
+
+      // Get team records for this season and conference
+      const team1Record = teamRecords.data?.find(r => 
+        r.team_id === team1.id && 
+        r.season_id === seasonId && 
+        r.conference_id === dbMatchup.conference_id
+      );
+      const team2Record = team2 ? teamRecords.data?.find(r => 
+        r.team_id === team2.id && 
+        r.season_id === seasonId && 
+        r.conference_id === dbMatchup.conference_id
+      ) : null;
 
       // Get Sleeper data
       const [sleeperMatchups, sleeperRosters, sleeperUsers] = await Promise.all([
@@ -1164,7 +1180,10 @@ export class SupabaseMatchupService {
           owner: team1.owner_name,
           avatar: team1.team_logourl,
           logoUrl: team1.team_logourl,
-          record: { wins: 0, losses: 0 }, // Would need to be fetched from team_records
+          record: { 
+            wins: team1Record?.wins || 0, 
+            losses: team1Record?.losses || 0 
+          },
           points: dbMatchup.team1_score || 0,
           projectedPoints: team1SleeperMatchup.projected_points || 0,
           rosterId: team1Junction.roster_id,
@@ -1187,7 +1206,10 @@ export class SupabaseMatchupService {
             owner: team2.owner_name,
             avatar: team2.team_logourl,
             logoUrl: team2.team_logourl,
-            record: { wins: 0, losses: 0 }, // Would need to be fetched from team_records
+            record: { 
+              wins: team2Record?.wins || 0, 
+              losses: team2Record?.losses || 0 
+            },
             points: dbMatchup.team2_score || 0,
             projectedPoints: team2SleeperMatchup.projected_points || 0,
             rosterId: team2Junction.roster_id,
