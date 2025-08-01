@@ -5,6 +5,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useApp } from '@/contexts/AppContext';
 import { Swords, ChevronDown, ChevronUp, Clock, Trophy, Users, RefreshCw, AlertCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
@@ -19,7 +20,7 @@ interface MinimalMatchup {
   id: number;
   matchup_id: number;
   conference: { id: number; name: string };
-  teams: { id: number; name: string; owner: string; points: number; roster_id: number; conference?: { id: number; name: string } }[];
+  teams: { id: number; name: string; owner: string; points: number; roster_id: number; conference?: { id: number; name: string }; avatar?: string; team_logourl?: string }[];
   status: 'live' | 'completed' | 'upcoming';
   week: number;
   is_playoff: boolean;
@@ -36,6 +37,22 @@ interface DetailedMatchupData {
   rosters: Record<string, any>;
   users: Record<string, any>;
 }
+
+// Position color function to match TeamDetailPage styling
+const getPositionColor = (position: string) => {
+  switch (position) {
+    case 'QB': return 'bg-red-100 text-red-800';
+    case 'RB': return 'bg-green-100 text-green-800';
+    case 'WR': return 'bg-blue-100 text-blue-800';
+    case 'TE': return 'bg-yellow-100 text-yellow-800';
+    case 'K': return 'bg-purple-100 text-purple-800';
+    case 'DEF': return 'bg-gray-100 text-gray-800';
+    case 'FLEX': return 'bg-orange-100 text-orange-800';
+    case 'SUPER_FLEX': return 'bg-pink-100 text-pink-800';
+    case 'SFLEX': return 'bg-pink-100 text-pink-800';
+    default: return 'bg-gray-100 text-gray-800';
+  }
+};
 
 
 
@@ -113,7 +130,7 @@ const MatchupCard = React.memo<{
               return (
                 <div key={`${playerId}-${index}`} className="flex justify-between items-center py-1 px-2 bg-gray-50 rounded text-xs">
                   <div className="flex items-center space-x-2">
-                    <Badge variant="outline" className="text-xs px-1 py-0">
+                    <Badge className={`text-xs px-1 py-0 ${getPositionColor(position)}`}>
                       {formatPosition(position)}
                     </Badge>
                     <span className="font-medium">{playerInfo.name}</span>
@@ -183,13 +200,20 @@ const MatchupCard = React.memo<{
       <CardContent className="pt-0 space-y-3">
         {/* Compact Matchup Summary */}
         <div className="grid grid-cols-5 gap-2 items-center">
-          {/* Team 1 Name */}
+          {/* Team 1 Info */}
           <div className="text-right">
             <div className="flex items-center justify-end space-x-2">
               {isInterconference && team1.conference && (
                 <ConferenceBadge conferenceName={team1.conference.name} size="sm" />
               )}
-              <div className="font-medium text-sm">{team1.name}</div>
+              <Avatar className="h-8 w-8">
+                <AvatarImage src={team1.team_logourl ? `https://sleepercdn.com/avatars/thumbs/${team1.team_logourl}` : team1.avatar} />
+                <AvatarFallback className="text-xs">{team1.name.charAt(0)}</AvatarFallback>
+              </Avatar>
+              <div className="text-left">
+                <div className="font-medium text-sm">{team1.name}</div>
+                <div className="text-xs text-muted-foreground">{team1.owner}</div>
+              </div>
             </div>
           </div>
 
@@ -217,16 +241,25 @@ const MatchupCard = React.memo<{
             </div>
           </div>
 
-          {/* Team 2 Name */}
+          {/* Team 2 Info */}
           <div className="text-left">
-            <div className="flex items-center space-x-2">
-              <div className="font-medium text-sm">
-                {matchup.is_bye || !team2 ? 'BYE' : team2.name}
+            {matchup.is_bye || !team2 ? (
+              <div className="font-medium text-sm">BYE</div>
+            ) : (
+              <div className="flex items-center space-x-2">
+                <div className="text-right">
+                  <div className="font-medium text-sm">{team2.name}</div>
+                  <div className="text-xs text-muted-foreground">{team2.owner}</div>
+                </div>
+                <Avatar className="h-8 w-8">
+                  <AvatarImage src={team2.team_logourl ? `https://sleepercdn.com/avatars/thumbs/${team2.team_logourl}` : team2.avatar} />
+                  <AvatarFallback className="text-xs">{team2.name.charAt(0)}</AvatarFallback>
+                </Avatar>
+                {isInterconference && team2.conference && (
+                  <ConferenceBadge conferenceName={team2.conference.name} size="sm" />
+                )}
               </div>
-              {isInterconference && team2 && team2.conference && (
-                <ConferenceBadge conferenceName={team2.conference.name} size="sm" />
-              )}
-            </div>
+            )}
           </div>
         </div>
 
@@ -234,7 +267,11 @@ const MatchupCard = React.memo<{
         {!matchup.is_bye && (
           <Collapsible open={isExpanded}>
             <CollapsibleContent className="space-y-4">
-              <div className="border-t pt-4">
+              <div 
+                className="border-t pt-4 cursor-pointer hover:bg-gray-50 transition-colors rounded-md p-2 -m-2"
+                onClick={() => onToggleExpand(matchup.id)}
+                title="Click to close Quick View"
+              >
                 {loading ? (
                   <div className="text-center py-4">
                     <RefreshCw className="h-6 w-6 animate-spin mx-auto mb-2 text-primary" />
@@ -263,6 +300,11 @@ const MatchupCard = React.memo<{
                     )}
                   </div>
                 )}
+                
+                {/* Click to close hint */}
+                <div className="text-center mt-4 pt-2 border-t border-gray-200">
+                  <p className="text-xs text-muted-foreground">Click anywhere to close Quick View</p>
+                </div>
               </div>
             </CollapsibleContent>
 

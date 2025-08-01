@@ -3,6 +3,23 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { TrendingUp, TrendingDown, AlertTriangle } from 'lucide-react';
 
+// Position color function to match consistent styling across the app
+const getPositionColor = (position: string) => {
+  switch (position) {
+    case 'QB': return 'bg-red-100 text-red-800';
+    case 'RB': return 'bg-green-100 text-green-800';
+    case 'WR': return 'bg-blue-100 text-blue-800';
+    case 'TE': return 'bg-yellow-100 text-yellow-800';
+    case 'K': return 'bg-purple-100 text-purple-800';
+    case 'DEF': return 'bg-gray-100 text-gray-800';
+    case 'FLEX': return 'bg-orange-100 text-orange-800';
+    case 'SUPER_FLEX': return 'bg-pink-100 text-pink-800';
+    case 'SFLEX': return 'bg-pink-100 text-pink-800';
+    case 'BENCH': return 'bg-slate-100 text-slate-800';
+    default: return 'bg-gray-100 text-gray-800';
+  }
+};
+
 interface PlayerCardProps {
   playerId: string;
   name: string;
@@ -78,8 +95,11 @@ const PlayerCard: React.FC<PlayerCardProps> = ({
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-3 flex-1 min-w-0">
             {/* Position Badge */}
-            <Badge variant="outline" className="text-xs shrink-0">
-              {positionSlot}
+            <Badge className={`text-xs shrink-0 ${getPositionColor(positionSlot)}`}>
+              {positionSlot === 'FLEX' ? 'W/R/T' : 
+               positionSlot === 'SUPER_FLEX' ? 'Q/W/R/T' :
+               positionSlot === 'SFLEX' ? 'Q/W/R/T' :
+               positionSlot}
             </Badge>
             
             {/* Player Info */}

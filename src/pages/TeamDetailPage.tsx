@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -50,6 +50,7 @@ interface ScheduleMatchup {
   overrideReason: string | null;
   matchupStatus: string;
   playoffRoundName: string | null;
+  matchupId?: number; // For navigation to matchup details
 }
 
 interface TeamRosterData {
@@ -81,6 +82,7 @@ interface TeamRecord {
 const TeamDetailPage: React.FC = () => {
   const { teamId } = useParams<{ teamId: string; }>();
   const { selectedSeason, currentSeasonConfig } = useApp();
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('roster');
   const [teamRosterData, setTeamRosterData] = useState<TeamRosterData | null>(null);
   const [transactions, setTransactions] = useState<ProcessedTransaction[]>([]);
@@ -666,7 +668,8 @@ const TeamDetailPage: React.FC = () => {
             isOverridden,
             overrideReason,
             matchupStatus: matchup.matchup_status || 'scheduled',
-            playoffRoundName: null
+            playoffRoundName: null,
+            matchupId: matchup.id
           });
         }
       });
@@ -720,7 +723,8 @@ const TeamDetailPage: React.FC = () => {
             isOverridden: true,
             overrideReason: 'Interconference',
             matchupStatus: matchup.matchup_status || 'scheduled',
-            playoffRoundName: null
+            playoffRoundName: null,
+            matchupId: matchup.id
           });
         }
       });
@@ -807,7 +811,8 @@ const TeamDetailPage: React.FC = () => {
           isOverridden: false,
           overrideReason: null,
           matchupStatus: bracket.winning_team_id ? 'completed' : 'scheduled',
-          playoffRoundName: getPlayoffRoundName(bracket.week)
+          playoffRoundName: getPlayoffRoundName(bracket.week),
+          matchupId: bracket.id
         };
       });
 
@@ -1284,6 +1289,9 @@ const TeamDetailPage: React.FC = () => {
       case 'TE': return 'bg-yellow-100 text-yellow-800';
       case 'K': return 'bg-purple-100 text-purple-800';
       case 'DEF': return 'bg-gray-100 text-gray-800';
+      case 'FLEX': return 'bg-orange-100 text-orange-800';
+      case 'SUPER_FLEX': return 'bg-pink-100 text-pink-800';
+      case 'SFLEX': return 'bg-pink-100 text-pink-800';
       default: return 'bg-gray-100 text-gray-800';
     }
   };
@@ -1462,8 +1470,11 @@ const TeamDetailPage: React.FC = () => {
                       return (
                         <TableRow key={`starter-${index}`}>
                           <TableCell>
-                            <Badge className={getSlotPositionColor(starter.slotPosition)}>
-                              {starter.slotPosition}
+                            <Badge className={getPositionColor(starter.slotPosition)}>
+                              {starter.slotPosition === 'FLEX' ? 'W/R/T' : 
+                               starter.slotPosition === 'SUPER_FLEX' ? 'Q/W/R/T' :
+                               starter.slotPosition === 'SFLEX' ? 'Q/W/R/T' :
+                               starter.slotPosition}
                             </Badge>
                           </TableCell>
                           <TableCell>
@@ -1908,7 +1919,15 @@ const TeamDetailPage: React.FC = () => {
                         </TableHeader>
                         <TableBody>
                           {schedule.map((matchup, index) => (
-                            <TableRow key={`matchup-${index}`}>
+                            <TableRow 
+                              key={`matchup-${index}`}
+                              className={matchup.matchupId ? "cursor-pointer hover:bg-muted/50 transition-colors" : ""}
+                              onClick={() => {
+                                if (matchup.matchupId) {
+                                  navigate(`/matchups/${matchup.matchupId}`);
+                                }
+                              }}
+                            >
                               <TableCell className="font-medium">
                                 <div className="flex flex-col">
                                   <span>{matchup.week}</span>
