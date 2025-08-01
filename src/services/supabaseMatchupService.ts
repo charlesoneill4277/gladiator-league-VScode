@@ -337,7 +337,7 @@ export class SupabaseMatchupService {
     id: number;
     matchup_id: number;
     conference: { id: number; name: string };
-    teams: { id: number; name: string; owner: string; points: number; roster_id: number; conference?: { id: number; name: string } }[];
+    teams: { id: number; name: string; owner: string; points: number; roster_id: number; team_logourl?: string; avatar?: string; conference?: { id: number; name: string } }[];
     status: 'live' | 'completed' | 'upcoming';
     week: number;
     is_playoff: boolean;
@@ -404,6 +404,8 @@ export class SupabaseMatchupService {
               owner: team1.owner_name,
               points: dbMatchup.team1_score || 0,
               roster_id: team1Junction?.roster_id || 0,
+              team_logourl: team1.team_logourl,
+              avatar: team1.team_logourl,
               conference: team1Conference ? {
                 id: team1Conference.id,
                 name: team1Conference.conference_name
@@ -425,6 +427,8 @@ export class SupabaseMatchupService {
             owner: team2.owner_name,
             points: dbMatchup.team2_score || 0,
             roster_id: team2Junction.roster_id,
+            team_logourl: team2.team_logourl,
+            avatar: team2.team_logourl,
             conference: team2Conference ? {
               id: team2Conference.id,
               name: team2Conference.conference_name
@@ -1321,27 +1325,36 @@ export class SupabaseMatchupService {
     seasonId: number
   ): Promise<any[]> {
     try {
-      console.log(`📊 Loading head-to-head history for teams ${team1Id} vs ${team2Id}...`);
+      console.log(`📊 Loading head-to-head history for teams ${team1Id} vs ${team2Id} across all seasons...`);
       
-      // Get conferences for this season to map conference_id to season_id
-      const conferences = await this.getConferences(seasonId);
-      const conferenceIds = conferences.map(c => c.id);
+      // Get all seasons data to map season_id to season_year
+      const seasonsResult = await DatabaseService.getSeasons({
+        limit: 100
+      });
+      const allSeasons = seasonsResult.data || [];
       
-      if (conferenceIds.length === 0) {
-        console.warn('No conferences found for season', seasonId);
+      // Get all conferences for mapping conference_id to season_id
+      const conferencesResult = await DatabaseService.getConferences({
+        limit: 1000
+      });
+      const allConferences = conferencesResult.data || [];
+      
+      if (allConferences.length === 0) {
+        console.warn('No conferences found');
         return [];
       }
 
-      // Get all matchups for this season
+      // Get all matchups
       const matchupsResult = await DatabaseService.getMatchups({
         limit: 1000
       });
 
       const allMatchups = matchupsResult.data || [];
       
-      // Filter for matchups between these specific teams in this season
+      // Filter for matchups between these specific teams across all seasons
+      // and only include matchups with status 'complete'
       const headToHeadMatchups = allMatchups.filter(matchup => 
-        conferenceIds.includes(matchup.conference_id) &&
+        (matchup.matchup_status === 'complete' || Boolean(matchup.winning_team_id)) &&
         ((matchup.team1_id === team1Id && matchup.team2_id === team2Id) ||
          (matchup.team1_id === team2Id && matchup.team2_id === team1Id))
       );
@@ -1363,18 +1376,34 @@ export class SupabaseMatchupService {
         } else if (team2Score > team1Score) {
           winner = team2?.team_name || 'Team 2';
         }
+        
+        // Get conference to map to season
+        const conference = allConferences.find(c => c.id === matchup.conference_id);
+        // Get season year from season ID
+        const season = allSeasons.find(s => s.id === conference?.season_id);
+        const seasonYear = season?.season_year || conference?.season_id?.toString() || 'Unknown';
+        
+        // Set matchup status (default to 'complete' if winning_team_id is set)
+        const isCompleted = matchup.matchup_status === 'complete' || Boolean(matchup.winning_team_id);
 
         return {
           week: parseInt(matchup.week),
-          season: seasonId.toString(), // Use the actual season ID
+          season: seasonYear, // Use the season year instead of ID
           team1Score,
           team2Score,
           winner,
-          date: new Date(matchup.created_at || Date.now())
+          date: new Date(matchup.created_at || Date.now()),
+          status: matchup.matchup_status || (isCompleted ? 'complete' : 'scheduled')
         };
       });
 
-      return history.sort((a, b) => b.week - a.week); // Most recent first
+      // Sort by season (most recent first) then by week (highest first)
+      return history.sort((a, b) => {
+        if (a.season !== b.season) {
+          return b.season.localeCompare(a.season); // Most recent season first
+        }
+        return b.week - a.week; // Most recent week first
+      });
 
     } catch (error) {
       console.error(`Error loading head-to-head history:`, error);

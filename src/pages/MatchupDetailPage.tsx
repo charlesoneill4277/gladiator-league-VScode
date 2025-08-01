@@ -103,6 +103,7 @@ interface HistoricalMatchup {
   team2Score: number;
   winner: string;
   date: Date;
+  status: 'complete' | 'scheduled' | string;
 }
 
 const MatchupDetailPage: React.FC = () => {
@@ -200,6 +201,7 @@ const MatchupDetailPage: React.FC = () => {
         // Load historical data and weekly performance between these teams
         if (matchupData.teams[1]) {
           const [history, weeklyPerformance] = await Promise.all([
+            // Get head-to-head history across all seasons (seasonId is only used for context)
             SupabaseMatchupService.getHeadToHeadHistory(
               matchupData.teams[0].id,
               matchupData.teams[1].id,
@@ -418,14 +420,16 @@ const MatchupDetailPage: React.FC = () => {
           </CollapsibleTrigger>
           <CollapsibleContent>
             <div className="mt-2">
-              <MatchupInsightsPanel matchup={matchup} />
+              {/* MatchupInsightsPanel component temporarily commented out */}
+              {/* <MatchupInsightsPanel matchup={matchup} /> */}
             </div>
           </CollapsibleContent>
         </Collapsible>
       </div>
 
       <div className="hidden lg:block">
-        <MatchupInsightsPanel matchup={matchup} />
+        {/* MatchupInsightsPanel component temporarily commented out */}
+        {/* <MatchupInsightsPanel matchup={matchup} /> */}
       </div>
     </div>
   );
@@ -930,7 +934,10 @@ const HeadToHeadTab: React.FC<{
   const headToHeadRecord = useMemo(() => {
     if (!team2) return { team1Wins: 0, team2Wins: 0, ties: 0 };
     
-    return historicalMatchups.reduce(
+    // Only count completed games for head-to-head record
+    const completedMatchups = historicalMatchups.filter(game => game.status === 'complete');
+    
+    return completedMatchups.reduce(
       (record, game) => {
         if (game.team1Score > game.team2Score) {
           record.team1Wins++;
@@ -946,9 +953,11 @@ const HeadToHeadTab: React.FC<{
   }, [historicalMatchups, team2]);
 
   const averageScoring = useMemo(() => {
-    if (historicalMatchups.length === 0) return { team1Avg: 0, team2Avg: 0 };
+    // Only consider completed matchups for average scoring
+    const completedMatchups = historicalMatchups.filter(game => game.status === 'complete');
+    if (completedMatchups.length === 0) return { team1Avg: 0, team2Avg: 0 };
     
-    const totals = historicalMatchups.reduce(
+    const totals = completedMatchups.reduce(
       (acc, game) => ({
         team1Total: acc.team1Total + game.team1Score,
         team2Total: acc.team2Total + game.team2Score,
@@ -957,8 +966,8 @@ const HeadToHeadTab: React.FC<{
     );
 
     return {
-      team1Avg: totals.team1Total / historicalMatchups.length,
-      team2Avg: totals.team2Total / historicalMatchups.length,
+      team1Avg: totals.team1Total / completedMatchups.length,
+      team2Avg: totals.team2Total / completedMatchups.length,
     };
   }, [historicalMatchups]);
 
@@ -971,6 +980,9 @@ const HeadToHeadTab: React.FC<{
             <Trophy className="h-5 w-5 mr-2" />
             All-Time Head-to-Head Record
           </CardTitle>
+          <div className="text-xs text-muted-foreground">
+            Showing completed games across all seasons
+          </div>
         </CardHeader>
         <CardContent>
           {team2 ? (
@@ -1010,38 +1022,62 @@ const HeadToHeadTab: React.FC<{
               <Calendar className="h-5 w-5 mr-2" />
               Previous Matchups
             </CardTitle>
+            <div className="text-xs text-muted-foreground">
+              Showing completed and scheduled matchups across all seasons
+            </div>
           </CardHeader>
           <CardContent>
             <div className="space-y-2">
-              {historicalMatchups.slice(0, 10).map((game, index) => (
-                <div
-                  key={index}
-                  className="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
-                >
-                  <div className="flex items-center space-x-4">
-                    <Badge variant="outline">Week {game.week}</Badge>
-                    <span className="text-sm text-muted-foreground">
-                      {game.season}
-                    </span>
-                  </div>
-                  
-                  <div className="flex items-center space-x-4">
-                    <div className="text-right">
-                      <div className="font-medium">
-                        {game.team1Score.toFixed(1)} - {game.team2Score.toFixed(1)}
-                      </div>
-                      <div className="text-xs text-muted-foreground">
-                        Winner: {game.winner}
-                      </div>
+              {historicalMatchups.slice(0, 10).map((game, index) => {
+                const isCompleted = game.status === 'complete';
+                
+                return (
+                  <div
+                    key={index}
+                    className={`flex items-center justify-between p-3 ${isCompleted ? 'bg-gray-50' : 'bg-blue-50'} rounded-lg`}
+                  >
+                    <div className="flex items-center space-x-4">
+                      <Badge variant="outline">Week {game.week}</Badge>
+                      <span className="text-sm text-muted-foreground">
+                        {game.season}
+                      </span>
+                      {!isCompleted && (
+                        <Badge variant="secondary" className="bg-blue-100">Upcoming</Badge>
+                      )}
                     </div>
-                    {game.team1Score > game.team2Score ? (
-                      <Star className="h-4 w-4 text-blue-500" />
-                    ) : (
-                      <Star className="h-4 w-4 text-red-500" />
-                    )}
+                    
+                    <div className="flex items-center space-x-4">
+                      {isCompleted ? (
+                        <>
+                          <div className="text-right">
+                            <div className="font-medium">
+                              {game.team1Score.toFixed(1)} - {game.team2Score.toFixed(1)}
+                            </div>
+                            <div className="text-xs text-muted-foreground">
+                              Winner: {game.winner}
+                            </div>
+                          </div>
+                          {game.team1Score > game.team2Score ? (
+                            <Star className="h-4 w-4 text-blue-500" />
+                          ) : (
+                            <Star className="h-4 w-4 text-red-500" />
+                          )}
+                        </>
+                      ) : (
+                        <div className="text-right">
+                          <div className="font-medium text-blue-600">
+                            <Clock className="h-4 w-4 inline mr-1" />
+                            Scheduled
+                          </div>
+                          <div className="text-xs text-muted-foreground">
+                            Not yet played
+                          </div>
+                        </div>
+                      )}
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </CardContent>
         </Card>
@@ -1071,9 +1107,11 @@ const HeadToHeadTab: React.FC<{
             
             <div className="space-y-2">
               <h4 className="font-medium">Notable Performances</h4>
-              {historicalMatchups.length > 0 ? (
+              {historicalMatchups.filter(game => game.status === 'complete').length > 0 ? (
                 <div className="text-sm text-muted-foreground">
-                  Highest scoring: {Math.max(...historicalMatchups.map(g => Math.max(g.team1Score, g.team2Score))).toFixed(1)} pts
+                  Highest scoring: {Math.max(...historicalMatchups
+                    .filter(game => game.status === 'complete')
+                    .map(g => Math.max(g.team1Score, g.team2Score))).toFixed(1)} pts
                 </div>
               ) : (
                 <div className="text-sm text-muted-foreground">
