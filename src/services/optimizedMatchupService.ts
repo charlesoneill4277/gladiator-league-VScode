@@ -418,7 +418,7 @@ export class OptimizedMatchupService {
    * Determine matchup status from database data
    */
   private static determineMatchupStatus(matchup: any): 'live' | 'completed' | 'upcoming' {
-    if (matchup.matchup_status === 'completed' || matchup.winning_team_id) {
+    if (matchup.matchup_status === 'complete' || matchup.winning_team_id) {
       return 'completed';
     }
     

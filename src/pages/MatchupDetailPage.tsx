@@ -98,6 +98,7 @@ const MatchupDetailPage: React.FC = () => {
   const [matchup, setMatchup] = useState<DetailedMatchup | null>(null);
   const [allPlayers, setAllPlayers] = useState<Record<string, SleeperPlayer>>({});
   const [historicalMatchups, setHistoricalMatchups] = useState<HistoricalMatchup[]>([]);
+  const [weeklyPerformanceData, setWeeklyPerformanceData] = useState<{ week: number; team1: number; team2?: number }[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [activeTab, setActiveTab] = useState('live-scoring');
@@ -180,14 +181,30 @@ const MatchupDetailPage: React.FC = () => {
         
         setMatchup(matchupData);
         
-        // Load historical data between these teams
+        // Load historical data and weekly performance between these teams
         if (matchupData.teams[1]) {
-          const history = await SupabaseMatchupService.getHeadToHeadHistory(
+          const [history, weeklyPerformance] = await Promise.all([
+            SupabaseMatchupService.getHeadToHeadHistory(
+              matchupData.teams[0].id,
+              matchupData.teams[1].id,
+              seasonId
+            ),
+            SupabaseMatchupService.getTeamWeeklyPerformance(
+              matchupData.teams[0].id,
+              matchupData.teams[1].id,
+              seasonId
+            )
+          ]);
+          setHistoricalMatchups(history);
+          setWeeklyPerformanceData(weeklyPerformance);
+        } else {
+          // For bye weeks, only get team1's weekly performance
+          const weeklyPerformance = await SupabaseMatchupService.getTeamWeeklyPerformance(
             matchupData.teams[0].id,
-            matchupData.teams[1].id,
+            null,
             seasonId
           );
-          setHistoricalMatchups(history);
+          setWeeklyPerformanceData(weeklyPerformance);
         }
       }
 
@@ -363,7 +380,7 @@ const MatchupDetailPage: React.FC = () => {
         </TabsContent>
 
         <TabsContent value="team-analysis" className="space-y-4">
-          <TeamAnalysisTab matchup={matchup} />
+          <TeamAnalysisTab matchup={matchup} weeklyPerformanceData={weeklyPerformanceData} />
         </TabsContent>
 
         <TabsContent value="head-to-head" className="space-y-4">
@@ -745,7 +762,7 @@ const LiveScoringTab: React.FC<{
   };
 
   const renderTeamLineup = (team: MatchupTeam, teamName: string) => {
-    const positions = ['QB', 'RB', 'RB', 'WR', 'WR', 'WR', 'TE', 'FLEX', 'K', 'DEF'];
+    const positions = ['QB', 'RB', 'RB', 'WR', 'WR', 'WR', 'TE', 'FLEX', 'SFLEX', 'DEF'];
     
     return (
       <Card>
@@ -803,17 +820,11 @@ const LiveScoringTab: React.FC<{
 };
 
 // Team Analysis Tab Component
-const TeamAnalysisTab: React.FC<{ matchup: DetailedMatchup }> = ({ matchup }) => {
+const TeamAnalysisTab: React.FC<{ 
+  matchup: DetailedMatchup; 
+  weeklyPerformanceData: { week: number; team1: number; team2?: number }[];
+}> = ({ matchup, weeklyPerformanceData }) => {
   const [team1, team2] = matchup.teams;
-
-  // Mock data for charts - in real implementation, this would come from your API
-  const weeklyPerformanceData = [
-    { week: 1, team1: 125.4, team2: 118.2 },
-    { week: 2, team1: 142.1, team2: 135.8 },
-    { week: 3, team1: 98.7, team2: 156.3 },
-    { week: 4, team1: 167.2, team2: 142.9 },
-    { week: 5, team1: 134.5, team2: 128.1 },
-  ];
 
   const positionPerformanceData = [
     { position: 'QB', team1: 85, team2: 78 },
@@ -827,13 +838,26 @@ const TeamAnalysisTab: React.FC<{ matchup: DetailedMatchup }> = ({ matchup }) =>
   return (
     <div className="space-y-4 md:space-y-6">
       {/* Weekly Performance Chart */}
-      <SimpleLineChart
-        title="Weekly Performance Comparison"
-        data={weeklyPerformanceData}
-        team1Name={team1.name}
-        team2Name={team2?.name || 'BYE'}
-        height={200}
-      />
+      {weeklyPerformanceData.length > 0 ? (
+        <SimpleLineChart
+          title="Weekly Performance Comparison"
+          data={weeklyPerformanceData}
+          team1Name={team1.name}
+          team2Name={team2?.name || 'BYE'}
+          height={200}
+        />
+      ) : (
+        <Card>
+          <CardHeader>
+            <CardTitle>Weekly Performance Comparison</CardTitle>
+          </CardHeader>
+          <CardContent className="py-8 text-center">
+            <div className="text-muted-foreground">
+              No completed matchups found for this season
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Position Group Performance */}
       <div className="grid md:grid-cols-2 gap-4">
@@ -864,54 +888,16 @@ const TeamAnalysisTab: React.FC<{ matchup: DetailedMatchup }> = ({ matchup }) =>
 
       {/* Consistency Metrics */}
       <div className="grid md:grid-cols-2 gap-4">
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">{team1.name} Metrics</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <div className="flex justify-between">
-              <span className="text-sm text-muted-foreground">Average Score</span>
-              <span className="font-medium">132.4</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-sm text-muted-foreground">Floor</span>
-              <span className="font-medium">98.7</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-sm text-muted-foreground">Ceiling</span>
-              <span className="font-medium">167.2</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-sm text-muted-foreground">Consistency</span>
-              <span className="font-medium">High</span>
-            </div>
-          </CardContent>
-        </Card>
+        <TeamMetricsCard 
+          teamName={team1.name} 
+          scores={weeklyPerformanceData.map(d => d.team1).filter(score => score > 0)} 
+        />
 
         {team2 && (
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">{team2.name} Metrics</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="flex justify-between">
-                <span className="text-sm text-muted-foreground">Average Score</span>
-                <span className="font-medium">128.3</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-sm text-muted-foreground">Floor</span>
-                <span className="font-medium">118.2</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-sm text-muted-foreground">Ceiling</span>
-                <span className="font-medium">156.3</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-sm text-muted-foreground">Consistency</span>
-                <span className="font-medium">Medium</span>
-              </div>
-            </CardContent>
-          </Card>
+          <TeamMetricsCard 
+            teamName={team2.name} 
+            scores={weeklyPerformanceData.map(d => d.team2).filter(score => score !== undefined && score > 0) as number[]} 
+          />
         )}
       </div>
     </div>
@@ -1083,6 +1069,79 @@ const HeadToHeadTab: React.FC<{
         </CardContent>
       </Card>
     </div>
+  );
+};
+
+// Team Metrics Card Component
+const TeamMetricsCard: React.FC<{ 
+  teamName: string; 
+  scores: number[]; 
+}> = ({ teamName, scores }) => {
+  const calculateMetrics = (scores: number[]) => {
+    if (scores.length === 0) {
+      return {
+        average: 0,
+        floor: 0,
+        ceiling: 0,
+        consistency: 'No Data'
+      };
+    }
+
+    const average = scores.reduce((sum, score) => sum + score, 0) / scores.length;
+    const floor = Math.min(...scores);
+    const ceiling = Math.max(...scores);
+    
+    // Calculate standard deviation for consistency
+    const variance = scores.reduce((sum, score) => sum + Math.pow(score - average, 2), 0) / scores.length;
+    const standardDeviation = Math.sqrt(variance);
+    
+    // Determine consistency level based on coefficient of variation
+    const coefficientOfVariation = standardDeviation / average;
+    let consistency = 'Medium';
+    if (coefficientOfVariation < 0.15) {
+      consistency = 'High';
+    } else if (coefficientOfVariation > 0.25) {
+      consistency = 'Low';
+    }
+
+    return {
+      average: average.toFixed(1),
+      floor: floor.toFixed(1),
+      ceiling: ceiling.toFixed(1),
+      consistency
+    };
+  };
+
+  const metrics = calculateMetrics(scores);
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-lg">{teamName} Metrics</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <div className="flex justify-between">
+          <span className="text-sm text-muted-foreground">Average Score</span>
+          <span className="font-medium">{metrics.average}</span>
+        </div>
+        <div className="flex justify-between">
+          <span className="text-sm text-muted-foreground">Floor</span>
+          <span className="font-medium">{metrics.floor}</span>
+        </div>
+        <div className="flex justify-between">
+          <span className="text-sm text-muted-foreground">Ceiling</span>
+          <span className="font-medium">{metrics.ceiling}</span>
+        </div>
+        <div className="flex justify-between">
+          <span className="text-sm text-muted-foreground">Consistency</span>
+          <span className="font-medium">{metrics.consistency}</span>
+        </div>
+        <div className="flex justify-between">
+          <span className="text-sm text-muted-foreground">Games Played</span>
+          <span className="font-medium">{scores.length}</span>
+        </div>
+      </CardContent>
+    </Card>
   );
 };
 

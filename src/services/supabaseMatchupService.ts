@@ -584,7 +584,7 @@ export class SupabaseMatchupService {
    * Determine matchup status from database data
    */
   private static determineMatchupStatusFromDb(matchup: any): 'live' | 'completed' | 'upcoming' {
-    if (matchup.matchup_status === 'completed' || matchup.winning_team_id) {
+    if (matchup.matchup_status === 'complete' || matchup.winning_team_id) {
       return 'completed';
     }
     
@@ -708,7 +708,7 @@ export class SupabaseMatchupService {
         team2_id: bracket.team2_id, // This can be null for bye weeks
         is_playoff: true,
         manual_override: false,
-        matchup_status: bracket.winning_team_id ? 'completed' : 'upcoming',
+        matchup_status: bracket.winning_team_id ? 'complete' : 'upcoming',
         notes: bracket.playoff_round_name || null,
         matchup_type: 'playoff' as any, // This might need to be adjusted based on your enum
         team1_score: bracket.team1_score || null,
@@ -1230,6 +1230,89 @@ export class SupabaseMatchupService {
   }
 
   /**
+   * Get weekly performance data for teams in a season
+   */
+  static async getTeamWeeklyPerformance(
+    team1Id: number,
+    team2Id: number | null,
+    seasonId: number
+  ): Promise<{ week: number; team1: number; team2?: number }[]> {
+    try {
+      console.log(`📈 Loading weekly performance for teams ${team1Id}${team2Id ? ` and ${team2Id}` : ''} in season ${seasonId}...`);
+      
+      // Get conferences for this season to map conference_id to season_id
+      const conferences = await this.getConferences(seasonId);
+      const conferenceIds = conferences.map(c => c.id);
+      
+      if (conferenceIds.length === 0) {
+        console.warn('No conferences found for season', seasonId);
+        return [];
+      }
+
+      // Get all completed matchups for this season
+      const matchupsResult = await DatabaseService.getMatchups({
+        filters: [
+          { column: 'matchup_status', operator: 'eq', value: 'complete' }
+        ],
+        limit: 1000
+      });
+
+      const allMatchups = matchupsResult.data || [];
+      
+      // Filter matchups for this season (by conference_id) and involving our teams
+      const seasonMatchups = allMatchups.filter(matchup => 
+        conferenceIds.includes(matchup.conference_id) &&
+        (matchup.team1_id === team1Id || matchup.team2_id === team1Id ||
+         (team2Id && (matchup.team1_id === team2Id || matchup.team2_id === team2Id)))
+      );
+
+      // Group by week and extract scores
+      const weeklyData: Record<number, { team1?: number; team2?: number }> = {};
+      
+      seasonMatchups.forEach(matchup => {
+        const week = parseInt(matchup.week);
+        
+        if (!weeklyData[week]) {
+          weeklyData[week] = {};
+        }
+        
+        // Check if team1 is in this matchup
+        if (matchup.team1_id === team1Id) {
+          weeklyData[week].team1 = matchup.team1_score || 0;
+        } else if (matchup.team2_id === team1Id) {
+          weeklyData[week].team1 = matchup.team2_score || 0;
+        }
+        
+        // Check if team2 is in this matchup (if team2 exists)
+        if (team2Id) {
+          if (matchup.team1_id === team2Id) {
+            weeklyData[week].team2 = matchup.team1_score || 0;
+          } else if (matchup.team2_id === team2Id) {
+            weeklyData[week].team2 = matchup.team2_score || 0;
+          }
+        }
+      });
+
+      // Convert to array format and sort by week
+      const performanceData = Object.entries(weeklyData)
+        .map(([week, scores]) => ({
+          week: parseInt(week),
+          team1: scores.team1 || 0,
+          ...(team2Id && scores.team2 !== undefined ? { team2: scores.team2 } : {})
+        }))
+        .filter(data => data.team1 > 0 || (data.team2 !== undefined && data.team2 > 0)) // Only include weeks where at least one team has a score
+        .sort((a, b) => a.week - b.week);
+
+      console.log(`✅ Found weekly performance data for ${performanceData.length} weeks`);
+      return performanceData;
+
+    } catch (error) {
+      console.error(`Error loading weekly performance:`, error);
+      return [];
+    }
+  }
+
+  /**
    * Get head-to-head history between two teams
    */
   static async getHeadToHeadHistory(
@@ -1240,20 +1323,27 @@ export class SupabaseMatchupService {
     try {
       console.log(`📊 Loading head-to-head history for teams ${team1Id} vs ${team2Id}...`);
       
-      // Get all matchups between these teams
+      // Get conferences for this season to map conference_id to season_id
+      const conferences = await this.getConferences(seasonId);
+      const conferenceIds = conferences.map(c => c.id);
+      
+      if (conferenceIds.length === 0) {
+        console.warn('No conferences found for season', seasonId);
+        return [];
+      }
+
+      // Get all matchups for this season
       const matchupsResult = await DatabaseService.getMatchups({
-        filters: [
-          { column: 'season_id', operator: 'eq', value: seasonId }
-        ],
-        limit: 100
+        limit: 1000
       });
 
       const allMatchups = matchupsResult.data || [];
       
-      // Filter for matchups between these specific teams
+      // Filter for matchups between these specific teams in this season
       const headToHeadMatchups = allMatchups.filter(matchup => 
-        (matchup.team1_id === team1Id && matchup.team2_id === team2Id) ||
-        (matchup.team1_id === team2Id && matchup.team2_id === team1Id)
+        conferenceIds.includes(matchup.conference_id) &&
+        ((matchup.team1_id === team1Id && matchup.team2_id === team2Id) ||
+         (matchup.team1_id === team2Id && matchup.team2_id === team1Id))
       );
 
       // Get team names for display
@@ -1276,7 +1366,7 @@ export class SupabaseMatchupService {
 
         return {
           week: parseInt(matchup.week),
-          season: '2024', // Would need to be dynamic based on season
+          season: seasonId.toString(), // Use the actual season ID
           team1Score,
           team2Score,
           winner,

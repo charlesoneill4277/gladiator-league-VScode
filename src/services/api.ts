@@ -14,16 +14,16 @@ export async function fetchPlayersFromApi(filters: PlayerFilters = {}, page = 1,
   try {
     // Get the current session
     const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-    
+
     if (sessionError) {
       console.error('Session error:', sessionError);
       throw new Error(`Authentication error: ${sessionError.message}`);
     }
-    
+
     // For now, let's bypass the Edge Function and use direct database queries
     // since we're having authentication issues with the Edge Function
     console.log('Fetching players directly from database...');
-    
+
     // Build the query - use the VIEW instead of the base players table
     let query = supabase
       .from('players_with_roster_status')
@@ -45,11 +45,11 @@ export async function fetchPlayersFromApi(filters: PlayerFilters = {}, page = 1,
     if (filters.search) {
       query = query.or(`player_name.ilike.%${filters.search}%,nfl_team.ilike.%${filters.search}%`);
     }
-    
+
     if (filters.position && filters.position !== 'all') {
       query = query.eq('position', filters.position);
     }
-    
+
     if (filters.is_rostered !== '') {
       query = query.eq('is_rostered', filters.is_rostered);
     }
@@ -92,14 +92,14 @@ export async function fetchPlayersFromApi(filters: PlayerFilters = {}, page = 1,
 
     // Execute the query
     const { data, error, count } = await query;
-    
+
     if (error) {
       console.error('Database query error:', error);
       throw new Error(`Database error: ${error.message}`);
     }
 
     console.log(`✅ Fetched ${data?.length || 0} players (total: ${count})`);
-    
+
     return {
       data: data || [],
       count: fetchAll ? (data?.length || 0) : (count || 0)
