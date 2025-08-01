@@ -129,6 +129,54 @@ const MatchupDetailPage: React.FC = () => {
       );
 
       if (matchupData) {
+        // Fetch player projections for the matchup week
+        try {
+          const seasonYear = selectedSeason;
+          const weekNumber = matchupData.week;
+          const playerIds = [
+            ...matchupData.teams[0].starters, 
+            ...matchupData.teams[0].bench,
+            ...(matchupData.teams[1] ? [...matchupData.teams[1].starters, ...matchupData.teams[1].bench] : [])
+          ];
+          
+          // Fetch projections
+          const projections = await SleeperApiService.fetchPlayerProjections(
+            seasonYear,
+            weekNumber
+          );
+          
+          // Map projections to player IDs
+          const projectedPoints: Record<string, number> = {};
+          projections.forEach(projection => {
+            if (playerIds.includes(projection.player_id) && projection.stats.pts_ppr !== undefined) {
+              projectedPoints[projection.player_id] = projection.stats.pts_ppr;
+            }
+          });
+          
+          // Update the projected points for each team
+          matchupData.teams.forEach(team => {
+            team.starters.forEach(playerId => {
+              if (projectedPoints[playerId] !== undefined) {
+                team.playersProjected[playerId] = projectedPoints[playerId];
+              }
+            });
+            
+            team.bench.forEach(playerId => {
+              if (projectedPoints[playerId] !== undefined) {
+                team.playersProjected[playerId] = projectedPoints[playerId];
+              }
+            });
+            
+            // Recalculate total projected points for the team
+            team.projectedPoints = team.starters.reduce((total, playerId) => {
+              return total + (team.playersProjected[playerId] || 0);
+            }, 0);
+          });
+        } catch (projError) {
+          console.error('Error fetching player projections:', projError);
+          // Non-critical error, don't block the rest of the data loading
+        }
+        
         setMatchup(matchupData);
         
         // Load historical data between these teams
