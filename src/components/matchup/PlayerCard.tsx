@@ -33,8 +33,10 @@ const PlayerCard: React.FC<PlayerCardProps> = ({
   onClick
 }) => {
   const variance = points - projected;
-  const isOutperforming = variance > 0;
-  const isUnderperforming = variance < -2;
+  // Don't show performance indicators for players who haven't started
+  const shouldShowPerformance = status !== 'not_started';
+  const isOutperforming = shouldShowPerformance && variance > 0;
+  const isUnderperforming = shouldShowPerformance && variance < -2;
 
   const getStatusColor = () => {
     switch (status) {
@@ -108,7 +110,7 @@ const PlayerCard: React.FC<PlayerCardProps> = ({
             <div className="text-xs text-muted-foreground">
               {projected.toFixed(1)}
             </div>
-            {variance !== 0 && (
+            {shouldShowPerformance && variance !== 0 && (
               <div className={`text-xs ${variance > 0 ? 'text-green-600' : 'text-red-600'}`}>
                 {variance > 0 ? '+' : ''}{variance.toFixed(1)}
               </div>

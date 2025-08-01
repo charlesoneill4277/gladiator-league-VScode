@@ -9,6 +9,7 @@ interface MatchupTeam {
   name: string;
   owner: string;
   avatar?: string;
+  logoUrl?: string;
   record: { wins: number; losses: number };
   points: number;
   projectedPoints: number;
@@ -72,7 +73,7 @@ const MobileMatchupHeader: React.FC<MobileMatchupHeaderProps> = ({
         <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
           <div className="flex items-center space-x-3">
             <Avatar className="h-10 w-10">
-              <AvatarImage src={team1.avatar} />
+              <AvatarImage src={team1.logoUrl ? `https://sleepercdn.com/avatars/thumbs/${team1.logoUrl}` : team1.avatar} />
               <AvatarFallback>{team1.name.charAt(0)}</AvatarFallback>
             </Avatar>
             <div>
@@ -114,7 +115,7 @@ const MobileMatchupHeader: React.FC<MobileMatchupHeaderProps> = ({
           <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
             <div className="flex items-center space-x-3">
               <Avatar className="h-10 w-10">
-                <AvatarImage src={team2.avatar} />
+                <AvatarImage src={team2.logoUrl ? `https://sleepercdn.com/avatars/thumbs/${team2.logoUrl}` : team2.avatar} />
                 <AvatarFallback>{team2.name.charAt(0)}</AvatarFallback>
               </Avatar>
               <div>

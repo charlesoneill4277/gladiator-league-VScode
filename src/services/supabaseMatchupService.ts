@@ -1163,6 +1163,7 @@ export class SupabaseMatchupService {
           name: team1.team_name,
           owner: team1.owner_name,
           avatar: team1.team_logourl,
+          logoUrl: team1.team_logourl,
           record: { wins: 0, losses: 0 }, // Would need to be fetched from team_records
           points: dbMatchup.team1_score || 0,
           projectedPoints: team1SleeperMatchup.projected_points || 0,
@@ -1185,6 +1186,7 @@ export class SupabaseMatchupService {
             name: team2.team_name,
             owner: team2.owner_name,
             avatar: team2.team_logourl,
+            logoUrl: team2.team_logourl,
             record: { wins: 0, losses: 0 }, // Would need to be fetched from team_records
             points: dbMatchup.team2_score || 0,
             projectedPoints: team2SleeperMatchup.projected_points || 0,

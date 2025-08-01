@@ -41,6 +41,7 @@ interface MatchupTeam {
   name: string;
   owner: string;
   avatar?: string;
+  logoUrl?: string;
   record: { wins: number; losses: number };
   points: number;
   projectedPoints: number;
@@ -441,8 +442,13 @@ const MatchupHeader: React.FC<{
       <CardContent>
         <div className="grid grid-cols-1 md:grid-cols-5 gap-4 items-center">
           {/* Team 1 */}
-          <div className="md:col-span-2 text-center md:text-right">
-            <TeamCard team={team1} isWinner={winningTeam?.id === team1.id} />
+          <div className="md:col-span-2">
+            <TeamCard 
+              team={team1} 
+              isWinner={winningTeam?.id === team1.id} 
+              matchupStatus={matchup.status}
+              isLeftSide={true}
+            />
           </div>
 
           {/* VS Section */}
@@ -451,7 +457,7 @@ const MatchupHeader: React.FC<{
             {matchup.status === 'completed' && winningTeam && (
               <Trophy className="h-6 w-6 mx-auto text-yellow-500" />
             )}
-            {matchup.scoreDifferential > 0 && (
+            {matchup.scoreDifferential > 0 && matchup.status !== 'upcoming' && (
               <div className="text-xs text-muted-foreground mt-1">
                 {matchup.scoreDifferential.toFixed(1)} pt difference
               </div>
@@ -459,14 +465,19 @@ const MatchupHeader: React.FC<{
           </div>
 
           {/* Team 2 */}
-          <div className="md:col-span-2 text-center md:text-left">
+          <div className="md:col-span-2">
             {matchup.isBye || !team2 ? (
               <div className="text-center">
                 <div className="text-2xl font-bold text-muted-foreground">BYE</div>
                 <div className="text-sm text-muted-foreground">Bye Week</div>
               </div>
             ) : (
-              <TeamCard team={team2} isWinner={winningTeam?.id === team2.id} />
+              <TeamCard 
+                team={team2} 
+                isWinner={winningTeam?.id === team2.id} 
+                matchupStatus={matchup.status}
+                isLeftSide={false}
+              />
             )}
           </div>
         </div>
@@ -479,16 +490,25 @@ const MatchupHeader: React.FC<{
 const TeamCard: React.FC<{
   team: MatchupTeam;
   isWinner: boolean;
-}> = ({ team, isWinner }) => {
-  return (
-    <div className="space-y-2">
-      <div className="flex items-center justify-center md:justify-start space-x-3">
+  matchupStatus?: 'live' | 'completed' | 'upcoming';
+  isLeftSide?: boolean;
+}> = ({ team, isWinner, matchupStatus = 'completed', isLeftSide = true }) => {
+  const isScheduled = matchupStatus === 'upcoming';
+  
+  // Construct Sleeper avatar URL
+  const avatarUrl = team.logoUrl ? `https://sleepercdn.com/avatars/thumbs/${team.logoUrl}` : team.avatar;
+  
+  if (isLeftSide) {
+    // Left side layout: avatar left, info center, scores right
+    return (
+      <div className="flex items-center justify-between w-full">
         <Avatar className="h-12 w-12">
-          <AvatarImage src={team.avatar} />
+          <AvatarImage src={avatarUrl} />
           <AvatarFallback>{team.name.charAt(0)}</AvatarFallback>
         </Avatar>
-        <div>
-          <div className={`text-lg font-bold ${isWinner ? 'text-green-600' : ''}`}>
+        
+        <div className="flex-1 text-left ml-3">
+          <div className={`text-lg font-bold ${isWinner && !isScheduled ? 'text-green-600' : ''}`}>
             {team.name}
           </div>
           <div className="text-sm text-muted-foreground">{team.owner}</div>
@@ -496,18 +516,59 @@ const TeamCard: React.FC<{
             {team.record.wins}-{team.record.losses}
           </div>
         </div>
-      </div>
-      
-      <div className="text-center md:text-left">
-        <div className={`text-3xl font-bold ${isWinner ? 'text-green-600' : ''}`}>
-          {team.points.toFixed(1)}
+        
+        <div className="text-right">
+          {isScheduled ? (
+            <div className="text-3xl font-bold text-muted-foreground">
+              --
+            </div>
+          ) : (
+            <div className={`text-3xl font-bold ${isWinner ? 'text-green-600' : ''}`}>
+              {team.points.toFixed(1)}
+            </div>
+          )}
+          <div className="text-sm text-muted-foreground">
+            Proj: {team.projectedPoints.toFixed(1)}
+          </div>
         </div>
-        <div className="text-sm text-muted-foreground">
-          Proj: {team.projectedPoints.toFixed(1)}
-        </div>
       </div>
-    </div>
-  );
+    );
+  } else {
+    // Right side layout: scores left, info center (right-aligned), avatar right
+    return (
+      <div className="flex items-center justify-between w-full">
+        <div className="text-left">
+          {isScheduled ? (
+            <div className="text-3xl font-bold text-muted-foreground">
+              --
+            </div>
+          ) : (
+            <div className={`text-3xl font-bold ${isWinner ? 'text-green-600' : ''}`}>
+              {team.points.toFixed(1)}
+            </div>
+          )}
+          <div className="text-sm text-muted-foreground">
+            Proj: {team.projectedPoints.toFixed(1)}
+          </div>
+        </div>
+        
+        <div className="flex-1 text-right mr-3">
+          <div className={`text-lg font-bold ${isWinner && !isScheduled ? 'text-green-600' : ''}`}>
+            {team.name}
+          </div>
+          <div className="text-sm text-muted-foreground">{team.owner}</div>
+          <div className="text-xs text-muted-foreground">
+            {team.record.wins}-{team.record.losses}
+          </div>
+        </div>
+        
+        <Avatar className="h-12 w-12">
+          <AvatarImage src={avatarUrl} />
+          <AvatarFallback>{team.name.charAt(0)}</AvatarFallback>
+        </Avatar>
+      </div>
+    );
+  }
 };
 
 export default MatchupDetailPage;
@@ -517,6 +578,10 @@ const QuickStatsBar: React.FC<{ matchup: DetailedMatchup }> = ({ matchup }) => {
   const [team1, team2] = matchup.teams;
   
   const getPlayersStillPlaying = (team: MatchupTeam) => {
+    // For scheduled games, all starters are considered "to play"
+    if (matchup.status === 'upcoming') {
+      return team.starters.length;
+    }
     return team.starters.filter(playerId => {
       // This would need to be implemented based on your player status logic
       return true; // Placeholder
@@ -524,23 +589,37 @@ const QuickStatsBar: React.FC<{ matchup: DetailedMatchup }> = ({ matchup }) => {
   };
 
   const getBenchPoints = (team: MatchupTeam) => {
+    // For scheduled games, don't show actual bench points since no one has played yet
+    if (matchup.status === 'upcoming') {
+      return 0;
+    }
     return team.bench.reduce((total, playerId) => {
       return total + (team.playersPoints[playerId] || 0);
     }, 0);
   };
 
+  const isScheduled = matchup.status === 'upcoming';
+
   const stats = [
     {
-      label: "Projected vs Actual",
+      label: isScheduled ? "Projected Points" : "Projected vs Actual",
       value: team2 
-        ? `${team1.points.toFixed(1)}/${team1.projectedPoints.toFixed(1)} vs ${team2.points.toFixed(1)}/${team2.projectedPoints.toFixed(1)}`
-        : `${team1.points.toFixed(1)} / ${team1.projectedPoints.toFixed(1)}`,
+        ? isScheduled
+          ? `${team1.projectedPoints.toFixed(1)} vs ${team2.projectedPoints.toFixed(1)}`
+          : `${team1.points.toFixed(1)}/${team1.projectedPoints.toFixed(1)} vs ${team2.points.toFixed(1)}/${team2.projectedPoints.toFixed(1)}`
+        : isScheduled
+          ? `${team1.projectedPoints.toFixed(1)}`
+          : `${team1.points.toFixed(1)} / ${team1.projectedPoints.toFixed(1)}`,
       mobileValue: team2
-        ? `${team1.points.toFixed(1)}/${team1.projectedPoints.toFixed(1)}\nvs\n${team2.points.toFixed(1)}/${team2.projectedPoints.toFixed(1)}`
-        : `${team1.points.toFixed(1)} / ${team1.projectedPoints.toFixed(1)}`
+        ? isScheduled
+          ? `${team1.projectedPoints.toFixed(1)}\nvs\n${team2.projectedPoints.toFixed(1)}`
+          : `${team1.points.toFixed(1)}/${team1.projectedPoints.toFixed(1)}\nvs\n${team2.points.toFixed(1)}/${team2.projectedPoints.toFixed(1)}`
+        : isScheduled
+          ? `${team1.projectedPoints.toFixed(1)}`
+          : `${team1.points.toFixed(1)} / ${team1.projectedPoints.toFixed(1)}`
     },
     {
-      label: "Players Playing",
+      label: isScheduled ? "Starters Set" : "Players Playing",
       value: team2 
         ? `${getPlayersStillPlaying(team1)} vs ${getPlayersStillPlaying(team2)}`
         : `${getPlayersStillPlaying(team1)}`,
@@ -549,13 +628,21 @@ const QuickStatsBar: React.FC<{ matchup: DetailedMatchup }> = ({ matchup }) => {
         : `${getPlayersStillPlaying(team1)}`
     },
     {
-      label: "Bench Points",
+      label: isScheduled ? "Bench Size" : "Bench Points",
       value: team2 
-        ? `${getBenchPoints(team1).toFixed(1)} vs ${getBenchPoints(team2).toFixed(1)}`
-        : `${getBenchPoints(team1).toFixed(1)}`,
+        ? isScheduled
+          ? `${team1.bench.length} vs ${team2.bench.length}`
+          : `${getBenchPoints(team1).toFixed(1)} vs ${getBenchPoints(team2).toFixed(1)}`
+        : isScheduled
+          ? `${team1.bench.length}`
+          : `${getBenchPoints(team1).toFixed(1)}`,
       mobileValue: team2
-        ? `${getBenchPoints(team1).toFixed(1)} vs ${getBenchPoints(team2).toFixed(1)}`
-        : `${getBenchPoints(team1).toFixed(1)}`
+        ? isScheduled
+          ? `${team1.bench.length} vs ${team2.bench.length}`
+          : `${getBenchPoints(team1).toFixed(1)} vs ${getBenchPoints(team2).toFixed(1)}`
+        : isScheduled
+          ? `${team1.bench.length}`
+          : `${getBenchPoints(team1).toFixed(1)}`
     },
     {
       label: "Season Record",
@@ -613,17 +700,26 @@ const LiveScoringTab: React.FC<{
     const team1Projected = team1.playersProjected[playerId] || 0;
     const team2Projected = team2?.playersProjected[playerId] || 0;
     const projected = team1Projected || team2Projected;
+    
+    // Check if the matchup is scheduled/upcoming
+    const isScheduled = matchup.status === 'upcoming';
+    
+    // For scheduled games, don't show performance indicators or variance
+    const actualPoints = isScheduled ? 0 : points;
+    const hasPlayed = !isScheduled && points > 0;
 
     return {
       playerId,
       name: player ? `${player.first_name || ''} ${player.last_name || ''}`.trim() : 'Unknown',
       position: player?.position || 'N/A',
       team: player?.team || 'N/A',
-      points,
+      points: actualPoints,
       projected,
-      status: 'played', // This would need proper implementation
-      isOutperforming: points > projected,
-      variance: points - projected
+      // Only show status if the player has actually played or the game is live/completed
+      status: isScheduled ? 'not_started' : (hasPlayed ? 'played' : 'not_started'),
+      // Only show performance indicators for completed/live games
+      isOutperforming: isScheduled ? false : points > projected,
+      variance: isScheduled ? 0 : points - projected
     };
   };
 
