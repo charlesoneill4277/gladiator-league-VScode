@@ -49,6 +49,14 @@ interface SeasonStats {
   weeklyPerformance: WeeklyPerformance[];
 }
 
+// Interface for current season summary from Sleeper API
+interface CurrentSeasonSummary {
+  fantasyPoints: number;
+  gamesPlayed: number;
+  positionalRank: string;
+  overallRank: string;
+}
+
 // Enhanced player detail interface
 interface PlayerDetail {
   // Basic player info
@@ -89,6 +97,15 @@ const PlayerDetailPage: React.FC = () => {
   const [selectedPerformanceSeason, setSelectedPerformanceSeason] = useState<string>('');
   const [loadingPerformanceStats, setLoadingPerformanceStats] = useState(false);
   const [performanceSubTab, setPerformanceSubTab] = useState('weekly');
+  
+  // Current season summary data
+  const [currentSeasonSummary, setCurrentSeasonSummary] = useState<CurrentSeasonSummary>({
+    fantasyPoints: 0,
+    gamesPlayed: 0,
+    positionalRank: 'N/A',
+    overallRank: 'N/A'
+  });
+  const [loadingCurrentSeason, setLoadingCurrentSeason] = useState(false);
 
   // Fetch comprehensive player data
   const fetchPlayerData = async () => {
@@ -315,6 +332,9 @@ const PlayerDetailPage: React.FC = () => {
       setPlayer(playerDetail);
       console.log('Loaded player detail:', playerDetail);
 
+      // Fetch current season summary data
+      await fetchCurrentSeasonSummary();
+
       toast({
         title: 'Player Loaded',
         description: `Found ${playerDetail.player_name} with ${seasonStats.gamesPlayed} games of data`
@@ -331,6 +351,70 @@ const PlayerDetailPage: React.FC = () => {
       });
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Fetch current NFL season summary data
+  const fetchCurrentSeasonSummary = async () => {
+    if (!playerId) return;
+
+    try {
+      setLoadingCurrentSeason(true);
+      const currentYear = new Date().getFullYear().toString();
+      console.log(`🔄 Fetching current season summary for player ${playerId}, season ${currentYear}`);
+      
+      const stats = await SleeperApiService.fetchPlayerSeasonStatsComplete(playerId, 'regular', currentYear);
+      console.log(`📊 Current season stats received:`, stats);
+      
+      // The API returns an array, but for season totals it should contain one object
+      if (stats && stats.length > 0) {
+        const seasonData = stats[0];
+        console.log('📊 Season data structure:', seasonData);
+        
+        if (seasonData && seasonData.stats) {
+          setCurrentSeasonSummary({
+            fantasyPoints: seasonData.stats.pts_ppr || 0,
+            gamesPlayed: seasonData.stats.gp || 0,
+            positionalRank: seasonData.stats.pos_rank_ppr ? seasonData.stats.pos_rank_ppr.toString() : 'N/A',
+            overallRank: seasonData.stats.rank_ppr ? seasonData.stats.rank_ppr.toString() : 'N/A'
+          });
+          
+          console.log(`✅ Current season summary loaded for ${currentYear}:`, {
+            fantasyPoints: seasonData.stats.pts_ppr || 0,
+            gamesPlayed: seasonData.stats.gp || 0,
+            positionalRank: seasonData.stats.pos_rank_ppr || 'N/A',
+            overallRank: seasonData.stats.rank_ppr || 'N/A'
+          });
+        } else {
+          console.log(`ℹ️ Season data exists but no stats object found for ${currentYear}`);
+          setCurrentSeasonSummary({
+            fantasyPoints: 0,
+            gamesPlayed: 0,
+            positionalRank: 'N/A',
+            overallRank: 'N/A'
+          });
+        }
+      } else {
+        console.log(`ℹ️ No current season data available for player ${playerId}, season ${currentYear}`);
+        // Keep default values (0 for points/games, N/A for ranks)
+        setCurrentSeasonSummary({
+          fantasyPoints: 0,
+          gamesPlayed: 0,
+          positionalRank: 'N/A',
+          overallRank: 'N/A'
+        });
+      }
+    } catch (error) {
+      console.error(`❌ Error fetching current season summary:`, error);
+      // Keep default values on error
+      setCurrentSeasonSummary({
+        fantasyPoints: 0,
+        gamesPlayed: 0,
+        positionalRank: 'N/A',
+        overallRank: 'N/A'
+      });
+    } finally {
+      setLoadingCurrentSeason(false);
     }
   };
 
@@ -491,6 +575,13 @@ const PlayerDetailPage: React.FC = () => {
       fetchPlayerData();
     }
   }, [playerId, appSelectedSeason, selectedConference, currentSeasonConfig]);
+
+  // Fetch current season summary independently when playerId changes
+  useEffect(() => {
+    if (playerId) {
+      fetchCurrentSeasonSummary();
+    }
+  }, [playerId]);
 
   // Fetch performance stats when the selected performance season changes
   useEffect(() => {
@@ -672,20 +763,20 @@ const PlayerDetailPage: React.FC = () => {
 
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
           <div>
-            <div className="text-2xl font-bold">{player.season_stats.totalPoints.toFixed(1)}</div>
-            <div className="text-sm text-muted-foreground">Total Points</div>
+            <div className="text-2xl font-bold">{currentSeasonSummary.fantasyPoints.toFixed(1)}</div>
+            <div className="text-sm text-muted-foreground">Fantasy Points</div>
           </div>
           <div>
-            <div className="text-2xl font-bold">{player.season_stats.avgPoints.toFixed(1)}</div>
-            <div className="text-sm text-muted-foreground">Avg/Game</div>
+            <div className="text-2xl font-bold">{currentSeasonSummary.gamesPlayed}</div>
+            <div className="text-sm text-muted-foreground">Games Played</div>
           </div>
           <div>
-            <div className="text-2xl font-bold">{player.season_stats.bestGame.toFixed(1)}</div>
-            <div className="text-sm text-muted-foreground">Best Game</div>
+            <div className="text-2xl font-bold">{currentSeasonSummary.positionalRank}</div>
+            <div className="text-sm text-muted-foreground">Positional Rank</div>
           </div>
           <div>
-            <div className="text-2xl font-bold">{player.season_stats.consistency.toFixed(0)}%</div>
-            <div className="text-sm text-muted-foreground">Consistency</div>
+            <div className="text-2xl font-bold">{currentSeasonSummary.overallRank}</div>
+            <div className="text-sm text-muted-foreground">Overall Rank</div>
           </div>
         </div>
       </div>
@@ -739,24 +830,31 @@ const PlayerDetailPage: React.FC = () => {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <p className="text-sm text-muted-foreground">Fantasy Points</p>
-                    <p className="text-2xl font-bold">{player.season_stats.totalPoints.toFixed(1)}</p>
+                {loadingCurrentSeason ? (
+                  <div className="flex items-center justify-center py-4">
+                    <Loader2 className="h-6 w-6 animate-spin mr-2" />
+                    <span className="text-sm text-muted-foreground">Loading current season data...</span>
                   </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">Games Played</p>
-                    <p className="text-2xl font-bold">{player.season_stats.gamesPlayed}</p>
+                ) : (
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <p className="text-sm text-muted-foreground">Fantasy Points</p>
+                      <p className="text-2xl font-bold">{currentSeasonSummary.fantasyPoints.toFixed(1)}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">Games Played</p>
+                      <p className="text-2xl font-bold">{currentSeasonSummary.gamesPlayed}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">Positional Rank</p>
+                      <p className="text-2xl font-bold">{currentSeasonSummary.positionalRank}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">Overall Rank</p>
+                      <p className="text-2xl font-bold">{currentSeasonSummary.overallRank}</p>
+                    </div>
                   </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">Best Game</p>
-                    <p className="text-2xl font-bold">{player.season_stats.bestGame.toFixed(1)}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">Consistency</p>
-                    <p className="text-2xl font-bold">{player.season_stats.consistency.toFixed(0)}%</p>
-                  </div>
-                </div>
+                )}
                 
                 <div className="space-y-2">
                   <div className="flex justify-between text-sm">
@@ -869,7 +967,7 @@ const PlayerDetailPage: React.FC = () => {
                       {/* Rushing Group */}
                       <TableHead className="text-center border-r" colSpan={3}>Rushing</TableHead>
                       {/* Receiving Group */}
-                      <TableHead className="text-center border-r" colSpan={3}>Receiving</TableHead>
+                      <TableHead className="text-center border-r" colSpan={4}>Receiving</TableHead>
                       {/* Passing Group */}
                       <TableHead className="text-center border-r" colSpan={4}>Passing</TableHead>
                       {/* Misc Group */}
@@ -887,7 +985,8 @@ const PlayerDetailPage: React.FC = () => {
                       {/* Receiving columns */}
                       <TableHead>Rec</TableHead>
                       <TableHead>Tar</TableHead>
-                      <TableHead className="border-r">Yds</TableHead>
+                      <TableHead>Yds</TableHead>
+                      <TableHead className="border-r">TD</TableHead>
                       {/* Passing columns */}
                       <TableHead>Cmp</TableHead>
                       <TableHead>Att</TableHead>
@@ -945,7 +1044,8 @@ const PlayerDetailPage: React.FC = () => {
                             <TableCell className="border-r">{totals.rush_td}</TableCell>
                             <TableCell>{totals.rec}</TableCell>
                             <TableCell>{totals.rec_tgt}</TableCell>
-                            <TableCell className="border-r">{totals.rec_yd}</TableCell>
+                            <TableCell>{totals.rec_yd}</TableCell>
+                            <TableCell className="border-r">{totals.rec_td}</TableCell>
                             <TableCell>{totals.pass_comp}</TableCell>
                             <TableCell>{totals.pass_comp + totals.pass_inc}</TableCell>
                             <TableCell>{totals.pass_yd}</TableCell>
@@ -969,7 +1069,8 @@ const PlayerDetailPage: React.FC = () => {
                                   <TableCell className="border-r">{stat.rush_td || 0}</TableCell>
                                   <TableCell>{stat.rec || 0}</TableCell>
                                   <TableCell>{stat.rec_tgt || 0}</TableCell>
-                                  <TableCell className="border-r">{stat.rec_yd || 0}</TableCell>
+                                  <TableCell>{stat.rec_yd || 0}</TableCell>
+                                  <TableCell className="border-r">{stat.rec_td || 0}</TableCell>
                                   <TableCell>{stat.pass_comp || 0}</TableCell>
                                   <TableCell>{(stat.pass_comp || 0) + (stat.pass_inc || 0)}</TableCell>
                                   <TableCell>{stat.pass_yd || 0}</TableCell>
@@ -981,7 +1082,7 @@ const PlayerDetailPage: React.FC = () => {
                               ))
                           ) : (
                             <TableRow>
-                              <TableCell colSpan={16} className="text-center py-8 text-muted-foreground">
+                              <TableCell colSpan={17} className="text-center py-8 text-muted-foreground">
                                 No data available for {selectedPerformanceSeason} season
                               </TableCell>
                             </TableRow>
@@ -1019,7 +1120,7 @@ const PlayerDetailPage: React.FC = () => {
                           {/* Rushing Group */}
                           <TableHead className="text-center border-r" colSpan={3}>Rushing</TableHead>
                           {/* Receiving Group */}
-                          <TableHead className="text-center border-r" colSpan={3}>Receiving</TableHead>
+                          <TableHead className="text-center border-r" colSpan={4}>Receiving</TableHead>
                           {/* Passing Group */}
                           <TableHead className="text-center border-r" colSpan={4}>Passing</TableHead>
                           {/* Misc Group */}
@@ -1037,7 +1138,8 @@ const PlayerDetailPage: React.FC = () => {
                           {/* Receiving columns */}
                           <TableHead>Rec</TableHead>
                           <TableHead>Tar</TableHead>
-                          <TableHead className="border-r">Yds</TableHead>
+                          <TableHead>Yds</TableHead>
+                          <TableHead className="border-r">TD</TableHead>
                           {/* Passing columns */}
                           <TableHead>Cmp</TableHead>
                           <TableHead>Att</TableHead>
@@ -1065,7 +1167,8 @@ const PlayerDetailPage: React.FC = () => {
                                 <TableCell className="border-r">{totals.rush_td}</TableCell>
                                 <TableCell>{totals.rec}</TableCell>
                                 <TableCell>{totals.rec_tgt}</TableCell>
-                                <TableCell className="border-r">{totals.rec_yd}</TableCell>
+                                <TableCell>{totals.rec_yd}</TableCell>
+                                <TableCell className="border-r">{totals.rec_td}</TableCell>
                                 <TableCell>{totals.pass_comp}</TableCell>
                                 <TableCell>{totals.pass_comp + totals.pass_inc}</TableCell>
                                 <TableCell>{totals.pass_yd}</TableCell>
@@ -1077,7 +1180,7 @@ const PlayerDetailPage: React.FC = () => {
                             ))
                           ) : (
                             <TableRow>
-                              <TableCell colSpan={16} className="text-center py-8 text-muted-foreground">
+                              <TableCell colSpan={17} className="text-center py-8 text-muted-foreground">
                                 No season data available. Load some weekly stats first.
                               </TableCell>
                             </TableRow>
