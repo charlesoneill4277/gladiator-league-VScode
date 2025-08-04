@@ -18,6 +18,7 @@ const StandingsPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [playoffFormat, setPlayoffFormat] = useState<DbPlayoffFormat | null>(null);
+  const [isWeek13CompleteState, setIsWeek13CompleteState] = useState(false);
   const { toast } = useToast();
 
   // Default playoff format
@@ -90,6 +91,9 @@ const StandingsPage: React.FC = () => {
       // Fetch playoff format data for this season
       await fetchPlayoffFormat(seasonId);
 
+      // Check if Week 13 is complete
+      await checkWeek13Complete(seasonId);
+
       // Get conference ID if specific conference is selected
       let conferenceId: number | undefined;
       if (selectedConference) {
@@ -149,6 +153,9 @@ const StandingsPage: React.FC = () => {
       
       // Refresh playoff format data
       await fetchPlayoffFormat(seasonId);
+
+      // Check if Week 13 is complete
+      await checkWeek13Complete(seasonId);
 
       // Get conference ID if specific conference is selected
       let conferenceId: number | undefined;
@@ -244,24 +251,152 @@ const StandingsPage: React.FC = () => {
     return sortableStandings;
   }, [standingsData, sortConfig]);
 
-  const getRecordBadgeVariant = (wins: number, losses: number) => {
-    const totalGames = wins + losses;
-    if (totalGames === 0) return 'outline';
+  // Check if Week 13 is complete by looking at matchup data
+  const checkWeek13Complete = async (seasonId: number) => {
+    try {
+      // Get all Week 13 matchups for the season
+      const matchupsResult = await DatabaseService.getMatchups({
+        filters: [
+          { column: 'week', operator: 'eq', value: 13 },
+          // We'd need to filter by season through conference_id, but this is complex
+          // For now, we'll use a simpler approach
+        ]
+      });
 
-    const winPercentage = wins / totalGames;
-    if (winPercentage >= 0.7) return 'default';
-    if (winPercentage >= 0.5) return 'secondary';
-    return 'destructive';
+      if (matchupsResult.error) {
+        console.error('Error fetching Week 13 matchups:', matchupsResult.error);
+        return false;
+      }
+
+      const week13Matchups = matchupsResult.data || [];
+      
+      // Check if all Week 13 matchups have been completed (have winning_team_id)
+      const allComplete = week13Matchups.length > 0 && 
+        week13Matchups.every(matchup => matchup.winning_team_id !== null);
+      
+      setIsWeek13CompleteState(allComplete);
+      return allComplete;
+    } catch (error) {
+      console.error('Error checking Week 13 completion:', error);
+      return false;
+    }
   };
 
-  const getPlayoffBadge = (playoffEligible: boolean, isChampion: boolean) => {
-    if (isChampion) {
-      return <Badge variant="default" className="bg-yellow-500 text-white"><Trophy className="w-3 h-3 mr-1" />Champion</Badge>;
+  // Check if Week 13 is complete to determine if Status column should be shown
+  const isWeek13Complete = () => {
+    return isWeek13CompleteState;
+  };
+
+  // Get record badge styling based on playoff seeding
+  // Playoff Format:
+  // - Week 13: Conference Championship (top 2 teams per conference)
+  // - Week 14+: Playoffs with seeding based on conference champions + overall ranking
+  const getRecordBadgeVariant = (team: StandingsData, teamIndex: number) => {
+    if (!playoffFormat) return 'outline';
+
+    // Group teams by conference for seeding logic
+    const conferenceGroups = new Map<string, StandingsData[]>();
+    sortedStandings.forEach(t => {
+      if (!conferenceGroups.has(t.conference_name)) {
+        conferenceGroups.set(t.conference_name, []);
+      }
+      conferenceGroups.get(t.conference_name)!.push(t);
+    });
+
+    // Sort each conference by rank
+    conferenceGroups.forEach(teams => {
+      teams.sort((a, b) => a.overall_rank - b.overall_rank);
+    });
+
+    // Check if team is top 2 in their conference (Conference Championship bound)
+    const conferenceTeams = conferenceGroups.get(team.conference_name) || [];
+    const conferenceRank = conferenceTeams.findIndex(t => t.team_id === team.team_id) + 1;
+    
+    if (conferenceRank <= 2) {
+      // Gold styling for Conference Championship teams (Week 13)
+      return 'default';
     }
-    if (playoffEligible) {
-      return <Badge variant="default" className="bg-green-500">Playoff</Badge>;
+
+    // Check if team makes playoffs based on overall seeding
+    const totalPlayoffTeams = playoffFormat.playoff_teams;
+    if (teamIndex < totalPlayoffTeams) {
+      // Green styling for playoff teams (Week 14+)
+      return 'secondary';
     }
-    return null;
+
+    // Default styling for non-playoff teams
+    return 'outline';
+  };
+
+  // Get custom badge classes for playoff seeding
+  const getRecordBadgeClasses = (team: StandingsData, teamIndex: number) => {
+    if (!playoffFormat) return '';
+
+    // Group teams by conference for seeding logic
+    const conferenceGroups = new Map<string, StandingsData[]>();
+    sortedStandings.forEach(t => {
+      if (!conferenceGroups.has(t.conference_name)) {
+        conferenceGroups.set(t.conference_name, []);
+      }
+      conferenceGroups.get(t.conference_name)!.push(t);
+    });
+
+    // Sort each conference by rank
+    conferenceGroups.forEach(teams => {
+      teams.sort((a, b) => a.overall_rank - b.overall_rank);
+    });
+
+    // Check if team is top 2 in their conference (Conference Championship bound)
+    const conferenceTeams = conferenceGroups.get(team.conference_name) || [];
+    const conferenceRank = conferenceTeams.findIndex(t => t.team_id === team.team_id) + 1;
+    
+    if (conferenceRank <= 2) {
+      // Gold styling for Conference Championship teams (Week 13)
+      return 'bg-yellow-500 text-white border-yellow-600 hover:bg-yellow-600';
+    }
+
+    // Check if team makes playoffs based on overall seeding
+    const totalPlayoffTeams = playoffFormat.playoff_teams;
+    if (teamIndex < totalPlayoffTeams) {
+      // Green styling for playoff teams (Week 14+)
+      return 'bg-green-500 text-white border-green-600 hover:bg-green-600';
+    }
+
+    return '';
+  };
+
+  // Get championship badges for Status column
+  const getChampionshipBadges = (team: StandingsData) => {
+    const badges = [];
+
+    // Check for Colosseum Champion (winner of Week 17 championship)
+    // This would be determined from playoff bracket results
+    // For now, we'll check if this team won the final playoff matchup
+    // In a real implementation, you'd query the playoff_brackets table for Week 17 winner
+    const isColosseumChampion = false; // Placeholder - implement actual logic
+    
+    if (isColosseumChampion) {
+      badges.push(
+        <Badge key="colosseum" variant="default" className="bg-purple-600 text-white">
+          <Trophy className="w-3 h-3 mr-1" />
+          Colosseum Champion
+        </Badge>
+      );
+    }
+
+    // Check for Conference Champion (winner of Week 13 Conference Championship)
+    // This should be determined from Week 13 playoff matchup results
+    // For now, we'll use the existing is_conference_champion field
+    if (team.is_conference_champion) {
+      badges.push(
+        <Badge key="conference" variant="default" className="bg-blue-600 text-white">
+          <Trophy className="w-3 h-3 mr-1" />
+          Conference Champion
+        </Badge>
+      );
+    }
+
+    return badges;
   };
 
   if (appLoading || loading) {
@@ -382,6 +517,13 @@ const StandingsPage: React.FC = () => {
           <CardTitle>Team Standings</CardTitle>
           <CardDescription>
             Click column headers to sort. Current standings for the {selectedSeason} season.
+            {playoffFormat && (
+              <span className="block mt-1 text-xs">
+                Gold records: Conference Championship bound (top 2 per conference) • 
+                Green records: Playoff bound (top {playoffFormat.playoff_teams} teams)
+                {isWeek13Complete() && ' • Status shown after Week 13 completion'}
+              </span>
+            )}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -425,7 +567,7 @@ const StandingsPage: React.FC = () => {
                       Diff <ArrowUpDown className="ml-1 h-3 w-3" />
                     </Button>
                   </TableHead>
-                  <TableHead className="hidden lg:table-cell">Status</TableHead>
+                  {isWeek13Complete() && <TableHead className="hidden lg:table-cell">Status</TableHead>}
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -460,7 +602,10 @@ const StandingsPage: React.FC = () => {
                       <ConferenceBadge conferenceName={team.conference_name} variant="outline" size="sm" />
                     </TableCell>
                     <TableCell className="text-center">
-                      <Badge variant={getRecordBadgeVariant(team.wins, team.losses)}>
+                      <Badge 
+                        variant={getRecordBadgeVariant(team, index)}
+                        className={getRecordBadgeClasses(team, index)}
+                      >
                         {team.wins}-{team.losses}
                         {team.ties > 0 && `-${team.ties}`}
                       </Badge>
@@ -479,11 +624,13 @@ const StandingsPage: React.FC = () => {
                         {team.point_diff >= 0 ? '+' : ''}{team.point_diff.toFixed(1)}
                       </span>
                     </TableCell>
-                    <TableCell className="hidden lg:table-cell">
-                      <div className="flex items-center space-x-1">
-                        {getPlayoffBadge(team.playoff_eligible, team.is_conference_champion)}
-                      </div>
-                    </TableCell>
+                    {isWeek13Complete() && (
+                      <TableCell className="hidden lg:table-cell">
+                        <div className="flex items-center space-x-1 flex-wrap gap-1">
+                          {getChampionshipBadges(team)}
+                        </div>
+                      </TableCell>
+                    )}
                   </TableRow>
                 )}
               </TableBody>

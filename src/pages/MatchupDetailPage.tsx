@@ -846,15 +846,6 @@ const TeamAnalysisTab: React.FC<{
 }> = ({ matchup, weeklyPerformanceData }) => {
   const [team1, team2] = matchup.teams;
 
-  const positionPerformanceData = [
-    { position: 'QB', team1: 85, team2: 78 },
-    { position: 'RB', team1: 72, team2: 88 },
-    { position: 'WR', team1: 91, team2: 82 },
-    { position: 'TE', team1: 65, team2: 71 },
-    { position: 'K', team1: 88, team2: 85 },
-    { position: 'DEF', team1: 76, team2: 69 },
-  ];
-
   return (
     <div className="space-y-4 md:space-y-6">
       {/* Weekly Performance Chart */}
@@ -878,33 +869,6 @@ const TeamAnalysisTab: React.FC<{
           </CardContent>
         </Card>
       )}
-
-      {/* Position Group Performance */}
-      <div className="grid md:grid-cols-2 gap-4">
-        <SimpleBarChart
-          title={`${team1.name} Position Performance`}
-          data={positionPerformanceData.map(pos => ({
-            label: pos.position,
-            value: pos.team1,
-            color: 'bg-blue-500'
-          }))}
-          maxValue={100}
-          height={180}
-        />
-        
-        {team2 && (
-          <SimpleBarChart
-            title={`${team2.name} Position Performance`}
-            data={positionPerformanceData.map(pos => ({
-              label: pos.position,
-              value: pos.team2,
-              color: 'bg-red-500'
-            }))}
-            maxValue={100}
-            height={180}
-          />
-        )}
-      </div>
 
       {/* Consistency Metrics */}
       <div className="grid md:grid-cols-2 gap-4">
