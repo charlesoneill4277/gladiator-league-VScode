@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
@@ -12,6 +13,7 @@ import { ConferenceBadge } from '@/components/ui/conference-badge';
 
 const StandingsPage: React.FC = () => {
   const { selectedSeason, selectedConference, currentSeasonConfig, loading: appLoading } = useApp();
+  const navigate = useNavigate();
   const [sortConfig, setSortConfig] = useState<{key: string;direction: 'asc' | 'desc';} | null>(null);
   const [standingsData, setStandingsData] = useState<StandingsData[]>([]);
   const [loading, setLoading] = useState(true);
@@ -572,7 +574,11 @@ const StandingsPage: React.FC = () => {
               </TableHeader>
               <TableBody>
                 {sortedStandings.map((team, index) =>
-                <TableRow key={team.team_id} className="hover:bg-muted/50">
+                <TableRow 
+                  key={team.team_id} 
+                  className="hover:bg-muted/50 cursor-pointer transition-colors"
+                  onClick={() => navigate(`/teams/${team.team_id}`)}
+                >
                     <TableCell className="font-medium text-center">
                       <div className="flex items-center justify-center space-x-1">
                         {team.overall_rank === 1 && <Trophy className="h-4 w-4 text-yellow-500" />}
