@@ -805,17 +805,17 @@ const LiveScoringTab: React.FC<{
             </div>
           </div>
           
-          {/* Bench - Collapsible on Mobile */}
+          {/* Bench - Collapsible on All Sizes */}
           <Collapsible defaultOpen={false}>
             <CollapsibleTrigger asChild>
-              <Button variant="outline" size="sm" className="w-full md:hidden">
+              <Button variant="outline" size="sm" className="w-full">
                 <Users className="h-4 w-4 mr-2" />
                 Show Bench ({team.bench.length})
               </Button>
             </CollapsibleTrigger>
-            <CollapsibleContent className="md:block">
-              <div className="space-y-2 mt-2 md:mt-0">
-                <h4 className="text-sm font-medium text-muted-foreground uppercase tracking-wide hidden md:block">
+            <CollapsibleContent>
+              <div className="space-y-2 mt-2">
+                <h4 className="text-sm font-medium text-muted-foreground uppercase tracking-wide">
                   Bench
                 </h4>
                 <div className="space-y-2">

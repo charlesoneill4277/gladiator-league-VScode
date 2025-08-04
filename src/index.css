@@ -718,5 +718,146 @@
     .dark .standings-points { font-size: 0.6875rem !important; }
     .dark .matchup-team-name { font-size: 0.6875rem !important; }
     .dark .matchup-score { font-size: 0.8125rem !important; }
+    
+    /* Mobile adjustments for player cards */
+    .dark .player-card-name { font-size: 0.8125rem !important; }
+    .dark .player-card-info { font-size: 0.6875rem !important; }
+    .dark .player-card-points { font-size: 0.8125rem !important; }
+  }
+  
+  /* Player card styling for MatchupsPage and MatchupDetailPage */
+  
+  /* Player card components - match HomePage League Standings font sizes */
+  .dark .player-card-name {
+    font-size: 0.875rem !important; /* 14px - matches standings team name */
+    line-height: 1.25rem !important;
+    font-weight: 500 !important;
+  }
+  
+  .dark .player-card-info {
+    font-size: 0.75rem !important; /* 12px - matches standings owner info */
+    line-height: 1rem !important;
+  }
+  
+  .dark .player-card-points {
+    font-size: 0.875rem !important; /* 14px - matches standings record */
+    line-height: 1.25rem !important;
+    font-weight: 600 !important;
+  }
+  
+  .dark .player-card-position {
+    font-size: 0.75rem !important; /* 12px - matches standings points */
+    line-height: 1rem !important;
+  }
+  
+  /* Quick View dropdown player cards on MatchupsPage */
+  .dark .bg-gray-50 {
+    background-color: hsl(var(--accent) / 0.5) !important; /* Match HomePage League Standings background */
+  }
+  
+  .dark .bg-gray-50 .font-medium {
+    font-size: 0.875rem !important; /* Player name in roster */
+    line-height: 1.25rem !important;
+    font-weight: 500 !important;
+  }
+  
+  .dark .bg-gray-50 .text-muted-foreground {
+    font-size: 0.75rem !important; /* Position and team info */
+    line-height: 1rem !important;
+  }
+  
+  .dark .bg-gray-50 .font-bold {
+    font-size: 0.875rem !important; /* Points */
+    line-height: 1.25rem !important;
+    font-weight: 700 !important;
+  }
+  
+  .dark .bg-gray-25 {
+    background-color: hsl(var(--accent) / 0.3) !important; /* Slightly lighter for bench players */
+  }
+  
+  .dark .bg-gray-25 .font-medium {
+    font-size: 0.875rem !important; /* Bench player name */
+    line-height: 1.25rem !important;
+    font-weight: 500 !important;
+  }
+  
+  .dark .bg-gray-25 .text-muted-foreground {
+    font-size: 0.75rem !important; /* Bench player info and points */
+    line-height: 1rem !important;
+  }
+  
+  /* PlayerCard component background styling for dark theme */
+  /* Override Tailwind background classes used by PlayerCard component */
+  
+  /* Outperforming players - darker green background */
+  .dark .bg-green-50 {
+    background-color: hsl(142 76% 15%) !important; /* Dark green for outperforming players */
+  }
+  
+  /* Underperforming players - darker red background */
+  .dark .bg-red-50 {
+    background-color: hsl(0 75% 15%) !important; /* Dark red for underperforming players */
+  }
+  
+  /* Neutral performance players - match HomePage League Standings background */
+  /* Scope bg-white override to PlayerCard components only to avoid affecting other components */
+  .dark .bg-white.border-l-4,
+  .dark .bg-white[class*="border-l-"] {
+    background-color: hsl(var(--accent) / 0.5) !important; /* Blue accent background for neutral players */
+  }
+  
+  /* PlayerCard font sizing - maintain existing font consistency */
+  .dark .player-card .font-medium {
+    font-size: 0.875rem !important; /* Player name */
+    line-height: 1.25rem !important;
+    font-weight: 500 !important;
+  }
+  
+  .dark .player-card .text-sm {
+    font-size: 0.75rem !important; /* Player details */
+    line-height: 1rem !important;
+  }
+  
+  .dark .player-card .font-bold {
+    font-size: 0.875rem !important; /* Points */
+    line-height: 1.25rem !important;
+    font-weight: 700 !important;
+  }
+  
+  /* Alternative selectors for player cards */
+  .dark [data-component="player-card"] {
+    background-color: hsl(var(--accent) / 0.5) !important; /* Match HomePage League Standings background */
+  }
+  
+  .dark [data-component="player-card"] .font-medium {
+    font-size: 0.875rem !important;
+    line-height: 1.25rem !important;
+  }
+  
+  .dark [data-component="player-card"] .text-xs {
+    font-size: 0.75rem !important;
+    line-height: 1rem !important;
+  }
+  
+  .dark [data-component="player-card"] .text-sm {
+    font-size: 0.75rem !important;
+    line-height: 1rem !important;
+  }
+  
+  /* Specific selectors for roster sections */
+  .dark .space-y-1 > div:has(.font-medium) .font-medium {
+    font-size: 0.875rem !important; /* Player names in roster */
+    line-height: 1.25rem !important;
+  }
+  
+  .dark .space-y-1 > div:has(.font-medium) .text-muted-foreground {
+    font-size: 0.75rem !important; /* Player position and team info */
+    line-height: 1rem !important;
+  }
+  
+  .dark .space-y-1 > div:has(.font-bold) .font-bold {
+    font-size: 0.875rem !important; /* Player points */
+    line-height: 1.25rem !important;
   }
 }
