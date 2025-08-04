@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -12,10 +12,11 @@ import { fetchPlayersFromApi } from '@/services/api';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/lib/supabase';
 import { SleeperApiService, SleeperPlayerResearch } from '@/services/sleeperApi';
-import { UserCheck, Search, Filter, ExternalLink, Loader2, ChevronLeft, ChevronRight, TrendingUp, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
+import { UserCheck, Search, Filter, Loader2, ChevronLeft, ChevronRight, TrendingUp, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
 
 const PlayersPage: React.FC = () => {
   const { selectedSeason, selectedConference, currentSeasonConfig } = useApp();
+  const navigate = useNavigate();
   const { toast } = useToast();
   const [apiPlayers, setApiPlayers] = useState<any[]>([]); // Holds the current page of players
   const [totalCount, setTotalCount] = useState(0);   // Total players for pagination
@@ -532,17 +533,20 @@ return (
                       </TableHead>
                       <TableHead className="text-center">Status</TableHead>
                       <TableHead className="text-center hidden lg:table-cell">Rostered By</TableHead>
-                      <TableHead className="w-10"></TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {loading ? (
-                      <TableRow><TableCell colSpan={9} className="text-center py-8"><Loader2 className="h-6 w-6 animate-spin mx-auto" /></TableCell></TableRow>
+                      <TableRow><TableCell colSpan={8} className="text-center py-8"><Loader2 className="h-6 w-6 animate-spin mx-auto" /></TableCell></TableRow>
                     ) : apiPlayers.length === 0 ? (
-                      <TableRow><TableCell colSpan={9} className="text-center py-8">No players found.</TableCell></TableRow>
+                      <TableRow><TableCell colSpan={8} className="text-center py-8">No players found.</TableCell></TableRow>
                     ) : (
                       apiPlayers.map((player) => (
-                        <TableRow key={player.id}>
+                        <TableRow 
+                          key={player.id}
+                          className="hover:bg-muted/50 cursor-pointer transition-colors"
+                          onClick={() => navigate(`/players/${player.sleeper_id}`)}
+                        >
                           <TableCell>
                             {/* CORRECTED: The API sends 'player_name', not 'full_name' */}
                             <div className="font-medium">{player.player_name}</div>
@@ -570,11 +574,6 @@ return (
                           </TableCell>
                           <TableCell className="text-center hidden lg:table-cell">
                             {renderRosteredByTeams(player.rostered_by_teams)}
-                          </TableCell>
-                          <TableCell>
-                            <Link to={`/players/${player.sleeper_id}`}>
-                              <Button variant="ghost" size="sm"><ExternalLink className="h-4 w-4" /></Button>
-                            </Link>
                           </TableCell>
                         </TableRow>
                       ))
