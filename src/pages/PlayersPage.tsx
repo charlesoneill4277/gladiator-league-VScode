@@ -119,10 +119,7 @@ const PlayersPage: React.FC = () => {
       const research = await SleeperApiService.fetchPlayerResearch('regular', currentSeason, currentWeek);
       setOwnershipData(research);
       
-      toast({
-        title: 'Ownership Data Loaded',
-        description: `Loaded ownership percentages for week ${currentWeek}`
-      });
+
     } catch (error) {
       console.error('Error fetching ownership data:', error);
       toast({
@@ -278,10 +275,7 @@ const PlayersPage: React.FC = () => {
         setApiPlayers(paginatedData);
         setTotalCount(sortedData.length);
         
-        toast({
-          title: 'Players Loaded',
-          description: `Found ${sortedData.length} players for ${seasonFilter} season${sortField ? ` (sorted by ${sortField})` : ''}`
-        });
+
 
       } catch (err) {
         const errorMessage = err instanceof Error ? err.message : 'Failed to fetch players';

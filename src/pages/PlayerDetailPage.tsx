@@ -335,10 +335,7 @@ const PlayerDetailPage: React.FC = () => {
       // Fetch current season summary data
       await fetchCurrentSeasonSummary();
 
-      toast({
-        title: 'Player Loaded',
-        description: `Found ${playerDetail.player_name} with ${seasonStats.gamesPlayed} games of data`
-      });
+
 
     } catch (error) {
       console.error('Error fetching player data:', error);
@@ -443,18 +440,10 @@ const PlayerDetailPage: React.FC = () => {
       
       if (stats.length > 0) {
         console.log(`✅ Successfully loaded ${stats.length} weekly stats for season ${season}`);
-        toast({
-          title: 'Data Loaded',
-          description: `Loaded ${stats.length} weeks of data for ${season}`,
-          variant: 'default'
-        });
+
       } else {
         console.log(`ℹ️ No data found for player ${playerId}, season ${season}`);
-        toast({
-          title: 'No Data Available',
-          description: `No performance data found for ${season} season. This could be because the player wasn't active or the season hasn't started yet.`,
-          variant: 'default'
-        });
+
       }
     } catch (error) {
       console.error(`❌ Error fetching performance stats for season ${season}:`, error);
