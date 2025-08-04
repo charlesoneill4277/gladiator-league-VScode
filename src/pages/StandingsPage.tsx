@@ -7,7 +7,7 @@ import { useApp } from '@/contexts/AppContext';
 import { ArrowUpDown, Trophy, TrendingUp, TrendingDown, Loader2, RefreshCw } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { StandingsService, StandingsData } from '@/services/standingsService';
-import { DatabaseService } from '@/services/databaseService';
+import { DatabaseService, DbPlayoffFormat } from '@/services/databaseService';
 import { ConferenceBadge } from '@/components/ui/conference-badge';
 
 const StandingsPage: React.FC = () => {
@@ -17,7 +17,56 @@ const StandingsPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [playoffFormat, setPlayoffFormat] = useState<DbPlayoffFormat | null>(null);
   const { toast } = useToast();
+
+  // Default playoff format
+  const DEFAULT_PLAYOFF_FORMAT: DbPlayoffFormat = {
+    id: 0,
+    season_id: 0,
+    playoff_teams: 10,
+    week_14_byes: 6,
+    reseed: true,
+    playoff_start_week: 14,
+    championship_week: 17,
+    is_active: true
+  };
+
+  // Fetch playoff format data for the selected season
+  const fetchPlayoffFormat = async (seasonId: number) => {
+    try {
+      console.log(`Fetching playoff format for season ID ${seasonId}...`);
+      
+      // Query the playoff_formats table for the selected season
+      const playoffFormatsResult = await DatabaseService.getPlayoffFormats({
+        filters: [{ column: 'season_id', operator: 'eq', value: seasonId }],
+        limit: 1
+      });
+      
+      if (playoffFormatsResult.error) {
+        console.error('Error fetching playoff format:', playoffFormatsResult.error);
+        return null;
+      }
+      
+      const formats = playoffFormatsResult.data || [];
+      if (formats.length > 0) {
+        console.log('Playoff format found:', formats[0]);
+        setPlayoffFormat(formats[0]);
+        return formats[0];
+      } else {
+        console.log('No playoff format found for season', seasonId);
+        // Use default format but with the correct season ID
+        const defaultFormat = { ...DEFAULT_PLAYOFF_FORMAT, season_id: seasonId };
+        setPlayoffFormat(defaultFormat);
+        return defaultFormat;
+      }
+    } catch (err) {
+      console.error('Error in fetchPlayoffFormat:', err);
+      // Use default format on error
+      setPlayoffFormat(DEFAULT_PLAYOFF_FORMAT);
+      return DEFAULT_PLAYOFF_FORMAT;
+    }
+  };
 
   // Fetch standings data using Supabase services
   const fetchStandingsData = async () => {
@@ -37,6 +86,9 @@ const StandingsPage: React.FC = () => {
       const seasonIdRaw = season.seasonId;
       const seasonId = typeof seasonIdRaw === 'string' ? parseInt(seasonIdRaw) : seasonIdRaw;
       console.log(`Using season ID ${seasonId} for year ${selectedSeason}`);
+      
+      // Fetch playoff format data for this season
+      await fetchPlayoffFormat(seasonId);
 
       // Get conference ID if specific conference is selected
       let conferenceId: number | undefined;
@@ -94,6 +146,9 @@ const StandingsPage: React.FC = () => {
 
       const seasonIdRaw = season.seasonId;
       const seasonId = typeof seasonIdRaw === 'string' ? parseInt(seasonIdRaw) : seasonIdRaw;
+      
+      // Refresh playoff format data
+      await fetchPlayoffFormat(seasonId);
 
       // Get conference ID if specific conference is selected
       let conferenceId: number | undefined;
@@ -307,8 +362,16 @@ const StandingsPage: React.FC = () => {
           <CardHeader className="pb-2">
             <CardDescription>Playoff Teams</CardDescription>
             <CardTitle className="text-2xl">
-              {standingsData.filter((team) => team.playoff_eligible).length}
+              {playoffFormat ? playoffFormat.playoff_teams : 0}
             </CardTitle>
+            <CardDescription className="text-xs mt-1">
+              {standingsData.filter((team) => team.playoff_eligible).length} teams currently eligible
+            </CardDescription>
+            {playoffFormat && playoffFormat.week_14_byes > 0 && (
+              <CardDescription className="text-xs mt-1">
+                With {playoffFormat.week_14_byes} first-round byes
+              </CardDescription>
+            )}
           </CardHeader>
         </Card>
       </div>
