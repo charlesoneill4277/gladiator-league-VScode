@@ -199,7 +199,7 @@ const MatchupCard = React.memo<{
 
       <CardContent className="pt-0 space-y-3">
         {/* Compact Matchup Summary */}
-        <div className="grid grid-cols-5 gap-2 items-center">
+        <div className="grid grid-cols-5 gap-1 items-center">
           {/* Team 1 Info */}
           <div className="text-right">
             <div className="flex items-center justify-end space-x-2">
@@ -211,7 +211,7 @@ const MatchupCard = React.memo<{
                 <AvatarFallback className="text-xs">{team1.name.charAt(0)}</AvatarFallback>
               </Avatar>
               <div className="text-left">
-                <div className="font-medium text-sm">{team1.name}</div>
+                <div className="font-medium text-xs">{team1.name}</div>
                 <div className="text-xs text-muted-foreground">{team1.owner}</div>
               </div>
             </div>
@@ -219,14 +219,14 @@ const MatchupCard = React.memo<{
 
           {/* Team 1 Score */}
           <div className="text-right">
-            <div className={`text-lg font-bold ${winningTeam?.id === team1.id ? 'text-green-600' : ''}`}>
+            <div className={`text-base font-bold ${winningTeam?.id === team1.id ? 'text-green-600' : ''}`}>
               {matchup.status === 'upcoming' ? '--' : team1.points.toFixed(1)}
             </div>
           </div>
 
           {/* VS Divider */}
           <div className="text-center">
-            <div className="text-sm font-medium text-muted-foreground">VS</div>
+            <div className="text-xs font-medium text-muted-foreground">VS</div>
             {matchup.status === 'completed' && winningTeam && (
               <Trophy className="h-4 w-4 mx-auto mt-1 text-yellow-500" />
             )}
@@ -234,7 +234,7 @@ const MatchupCard = React.memo<{
 
           {/* Team 2 Score */}
           <div className="text-left">
-            <div className={`text-lg font-bold ${winningTeam?.id === team2?.id ? 'text-green-600' : ''}`}>
+            <div className={`text-base font-bold ${winningTeam?.id === team2?.id ? 'text-green-600' : ''}`}>
               {matchup.is_bye || !team2 
                 ? 'BYE' 
                 : matchup.status === 'upcoming' ? '--' : team2.points.toFixed(1)}
@@ -244,11 +244,11 @@ const MatchupCard = React.memo<{
           {/* Team 2 Info */}
           <div className="text-left">
             {matchup.is_bye || !team2 ? (
-              <div className="font-medium text-sm">BYE</div>
+              <div className="font-medium text-xs">BYE</div>
             ) : (
               <div className="flex items-center space-x-2">
                 <div className="text-right">
-                  <div className="font-medium text-sm">{team2.name}</div>
+                  <div className="font-medium text-xs">{team2.name}</div>
                   <div className="text-xs text-muted-foreground">{team2.owner}</div>
                 </div>
                 <Avatar className="h-8 w-8">
