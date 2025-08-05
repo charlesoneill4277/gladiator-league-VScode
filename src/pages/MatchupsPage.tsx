@@ -199,27 +199,23 @@ const MatchupCard = React.memo<{
 
       <CardContent className="pt-0 space-y-3">
         {/* Compact Matchup Summary */}
-        <div className="grid grid-cols-5 gap-1 items-center">
-          {/* Team 1 Info */}
-          <div className="text-right">
-            <div className="flex items-center justify-end space-x-1">
+        <div className="space-y-3">
+          {/* Team 1 */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-2 min-w-0 flex-1">
               {isInterconference && team1.conference && (
                 <ConferenceBadge conferenceName={team1.conference.name} size="xs" />
               )}
-              <Avatar className="h-8 w-8">
+              <Avatar className="h-8 w-8 flex-shrink-0">
                 <AvatarImage src={team1.team_logourl ? `https://sleepercdn.com/avatars/thumbs/${team1.team_logourl}` : team1.avatar} />
                 <AvatarFallback className="text-xs">{team1.name.charAt(0)}</AvatarFallback>
               </Avatar>
-              <div className="text-left">
-                <div className="font-medium text-xs">{team1.name}</div>
-                <div className="text-xs text-muted-foreground">{team1.owner}</div>
+              <div className="min-w-0 flex-1">
+                <div className="font-medium text-xs truncate">{team1.name}</div>
+                <div className="text-xs text-muted-foreground truncate">{team1.owner}</div>
               </div>
             </div>
-          </div>
-
-          {/* Team 1 Score */}
-          <div className="text-right">
-            <div className={`text-sm font-bold ${winningTeam?.id === team1.id ? 'text-green-600' : ''}`}>
+            <div className={`text-sm font-bold flex-shrink-0 ml-2 ${winningTeam?.id === team1.id ? 'text-green-600' : ''}`}>
               {matchup.status === 'upcoming' ? '--' : team1.points.toFixed(1)}
             </div>
           </div>
@@ -229,34 +225,32 @@ const MatchupCard = React.memo<{
             <div className="text-xs font-medium text-muted-foreground">VS</div>
           </div>
 
-          {/* Team 2 Score */}
-          <div className="text-left">
-            <div className={`text-sm font-bold ${winningTeam?.id === team2?.id ? 'text-green-600' : ''}`}>
+          {/* Team 2 */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-2 min-w-0 flex-1">
+              {matchup.is_bye || !team2 ? (
+                <div className="font-medium text-xs">BYE</div>
+              ) : (
+                <>
+                  {isInterconference && team2.conference && (
+                    <ConferenceBadge conferenceName={team2.conference.name} size="xs" />
+                  )}
+                  <Avatar className="h-8 w-8 flex-shrink-0">
+                    <AvatarImage src={team2.team_logourl ? `https://sleepercdn.com/avatars/thumbs/${team2.team_logourl}` : team2.avatar} />
+                    <AvatarFallback className="text-xs">{team2.name.charAt(0)}</AvatarFallback>
+                  </Avatar>
+                  <div className="min-w-0 flex-1">
+                    <div className="font-medium text-xs truncate">{team2.name}</div>
+                    <div className="text-xs text-muted-foreground truncate">{team2.owner}</div>
+                  </div>
+                </>
+              )}
+            </div>
+            <div className={`text-sm font-bold flex-shrink-0 ml-2 ${winningTeam?.id === team2?.id ? 'text-green-600' : ''}`}>
               {matchup.is_bye || !team2
                 ? 'BYE'
                 : matchup.status === 'upcoming' ? '--' : team2.points.toFixed(1)}
             </div>
-          </div>
-
-          {/* Team 2 Info */}
-          <div className="text-left">
-            {matchup.is_bye || !team2 ? (
-              <div className="font-medium text-xs">BYE</div>
-            ) : (
-              <div className="flex items-center space-x-1">
-                <div className="text-right">
-                  <div className="font-medium text-xs">{team2.name}</div>
-                  <div className="text-xs text-muted-foreground">{team2.owner}</div>
-                </div>
-                <Avatar className="h-8 w-8">
-                  <AvatarImage src={team2.team_logourl ? `https://sleepercdn.com/avatars/thumbs/${team2.team_logourl}` : team2.avatar} />
-                  <AvatarFallback className="text-xs">{team2.name.charAt(0)}</AvatarFallback>
-                </Avatar>
-                {isInterconference && team2.conference && (
-                  <ConferenceBadge conferenceName={team2.conference.name} size="xs" />
-                )}
-              </div>
-            )}
           </div>
         </div>
 
