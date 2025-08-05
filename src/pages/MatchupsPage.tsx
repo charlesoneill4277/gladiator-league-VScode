@@ -109,6 +109,14 @@ const MatchupCard = React.memo<{
     };
   };
 
+  const formatPlayerNameForMobile = (name: string) => {
+    const parts = name.split(' ');
+    if (parts.length >= 2) {
+      return `${parts[0].charAt(0)}. ${parts.slice(1).join(' ')}`;
+    }
+    return name;
+  };
+
   const renderTeamRoster = (teamId: string, teamName: string) => {
     if (!detailedData) return <div className="text-sm text-muted-foreground">Loading roster...</div>;
 
@@ -269,27 +277,194 @@ const MatchupCard = React.memo<{
                     <p className="text-sm text-muted-foreground">Loading roster details...</p>
                   </div>
                 ) : (
-                  <div className="grid md:grid-cols-2 gap-6">
-                    {/* Team 1 Roster */}
-                    <div>
-                      <h4 className="font-semibold text-sm mb-3 flex items-center">
-                        <Users className="h-4 w-4 mr-2" />
-                        {team1.name} Lineup
-                      </h4>
-                      {renderTeamRoster(team1.id.toString(), team1.name)}
+                  <>
+                    {/* Desktop Layout */}
+                    <div className="hidden md:block">
+                      <div className="grid md:grid-cols-2 gap-6">
+                        {/* Team 1 Roster */}
+                        <div>
+                          <h4 className="font-semibold text-sm mb-3 flex items-center">
+                            <Users className="h-4 w-4 mr-2" />
+                            {team1.name} Lineup
+                          </h4>
+                          {renderTeamRoster(team1.id.toString(), team1.name)}
+                        </div>
+
+                        {/* Team 2 Roster */}
+                        {team2 && (
+                          <div>
+                            <h4 className="font-semibold text-sm mb-3 flex items-center">
+                              <Users className="h-4 w-4 mr-2" />
+                              {team2.name} Lineup
+                            </h4>
+                            {renderTeamRoster(team2.id.toString(), team2.name)}
+                          </div>
+                        )}
+                      </div>
                     </div>
 
-                    {/* Team 2 Roster */}
-                    {team2 && (
-                      <div>
-                        <h4 className="font-semibold text-sm mb-3 flex items-center">
-                          <Users className="h-4 w-4 mr-2" />
-                          {team2.name} Lineup
-                        </h4>
-                        {renderTeamRoster(team2.id.toString(), team2.name)}
-                      </div>
-                    )}
-                  </div>
+                    {/* Mobile Layout */}
+                    <div className="block md:hidden">
+                      {detailedData && (() => {
+                        const starters1 = detailedData.starters[team1.id.toString()] || [];
+                        const starters2 = team2 ? (detailedData.starters[team2.id.toString()] || []) : [];
+                        const benchPlayers1 = detailedData.bench_players[team1.id.toString()] || [];
+                        const benchPlayers2 = team2 ? (detailedData.bench_players[team2.id.toString()] || []) : [];
+                        const maxStarters = Math.max(starters1.length, starters2.length);
+                        
+                        return (
+                          <div className="space-y-4">
+                            {/* Team Headers */}
+                            <div className="grid grid-cols-3 gap-2 mb-2">
+                              <div className="text-right">
+                                <h4 className="font-semibold text-xs flex items-center justify-end">
+                                  <Users className="h-3 w-3 mr-1" />
+                                  <span className="truncate">{team1.name} Lineup</span>
+                                </h4>
+                              </div>
+                              <div></div>
+                              <div className="text-left">
+                                <h4 className="font-semibold text-xs flex items-center">
+                                  <span className="truncate">{team2 ? team2.name : 'BYE'} Lineup</span>
+                                  {team2 && <Users className="h-3 w-3 ml-1" />}
+                                </h4>
+                              </div>
+                            </div>
+
+                            {/* Starters Section */}
+                            <div>
+                              <h5 className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-3 text-center">Starters</h5>
+                              <div className="space-y-2">
+                                {Array.from({ length: maxStarters }, (_, index) => {
+                                  const position = ['QB', 'RB', 'RB', 'WR', 'WR', 'WR', 'TE', 'FLEX', 'SUPER_FLEX'][index] || 'FLEX';
+                                  const player1Id = starters1[index];
+                                  const player2Id = starters2[index];
+                                  const player1Info = player1Id ? getPlayerInfo(player1Id) : null;
+                                  const player2Info = player2Id ? getPlayerInfo(player2Id) : null;
+                                  const points1 = player1Id ? (detailedData.players_points[team1.id.toString()]?.[player1Id] || 0) : 0;
+                                  const points2 = player2Id && team2 ? (detailedData.players_points[team2.id.toString()]?.[player2Id] || 0) : 0;
+
+                                  return (
+                                    <div key={index} className="bg-gray-50 rounded p-2">
+                                      <div className="grid grid-cols-3 gap-2 items-center">
+                                        {/* Team 1 Player */}
+                                        <div className="text-right">
+                                          {player1Info ? (
+                                            <div>
+                                              <div className="font-medium text-xs truncate">{formatPlayerNameForMobile(player1Info.name)}</div>
+                                              <div className="text-muted-foreground text-xs">{player1Info.position} - {player1Info.team}</div>
+                                            </div>
+                                          ) : (
+                                            <div className="text-muted-foreground text-xs">-</div>
+                                          )}
+                                        </div>
+
+                                        {/* Position Badge */}
+                                        <div className="text-center">
+                                          <Badge className={`text-xs px-1 py-0 ${getPositionColor(position)}`}>
+                                            {formatPosition(position)}
+                                          </Badge>
+                                        </div>
+
+                                        {/* Team 2 Player */}
+                                        <div className="text-left">
+                                          {player2Info && team2 ? (
+                                            <div>
+                                              <div className="font-medium text-xs truncate">{formatPlayerNameForMobile(player2Info.name)}</div>
+                                              <div className="text-muted-foreground text-xs">{player2Info.position} - {player2Info.team}</div>
+                                            </div>
+                                          ) : (
+                                            <div className="text-muted-foreground text-xs">-</div>
+                                          )}
+                                        </div>
+                                      </div>
+
+                                      {/* Scores Row */}
+                                      <div className="grid grid-cols-3 gap-2 items-center mt-1">
+                                        <div className="text-right">
+                                          <span className="font-bold text-xs">{player1Info ? points1.toFixed(1) : '-'}</span>
+                                        </div>
+                                        <div></div>
+                                        <div className="text-left">
+                                          <span className="font-bold text-xs">{player2Info && team2 ? points2.toFixed(1) : '-'}</span>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            </div>
+
+                            {/* Bench Section */}
+                            {(benchPlayers1.length > 0 || benchPlayers2.length > 0) && (
+                              <div>
+                                <h5 className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-3 text-center">Bench</h5>
+                                <div className="space-y-2">
+                                  {(() => {
+                                    const maxBench = Math.max(benchPlayers1.length, benchPlayers2.length);
+                                    return Array.from({ length: maxBench }, (_, index) => {
+                                      const player1Id = benchPlayers1[index];
+                                      const player2Id = benchPlayers2[index];
+                                      const player1Info = player1Id ? getPlayerInfo(player1Id) : null;
+                                      const player2Info = player2Id ? getPlayerInfo(player2Id) : null;
+                                      const points1 = player1Id ? (detailedData.players_points[team1.id.toString()]?.[player1Id] || 0) : 0;
+                                      const points2 = player2Id && team2 ? (detailedData.players_points[team2.id.toString()]?.[player2Id] || 0) : 0;
+
+                                      return (
+                                        <div key={index} className="bg-gray-25 rounded p-2">
+                                          <div className="grid grid-cols-3 gap-2 items-center">
+                                            {/* Team 1 Bench Player */}
+                                            <div className="text-right">
+                                              {player1Info ? (
+                                                <div>
+                                                  <div className="font-medium text-xs truncate">{formatPlayerNameForMobile(player1Info.name)}</div>
+                                                  <div className="text-muted-foreground text-xs">{player1Info.position} - {player1Info.team}</div>
+                                                </div>
+                                              ) : (
+                                                <div className="text-muted-foreground text-xs">-</div>
+                                              )}
+                                            </div>
+
+                                            {/* Empty Center Column (no position badge for bench) */}
+                                            <div className="text-center">
+                                              <div className="text-xs text-muted-foreground">BENCH</div>
+                                            </div>
+
+                                            {/* Team 2 Bench Player */}
+                                            <div className="text-left">
+                                              {player2Info && team2 ? (
+                                                <div>
+                                                  <div className="font-medium text-xs truncate">{formatPlayerNameForMobile(player2Info.name)}</div>
+                                                  <div className="text-muted-foreground text-xs">{player2Info.position} - {player2Info.team}</div>
+                                                </div>
+                                              ) : (
+                                                <div className="text-muted-foreground text-xs">-</div>
+                                              )}
+                                            </div>
+                                          </div>
+
+                                          {/* Scores Row */}
+                                          <div className="grid grid-cols-3 gap-2 items-center mt-1">
+                                            <div className="text-right">
+                                              <span className="text-muted-foreground text-xs">{player1Info ? points1.toFixed(1) : '-'}</span>
+                                            </div>
+                                            <div></div>
+                                            <div className="text-left">
+                                              <span className="text-muted-foreground text-xs">{player2Info && team2 ? points2.toFixed(1) : '-'}</span>
+                                            </div>
+                                          </div>
+                                        </div>
+                                      );
+                                    });
+                                  })()}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })()}
+                    </div>
+                  </>
                 )}
 
                 {/* Click to close hint */}
