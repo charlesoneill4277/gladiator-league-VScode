@@ -219,7 +219,7 @@ const MatchupCard = React.memo<{
 
           {/* Team 1 Score */}
           <div className="text-right">
-            <div className={`text-base font-bold ${winningTeam?.id === team1.id ? 'text-green-600' : ''}`}>
+            <div className={`text-sm font-bold ${winningTeam?.id === team1.id ? 'text-green-600' : ''}`}>
               {matchup.status === 'upcoming' ? '--' : team1.points.toFixed(1)}
             </div>
           </div>
@@ -234,7 +234,7 @@ const MatchupCard = React.memo<{
 
           {/* Team 2 Score */}
           <div className="text-left">
-            <div className={`text-base font-bold ${winningTeam?.id === team2?.id ? 'text-green-600' : ''}`}>
+            <div className={`text-sm font-bold ${winningTeam?.id === team2?.id ? 'text-green-600' : ''}`}>
               {matchup.is_bye || !team2 
                 ? 'BYE' 
                 : matchup.status === 'upcoming' ? '--' : team2.points.toFixed(1)}
