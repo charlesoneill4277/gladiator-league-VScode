@@ -67,7 +67,7 @@ const MatchupCard = React.memo<{
   onViewDetails: (matchupId: number) => void;
 }>(({ matchup, isExpanded, onToggleExpand, detailedData, allPlayers, loading, onViewDetails }) => {
   const [team1, team2] = matchup.teams;
-  const winningTeam = matchup.status === 'completed' 
+  const winningTeam = matchup.status === 'completed'
     ? (team1.points > (team2?.points || 0) ? team1 : team2)
     : null;
 
@@ -183,8 +183,8 @@ const MatchupCard = React.memo<{
               </CardTitle>
             )}
             {isInterconference ? (
-              <Badge 
-                variant="outline" 
+              <Badge
+                variant="outline"
                 className="text-xs bg-orange-100 text-orange-800 border-orange-300"
               >
                 Interconference
@@ -202,9 +202,9 @@ const MatchupCard = React.memo<{
         <div className="grid grid-cols-5 gap-1 items-center">
           {/* Team 1 Info */}
           <div className="text-right">
-            <div className="flex items-center justify-end space-x-2">
+            <div className="flex items-center justify-end space-x-1">
               {isInterconference && team1.conference && (
-                <ConferenceBadge conferenceName={team1.conference.name} size="sm" />
+                <ConferenceBadge conferenceName={team1.conference.name} size="xs" />
               )}
               <Avatar className="h-8 w-8">
                 <AvatarImage src={team1.team_logourl ? `https://sleepercdn.com/avatars/thumbs/${team1.team_logourl}` : team1.avatar} />
@@ -227,16 +227,13 @@ const MatchupCard = React.memo<{
           {/* VS Divider */}
           <div className="text-center">
             <div className="text-xs font-medium text-muted-foreground">VS</div>
-            {matchup.status === 'completed' && winningTeam && (
-              <Trophy className="h-4 w-4 mx-auto mt-1 text-yellow-500" />
-            )}
           </div>
 
           {/* Team 2 Score */}
           <div className="text-left">
             <div className={`text-sm font-bold ${winningTeam?.id === team2?.id ? 'text-green-600' : ''}`}>
-              {matchup.is_bye || !team2 
-                ? 'BYE' 
+              {matchup.is_bye || !team2
+                ? 'BYE'
                 : matchup.status === 'upcoming' ? '--' : team2.points.toFixed(1)}
             </div>
           </div>
@@ -246,7 +243,7 @@ const MatchupCard = React.memo<{
             {matchup.is_bye || !team2 ? (
               <div className="font-medium text-xs">BYE</div>
             ) : (
-              <div className="flex items-center space-x-2">
+              <div className="flex items-center space-x-1">
                 <div className="text-right">
                   <div className="font-medium text-xs">{team2.name}</div>
                   <div className="text-xs text-muted-foreground">{team2.owner}</div>
@@ -256,7 +253,7 @@ const MatchupCard = React.memo<{
                   <AvatarFallback className="text-xs">{team2.name.charAt(0)}</AvatarFallback>
                 </Avatar>
                 {isInterconference && team2.conference && (
-                  <ConferenceBadge conferenceName={team2.conference.name} size="sm" />
+                  <ConferenceBadge conferenceName={team2.conference.name} size="xs" />
                 )}
               </div>
             )}
@@ -267,7 +264,7 @@ const MatchupCard = React.memo<{
         {!matchup.is_bye && (
           <Collapsible open={isExpanded}>
             <CollapsibleContent className="space-y-4">
-              <div 
+              <div
                 className="border-t pt-4 cursor-pointer hover:bg-gray-50 transition-colors rounded-md p-2 -m-2"
                 onClick={() => onToggleExpand(matchup.id)}
                 title="Click to close Quick View"
@@ -300,7 +297,7 @@ const MatchupCard = React.memo<{
                     )}
                   </div>
                 )}
-                
+
                 {/* Click to close hint */}
                 <div className="text-center mt-4 pt-2 border-t border-gray-200">
                   <p className="text-xs text-muted-foreground">Click anywhere to close Quick View</p>
@@ -328,7 +325,7 @@ const MatchupCard = React.memo<{
                   )}
                 </Button>
               </CollapsibleTrigger>
-              
+
               <Button
                 variant="default"
                 className="flex-1"
@@ -350,7 +347,7 @@ const MatchupsPage: React.FC = () => {
   const navigate = useNavigate();
   const renderCountRef = useRef(0);
   renderCountRef.current += 1;
-  
+
   if (renderCountRef.current % 10 === 0) {
     console.warn(`🚨 MatchupsPage render count: ${renderCountRef.current}`);
   }
@@ -368,15 +365,15 @@ const MatchupsPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [apiErrors, setApiErrors] = useState<string[]>([]);
-  
+
   // Ref to track if we're currently fetching to prevent duplicate calls
   const isFetchingRef = useRef(false);
-  
+
   // Ref to track matchup details to avoid dependency issues
   const matchupDetailsRef = useRef<Map<number, DetailedMatchupData>>(new Map());
 
   // Memoized season configuration
-  const seasonConfig = useMemo(() => 
+  const seasonConfig = useMemo(() =>
     seasonConfigs.find(s => s.year === selectedSeason),
     [seasonConfigs, selectedSeason]
   );
@@ -386,10 +383,10 @@ const MatchupsPage: React.FC = () => {
     try {
       console.log('🔄 Loading player data...');
       const startTime = performance.now();
-      
+
       // Use the cached player loading from MatchupCache
       const players = await MatchupCache.getPlayers();
-      
+
       console.log(`✅ Player data loaded in ${(performance.now() - startTime).toFixed(2)}ms`);
       setAllPlayers(players);
     } catch (error) {
@@ -415,8 +412,8 @@ const MatchupsPage: React.FC = () => {
       const startTime = performance.now();
 
       // Determine season ID and conference ID
-      const seasonId = typeof seasonConfig.seasonId === 'string' 
-        ? parseInt(seasonConfig.seasonId) 
+      const seasonId = typeof seasonConfig.seasonId === 'string'
+        ? parseInt(seasonConfig.seasonId)
         : (seasonConfig.seasonId || selectedSeason);
 
       let conferenceId: number | undefined;
@@ -472,8 +469,8 @@ const MatchupsPage: React.FC = () => {
       console.log(`🔍 Loading details for matchup ${matchupId}...`);
       const startTime = performance.now();
 
-      const seasonId = typeof seasonConfig.seasonId === 'string' 
-        ? parseInt(seasonConfig.seasonId) 
+      const seasonId = typeof seasonConfig.seasonId === 'string'
+        ? parseInt(seasonConfig.seasonId)
         : (seasonConfig.seasonId || selectedSeason);
 
       const details = await SupabaseMatchupService.getMatchupDetails(
@@ -520,7 +517,7 @@ const MatchupsPage: React.FC = () => {
   // Toggle matchup expansion with lazy loading
   const toggleMatchupExpansion = useCallback((matchupId: number) => {
     const isCurrentlyExpanded = expandedMatchups.has(matchupId);
-    
+
     if (isCurrentlyExpanded) {
       // Collapsing
       setExpandedMatchups(prev => {
@@ -535,7 +532,7 @@ const MatchupsPage: React.FC = () => {
         newExpanded.add(matchupId);
         return newExpanded;
       });
-      
+
       // Load details if not already loaded (using ref to avoid dependency)
       if (!matchupDetailsRef.current.has(matchupId)) {
         loadMatchupDetails(matchupId);
@@ -560,7 +557,7 @@ const MatchupsPage: React.FC = () => {
   }, [selectedWeek, selectedConference, selectedSeason, seasonConfig, fetchMatchups]);
 
   // Memoized sorted matchups for better performance
-  const sortedMatchups = useMemo(() => 
+  const sortedMatchups = useMemo(() =>
     [...matchups].sort((a, b) => a.conference.name.localeCompare(b.conference.name)),
     [matchups]
   );
