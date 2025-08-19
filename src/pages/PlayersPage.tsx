@@ -111,17 +111,35 @@ const PlayersPage: React.FC = () => {
     try {
       // Get current NFL state to determine week and season
       const nflState = await SleeperApiService.getNFLState();
-      const currentWeek = nflState.week === 0 ? 1 : nflState.week; // Use week 1 if current week is 0
+      const currentWeek = await SleeperApiService.getCurrentNFLWeek(); // Use centralized week logic
       const currentSeason = nflState.season;
+      const seasonType = nflState.season_type;
 
-      console.log(`Fetching ownership data for season ${currentSeason}, week ${currentWeek}`);
+      console.log(`Fetching ownership data for ${seasonType} season ${currentSeason}, week ${currentWeek}`);
       
-      const research = await SleeperApiService.fetchPlayerResearch('regular', currentSeason, currentWeek);
+      // For ownership data, use current season and week logic handled by getCurrentNFLWeek()
+      // But if we're in preseason, fall back to previous season's data since current season data won't exist
+      const apiSeasonType = seasonType === 'pre' ? 'regular' : (seasonType as 'regular' | 'post');
+      const apiSeason = seasonType === 'pre' ? nflState.previous_season : currentSeason;
+      const apiWeek = currentWeek; // Use the week from centralized logic
+      
+      console.log(`Adjusted API call: ${apiSeasonType} season ${apiSeason}, week ${apiWeek}`);
+      
+      const research = await SleeperApiService.fetchPlayerResearch(apiSeasonType, apiSeason, apiWeek);
+      
+      // Debug logging to see the actual structure
+      console.log('Ownership data received:', research);
+      console.log('Number of players in ownership data:', research ? Object.keys(research).length : 0);
+      if (research && Object.keys(research).length > 0) {
+        const sampleKey = Object.keys(research)[0];
+        console.log('Sample player data:', sampleKey, research[sampleKey]);
+      }
+      
       setOwnershipData(research);
-      
 
     } catch (error) {
       console.error('Error fetching ownership data:', error);
+      setOwnershipData({});
       toast({
         title: 'Error Loading Ownership Data',
         description: 'Could not load player ownership percentages',
@@ -321,7 +339,13 @@ const PlayersPage: React.FC = () => {
     if (!ownershipData || !ownershipData[sleeperId]) {
       return '-';
     }
-    const owned = ownershipData[sleeperId].owned;
+    const playerData = ownershipData[sleeperId];
+    const owned = playerData.owned;
+    
+    if (owned === undefined || owned === null) {
+      return '-';
+    }
+    
     return `${owned.toFixed(1)}%`;
   };
 

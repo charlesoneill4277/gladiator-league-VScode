@@ -619,8 +619,21 @@ export class SleeperApiService {
       }
       const data: SleeperNFLState = await response.json();
       console.log('NFL State from Sleeper:', data);
-      console.log(`Current NFL week: ${data.week}`);
-      return data.week || 1;
+      
+      // Apply user's logic: if preseason, use week 1; if regular season, use actual week
+      let currentWeek: number;
+      if (data.season_type === 'pre') {
+        // Preseason: always use week 1 for the current season
+        currentWeek = 1;
+        console.log(`Preseason detected - using week 1 for current season ${data.season}`);
+      } else {
+        // Regular season: use actual week, with fallbacks
+        currentWeek = data.week || data.display_week || 1;
+        console.log(`Regular season detected - using week ${currentWeek}`);
+      }
+      
+      console.log(`Final current NFL week: ${currentWeek}`);
+      return currentWeek;
     } catch (error) {
       console.error('Error fetching current NFL week:', error);
       console.warn('Falling back to default week 1');

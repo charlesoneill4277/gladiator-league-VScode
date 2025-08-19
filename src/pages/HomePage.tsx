@@ -75,8 +75,7 @@ const HomePage: React.FC = () => {
     const loadCurrentWeek = async () => {
       try {
         const week = await SleeperApiService.getCurrentNFLWeek();
-        // If week is 0, default to week 1
-        setCurrentWeek(week === 0 ? 1 : week);
+        setCurrentWeek(week); // getCurrentNFLWeek now handles all edge cases including preseason
       } catch (error) {
         console.error('Error loading current week:', error);
         // Keep default week 1 if API fails
