@@ -168,7 +168,7 @@ const PlayersPage: React.FC = () => {
 
   // Auto-sort by ownership percentage when ownership data is loaded and cache is created
   useEffect(() => {
-    if (Object.keys(ownershipData).length > 0 && cachedPlayers.length > 0 && sortField === '') {
+    if (ownershipData && Object.keys(ownershipData).length > 0 && cachedPlayers.length > 0 && sortField === '') {
       console.log('Auto-setting sort to ownership');
       setSortField('ownership');
       setSortDirection('desc');
@@ -177,7 +177,7 @@ const PlayersPage: React.FC = () => {
 
   // Force re-render when ownership data loads and we're sorting by ownership
   useEffect(() => {
-    if (Object.keys(ownershipData).length > 0 && sortField === 'ownership') {
+    if (ownershipData && Object.keys(ownershipData).length > 0 && sortField === 'ownership') {
       console.log('Ownership data loaded, re-triggering sort');
       setSortTrigger(prev => prev + 1);
     }
@@ -229,7 +229,7 @@ const PlayersPage: React.FC = () => {
         
         if (sortField === 'ownership') {
           // Sort by ownership - only if ownership data is available
-          if (Object.keys(ownershipData).length > 0) {
+          if (ownershipData && Object.keys(ownershipData).length > 0) {
             sortedData.sort((a, b) => {
               const aOwnership = ownershipData[a.sleeper_id]?.owned || 0;
               const bOwnership = ownershipData[b.sleeper_id]?.owned || 0;
@@ -318,7 +318,7 @@ const PlayersPage: React.FC = () => {
   };
 
   const getOwnershipPercentage = (sleeperId: string): string => {
-    if (!ownershipData[sleeperId]) {
+    if (!ownershipData || !ownershipData[sleeperId]) {
       return '-';
     }
     const owned = ownershipData[sleeperId].owned;
