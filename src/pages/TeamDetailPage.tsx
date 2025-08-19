@@ -188,27 +188,39 @@ const TeamDetailPage: React.FC = () => {
         throw new Error('Team conference mapping not found');
       }
 
-      // For now, use the first junction for display purposes (current season)
-      // But we'll use all junctions for transaction fetching
-      const junction = junctionResult.data[0];
-      const rosterId = junction.roster_id;
-      console.log('Junction data:', junction, 'Roster ID:', rosterId);
-      console.log('All junctions for this team:', junctionResult.data);
+      // Get all conference IDs for this team
+      const teamConferenceIds = junctionResult.data.map(junction => junction.conference_id);
+      console.log('Team participates in conferences:', teamConferenceIds);
 
-      // Get conference data for display (use first conference)
-      const conferencesResult = await DatabaseService.getConferences({
-        filters: [{ column: 'id', operator: 'eq', value: junction.conference_id }]
+      // Get the current "in_season" conference for roster data
+      const currentConferencesResult = await DatabaseService.getConferences({
+        filters: [
+          { column: 'id', operator: 'in', value: teamConferenceIds },
+          { column: 'status', operator: 'eq', value: 'in_season' }
+        ]
       });
 
-      if (conferencesResult.error || !conferencesResult.data || conferencesResult.data.length === 0) {
-        throw new Error('Conference not found');
+      if (currentConferencesResult.error || !currentConferencesResult.data || currentConferencesResult.data.length === 0) {
+        throw new Error('No current season conference found for this team');
       }
 
-      const conferenceData = conferencesResult.data[0] as ConferenceData;
-      console.log('Conference data:', conferenceData);
+      const conferenceData = currentConferencesResult.data[0] as ConferenceData;
+      console.log('Using current season conference data:', conferenceData);
 
-      // Fetch roster data from Sleeper API
-      console.log(`Fetching Sleeper data for league ${conferenceData.league_id}, roster ${rosterId}`);
+      // Find the junction data for the current season conference to get roster_id
+      const currentJunction = junctionResult.data.find(junction => 
+        junction.conference_id === conferenceData.id
+      );
+
+      if (!currentJunction) {
+        throw new Error('Junction data not found for current season conference');
+      }
+
+      const rosterId = currentJunction.roster_id;
+      console.log('Current season junction data:', currentJunction, 'Roster ID:', rosterId);
+
+      // Fetch roster data from Sleeper API using current season league_id
+      console.log(`Fetching Sleeper data for current season league ${conferenceData.league_id}, roster ${rosterId}`);
       const sleeperData = await SleeperApiService.getTeamRosterData(
         conferenceData.league_id,
         rosterId
