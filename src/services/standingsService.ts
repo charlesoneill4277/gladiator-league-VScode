@@ -1,5 +1,5 @@
 import { DatabaseService } from '@/services/databaseService';
-import { DbTeamRecord, DbTeam, DbConference } from '@/types/database';
+import { DbTeamRecord, DbTeam, DbConference, DbPlayoffFormat } from '@/types/database';
 
 export interface StandingsData {
   team_id: number;
@@ -25,7 +25,11 @@ export class StandingsService {
   /**
    * Get standings data for a specific season and optionally conference
    */
-  static async getStandingsData(seasonId: string | number, conferenceId?: string | number): Promise<StandingsData[]> {
+  static async getStandingsData(
+    seasonId: string | number, 
+    conferenceId?: string | number,
+    playoffFormat?: DbPlayoffFormat | null
+  ): Promise<StandingsData[]> {
     try {
       console.log(`StandingsService: Fetching standings for season ${seasonId}, conference ${conferenceId || 'all'}`);
 
@@ -129,7 +133,7 @@ export class StandingsService {
         team.overall_rank = index + 1;
       });
 
-      // Calculate conference ranks and playoff eligibility
+      // Calculate conference ranks and identify conference champions
       const conferenceGroups = new Map<string, StandingsData[]>();
       standingsData.forEach(team => {
         if (!conferenceGroups.has(team.conference_name)) {
@@ -138,7 +142,7 @@ export class StandingsService {
         conferenceGroups.get(team.conference_name)!.push(team);
       });
 
-      // Rank within conferences and determine playoff eligibility
+      // Rank within conferences and identify conference champions
       conferenceGroups.forEach((teams, conferenceName) => {
         teams.sort((a, b) => {
           if (b.win_percentage !== a.win_percentage) {
@@ -149,13 +153,34 @@ export class StandingsService {
 
         teams.forEach((team, index) => {
           team.conference_rank = index + 1;
-          
-          // Top 2 teams per conference make playoffs (adjust as needed)
-          team.playoff_eligible = index < 2;
-          
           // Conference champion is #1 in conference
           team.is_conference_champion = index === 0;
         });
+      });
+
+      // Calculate playoff eligibility with new seeding logic
+      // Seeds 1-3: Conference Champions (guaranteed spots)
+      // Seeds 4+: Next best teams by overall standings (including Conference Championship losers)
+      const conferenceChampions = standingsData.filter(team => team.is_conference_champion);
+      const nonChampions = standingsData.filter(team => !team.is_conference_champion);
+      
+      // All conference champions make playoffs
+      conferenceChampions.forEach(team => {
+        team.playoff_eligible = true;
+      });
+      
+      // Determine how many additional playoff spots are available
+      const totalPlayoffTeams = playoffFormat?.playoff_teams || 10; // Use playoff format or default to 10
+      const remainingPlayoffSpots = totalPlayoffTeams - conferenceChampions.length;
+      
+      // Award remaining playoff spots to top non-champions by overall rank
+      nonChampions.slice(0, remainingPlayoffSpots).forEach(team => {
+        team.playoff_eligible = true;
+      });
+      
+      // Mark remaining teams as not playoff eligible
+      nonChampions.slice(remainingPlayoffSpots).forEach(team => {
+        team.playoff_eligible = false;
       });
 
       console.log(`StandingsService: Returning ${standingsData.length} standings records`);
@@ -170,15 +195,22 @@ export class StandingsService {
   /**
    * Get standings for a specific conference only
    */
-  static async getConferenceStandings(seasonId: string | number, conferenceId: string | number): Promise<StandingsData[]> {
-    return this.getStandingsData(seasonId, conferenceId);
+  static async getConferenceStandings(
+    seasonId: string | number, 
+    conferenceId: string | number,
+    playoffFormat?: DbPlayoffFormat | null
+  ): Promise<StandingsData[]> {
+    return this.getStandingsData(seasonId, conferenceId, playoffFormat);
   }
 
   /**
    * Get overall league standings (all conferences)
    */
-  static async getLeagueStandings(seasonId: string | number): Promise<StandingsData[]> {
-    return this.getStandingsData(seasonId);
+  static async getLeagueStandings(
+    seasonId: string | number,
+    playoffFormat?: DbPlayoffFormat | null
+  ): Promise<StandingsData[]> {
+    return this.getStandingsData(seasonId, undefined, playoffFormat);
   }
 
   /**

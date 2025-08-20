@@ -121,7 +121,7 @@ const StandingsPage: React.FC = () => {
       }
 
       // Use the team records service to get standings data (now using Supabase)
-      const standings = await StandingsService.getStandingsData(seasonId, conferenceId);
+      const standings = await StandingsService.getStandingsData(seasonId, conferenceId, playoffFormat);
 
       console.log('Standings data from service:', standings);
       setStandingsData(standings);
@@ -292,37 +292,21 @@ const StandingsPage: React.FC = () => {
   // Get record badge styling based on playoff seeding
   // Playoff Format:
   // - Week 13: Conference Championship (top 2 teams per conference)
-  // - Week 14+: Playoffs with seeding based on conference champions + overall ranking
+  // - Seeds 1-3: Conference Champions (guaranteed playoff spots)
+  // - Seeds 4+: Next best teams by overall standings, regardless of conference
   const getRecordBadgeVariant = (team: StandingsData, teamIndex: number) => {
     if (!playoffFormat) return 'outline';
 
-    // Group teams by conference for seeding logic
-    const conferenceGroups = new Map<string, StandingsData[]>();
-    sortedStandings.forEach(t => {
-      if (!conferenceGroups.has(t.conference_name)) {
-        conferenceGroups.set(t.conference_name, []);
-      }
-      conferenceGroups.get(t.conference_name)!.push(t);
-    });
-
-    // Sort each conference by rank
-    conferenceGroups.forEach(teams => {
-      teams.sort((a, b) => a.overall_rank - b.overall_rank);
-    });
-
-    // Check if team is top 2 in their conference (Conference Championship bound)
-    const conferenceTeams = conferenceGroups.get(team.conference_name) || [];
-    const conferenceRank = conferenceTeams.findIndex(t => t.team_id === team.team_id) + 1;
-    
-    if (conferenceRank <= 2) {
-      // Gold styling for Conference Championship teams (Week 13)
+    // Check if team is a conference champion (guaranteed playoff spot)
+    if (team.is_conference_champion) {
+      // Gold styling for Conference Champions (guaranteed seeds 1-3)
       return 'default';
     }
 
     // Check if team makes playoffs based on overall seeding
     const totalPlayoffTeams = playoffFormat.playoff_teams;
     if (teamIndex < totalPlayoffTeams) {
-      // Green styling for playoff teams (Week 14+)
+      // Green styling for playoff teams (seeds 4+)
       return 'secondary';
     }
 
@@ -334,33 +318,16 @@ const StandingsPage: React.FC = () => {
   const getRecordBadgeClasses = (team: StandingsData, teamIndex: number) => {
     if (!playoffFormat) return '';
 
-    // Group teams by conference for seeding logic
-    const conferenceGroups = new Map<string, StandingsData[]>();
-    sortedStandings.forEach(t => {
-      if (!conferenceGroups.has(t.conference_name)) {
-        conferenceGroups.set(t.conference_name, []);
-      }
-      conferenceGroups.get(t.conference_name)!.push(t);
-    });
-
-    // Sort each conference by rank
-    conferenceGroups.forEach(teams => {
-      teams.sort((a, b) => a.overall_rank - b.overall_rank);
-    });
-
-    // Check if team is top 2 in their conference (Conference Championship bound)
-    const conferenceTeams = conferenceGroups.get(team.conference_name) || [];
-    const conferenceRank = conferenceTeams.findIndex(t => t.team_id === team.team_id) + 1;
-    
-    if (conferenceRank <= 2) {
-      // Gold styling for Conference Championship teams (Week 13)
+    // Check if team is a conference champion (guaranteed playoff spot)
+    if (team.is_conference_champion) {
+      // Gold styling for Conference Champions (guaranteed seeds 1-3)
       return 'bg-yellow-500 text-white border-yellow-600 hover:bg-yellow-600';
     }
 
     // Check if team makes playoffs based on overall seeding
     const totalPlayoffTeams = playoffFormat.playoff_teams;
     if (teamIndex < totalPlayoffTeams) {
-      // Green styling for playoff teams (Week 14+)
+      // Green styling for playoff teams (seeds 4+)
       return 'bg-green-500 text-white border-green-600 hover:bg-green-600';
     }
 
@@ -521,8 +488,8 @@ const StandingsPage: React.FC = () => {
             Click column headers to sort. Current standings for the {selectedSeason} season.
             {playoffFormat && (
               <span className="block mt-1 text-xs">
-                Gold records: Conference Championship bound (top 2 per conference) • 
-                Green records: Playoff bound (top {playoffFormat.playoff_teams} teams)
+                Gold records: Conference Champions (guaranteed playoff seeds 1-3) • 
+                Green records: Playoff bound (top {playoffFormat.playoff_teams} teams overall)
                 {isWeek13Complete() && ' • Status shown after Week 13 completion'}
               </span>
             )}

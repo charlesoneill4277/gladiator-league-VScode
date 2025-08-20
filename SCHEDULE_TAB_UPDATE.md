@@ -27,9 +27,8 @@ Updated with the correct playoff structure:
 - Top 2 teams from each conference compete to become Conference Champion
 
 #### Playoff Seeding
-- Top 3 seeds go to Conference Champions
-- Seeds 4-6 go to losing teams of Conference Championship
-- Seeds 7-{playoff_teams} go to next highest ranked teams, across all Conferences
+- Seeds 1-3 go to Conference Champions (ranked by overall standings)
+- Seeds 4-{playoff_teams} go to highest ranked teams in overall standings, regardless of conference
 
 #### Week 14: Wildcard Round
 - Top {week_14_byes} teams get byes
