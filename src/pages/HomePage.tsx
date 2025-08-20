@@ -952,7 +952,7 @@ const HomePage: React.FC = () => {
               <div key={conference.id} className="text-center p-4 border rounded-lg">
                 <h4 className="font-semibold mb-2">{conference.name}</h4>
                 <p className="text-sm text-muted-foreground mb-2">
-                  12 teams • 14-week season
+                  12 teams • 12-week season
                 </p>
                 <Badge variant="outline" className="text-xs">
                   {conference.status}

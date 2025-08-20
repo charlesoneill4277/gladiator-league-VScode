@@ -456,7 +456,7 @@ const LeagueRulesPage: React.FC = () => {
                   <span className="text-sm">Week {playoffFormat?.playoff_start_week || 14}</span>
                 </div>
                 <div className="flex items-center justify-between p-3 border rounded-lg">
-                  <span className="font-medium">Coliseum Championship</span>
+                  <span className="font-medium">Colosseum Championship</span>
                   <span className="text-sm">Week {playoffFormat?.championship_week || 17}</span>
                 </div>
               </CardContent>
@@ -480,8 +480,7 @@ const LeagueRulesPage: React.FC = () => {
                     <strong>Playoff Seeding:</strong>
                     <ul className="ml-4 mt-2 space-y-1">
                       <li>• Top 3 seeds go to Conference Champions</li>
-                      <li>• Seeds 4-6 go to losing teams of Conference Championship</li>
-                      <li>• Seeds 7-{playoffFormat?.playoff_teams || 10} go to next highest ranked teams, across all Conferences</li>
+                      <li>• Seeds 4-{playoffFormat?.playoff_teams || 10} go to next highest ranked teams, across all Conferences</li>
                     </ul>
                   </li>
                   <li>
@@ -494,7 +493,7 @@ const LeagueRulesPage: React.FC = () => {
                     <strong>Week 16: Semifinals Round</strong> - Teams are reseeded, includes winners of Quarterfinals
                   </li>
                   <li>
-                    <strong>Week {playoffFormat?.championship_week || 17}: Coliseum Championship</strong> - Winners of Semifinals compete to become the Coliseum Champion
+                    <strong>Week {playoffFormat?.championship_week || 17}: Colosseum Championship</strong> - Winners of Semifinals compete to become the Colosseum Champion
                   </li>
                 </ul>
                 <p className="mt-4 text-sm text-muted-foreground">
@@ -520,12 +519,12 @@ const LeagueRulesPage: React.FC = () => {
             <CardContent>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-4">
-                  <h4 className="font-semibold">Coliseum Championship Payouts</h4>
+                  <h4 className="font-semibold">Colosseum Championship Payouts</h4>
                   <div className="space-y-3">
                     <div className="flex items-center justify-between p-3 border rounded-lg bg-yellow-50 dark:bg-yellow-900/20">
                       <div className="flex items-center space-x-2">
                         <Trophy className="h-5 w-5 text-yellow-600" />
-                        <span className="font-medium">Coliseum Champion</span>
+                        <span className="font-medium">Colosseum Champion</span>
                       </div>
                       <span className="font-bold text-lg">$1,200</span>
                     </div>
